@@ -1,0 +1,137 @@
+Module 3 Teaching Plan - Generated Chunks Content
+========================================================
+Module: Information Flow in Recursion - Data Dynamics
+Concept: The Function Contract & Recursive Goal
+Phase: IntroIllustrate
+Generated: 10 chunks, 31 total teaching points, KC value: 0.0210 per item
+
+========================================================
+
+CHUNK 1: Function Contract Introduction (3 items)
+========================================================
+Action Item 1: "Introduce the "Function Contract" as the absolute first step in designing any recursive function." (KC: 0.0210)
+
+Action Item 2: "Explain that the contract defines what precise question a single call `recursiveFunc(arguments)` answers." (KC: 0.0210)
+
+Action Item 3: "Clarify that the contract also defines what state/preconditions the function assumes exist when it's called." (KC: 0.0210)
+
+========================================================
+
+CHUNK 2: Contract Clarification and Promise (2 items)
+========================================================
+Action Item 1: "Prompt: "Assume `recursiveFunc(smaller_problem)` works perfectly. What exactly does it give you? This is your function's promise."" (KC: 0.0210)
+
+Action Item 2: "Ask: "Before writing any code, what is the *single, precise answer* that `myFunction(input)` is designed to provide?"" (KC: 0.0210)
+
+========================================================
+
+CHUNK 3: Recursive Goals Introduction (3 items)
+========================================================
+Action Item 1: "Introduce the "primary goal of recursion" (Computational vs. Generative) as a critical aspect of the contract." (KC: 0.0210)
+
+Action Item 2: "Define "Computational" goal: compute a single aggregate value, often propagating results up via return values." (KC: 0.0210)
+
+Action Item 3: "Define "Generative" goal: construct or find collections/structures, often using accumulator parameters passed down." (KC: 0.0210)
+
+========================================================
+
+CHUNK 4: Goal Classification Activities (2 items)
+========================================================
+Action Item 1: "Use Socratic questioning: "Is the main goal here to compute one value, or generate many possibilities?"" (KC: 0.0210)
+
+Action Item 2: "Activity: "Given a problem, classify it as 'Computational' or 'Generative'. Explain how the desired output dictates this."" (KC: 0.0210)
+
+========================================================
+
+CHUNK 5: Core Mechanisms and Data Flow (3 items)
+========================================================
+Action Item 1: "Explain core mechanisms: Parameters Down, Returns Up, Direct Modification, and the concept of Processing Points." (KC: 0.0210)
+
+Action Item 2: "Link these mechanisms conceptually to the Computational vs. Generative goals and stack mechanics." (KC: 0.0210)
+
+Action Item 3: "Introduce the "Dual Information Challenge" as a specific data flow scenario." (KC: 0.0210)
+
+========================================================
+
+CHUNK 6: Data Flow Analogies and Processing Points (2 items)
+========================================================
+Action Item 1: "Analogy: "Data flow is how information moves between stack frames. 'Parameters Down' are inputs, 'Returns Up' are outputs."" (KC: 0.0210)
+
+Action Item 2: "Clarify: "Processing points (pre-order, post-order) dictate *when* an action occurs relative to recursive calls. Your goal often dictates this timing."" (KC: 0.0210)
+
+========================================================
+
+CHUNK 7: Computational Example - Tree Height (4 items)
+========================================================
+Action Item 1: "Use visualizations (data flow diagrams, stack states) to illustrate the tree height example." (KC: 0.0210)
+
+Action Item 2: "Demonstrate finding tree height: returns an integer, combines results post-order with `max(L, R)+1`." (KC: 0.0210)
+
+Action Item 3: "Explicitly label this example as "Computational" and explain its contract, data flow, and processing point." (KC: 0.0210)
+
+Action Item 4: "Visualization Prompt: "Trace the stack frames for `height(root)` and observe how `max(L,R)+1` values propagate back up the call stack."" (KC: 0.0210)
+
+========================================================
+
+CHUNK 8: Generative Example - Root-to-Leaf Paths (4 items)
+========================================================
+Action Item 1: "Use visualizations (data flow diagrams, stack states) for the root-to-leaf paths example." (KC: 0.0210)
+
+Action Item 2: "Demonstrate finding all root-to-leaf paths: returns void, passes accumulators (`currentPath`, `allPaths`) by reference." (KC: 0.0210)
+
+Action Item 3: "Explicitly label this example as "Generative" and explain its contract, data flow, and the role of pre/post-order for backtracking." (KC: 0.0210)
+
+Action Item 4: "Analogy: "Think of `currentPath` as a breadcrumb trail. You add a crumb, explore, then remove it to go down another path."" (KC: 0.0210)
+
+========================================================
+
+CHUNK 9: Dual Information Challenge (4 items)
+========================================================
+Action Item 1: "Briefly illustrate the need for the Tree Diameter problem as an example of a "Dual Information Challenge."" (KC: 0.0210)
+
+Action Item 2: "Show how a node needs height from children locally but also contributes to a global maximum diameter." (KC: 0.0210)
+
+Action Item 3: "Prompt: "Consider the Diameter problem. Why can't a simple 'return height' function solve it directly?"" (KC: 0.0210)
+
+Action Item 4: "Explain: "Sometimes, a recursive function needs to return *two* pieces of information: one for its parent's direct use, and another to update a global result."" (KC: 0.0210)
+
+========================================================
+
+CHUNK 10: Synthesis and Application (4 items)
+========================================================
+Action Item 1: "Reiterate that a clear contract and understanding the goal informs optimal data flow patterns and combination logic." (KC: 0.0210)
+
+Action Item 2: "Reinforce clarity via Socratic questioning: "What exactly should solve(k) return?", "What must be true about the input k?", "Is the main goal here to compute one value, or generate many possibilities?"" (KC: 0.0210)
+
+Action Item 3: "Activity: "For any new recursive problem, first write down its contract and identify its goal (computational/generative) before coding."" (KC: 0.0210)
+
+Action Item 4: "Self-reflection: "Before you write your base case, ask yourself: 'What is the absolute simplest version of this problem, and what should my function return for it, based on its contract?'"" (KC: 0.0210)
+
+========================================================
+
+SUMMARY ANALYSIS:
+========================================================
+Total Teaching Points: 31
+Total KC Value: 0.651 (31 × 0.0210)
+Average Chunk Size: 3.1 items per chunk
+Chunk Size Distribution: 
+- 2 items: 2 chunks
+- 3 items: 3 chunks  
+- 4 items: 5 chunks
+
+Topic Progression:
+1. Contract fundamentals (Chunks 1-2)
+2. Goal classification (Chunks 3-4)
+3. Mechanisms and data flow (Chunks 5-6)
+4. Computational example (Chunk 7)
+5. Generative example (Chunk 8)
+6. Advanced pattern (Chunk 9)
+7. Synthesis and practice (Chunk 10)
+
+Key Pedagogical Elements:
+- Socratic questioning throughout
+- Paired examples (computational vs generative)
+- Visualizations mandated (diagrams, stack states)
+- Analogies (breadcrumb trail, data flow)
+- Progressive complexity building
+- Synthesis and self-reflection activities

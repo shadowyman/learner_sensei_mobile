@@ -1,0 +1,20 @@
+
+[
+  "adaptiveEngine.ts",
+  "consolidationManager.ts",
+  "curriculum.ts",
+  "debugMode.ts",
+  "file-manifest.json",
+  "geminiService.ts",
+  "index.css",
+  "index.html",
+  "index.tsx",
+  "interactionHelpers.ts",
+  "metadata.json",
+  "model_usage.ts",
+  "Modules.txt",
+  "pedagogicalProfiler.ts",
+  "prompts.ts",
+  "selectionSensei.ts",
+  "ui.ts"
+]
