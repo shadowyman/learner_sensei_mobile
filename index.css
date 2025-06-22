@@ -148,7 +148,7 @@ body {
         rgba(255, 255, 255, 0.01) 75%, 
         transparent 100%);
     backdrop-filter: blur(20px);
-    border-bottom: none;
+    border-bottom: 1px solid var(--border-primary);
     flex-shrink: 0;
     position: relative;
 }
@@ -2116,48 +2116,50 @@ svg[aria-roledescription="error"] {
 /* Debug Tab System Styles */
 #debug-tab-navigation {
     display: flex;
-    background: var(--background-elevated);
-    border: 1px solid var(--border-primary);
-    border-radius: 8px;
-    padding: 4px;
+    background: transparent;
+    border: none;
+    padding: 0;
     margin: 0;
     flex-shrink: 0;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    height: 42px;
-    gap: 4px;
+    height: 100%;
+    gap: 2px;
 }
 
 .debug-tab {
-    background: transparent;
-    border: 1px solid transparent;
+    background: var(--background-elevated);
+    border: 1px solid var(--border-primary);
+    border-bottom: none;
     color: var(--text-secondary);
     font-family: var(--font-primary);
     font-size: 0.875rem;
     font-weight: 500;
-    padding: 6px 16px;
+    padding: 8px 20px;
     margin: 0;
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: 8px 8px 0 0;
     transition: all 0.2s ease;
-    height: 32px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 80px;
+    min-width: 90px;
+    position: relative;
+    top: 1px;
 }
 
 .debug-tab:hover {
     color: var(--text-primary);
     background: var(--glass-bg);
-    border-color: var(--glass-border);
 }
 
 .debug-tab.active {
     color: var(--text-primary);
     background: var(--background-main);
     border-color: var(--border-primary);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    height: 40px;
+    z-index: 1;
 }
 
 .debug-tab.active:hover {
