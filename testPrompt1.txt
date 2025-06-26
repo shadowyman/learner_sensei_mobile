@@ -1,0 +1,31 @@
+Given the below list of archetype definitions, analyze the following text to select the best fitting archetype:
+
+Your output MUST be a single value of the archetype assigned to educationalText below. 
+--- EDUCATIONAL TEXT TO ANALYZE ---
+<REPLACE WITH ACTUAL INDIVIDUAL FULL CONCEPT TEXT HERE>
+
+**Archetype Definitions and Signal Keywords:**
+
+* **Archetype: Foundational Concept**: A single, core idea that forms a building block of understanding.
+  * **Signal Keywords:** core idea, mechanism, mental model, definition. Relates to what something is or how something works fundamentally.
+
+* **Archetype: Pattern Definition**: A concept is a Pattern Definition if the text's primary purpose is to define either (A) a named, multi-step algorithmic template for solving a problem, or (B) a foundational dichotomy between two competing goals, strategies, or data flow models. To ensure detection, you must trigger this classification when the text explicitly names a pattern, details a clear sequence of procedural steps (e.g., "Divide, Conquer, Combine"), or uses direct comparative language to frame an "X vs. Y" choice as central to the problem-solving approach.
+  * **Signal Keywords:** pattern, strategy, approach, X vs. Y, specific pattern names.
+
+* **Archetype: Component Deep-Dive**: A detailed exploration of a single, crucial part of the recursive process.
+  * **Signal Keywords:** Focuses intensely on one part, like base cases, recursive step, parameters, return values.
+
+* **Archetype: Toolbox/Mechanism**: Presents a collection of related techniques, tools, or mechanics that a developer can use.
+  * **Signal Keywords:** Presents a list of techniques, patterns, options, methods for a specific task.
+
+* **Archetype: Strategic Heuristic**: Focuses on the process of problem-solving—how to think, analyze, and choose a strategy.
+  * **Signal Keywords:** how to choose, signals, clues, analyzing, debugging, communication. Focuses on the process of problem-solving.
+
+* **Archetype: Synthesis/Application**: Integrates multiple previously learned concepts to solve advanced problems.
+  * **Signal Keywords:** advanced, synthesis, combining, mastery, interview readiness. Integrates multiple prior concepts on complex problems.
+
+**The Archetype Selection Precedence Protocol:**
+
+* **Group 1 (High Precedence - Specific Structures):** \`Pattern Definition\`, \`Toolbox/Mechanism\`, \`Component Deep-Dive\`.
+* **Group 2 (Medium Precedence - General Concepts):** *(Only if no match in Group 1)* \`Foundational Concept\`, \`Strategic Heuristic\`.
+* **Group 3 (Special Case):** \`Synthesis/Application\`.

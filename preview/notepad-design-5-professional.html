@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recursive Sensei - Professional Report</title>
+  <style>
+    /* Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #ffffff;
+      color: #212529;
+      line-height: 1.6;
+      padding: 50px 30px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      padding: 40px 0;
+      border-bottom: 3px solid #007bff;
+      position: relative;
+    }
+    
+    .header h1 {
+      font-size: 2.5em;
+      font-weight: 300;
+      color: #007bff;
+      margin-bottom: 15px;
+      letter-spacing: -0.5px;
+    }
+    
+    .header .subtitle {
+      font-size: 1.2em;
+      color: #6c757d;
+      font-weight: 300;
+    }
+    
+    .export-date {
+      position: absolute;
+      top: 0;
+      right: 0;
+      font-size: 0.9em;
+      color: #6c757d;
+      background: #f8f9fa;
+      padding: 8px 16px;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+    }
+    
+    /* Executive Summary */
+    .executive-summary {
+      background: #f8f9fa;
+      border-left: 4px solid #007bff;
+      padding: 30px;
+      margin-bottom: 50px;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .executive-summary h3 {
+      font-size: 1.3em;
+      color: #007bff;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+    
+    .executive-summary p {
+      color: #495057;
+      line-height: 1.7;
+    }
+    
+    /* Module Section */
+    .module-section {
+      margin-bottom: 70px;
+    }
+    
+    .module-header {
+      background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+      color: white;
+      padding: 25px 35px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .module-header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+    
+    @keyframes shimmer {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.3; }
+      50% { transform: scale(1.1) rotate(180deg); opacity: 0.6; }
+    }
+    
+    .module-header h2 {
+      font-size: 1.8em;
+      font-weight: 500;
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .note-count {
+      font-size: 0.95em;
+      opacity: 0.9;
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* Note Card */
+    .note-card {
+      background: #ffffff;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 35px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .note-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-color: #007bff;
+    }
+    
+    .note-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(180deg, #007bff, #0056b3);
+      border-radius: 8px 0 0 8px;
+    }
+    
+    .concept-title {
+      font-size: 1.4em;
+      font-weight: 600;
+      color: #007bff;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-left: 20px;
+    }
+    
+    .concept-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: white;
+      flex-shrink: 0;
+    }
+    
+    .note-content {
+      color: #495057;
+      line-height: 1.7;
+      font-size: 1em;
+      padding-left: 20px;
+    }
+    
+    .note-content strong {
+      color: #212529;
+      font-weight: 600;
+    }
+    
+    .note-content code {
+      background: #f8f9fa;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #e83e8c;
+      border: 1px solid #e9ecef;
+    }
+    
+    .note-content pre {
+      background: #f8f9fa;
+      padding: 25px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 25px 0;
+      border: 1px solid #e9ecef;
+      position: relative;
+    }
+    
+    .note-content pre::before {
+      content: 'CODE EXAMPLE';
+      position: absolute;
+      top: 8px;
+      right: 15px;
+      font-size: 0.7em;
+      color: #6c757d;
+      background: white;
+      padding: 4px 8px;
+      border-radius: 3px;
+      border: 1px solid #e9ecef;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    
+    .note-content pre code {
+      background: transparent;
+      padding: 0;
+      color: #495057;
+      border: none;
+      font-size: 0.9em;
+    }
+    
+    .highlight {
+      background: #fff3cd;
+      padding: 3px 6px;
+      border-radius: 3px;
+      border: 1px solid #ffeaa7;
+      font-weight: 500;
+    }
+    
+    .important {
+      color: #dc3545;
+      font-weight: 600;
+      background: #f8d7da;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .note-metadata {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9em;
+      color: #6c757d;
+      padding-left: 20px;
+    }
+    
+    .timestamp {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #e7f3ff;
+      padding: 8px 12px;
+      border-radius: 20px;
+      border: 1px solid #b3d9ff;
+      font-weight: 500;
+    }
+    
+    .tags {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .tag {
+      background: #e7f3ff;
+      color: #0056b3;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: 500;
+      border: 1px solid #b3d9ff;
+      transition: all 0.2s ease;
+    }
+    
+    .tag:hover {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+    
+    .mermaid-container {
+      background: #f8f9fa;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      padding: 40px;
+      margin: 25px 0;
+      text-align: center;
+      position: relative;
+    }
+    
+    .mermaid-container::before {
+      content: 'DIAGRAM';
+      position: absolute;
+      top: 10px;
+      left: 15px;
+      font-size: 0.7em;
+      color: #6c757d;
+      background: white;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    
+    .mermaid-placeholder {
+      color: #6c757d;
+      font-style: italic;
+      font-size: 1.1em;
+      font-weight: 500;
+    }
+    
+    /* Statistics Box */
+    .stats-box {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 8px;
+      margin: 40px 0;
+      text-align: center;
+    }
+    
+    .stats-box h4 {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+      font-weight: 500;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-size: 2em;
+      font-weight: bold;
+      display: block;
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+    }
+    
+    /* Footer */
+    .footer {
+      margin-top: 80px;
+      text-align: center;
+      padding: 40px 0;
+      border-top: 3px solid #007bff;
+      color: #6c757d;
+      font-size: 0.95em;
+    }
+    
+    .footer .logo {
+      font-size: 1.5em;
+      color: #007bff;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    
+    /* Print Styles */
+    @media print {
+      body {
+        padding: 20px;
+        font-size: 12pt;
+      }
+      
+      .module-header,
+      .note-card {
+        break-inside: avoid;
+      }
+      
+      .note-card:hover {
+        box-shadow: none;
+        transform: none;
+      }
+      
+      .module-header::before {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="export-date">Report Generated: Dec 24, 2025</div>
+      <h1>Learning Analytics Report</h1>
+      <p class="subtitle">Comprehensive Study Notes Analysis</p>
+    </header>
+    
+    <div class="executive-summary">
+      <h3>Executive Summary</h3>
+      <p>This report contains a comprehensive collection of study notes covering fundamental concepts in Machine Learning and Data Structures. The notes have been systematically organized and analyzed to provide insights into key learning areas and conceptual understanding.</p>
+    </div>
+    
+    <div class="stats-box">
+      <h4>Learning Statistics</h4>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-number">2</span>
+          <span class="stat-label">Modules Covered</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">5</span>
+          <span class="stat-label">Concepts Learned</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">8</span>
+          <span class="stat-label">Code Examples</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">12</span>
+          <span class="stat-label">Key Points</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Module: Machine Learning Fundamentals -->
+    <section class="module-section">
+      <div class="module-header">
+        <h2>Machine Learning Fundamentals</h2>
+        <div class="note-count">3 concepts documented</div>
+      </div>
+      
+      <div class="note-card">
+        <h3 class="concept-title">
+          <div class="concept-icon">🧠</div>
+          Supervised Learning
+        </h3>
+        <div class="note-content">
+          Supervised learning represents a fundamental machine learning paradigm where models learn from <span class="highlight">labeled training data</span>. This approach enables algorithms to establish mappings between input features and corresponding output labels.
+          
+          <br><br><strong>Core Characteristics:</strong>
+          <br>• Training datasets incorporate both input features and verified correct outputs
+          <br>• Primary objective focuses on predicting accurate labels for previously unseen data
+          <br>• Commonly implemented algorithms include <code>Linear Regression</code>, <code>Decision Trees</code>, and <code>Neural Networks</code>
+          
+          <pre><code># Implementation Example: Linear Regression
+from sklearn.linear_model import LinearRegression
+
+model = LinearRegression()
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)</code></pre>
+          
+          <span class="important">Critical Insight:</span> Model performance demonstrates direct correlation with training data quality and quantity.
+        </div>
+        <div class="note-metadata">
+          <div class="timestamp">
+            📅 Dec 24, 2025, 10:30 AM
+          </div>
+          <div class="tags">
+            <span class="tag">fundamentals</span>
+            <span class="tag">algorithms</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="note-card">
+        <h3 class="concept-title">
+          <div class="concept-icon">🔗</div>
+          Neural Network Architecture
+        </h3>
+        <div class="note-content">
+          Neural networks constitute sophisticated computational frameworks featuring interconnected neuron layers designed for hierarchical information processing and transformation.
+          
+          <div class="mermaid-container">
+            <div class="mermaid-placeholder">Neural Network Architecture Visualization</div>
+          </div>
+          
+          <strong>Architectural Components:</strong>
+          <br>1. <span class="highlight">Input Layer</span>: Processes raw feature data input
+          <br>2. <span class="highlight">Hidden Layers</span>: Executes intermediate data processing and transformation
+          <br>3. <span class="highlight">Output Layer</span>: Generates final prediction outputs
+          
+          <br><br>Each neuron implements activation functions on weighted inputs following the mathematical formula:
+          <br><code>output = activation(Σ(weights × inputs) + bias)</code>
+        </div>
+        <div class="note-metadata">
+          <div class="timestamp">
+            📅 Dec 24, 2025, 11:15 AM
+          </div>
+          <div class="tags">
+            <span class="tag">neural-networks</span>
+            <span class="tag">deep-learning</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="note-card">
+        <h3 class="concept-title">
+          <div class="concept-icon">⚖️</div>
+          Overfitting and Regularization
+        </h3>
+        <div class="note-content">
+          <span class="important">Overfitting</span> represents a critical machine learning challenge where models demonstrate excessive adaptation to training data, including noise and outliers, resulting in compromised generalization capabilities.
+          
+          <br><br><strong>Diagnostic Indicators:</strong>
+          <br>• Elevated training accuracy coupled with diminished validation accuracy
+          <br>• Model complexity exceeding underlying data complexity
+          <br>• Significant disparity between training and validation loss metrics
+          
+          <br><br><strong>Regularization Strategies:</strong>
+          <br>• <code>L1 Regularization</code>: Incorporates absolute weight sum into loss function
+          <br>• <code>L2 Regularization</code>: Integrates squared weight sum into loss function
+          <br>• <code>Dropout</code>: Implements stochastic neuron deactivation during training
+          <br>• <code>Early Stopping</code>: Terminates training upon validation loss plateau
+        </div>
+        <div class="note-metadata">
+          <div class="timestamp">
+            📅 Dec 24, 2025, 2:45 PM
+          </div>
+          <div class="tags">
+            <span class="tag">model-optimization</span>
+            <span class="tag">best-practices</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Module: Data Structures -->
+    <section class="module-section">
+      <div class="module-header">
+        <h2>Data Structures</h2>
+        <div class="note-count">2 concepts documented</div>
+      </div>
+      
+      <div class="note-card">
+        <h3 class="concept-title">
+          <div class="concept-icon">🌳</div>
+          Binary Search Trees
+        </h3>
+        <div class="note-content">
+          Binary Search Trees (BST) represent hierarchical data structures where individual nodes maintain a maximum of two child nodes while adhering to the fundamental BST ordering property.
+          
+          <br><br><span class="highlight">BST Property:</span> For any given node, all values within the left subtree remain less than the node's value, while all right subtree values exceed the node's value.
+          
+          <pre><code>class TreeNode {
+  constructor(value) {
+    this.value = value;
+    this.left = null;
+    this.right = null;
+  }
+}
+
+function insert(root, value) {
+  if (!root) return new TreeNode(value);
+  
+  if (value < root.value) {
+    root.left = insert(root.left, value);
+  } else {
+    root.right = insert(root.right, value);
+  }
+  
+  return root;
+}</code></pre>
+          
+          <strong>Performance Analysis:</strong>
+          <br>• Search Operations: O(log n) average case, O(n) worst case
+          <br>• Insertion Operations: O(log n) average case, O(n) worst case
+          <br>• Deletion Operations: O(log n) average case, O(n) worst case
+        </div>
+        <div class="note-metadata">
+          <div class="timestamp">
+            📅 Dec 23, 2025, 4:20 PM
+          </div>
+          <div class="tags">
+            <span class="tag">trees</span>
+            <span class="tag">algorithms</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="note-card">
+        <h3 class="concept-title">
+          <div class="concept-icon">#️⃣</div>
+          Hash Tables
+        </h3>
+        <div class="note-content">
+          Hash tables deliver <span class="highlight">O(1) average time complexity</span> for insertion, deletion, and lookup operations through hash function implementation that maps keys to array indices.
+          
+          <br><br><strong>Collision Resolution Methodologies:</strong>
+          <br>1. <strong>Chaining:</strong> Storage of colliding elements within linked lists at each array index
+          <br>2. <strong>Open Addressing:</strong> Identification of alternative available slots through probing techniques
+          <br>   • Linear probing: Sequential examination of consecutive slots
+          <br>   • Quadratic probing: Examination of slots at quadratic intervals
+          <br>   • Double hashing: Implementation of secondary hash functions
+          
+          <br><br><span class="important">Load Factor</span> = n/m (items/buckets)
+          <br>Optimal performance maintenance requires load factor < 0.75
+        </div>
+        <div class="note-metadata">
+          <div class="timestamp">
+            📅 Dec 23, 2025, 5:45 PM
+          </div>
+          <div class="tags">
+            <span class="tag">hash-tables</span>
+            <span class="tag">performance</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <footer class="footer">
+      <div class="logo">Recursive Sensei</div>
+      <p>Professional Learning Analytics Platform</p>
+      <p>Empowering continuous learning and knowledge advancement</p>
+    </footer>
+  </div>
+</body>
+</html>

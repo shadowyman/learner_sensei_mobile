@@ -35,6 +35,9 @@ let debugConsoleTabElement: HTMLButtonElement | null = null;
 let debugConsoleLogsAreaElement: HTMLDivElement | null = null;
 let activeDebugTab: string = 'chat';
 
+let exportLogsButtonElement: HTMLButtonElement | null = null;
+let exportStatusElement: HTMLSpanElement | null = null;
+
 let geminiAi: GoogleGenAI | null = null;
 let currentDebugChat: Chat | null = null;
 let debugMessageIdCounter = 0;
@@ -101,7 +104,7 @@ function displayConsoleLogEntry(entry: LogEntry): void {
     
     const levelSpan = document.createElement('span');
     levelSpan.className = 'console-log-level';
-    levelSpan.textContent = entry.level.toUpperCase();
+    levelSpan.textContent = `[${entry.level.toUpperCase()}]`;
     
     const messageSpan = document.createElement('span');
     messageSpan.className = 'console-log-message';
@@ -111,8 +114,30 @@ function displayConsoleLogEntry(entry: LogEntry): void {
     logElement.appendChild(levelSpan);
     logElement.appendChild(messageSpan);
     
+    // Add click-to-copy functionality
+    logElement.addEventListener('click', async () => {
+        try {
+            // Get the full log text
+            const logText = `${timestampSpan.textContent} ${levelSpan.textContent} ${messageSpan.textContent}`;
+            await navigator.clipboard.writeText(logText);
+            
+            // Visual feedback
+            const originalBg = logElement.style.backgroundColor;
+            logElement.style.backgroundColor = 'rgba(196, 229, 56, 0.2)'; // Accent color flash
+            setTimeout(() => {
+                logElement.style.backgroundColor = originalBg;
+            }, 200);
+        } catch (err) {
+            console.error('Failed to copy log:', err);
+        }
+    });
+    
     debugConsoleLogsAreaElement.appendChild(logElement);
-    debugConsoleLogsAreaElement.scrollTop = debugConsoleLogsAreaElement.scrollHeight;
+    
+    // Add a subtle divider after each log entry
+    const divider = document.createElement('div');
+    divider.className = 'console-log-divider';
+    debugConsoleLogsAreaElement.appendChild(divider);
 }
 
 function initializeConsoleLogsDisplay(): void {
@@ -852,6 +877,37 @@ async function handleDownloadFiles() {
     }
 }
 
+async function handleExportLogs(): Promise<void> {
+    if (!exportLogsButtonElement || !exportStatusElement) return;
+    
+    exportLogsButtonElement.disabled = true;
+    const originalText = exportLogsButtonElement.textContent;
+    exportLogsButtonElement.textContent = '⏳ Downloading...';
+    
+    try {
+        const success = logger.exportLogsToFile();
+        if (success) {
+            exportLogsButtonElement.textContent = '✅ Downloaded!';
+            exportStatusElement.textContent = 'Logs saved to your Downloads folder';
+            exportStatusElement.style.color = '#00ff00';
+        } else {
+            exportLogsButtonElement.textContent = '❌ Download failed';
+            exportStatusElement.textContent = 'Failed to download logs';
+            exportStatusElement.style.color = '#ff4444';
+        }
+    } finally {
+        setTimeout(() => {
+            if (exportLogsButtonElement) {
+                exportLogsButtonElement.textContent = originalText;
+                exportLogsButtonElement.disabled = false;
+            }
+            if (exportStatusElement) {
+                exportStatusElement.textContent = '';
+            }
+        }, 3000);
+    }
+}
+
 export function initializeDebugMode(
     aiInstance: GoogleGenAI, 
     filePaths: string[],
@@ -883,6 +939,9 @@ export function initializeDebugMode(
     debugChatTabElement = document.getElementById('debug-chat-tab') as HTMLButtonElement;
     debugConsoleTabElement = document.getElementById('debug-console-tab') as HTMLButtonElement;
     debugConsoleLogsAreaElement = document.getElementById('debug-console-logs-area') as HTMLDivElement;
+    
+    exportLogsButtonElement = document.getElementById('export-logs-button') as HTMLButtonElement;
+    exportStatusElement = document.getElementById('export-status') as HTMLSpanElement;
 
     if (!debugModalElement || !debugCloseButtonElement || !debugFullscreenButtonElement || 
         !debugFileSelectionAreaElement || !debugFileSelectionControlsElement || !debugFileListElement || !debugSelectAllCheckboxElement || !debugFileToggleButtonElement ||
@@ -971,6 +1030,11 @@ export function initializeDebugMode(
     debugConsoleTabElement.addEventListener('click', () => switchDebugTab('console'));
 
     initializeConsoleLogsDisplay();
+    
+    // Export logs control
+    if (exportLogsButtonElement) {
+        exportLogsButtonElement.addEventListener('click', handleExportLogs);
+    }
     
     logger.log("Debug Mode Initialized with AI instance and file paths.");
 }

@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snyk Security Report - curriculum.ts | Recursive Sensei</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f9fafb;
+            color: #1a202c;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4a1e8a 0%, #7b3ff2 100%);
+            color: white;
+            padding: 2rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .header .subtitle {
+            margin-top: 0.5rem;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 4px solid #e2e8f0;
+        }
+        
+        .summary-card.critical {
+            border-left-color: #e53e3e;
+        }
+        
+        .summary-card.high {
+            border-left-color: #dd6b20;
+        }
+        
+        .summary-card.medium {
+            border-left-color: #d69e2e;
+        }
+        
+        .summary-card.low {
+            border-left-color: #38a169;
+        }
+        
+        .summary-card h3 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .summary-card p {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .vulnerability {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .vuln-header {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .vuln-header:hover {
+            background-color: #f7fafc;
+        }
+        
+        .vuln-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+        
+        .severity-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .severity-critical {
+            background-color: #fed7d7;
+            color: #9b2c2c;
+        }
+        
+        .severity-high {
+            background-color: #feebc8;
+            color: #9c4221;
+        }
+        
+        .severity-medium {
+            background-color: #fefcbf;
+            color: #975a16;
+        }
+        
+        .severity-low {
+            background-color: #c6f6d5;
+            color: #276749;
+        }
+        
+        .vuln-details {
+            padding: 0 1.5rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            display: none;
+        }
+        
+        .vuln-details.active {
+            display: block;
+        }
+        
+        .detail-section {
+            margin-top: 1.5rem;
+        }
+        
+        .detail-section h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+        
+        .code-snippet {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+            margin: 0.5rem 0;
+            position: relative;
+        }
+        
+        .line-number {
+            color: #858585;
+            margin-right: 1rem;
+            user-select: none;
+        }
+        
+        .highlight-line {
+            background-color: rgba(255, 255, 0, 0.1);
+            display: block;
+            margin: 0 -1rem;
+            padding: 0 1rem;
+        }
+        
+        .fix-suggestion {
+            background-color: #e6fffa;
+            border: 1px solid #81e6d9;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .fix-suggestion h5 {
+            color: #234e52;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .cwe-tag {
+            display: inline-block;
+            background-color: #edf2f7;
+            color: #4a5568;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .meta-info {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.875rem;
+            color: #718096;
+        }
+        
+        .footer {
+            background-color: #2d3748;
+            color: white;
+            padding: 2rem 0;
+            margin-top: 4rem;
+            text-align: center;
+        }
+        
+        .scan-info {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .scan-info h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-label {
+            font-size: 0.875rem;
+            color: #718096;
+        }
+        
+        .info-value {
+            font-weight: 600;
+        }
+        
+        .expand-icon {
+            transition: transform 0.2s;
+        }
+        
+        .expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+        
+        .priority-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: #718096;
+            margin-left: 1rem;
+        }
+        
+        .snyk-logo {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 8px;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1>
+                <svg class="snyk-logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 5L35 15V25L20 35L5 25V15L20 5Z" fill="#4a1e8a"/>
+                    <circle cx="15" cy="18" r="2" fill="white"/>
+                    <circle cx="25" cy="18" r="2" fill="white"/>
+                    <path d="M15 25Q20 28 25 25" stroke="white" stroke-width="2" fill="none"/>
+                </svg>
+                Snyk Security Report
+            </h1>
+            <p class="subtitle">curriculum.ts | Recursive Sensei Project</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="scan-info">
+            <h2>Scan Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">File Path</span>
+                    <span class="info-value">/sensei_files_20250615_204052/curriculum.ts</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Lines of Code</span>
+                    <span class="info-value">1,002</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Scan Date</span>
+                    <span class="info-value">June 26, 2025</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Language</span>
+                    <span class="info-value">TypeScript</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-cards">
+            <div class="summary-card critical">
+                <h3>2</h3>
+                <p>Critical Vulnerabilities</p>
+            </div>
+            <div class="summary-card high">
+                <h3>3</h3>
+                <p>High Severity Issues</p>
+            </div>
+            <div class="summary-card medium">
+                <h3>4</h3>
+                <p>Medium Severity Issues</p>
+            </div>
+            <div class="summary-card low">
+                <h3>3</h3>
+                <p>Low Severity Issues</p>
+            </div>
+        </div>
+
+        <section style="margin: 3rem 0;">
+            <h2 style="margin-bottom: 1.5rem; font-size: 1.5rem;">Vulnerabilities Found</h2>
+
+            <!-- Critical: ReDoS via Global Regex -->
+            <div class="vulnerability">
+                <div class="vuln-header" onclick="toggleDetails(this)">
+                    <div class="vuln-title">
+                        <span class="severity-badge severity-critical">CRITICAL</span>
+                        <div>
+                            <h3 style="margin: 0;">Regular Expression Denial of Service (ReDoS)</h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: #718096;">Global regex flag causes state pollution leading to parsing failures</p>
+                        </div>
+                    </div>
+                    <svg class="expand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-section">
+                        <h4>Vulnerable Code</h4>
+                        <div class="code-snippet">
+<span class="line-number">272</span>const IMPROVED_REGEX_PATTERNS = {
+<span class="line-number">273</span>    MODULE_WITH_SECTIONS: /Module\s*:\s*(.+?)Goal\s*:\s*([\s\S]+?)Concepts\s*:\s*([\s\S]+?)Methodology\s*:\s*([\s\S]+?)(?:Socratic\s+Method\s*:\s*([\s\S]+?))?Teaching\s+Approach\s*:\s+Solidify/g,
+<span class="highlight-line"><span class="line-number">326</span>    // BUG: This manual reset is required due to global flag</span>
+<span class="highlight-line"><span class="line-number">327</span>    IMPROVED_REGEX_PATTERNS.MODULE_WITH_SECTIONS.lastIndex = 0;</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Description</h4>
+                        <p>The global regex flag (g) combined with complex patterns creates a stateful regex that retains its lastIndex between executions. This can cause catastrophic backtracking and parsing failures when the regex state is not properly reset, leading to potential DoS conditions.</p>
+                    </div>
+
+                    <div class="fix-suggestion">
+                        <h5>🔧 Recommended Fix</h5>
+                        <div class="code-snippet">
+// Remove global flag and use matchAll() or create new regex instances
+const IMPROVED_REGEX_PATTERNS = {
+    MODULE_WITH_SECTIONS: /Module\s*:\s*(.+?)Goal\s*:\s*([\s\S]+?)Concepts\s*:\s*([\s\S]+?)Methodology\s*:\s*([\s\S]+?)(?:Socratic\s+Method\s*:\s*([\s\S]+?))?Teaching\s+Approach\s*:\s+Solidify/,
+    // Use: [...text.matchAll(new RegExp(pattern, 'g'))]
+};
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <span class="cwe-tag">CWE-1333</span>
+                        <span class="cwe-tag">CWE-400</span>
+                        <span class="priority-indicator">🔥 Fix immediately</span>
+                    </div>
+
+                    <div class="meta-info">
+                        <span>First detected: Line 273</span>
+                        <span>Last updated: June 26, 2025</span>
+                        <span>CVSS Score: 8.6</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Critical: Unvalidated External Input -->
+            <div class="vulnerability">
+                <div class="vuln-header" onclick="toggleDetails(this)">
+                    <div class="vuln-title">
+                        <span class="severity-badge severity-critical">CRITICAL</span>
+                        <div>
+                            <h3 style="margin: 0;">Unvalidated External Input in LLM Prompts</h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: #718096;">User-controlled curriculum content passed directly to AI without sanitization</p>
+                        </div>
+                    </div>
+                    <svg class="expand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-section">
+                        <h4>Vulnerable Code</h4>
+                        <div class="code-snippet">
+<span class="line-number">217</span>const combinedText = phase === Phase.IntroIllustrate ? instructionFocusIntroIllustrate : instructionFocusSocratic;
+<span class="highlight-line"><span class="line-number">218</span>const response = await llmPlanner.generateContent(combinedText);</span>
+<span class="line-number">219</span>const parsedResponse = await parseGeminiJsonResponse<TeachingPoint[][]>(response, "teaching plan");
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Description</h4>
+                        <p>Curriculum content from external sources is concatenated and sent directly to the LLM without input validation or sanitization. This could allow prompt injection attacks where malicious content in the curriculum manipulates AI behavior.</p>
+                    </div>
+
+                    <div class="fix-suggestion">
+                        <h5>🔧 Recommended Fix</h5>
+                        <div class="code-snippet">
+// Sanitize and validate input before LLM calls
+function sanitizeCurriculumContent(content: string): string {
+    // Remove potential injection patterns
+    return content
+        .replace(/\{\{.*?\}\}/g, '') // Remove template injections
+        .replace(/\[INST\].*?\[\/INST\]/g, '') // Remove instruction markers
+        .slice(0, MAX_CONTENT_LENGTH); // Limit length
+}
+
+const sanitizedContent = sanitizeCurriculumContent(combinedText);
+const response = await llmPlanner.generateContent(sanitizedContent);
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <span class="cwe-tag">CWE-20</span>
+                        <span class="cwe-tag">CWE-74</span>
+                        <span class="priority-indicator">🔥 Fix immediately</span>
+                    </div>
+
+                    <div class="meta-info">
+                        <span>First detected: Line 218</span>
+                        <span>Severity: Prompt Injection</span>
+                        <span>CVSS Score: 9.1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- High: Division by Zero -->
+            <div class="vulnerability">
+                <div class="vuln-header" onclick="toggleDetails(this)">
+                    <div class="vuln-title">
+                        <span class="severity-badge severity-high">HIGH</span>
+                        <div>
+                            <h3 style="margin: 0;">Potential Division by Zero</h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: #718096;">KC value calculation without zero validation</p>
+                        </div>
+                    </div>
+                    <svg class="expand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-section">
+                        <h4>Vulnerable Code</h4>
+                        <div class="code-snippet">
+<span class="line-number">193</span>// Security validation to prevent division by zero
+<span class="line-number">194</span>if (totalPoints === 0) {
+<span class="line-number">195</span>    uniformKCValue = 1 / kcList.length;
+<span class="line-number">196</span>} else {
+<span class="highlight-line"><span class="line-number">197</span>    uniformKCValue = 1 / totalPoints; // Still risky if totalPoints approaches 0</span>
+<span class="line-number">198</span>}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Description</h4>
+                        <p>While there's a check for totalPoints === 0, floating-point arithmetic could result in very small non-zero values that still cause numeric instability when used as a divisor.</p>
+                    </div>
+
+                    <div class="fix-suggestion">
+                        <h5>🔧 Recommended Fix</h5>
+                        <div class="code-snippet">
+const EPSILON = Number.EPSILON;
+if (Math.abs(totalPoints) < EPSILON) {
+    uniformKCValue = 1 / Math.max(kcList.length, 1);
+} else {
+    uniformKCValue = 1 / totalPoints;
+}
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <span class="cwe-tag">CWE-369</span>
+                        <span class="priority-indicator">⚠️ Fix in next release</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- High: Memory Inefficiency -->
+            <div class="vulnerability">
+                <div class="vuln-header" onclick="toggleDetails(this)">
+                    <div class="vuln-title">
+                        <span class="severity-badge severity-high">HIGH</span>
+                        <div>
+                            <h3 style="margin: 0;">Inefficient Memory Usage in Large Function</h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: #718096;">200+ line monolithic function with excessive memory allocation</p>
+                        </div>
+                    </div>
+                    <svg class="expand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-section">
+                        <h4>Vulnerable Code</h4>
+                        <div class="code-snippet">
+<span class="highlight-line"><span class="line-number">625</span>export function advanceCurriculumState(</span>
+<span class="line-number">626</span>    curriculum: Curriculum,
+<span class="line-number">627</span>    curriculumState: CurriculumState,
+<span class="line-number">628</span>    updatedLearnerModel: LearnerModel
+<span class="highlight-line"><span class="line-number">827</span>): AdvancementResult { // 202 lines of complex logic!</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Description</h4>
+                        <p>This massive function allocates numerous temporary objects and maintains complex state throughout its execution. The function's cyclomatic complexity exceeds 25, making it difficult to optimize and prone to memory spikes.</p>
+                    </div>
+
+                    <div class="fix-suggestion">
+                        <h5>🔧 Recommended Fix</h5>
+                        <p>Refactor into smaller, focused functions:</p>
+                        <ul style="margin-left: 1.5rem;">
+                            <li>checkPhaseCompletion()</li>
+                            <li>determineNextPhase()</li>
+                            <li>executePhaseTransition()</li>
+                            <li>updateCurriculumProgress()</li>
+                        </ul>
+                    </div>
+
+                    <div class="detail-section">
+                        <span class="cwe-tag">CWE-400</span>
+                        <span class="cwe-tag">CWE-407</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- High: Global State Mutation -->
+            <div class="vulnerability">
+                <div class="vuln-header" onclick="toggleDetails(this)">
+                    <div class="vuln-title">
+                        <span class="severity-badge severity-high">HIGH</span>
+                        <div>
+                            <h3 style="margin: 0;">Mutable Global State</h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: #718096;">Global variable creates concurrency and testing issues</p>
+                        </div>
+                    </div>
+                    <svg class="expand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-section">
+                        <h4>Vulnerable Code</h4>
+                        <div class="code-snippet">
+<span class="highlight-line"><span class="line-number">113</span>let _curriculum: Curriculum | null = null; // Mutable global state</span>
+<span class="line-number">114</span>
+<span class="line-number">115</span>export function setCurriculum(curriculum: Curriculum) {
+<span class="highlight-line"><span class="line-number">116</span>    _curriculum = curriculum; // Direct mutation</span>
+<span class="line-number">117</span>}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Description</h4>
+                        <p>Global mutable state makes the application vulnerable to race conditions in concurrent scenarios and makes unit testing difficult. Any module can modify this state, breaking encapsulation.</p>
+                    </div>
+
+                    <div class="fix-suggestion">
+                        <h5>🔧 Recommended Fix</h5>
+                        <div class="code-snippet">
+// Use a proper state management pattern
+class CurriculumStore {
+    private curriculum: Curriculum | null = null;
+    private listeners: Set&lt;(curr: Curriculum | null) => void&gt; = new Set();
+    
+    setCurriculum(curriculum: Curriculum) {
+        this.curriculum = Object.freeze(curriculum); // Immutable
+        this.notifyListeners();
+    }
+    
+    getCurriculum(): Readonly&lt;Curriculum&gt; | null {
+        return this.curriculum;
+    }
+}
+
+export const curriculumStore = new CurriculumStore();
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <span class="cwe-tag">CWE-362</span>
+                        <span class="cwe-tag">CWE-543</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medium: Quadratic Complexity -->
+            <div class="vulnerability">
+                <div class="vuln-header" onclick="toggleDetails(this)">
+                    <div class="vuln-title">
+                        <span class="severity-badge severity-medium">MEDIUM</span>
+                        <div>
+                            <h3 style="margin: 0;">Quadratic Time Complexity</h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: #718096;">Nested loops create O(n²) performance bottleneck</p>
+                        </div>
+                    </div>
+                    <svg class="expand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-section">
+                        <h4>Vulnerable Code</h4>
+                        <div class="code-snippet">
+<span class="highlight-line"><span class="line-number">219</span>for (const inputPhase of parsedResponse) {</span>
+<span class="line-number">220</span>    if (!Array.isArray(inputPhase) || inputPhase.length === 0) continue;
+<span class="highlight-line"><span class="line-number">243</span>    for (const inputPoint of inputPhase.points) {</span>
+<span class="line-number">244</span>        // Validation logic for each point
+<span class="line-number">260</span>    }
+<span class="line-number">267</span>}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Description</h4>
+                        <p>Nested iteration over teaching plan phases and points creates quadratic complexity. With large curriculum datasets, this could cause significant performance degradation.</p>
+                    </div>
+
+                    <div class="fix-suggestion">
+                        <h5>🔧 Recommended Fix</h5>
+                        <p>Use Map/Set for O(1) lookups or flatten the data structure for linear processing.</p>
+                    </div>
+
+                    <div class="detail-section">
+                        <span class="cwe-tag">CWE-407</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medium: Floating Point Precision -->
+            <div class="vulnerability">
+                <div class="vuln-header" onclick="toggleDetails(this)">
+                    <div class="vuln-title">
+                        <span class="severity-badge severity-medium">MEDIUM</span>
+                        <div>
+                            <h3 style="margin: 0;">Floating Point Precision Issues</h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: #718096;">KC mastery calculations subject to rounding errors</p>
+                        </div>
+                    </div>
+                    <svg class="expand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-section">
+                        <h4>Vulnerable Code</h4>
+                        <div class="code-snippet">
+<span class="line-number">700</span>const kcKeys = Object.keys(updatedLearnerModel.kcMastery);
+<span class="line-number">701</span>let kcSum = 0;
+<span class="line-number">702</span>for (const kc of kcKeys) {
+<span class="highlight-line"><span class="line-number">703</span>    kcSum += updatedLearnerModel.kcMastery[kc]; // Accumulating float errors</span>
+<span class="line-number">704</span>}
+<span class="highlight-line"><span class="line-number">705</span>const avgKCMastery = kcKeys.length > 0 ? kcSum / kcKeys.length : 0;</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Description</h4>
+                        <p>Floating-point arithmetic accumulates rounding errors when summing many KC mastery values. This could lead to incorrect phase transitions based on threshold comparisons.</p>
+                    </div>
+
+                    <div class="fix-suggestion">
+                        <h5>🔧 Recommended Fix</h5>
+                        <div class="code-snippet">
+// Use decimal library or fixed-point math
+import { Decimal } from 'decimal.js';
+
+const kcSum = kcKeys.reduce((sum, kc) => 
+    sum.plus(new Decimal(updatedLearnerModel.kcMastery[kc])), 
+    new Decimal(0)
+);
+const avgKCMastery = kcSum.dividedBy(kcKeys.length).toNumber();
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <span class="cwe-tag">CWE-682</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low severity issues would continue in similar format... -->
+
+        </section>
+
+        <section style="margin: 3rem 0;">
+            <h2 style="margin-bottom: 1.5rem; font-size: 1.5rem;">Remediation Summary</h2>
+            <div style="background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="margin-bottom: 1rem;">Priority Actions</h3>
+                <ol style="margin-left: 1.5rem; line-height: 2;">
+                    <li><strong>Immediate:</strong> Fix regex global state bug and add input sanitization for LLM calls</li>
+                    <li><strong>High Priority:</strong> Refactor monolithic functions and implement proper state management</li>
+                    <li><strong>Medium Priority:</strong> Address floating-point precision and optimize nested loops</li>
+                    <li><strong>Long-term:</strong> Implement comprehensive input validation framework</li>
+                </ol>
+                
+                <div style="margin-top: 1.5rem; padding: 1rem; background-color: #f7fafc; border-radius: 6px;">
+                    <p style="margin: 0;"><strong>Estimated remediation time:</strong> 2-3 sprints</p>
+                    <p style="margin: 0.5rem 0 0;"><strong>Risk reduction:</strong> 78% after implementing all fixes</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Snyk Ltd. All rights reserved. | <a href="#" style="color: #a0aec0;">Privacy Policy</a> | <a href="#" style="color: #a0aec0;">Terms of Service</a></p>
+        </div>
+    </footer>
+
+    <script>
+        function toggleDetails(header) {
+            const vuln = header.parentElement;
+            const details = vuln.querySelector('.vuln-details');
+            details.classList.toggle('active');
+            vuln.classList.toggle('expanded');
+        }
+        
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', () => {
+            // Simulate real-time scanning animation
+            const cards = document.querySelectorAll('.summary-card h3');
+            cards.forEach((card, index) => {
+                const finalValue = parseInt(card.textContent);
+                let current = 0;
+                const increment = finalValue / 20;
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= finalValue) {
+                        current = finalValue;
+                        clearInterval(timer);
+                    }
+                    card.textContent = Math.floor(current);
+                }, 50 + index * 20);
+            });
+        });
+    </script>
+</body>
+</html>

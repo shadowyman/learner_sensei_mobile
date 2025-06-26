@@ -2,7 +2,7 @@
  * Unified Mermaid Configuration Manager
  * Handles all Mermaid initialization, theming, and rendering
  */
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 import type { Mermaid } from 'mermaid';
 
 interface MermaidThemeConfig {
@@ -305,7 +305,9 @@ class MermaidManager {
             });
 
             this.isInitialized = true;
-            logger.log(`Mermaid initialized with theme: ${this.currentTheme}`);
+            if (DEBUG_FLAGS.mermaid_debug) {
+                logger.log(`Mermaid initialized with theme: ${this.currentTheme}`);
+            }
         } catch (error) {
             logger.error('Failed to initialize Mermaid:', error);
             this.initializationPromise = null;

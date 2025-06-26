@@ -1,10 +1,10 @@
 
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.1
+ * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 // Based on Section I-B: The Recursive Sensei's Adaptive Teaching Engine - Operational Mechanisms (Version 2.1)
 import { CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; 
 import type { TeachingPoint as CurriculumTeachingPoint } from "./curriculum"; // For clarity when dealing with teachingPlanForPhase
@@ -466,7 +466,9 @@ export function updateLearnerModel(
                     if (teachingPointObject && teachingPointObject.kcValue > 0 && effectiveScore > previousScore) {
                         const awardedKc = (effectiveScore - previousScore) * teachingPointObject.kcValue;
                         updateKC(model, phaseKCId, awardedKc, true);
-                        logger.warn(`Phase KC Update: Awarded ${awardedKc.toFixed(4)} for improving from ${previousScore.toFixed(2)} to ${effectiveScore.toFixed(2)} on "${verbatimPointText}". New '${phaseKCId}' mastery: ${model.KCs[phaseKCId].toFixed(4)}`);
+                        if (DEBUG_FLAGS.learner_analysis_debug) {
+                            logger.warn(`Phase KC Update: Awarded ${awardedKc.toFixed(4)} for improving from ${previousScore.toFixed(2)} to ${effectiveScore.toFixed(2)} on "${verbatimPointText}". New '${phaseKCId}' mastery: ${model.KCs[phaseKCId].toFixed(4)}`);
+                        }
                         
                         // Update KC progress bar with new mastery level
                         const updatedKCMastery = model.KCs[phaseKCId];

@@ -7,18 +7,22 @@
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- Quill.js for rich text editing in notepad -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script type="importmap">
     {
       "imports": {
-        "@google/genai": "https://esm.sh/@google/genai@^1.5.1",
+        "@google/genai": "https://esm.sh/@google/genai@^1.6.0",
         "marked": "https://esm.sh/marked@^15.0.12",
         "mermaid": "https://esm.sh/mermaid@^11.6.0",
-        "jszip": "https://esm.sh/jszip@^3.10.1"
+        "jszip": "https://esm.sh/jszip@^3.10.1",
+        "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1"
       }
     }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <script type="module" src="./mermaidManager.js"></script>
+    <script type="module" src="./mermaidManager.ts"></script>
     <script type="module" src="./mermaid-theme-integration.js"></script>
 
 
@@ -52,6 +56,9 @@
                         <button id="main-chat-fullscreen-button" class="chat-header-button control-btn" title="Toggle Fullscreen">
                              <span class="icon-placeholder" data-icon="fullscreen"></span>
                         </button>
+                        <button id="notepad-button" class="chat-header-button control-btn" title="Open Notepad">
+                            <span class="icon-placeholder" data-icon="notepad">📓</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -59,17 +66,12 @@
 
         <!-- KC Phase Mastery Progress Bar -->
         <div class="progress-container" id="kc-progress-container">
-            <div class="progress-wrapper">
-                <div class="progress-label">
-                    <span>KC Phase Mastery Progress</span>
-                    <span class="progress-percentage" id="kc-progress-text">0%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="kc-progress-fill" style="width: 0%;" data-progress="0"></div>
-                    <div class="progress-milestone milestone-25"></div>
-                    <div class="progress-milestone milestone-50"></div>
-                    <div class="progress-milestone milestone-75"></div>
-                </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="kc-progress-fill" style="width: 0%;" data-progress="0"></div>
+                <div class="progress-milestone milestone-25"></div>
+                <div class="progress-milestone milestone-50"></div>
+                <div class="progress-milestone milestone-75"></div>
+                <div class="progress-percentage" id="kc-progress-text">0%</div>
             </div>
         </div>
 
@@ -141,7 +143,7 @@
                     <div class="weighted-segment brand">
                         <div class="brand-content">
                             <div class="brand-icon" aria-hidden="true">⚙️</div>
-                            <h1 id="debug-modal-title" class="chat-window-title">Debugger<br>Console</h1>
+                            <h1 id="debug-modal-title" class="chat-window-title">Debugger Console</h1>
                         </div>
                     </div>
                     <div class="weighted-segment status">
@@ -198,6 +200,12 @@
                     </form>
                 </div>
                 <div id="debug-console-interface" class="debug-tab-content">
+                    <div id="debug-console-controls" class="console-controls-bar">
+                        <button id="export-logs-button" class="console-control-btn" title="Download all logs">
+                            💾 Download Logs
+                        </button>
+                        <span id="export-status" class="export-status-text"></span>
+                    </div>
                     <div id="debug-console-logs-area" class="console-logs-container">
                         <!-- Console logs will appear here -->
                     </div>

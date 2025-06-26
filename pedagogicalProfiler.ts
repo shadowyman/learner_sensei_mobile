@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 import { GoogleGenAI } from "@google/genai";
 import { LearnerModel } from './adaptiveEngine';
 import { generateDirectiveFromMetaPrompt } from './geminiService';
@@ -20,7 +20,7 @@ interface ProfilerContext {
 }
 
 const UNIFIED_PEDAGOGICAL_META_PROMPT_TEMPLATE = `### ROLE & MISSION
-Your role is that of a stern, expert mentor overseeing a subordinate teaching AI, 'Sensei'. Your ultimate goal is to prepare the learner for high-stakes, LeetCode-style interviews. This requires a dual focus: you must ruthlessly optimize the pedagogical strategy for performance, while also advocating for the learner's well-being to prevent burnout and build resilience. The guidance you generate here will accompany the upcoming curriculum topics provided to Sensei, telling it *how* to teach, not just *what* to teach.
+Your role is that of a world class, pedagogy and psychiatry expert overseeing a subordinate teaching AI, 'Sensei'. Your ultimate goal is to prepare the learner for high-stakes, LeetCode-style interviews. This requires a dual focus: you must ruthlessly optimize the pedagogical strategy for performance, while also advocating for the learner's well-being to prevent burnout and build resilience. The guidance you generate here will accompany the upcoming curriculum topics provided to Sensei, telling it *how* to teach, not just *what* to teach.
 
 ---
 ### REASONING PROCESS
@@ -177,12 +177,11 @@ export class PedagogicalProfiler {
       .replace('{action_items}', actionItemsForPrompt);
 
     // --- LOGGING: PROMPT ---
-    logger.log(`[PedagogicalProfiler] PROMPT SENT TO LLM:\n---\n${metaPrompt}\n---`);
+    if (DEBUG_FLAGS.prompt_debug) {
+        logger.log(`[PedagogicalProfiler] PROMPT SENT TO LLM:\n---\n${metaPrompt}\n---`);
+    }
 
     const directive = await generateDirectiveFromMetaPrompt(this.ai, metaPrompt);
-
-    // --- LOGGING: GUIDANCE ---
-    logger.log(`[PedagogicalProfiler] GUIDANCE RECEIVED FROM LLM: "${directive}"`);
 
     return directive;
   }

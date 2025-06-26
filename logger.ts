@@ -1,6 +1,15 @@
 /**
  * Centralized logging utility that prepends "Sensei:" to all log messages
+ * Includes export functionality to download logs
  */
+
+// Debug flags
+export const DEBUG_FLAGS = {
+    prompt_debug: true,
+    mermaid_debug: false,
+    learner_analysis_debug: false,
+    curriculum_debug: false
+};
 
 type LogLevel = 'log' | 'warn' | 'error' | 'debug' | 'info';
 
@@ -82,6 +91,40 @@ class Logger {
         const index = this.logUpdateCallbacks.indexOf(callback);
         if (index > -1) {
             this.logUpdateCallbacks.splice(index, 1);
+        }
+    }
+
+    /**
+     * Export all current logs to a file
+     */
+    public exportLogsToFile(): boolean {
+        try {
+            let content = `Sensei Console Logs Export - ${new Date().toISOString()}\n${'='.repeat(60)}\n\n`;
+            
+            // Add all log entries
+            for (const entry of this.logEntries) {
+                const timestamp = entry.timestamp.toISOString();
+                const logLine = `[${timestamp}] [${entry.level.toUpperCase()}] ${entry.message}\n`;
+                content += logLine;
+            }
+            
+            // Create blob and download
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `sensei_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.log`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            this.log('Logs downloaded successfully');
+            return true;
+        } catch (error) {
+            this.error('Failed to download logs:', error);
+            return false;
         }
     }
 

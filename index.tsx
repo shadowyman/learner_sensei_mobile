@@ -4,16 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger } from './logger';
-
-// Auto-resize system configuration
-const AUTO_RESIZE_CONFIG = {
-    enabled: true, // Default enabled
-    expansionThreshold: 200, // Minimum viewport increase in pixels to trigger auto-resize
-    debounceDelay: 150, // Delay in ms for debouncing resize events
-    maxScaleFactor: 1.5, // Maximum scaling factor for auto-resize
-    preferenceKey: 'sensei-auto-resize-enabled'
-};
+import { logger, DEBUG_FLAGS } from './logger';
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import {
     LearnerModel,
@@ -26,15 +17,19 @@ import {
     CurriculumState,
     CurriculumItem,
     TeachingPoint, // Import TeachingPoint
+    Phase,
     parseModulesTxt,
     initializeCurriculumState,
+    jumpToPhase,
     getCurrentCurriculumItem,
     advanceCurriculumState,
     getCurriculumFocusInstruction,
+    calculateFocusPoints,
     isCurriculumLoaded,
     setCurriculum,
     getInitialCurriculumTopicId,
-    generateTeachingPlanForPhase, 
+    generateTeachingPlanForPhase,
+    checkForSocraticCompletion
 } from "./curriculum";
 import { PedagogicalProfiler } from "./pedagogicalProfiler";
 import {
@@ -48,8 +43,8 @@ import {
     processMermaidBlocks,
     updateFooter,    
     setupFullscreenToggle,
-    streamingMessagesRawText, // Import the map to pass as a dependency
-    setupTextareaAutosize
+    setupTextareaAutosize,
+    streamingMessagesRawText
 } from './ui';
 import { 
     llmExtractAndPlanTeachingOrder, 
@@ -65,11 +60,23 @@ import {
 import {
     streamModuleIntroduction,
     buildSenseiDynamicSystemInstruction,
-    streamMainSenseiResponse
+    streamMainSenseiResponse,
+    buildSocraticExecutionInstruction
 } from './interactionHelpers';
 import { initializeDebugMode, toggleDebugModalVisibility } from './debugMode'; // Import debug mode functions
 import { initializeSelectionSensei } from "./selectionSensei"; // Import the new initializer
 import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG } from './model_usage';
+import { notepad } from './notepad';
+import { runTestSuite } from './test';
+
+// Auto-resize system configuration
+const AUTO_RESIZE_CONFIG = {
+    enabled: true, // Default enabled
+    expansionThreshold: 200, // Minimum viewport increase in pixels to trigger auto-resize
+    debounceDelay: 150, // Delay in ms for debouncing resize events
+    maxScaleFactor: 1.5, // Maximum scaling factor for auto-resize
+    preferenceKey: 'sensei-auto-resize-enabled'
+};
 
 const debug = false; 
 
@@ -78,7 +85,11 @@ const userInputElement = document.getElementById('user-input') as HTMLTextAreaEl
 const debugModeButton = document.getElementById('debug-mode-button') as HTMLButtonElement;
 
 
-const API_KEY = process.env.API_KEY;
+const isLocal = window.location.hostname === 'localhost';
+
+const API_KEY = isLocal 
+  ? 'AIzaSyDULWGft-KSgnRBBJbMJcItdGOeaaqWElk'
+  : process.env.API_KEY;
 let ai: GoogleGenAI | null = null;
 let mainSenseiChat: Chat | null = null;
 let learnerModel: LearnerModel = initializeLearnerModel();
@@ -90,8 +101,10 @@ let isResizingWindow = false;
 
 let curriculum: Curriculum | null = null;
 let curriculumState: CurriculumState | null = null;
+let currentActiveConceptIndex: number | null = null; // Track current concept for notepad
 let currentMessageId = 0;
 let userInputHistory: string[] = [];
+let pendingModuleSelection: number | null = null; // Track module selection pending phase choice
 // Store project file contents (now primarily for the manifest itself)
 const projectFileContents = new Map<string, string>();
 let availableProjectFilePaths: string[] = []; // Stores the list of file paths
@@ -127,7 +140,6 @@ async function loadProjectFileManifestAndPaths() {
     let manifestStatusMessage = "";
 
     try {
-        logger.info("Attempting to load project file paths from file-manifest.json...");
         const manifestResponse = await fetch('file-manifest.json');
         if (!manifestResponse.ok) {
             throw new Error(`Failed to fetch file-manifest.json: ${manifestResponse.statusText} (${manifestResponse.status})`);
@@ -161,9 +173,6 @@ async function loadProjectFileManifestAndPaths() {
     }
     // DO NOT fetch individual file contents here. That will be done on-demand in debugMode.ts.
 
-    if (debug) {
-        logger.log("Manifest status:", manifestStatusMessage || "Manifest processed.");
-    }
 } 
 
 let profiler: PedagogicalProfiler | null = null;
@@ -200,6 +209,8 @@ async function initializeGoogleAI() {
     }
 }
 
+
+
 async function handleInitialModuleSelectionInternal(userInputText: string): Promise<boolean> {
     if (curriculum && !curriculumState) {
         let selectedModuleIndex: number | null = null;
@@ -223,93 +234,33 @@ async function handleInitialModuleSelectionInternal(userInputText: string): Prom
         }
 
         if (selectedModuleIndex !== null && selectedModuleIndex >= 0 && selectedModuleIndex < curriculum.modules.length) {
-            curriculumState = await initializeCurriculumState(curriculum, selectedModuleIndex, (text) => llmExtractAndPlanTeachingOrder(ai!, text));
+            logger.info('[MODULE_FLOW] Module selected, showing phase options');
+            pendingModuleSelection = selectedModuleIndex;
             
-            if (curriculumState) {
-                const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
-                if (currentItem) {
-                    learnerModel.CurrentTask.ID = currentItem.curriculumPathId;
-                    learnerModel.CurrentTask.TargetKCs = [currentItem.curriculumPathId];
-                    if (!learnerModel.KCs[currentItem.curriculumPathId]) {
-                        learnerModel.KCs[currentItem.curriculumPathId] = 0;
-                    }
-                    learnerModel.KCMasteryLastUpdated[currentItem.curriculumPathId] = new Date().toISOString();
-                    learnerModel.awardedKcForPhasePoints = new Set<string>();
+            // Display phase selection message
+            currentMessageId++;
+            const phaseSelectionId = `msg-${currentMessageId}`;
+            const selectedModule = curriculum.modules[selectedModuleIndex];
+            
+            logger.info('[MODULE_FLOW] Creating phase selection message with ID:', phaseSelectionId);
+            
+            const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.
 
-                    updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
-
-                    const selectedModule = curriculum.modules[selectedModuleIndex];
-                    const firstConceptTitle = currentItem.concept?.title || "the first topic";
-                    const phaseDisplayName = getPhaseDisplayName(curriculumState.currentPhase);
-                    const initialInstructionForSensei = getCurriculumFocusInstruction(curriculum, currentItem, curriculumState, false); // Not a MUST_OBEY turn
-
-                    currentMessageId++;
-                    const senseiIntroId = `msg-${currentMessageId}`;
-                    let introResponseText = "Sensei is preparing the first lesson...";
-                    
-                    const introContext = `${MODULE_INTRODUCTION_TASK_TEMPLATE(selectedModule.title, firstConceptTitle, phaseDisplayName, userInputText)}
-${initialInstructionForSensei}
-`;
-                    const reloadContext: ReloadContext = {
-                        type: 'moduleIntro',
-                        introSystemInstruction: introContext,
-                        moduleTitleForPrompt: selectedModule.title
-                    };
-
-                    await displayMessage({
-                        id: senseiIntroId,
-                        sender: 'sensei',
-                        displayName: 'Recursive Sensei',
-                        text: introResponseText,
-                        timestamp: new Date(),
-                        isLoading: true,
-                        isReloadable: true,
-                        reloadContext: reloadContext,
-                    });
-
-                    try {
-                        introResponseText = await streamModuleIntroduction(mainSenseiChat!, introContext, selectedModule.title, senseiIntroId);
-                        lastSenseiResponses.unshift(introResponseText);
-                        if (lastSenseiResponses.length > 3) lastSenseiResponses.pop(); // Keep last 3 Sensei responses
-                        chronologicallyLastLLMSenseiMessageId = senseiIntroId;
-                    } catch (error) {
-                        logger.error("Error generating module intro:", error);
-                        introResponseText = `Alright, let's start with **${selectedModule.title}** and the concept of **"${firstConceptTitle}"**. What are your initial thoughts or questions?`;
-                        lastSenseiResponses.unshift(introResponseText);
-                        if (lastSenseiResponses.length > 3) lastSenseiResponses.pop(); // Keep last 3 Sensei responses
-                        chronologicallyLastLLMSenseiMessageId = senseiIntroId; // Still counts as last message
-                    } finally {
-                        await displayMessage({
-                            id: senseiIntroId,
-                            sender: 'sensei',
-                            displayName: 'Recursive Sensei',
-                            text: introResponseText,
-                            timestamp: new Date(),
-                            isLoading: false,
-                            isReloadable: true,
-                            reloadContext: reloadContext,
-                            skipMermaid: true,  // Phase 1: Skip mermaid processing
-                        });
-                        // Phase 2: Process mermaid blocks after display is stable
-                        await processMermaidBlocks(senseiIntroId);
-                    }
-
-                    logger.log("Purging pre-curriculum history. Resetting user and sensei logs.");
-                    userInputHistory = [];
-                    lastSenseiResponses = [introResponseText]; // Seed the history with ONLY the first teaching 
-                    
-                    if (curriculumState) {
-                        logger.log(`After Module Intro - Processing Chunk ${curriculumState.currentTeachingChunkIndex + 1} of ${curriculumState.teachingPlanForPhase.length || 1}.`);
-                        if (curriculumState.teachingPlanForPhase && curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex]) {
-                            logger.log(`Content of current chunk (TeachingPoint objects):`, curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex]);
-                        }
-                        logger.log("Topics Covered in current chunk (text):", Array.from(curriculumState.coveredPointsInCurrentChunk));
-                    }
-                    return true;
-                }
-            } else {
-                return false;
-            }
+Where would you like to begin your learning journey?`;
+            
+            await displayMessage({
+                id: phaseSelectionId,
+                sender: 'sensei',
+                displayName: 'Recursive Sensei',
+                text: phaseSelectionText,
+                timestamp: new Date(),
+                isLoading: false,
+                phaseSelectionEnabled: true,
+                selectedModuleIndex: selectedModuleIndex
+            });
+            
+            logger.info('[MODULE_FLOW] Phase selection message displayed with id:', phaseSelectionId);
+            return true;
         } else if (selectedModuleIndex === null || selectedModuleIndex === -1) {
             currentMessageId++;
             const nudgeText = "I'm ready to start a module when you are! Please choose from the list I provided, or type 'start curriculum' for the first one. If you have a general question, feel free to ask!";
@@ -341,7 +292,17 @@ async function generateNextSenseiResponse(inputText: string) {
     let currentCurriculumItem = curriculum && curriculumState ? getCurrentCurriculumItem(curriculum, curriculumState) : null;
     
     if (curriculum && currentCurriculumItem && curriculumState && (!curriculumState.teachingPlanForPhase || curriculumState.teachingPlanForPhase.length === 0)) {
-        curriculumState.teachingPlanForPhase = await generateTeachingPlanForPhase(curriculum, currentCurriculumItem, curriculumState.currentPhase, (text) => llmExtractAndPlanTeachingOrder(ai!, text));
+        curriculumState.teachingPlanForPhase = await generateTeachingPlanForPhase(
+            curriculum, 
+            currentCurriculumItem, 
+            curriculumState.currentPhase, 
+            (text) => {
+                // Get module info for Socratic prompt
+                const module = curriculum.modules[curriculumState.currentModuleIndex];
+                const conceptsSummary = module.concepts.map(c => c.title).join(', ');
+                return llmExtractAndPlanTeachingOrder(ai!, text, module.title, module.goal, conceptsSummary);
+            }
+        );
         curriculumState.currentTeachingChunkIndex = 0; 
         curriculumState.coveredPointsInCurrentChunk = new Set<string>();
         curriculumState.pointsToRevisitInCurrentChunk = new Set<string>();
@@ -356,36 +317,38 @@ async function generateNextSenseiResponse(inputText: string) {
     const analysisResult = await getAnalysisFromGemini(ai!, inputText, lastSenseiResponses[0] || null, currentTaskIdForAnalysis, expectedContentPointTextsForCurrentChunk);
 
     if (analysisResult) {
-        logger.warn("Recursive Sensei - Gemini Analysis of User Input:", {
-            userInput: inputText,
-            primaryIntent: analysisResult.primary_intent,
-            affectiveState: {
-                confidence: analysisResult.affective_state.confidence,
-                engagement: analysisResult.affective_state.engagement,
-                frustration: analysisResult.affective_state.frustration,
-                confusion: analysisResult.affective_state.confusion,
-                selfEfficacy: analysisResult.affective_state.self_efficacy,
-            },
-            cognitiveLoad: {
-                perceivedDifficulty: analysisResult.cognitive_load_indicators.perceived_intrinsic_difficulty,
-                extraneousLoad: analysisResult.cognitive_load_indicators.extraneous_load_signals,
-            },
-            srl: {
-                planning: analysisResult.srl_indicators.planning_observed,
-                monitoring: analysisResult.srl_indicators.monitoring_observed,
-                helpSeeking: analysisResult.srl_indicators.help_seeking_style,
-                strategyHint: analysisResult.srl_indicators.strategy_hint,
-            },
-            misconceptions: analysisResult.misconception_hints.filter(m => m.likelihood === 'High' || m.likelihood === 'Medium'),
-            knowledgeComponentUpdates: analysisResult.knowledge_component_references
-                .filter(kc => kc.kc_id !== currentTaskIdForAnalysis && (kc.understanding_signal === 'Positive' || kc.understanding_signal === 'Negative')),
-            topicInteraction: analysisResult.topic_interaction,
-            keyContentPointsCoverage: analysisResult.key_content_point_assessment?.map(kcp => ({
-                point: kcp.point_id,
-                coverage: kcp.coverage,
-                understanding_score: kcp.understanding_score
-            })) || "Not assessed in this turn",
-        });
+        if (DEBUG_FLAGS.learner_analysis_debug) {
+            logger.warn("Recursive Sensei - Gemini Analysis of User Input:", {
+                userInput: inputText,
+                primaryIntent: analysisResult.primary_intent,
+                affectiveState: {
+                    confidence: analysisResult.affective_state.confidence,
+                    engagement: analysisResult.affective_state.engagement,
+                    frustration: analysisResult.affective_state.frustration,
+                    confusion: analysisResult.affective_state.confusion,
+                    selfEfficacy: analysisResult.affective_state.self_efficacy,
+                },
+                cognitiveLoad: {
+                    perceivedDifficulty: analysisResult.cognitive_load_indicators.perceived_intrinsic_difficulty,
+                    extraneousLoad: analysisResult.cognitive_load_indicators.extraneous_load_signals,
+                },
+                srl: {
+                    planning: analysisResult.srl_indicators.planning_observed,
+                    monitoring: analysisResult.srl_indicators.monitoring_observed,
+                    helpSeeking: analysisResult.srl_indicators.help_seeking_style,
+                    strategyHint: analysisResult.srl_indicators.strategy_hint,
+                },
+                misconceptions: analysisResult.misconception_hints.filter(m => m.likelihood === 'High' || m.likelihood === 'Medium'),
+                knowledgeComponentUpdates: analysisResult.knowledge_component_references
+                    .filter(kc => kc.kc_id !== currentTaskIdForAnalysis && (kc.understanding_signal === 'Positive' || kc.understanding_signal === 'Negative')),
+                topicInteraction: analysisResult.topic_interaction,
+                keyContentPointsCoverage: analysisResult.key_content_point_assessment?.map(kcp => ({
+                    point: kcp.point_id,
+                    coverage: kcp.coverage,
+                    understanding_score: kcp.understanding_score
+                })) || "Not assessed in this turn",
+            });
+        }
     }
 
 
@@ -402,21 +365,40 @@ async function generateNextSenseiResponse(inputText: string) {
     let curriculumWasAdvanced = false;
     if (curriculum && curriculumState && !curriculumState.isCompleted) {
         const llmPlannerForAdvance = async (text: string) => {
-            const plan = await llmExtractAndPlanTeachingOrder(ai!, text);
+            // Get module info for Socratic prompt
+            const module = curriculum.modules[curriculumState.currentModuleIndex];
+            const conceptsSummary = module.concepts.map(c => c.title).join(', ');
+            const plan = await llmExtractAndPlanTeachingOrder(ai!, text, module.title, module.goal, conceptsSummary);
             return plan;
         };
         curriculumWasAdvanced = await advanceCurriculumState(curriculum, curriculumState, learnerModel, llmPlannerForAdvance);
         
         if (curriculumWasAdvanced) {
+            if (DEBUG_FLAGS.curriculum_debug) {
+                logger.info('[PHASE_REFACTOR_VALIDATION] Curriculum was advanced! New state:', {
+                    moduleIndex: curriculumState.currentModuleIndex,
+                    conceptIndex: curriculumState.currentConceptIndex,
+                    phase: curriculumState.currentPhase
+                });
+            }
             const newPhaseKCId = getCurrentCurriculumItem(curriculum, curriculumState)?.curriculumPathId;
             if (newPhaseKCId && (!learnerModel.KCs[newPhaseKCId] || learnerModel.KCs[newPhaseKCId] === 0)) {
                  learnerModel.awardedKcForPhasePoints = new Set<string>();
+            }
+        } else {
+            if (DEBUG_FLAGS.curriculum_debug) {
+                logger.debug('[PHASE_REFACTOR_VALIDATION] Curriculum not advanced this turn');
             }
         }
     }
     
     const newCurrentItem = curriculum && curriculumState ? getCurrentCurriculumItem(curriculum, curriculumState) : null;
     if (newCurrentItem && curriculumState) {
+        currentActiveConceptIndex = curriculumState.currentConceptIndex;
+        logger.info('Active concept updated to:', currentActiveConceptIndex);
+        notepad.updateActiveConceptIndex(currentActiveConceptIndex);
+        notepad.updateActiveModuleIndex(curriculumState.currentModuleIndex);
+        
         updateCurriculumDisplay(newCurrentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
         learnerModel.CurrentTask.ID = newCurrentItem.curriculumPathId;
         learnerModel.CurrentTask.TargetKCs = [newCurrentItem.curriculumPathId];
@@ -428,7 +410,17 @@ async function generateNextSenseiResponse(inputText: string) {
         updateKCProgressBar(currentPhaseKCMastery);
 
         if (curriculum && (!curriculumState.teachingPlanForPhase || curriculumState.teachingPlanForPhase.length === 0 || !curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex])) { 
-            curriculumState.teachingPlanForPhase = await generateTeachingPlanForPhase(curriculum, newCurrentItem, curriculumState.currentPhase, (text) => llmExtractAndPlanTeachingOrder(ai!, text));
+            curriculumState.teachingPlanForPhase = await generateTeachingPlanForPhase(
+                curriculum, 
+                newCurrentItem, 
+                curriculumState.currentPhase, 
+                (text) => {
+                    // Get module info for Socratic prompt
+                    const module = curriculum.modules[curriculumState.currentModuleIndex];
+                    const conceptsSummary = module.concepts.map(c => c.title).join(', ');
+                    return llmExtractAndPlanTeachingOrder(ai!, text, module.title, module.goal, conceptsSummary);
+                }
+            );
             curriculumState.currentTeachingChunkIndex = 0;
             curriculumState.coveredPointsInCurrentChunk = new Set<string>(); 
             curriculumState.pointsToRevisitInCurrentChunk = new Set<string>();
@@ -438,31 +430,68 @@ async function generateNextSenseiResponse(inputText: string) {
         updateCurriculumDisplay(null, null, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
     }
 
-    // Recalculate the upcoming action items AFTER the curriculum has potentially advanced.
-    const upcomingActionItems = (curriculumState?.teachingPlanForPhase && curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex])
-        ? curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex].map(tp => tp.text)
-        : [];
+    // Calculate focus points ONCE for both pedagogical profiler and curriculum instruction
+    let focusPointsData: { focusPoints: string[], primaryActionType: string } | null = null;
+    let upcomingActionItems: string[] = [];
+    
+    if (curriculumState && !curriculumState.isCompleted) {
+        focusPointsData = calculateFocusPoints(curriculumState);
+        upcomingActionItems = focusPointsData.focusPoints;
+    }
 
     const guidanceText = await profiler!.getDirective(learnerModel, {
-        upcomingActionItems: upcomingActionItems,
+        upcomingActionItems: upcomingActionItems, // Now uses the focused subset
         lastThreeUserResponses: userInputHistory.slice(-3), // Pass last 3 user responses
         lastThreeSenseiResponses: lastSenseiResponses.slice(0, 3)   // Pass last 3 sensei responses
     });
 
     logger.log("Pedagogical Guidance Directive:", guidanceText);
+    logger.log("Focus Points Type:", focusPointsData?.primaryActionType || "None");
 
     const isMustObey = guidanceText.startsWith('MUST_OBEY');
     
+    // Track Socratic turns
+    if (curriculumState && curriculumState.currentPhase === 'Socratic') {
+        if (!curriculumState.socraticTurnCount) {
+            curriculumState.socraticTurnCount = 0;
+        }
+        curriculumState.socraticTurnCount++;
+        logger.info('Sensei:[SOCRATIC_V4] Socratic phase detected, turn:', curriculumState.socraticTurnCount);
+    }
+    
     const curriculumFocusInstruction = (curriculum && curriculumState && newCurrentItem)
-        ? getCurriculumFocusInstruction(curriculum, newCurrentItem, curriculumState, isMustObey)
+        ? getCurriculumFocusInstruction(curriculum, newCurrentItem, curriculumState, isMustObey, focusPointsData || undefined)
         : curriculumState?.isCompleted 
             ? CURRICULUM_COMPLETED_FOCUS_INSTRUCTION
             : GENERAL_INTERACTION_FOCUS_INSTRUCTION;
     
-    const dynamicContext = buildSenseiDynamicSystemInstruction(
-        curriculumFocusInstruction,
-        guidanceText
-    );
+    let dynamicContext: string;
+    
+    // Log diagnostic info for Socratic phase detection
+    logger.info('Sensei:[SOCRATIC_V4] Phase check - currentPhase:', curriculumState?.currentPhase);
+    logger.info('Sensei:[SOCRATIC_V4] Phase check - has teachingPlanForPhase:', !!curriculumState?.teachingPlanForPhase);
+    logger.info('Sensei:[SOCRATIC_V4] Phase check - socraticTurnCount:', curriculumState?.socraticTurnCount);
+    
+    // Use Socratic-specific instruction building for Socratic phase
+    if (curriculumState && curriculumState.currentPhase === 'Socratic' && curriculumState.teachingPlanForPhase) {
+        logger.info('Sensei:[SOCRATIC_V4] Using Socratic execution instruction');
+        logger.info('Sensei:[SOCRATIC_V4] isFirstTurn?', curriculumState.socraticTurnCount === 1);
+        const pedagogicalGuidance = {
+            metaPrompt: isMustObey ? guidanceText : undefined,
+            directive: !isMustObey ? guidanceText : undefined
+        };
+        dynamicContext = buildSocraticExecutionInstruction(
+            curriculumState.teachingPlanForPhase,
+            pedagogicalGuidance,
+            curriculumState.socraticTurnCount === 1
+        );
+    } else {
+        logger.info('Sensei:[SOCRATIC_V4] NOT using Socratic execution - using standard dynamic instruction');
+        dynamicContext = buildSenseiDynamicSystemInstruction(
+            curriculumFocusInstruction,
+            guidanceText
+        );
+    }
 
     currentMessageId++;
     const senseiMessageId = `msg-${currentMessageId}`;
@@ -503,6 +532,20 @@ async function generateNextSenseiResponse(inputText: string) {
     
     try {
         senseiResponseText = await streamMainSenseiResponse(mainSenseiChat!, dynamicContext, inputText, senseiMessageId);
+        
+        // Check for Socratic completion
+        if (curriculumState && curriculumState.currentPhase === 'Socratic') {
+            const completion = checkForSocraticCompletion(senseiResponseText);
+            logger.info('Sensei:[SOCRATIC_V4] Completion check result:', completion);
+            
+            if (completion.triggered) {
+                // Store completion pending for processing after response display
+                curriculumState.socraticCompletionPending = completion;
+                // Use clean response without the flag
+                senseiResponseText = completion.cleanResponse;
+            }
+        }
+        
         lastSenseiResponses.unshift(senseiResponseText);
         if (lastSenseiResponses.length > 3) lastSenseiResponses.pop(); // Keep last 3 Sensei responses
         chronologicallyLastLLMSenseiMessageId = senseiMessageId;
@@ -592,7 +635,10 @@ async function handleUserInput(event: Event) {
 
             // Immediately advance state and generate the next turn's response.
             const llmPlannerForAdvance = async (text: string) => {
-                 const plan = await llmExtractAndPlanTeachingOrder(ai!, text);
+                 // Get module info for Socratic prompt
+                 const module = curriculum.modules[curriculumState.currentModuleIndex];
+                 const conceptsSummary = module.concepts.map(c => c.title).join(', ');
+                 const plan = await llmExtractAndPlanTeachingOrder(ai!, text, module.title, module.goal, conceptsSummary);
                  return plan;
             };
             await advanceCurriculumState(curriculum, curriculumState, learnerModel, llmPlannerForAdvance);
@@ -717,11 +763,9 @@ async function handleClickedModuleSelection(moduleTitle: string) {
 
     const success = await handleInitialModuleSelectionInternal(moduleTitle);
 
-    if (success && curriculumState) { 
-        if (userInputElement) {
-            userInputElement.placeholder = "Module selected. Ask questions or type your thoughts...";
-        }
-    } else {
+    if (success) { 
+        // Phase selection is now shown, no need to update placeholder here
+    } else if (!success) {
         currentMessageId++;
         const errorMessage = `I'm sorry, I had trouble starting the module "${moduleTitle}" properly. Please try selecting again or type the module name.`;
         await displayMessage({ // Not reloadable by LLM
@@ -739,6 +783,259 @@ async function handleClickedModuleSelection(moduleTitle: string) {
     }
 }
 
+async function handlePhaseSelection(phaseName: string) {
+    logger.info('[PHASE_SELECTION] User selected phase:', phaseName);
+    
+    // Small delay to ensure DOM is fully rendered
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    if (!curriculum || pendingModuleSelection === null || !ai) {
+        logger.error('[PHASE_SELECTION] Invalid state for phase selection');
+        return;
+    }
+    
+    const phase = phaseName as Phase;
+    const validPhases: Phase[] = ['IntroIllustrate', 'Socratic', 'Solidify'];
+    
+    if (!validPhases.includes(phase)) {
+        logger.error('[PHASE_SELECTION] Invalid phase selection:', phaseName);
+        return;
+    }
+    
+    // Find the phase selection message and transform it to loading state
+    const phaseMessages = document.querySelectorAll('.message-bubble');
+    
+    let phaseMessageBubble: Element | null = null;
+    let phaseMessageId: string | null = null;
+    
+    phaseMessages.forEach((bubble, index) => {
+        const bubbleId = bubble.id || 'no-id';
+        const hasPhaseButtons = bubble.querySelector('.phase-buttons-container') !== null;
+        
+        
+        if (hasPhaseButtons) {
+            phaseMessageBubble = bubble;
+            phaseMessageId = bubbleId;
+        }
+    });
+    
+    if (phaseMessageBubble) {
+        // Find the message bubble content area
+        const messageText = phaseMessageBubble.querySelector('.message-text');
+        if (messageText) {
+            // Clear existing content
+            messageText.innerHTML = '';
+            
+            // Add loading animation
+            const loadingContainer = document.createElement('div');
+            loadingContainer.classList.add('phase-loading-container');
+            
+            const spinner = document.createElement('div');
+            spinner.classList.add('phase-loading-spinner');
+            
+            const loadingText = document.createElement('div');
+            loadingText.classList.add('phase-loading-text');
+            
+            // Array of loading messages
+            const loadingMessages = [
+                'Sensei is generating a teaching plan and will be back with you shortly',
+                'Analyzing your learning patterns to optimize the experience',
+                'Crafting personalized examples based on your progress',
+                'Selecting the most effective teaching strategies',
+                'Preparing interactive exercises tailored to your needs',
+                'Building cognitive bridges to deepen understanding'
+            ];
+            
+            let messageIndex = 0;
+            const textSpan = document.createElement('span');
+            textSpan.textContent = loadingMessages[messageIndex];
+            
+            const dots = document.createElement('span');
+            dots.classList.add('phase-loading-dots');
+            dots.textContent = '...';
+            
+            loadingText.appendChild(textSpan);
+            loadingText.appendChild(dots);
+            
+            loadingContainer.appendChild(spinner);
+            loadingContainer.appendChild(loadingText);
+            messageText.appendChild(loadingContainer);
+            
+            // Animate dots
+            let dotCount = 1;
+            const dotAnimation = setInterval(() => {
+                dotCount = (dotCount % 3) + 1;
+                dots.textContent = '.'.repeat(dotCount);
+            }, 500);
+            
+            // Cycle through messages
+            const messageAnimation = setInterval(() => {
+                messageIndex = (messageIndex + 1) % loadingMessages.length;
+                textSpan.textContent = loadingMessages[messageIndex];
+            }, 5000); // Change message every 5 seconds
+            
+            // Store animation intervals to clear later
+            (phaseMessageBubble as any).dotAnimation = dotAnimation;
+            (phaseMessageBubble as any).messageAnimation = messageAnimation;
+        } else {
+        }
+    } else {
+    }
+    
+    // Jump to the selected phase
+    curriculumState = await jumpToPhase(
+        curriculum, 
+        pendingModuleSelection, 
+        phase,
+        (text) => {
+            // Get module info for Socratic prompt
+            const module = curriculum.modules[pendingModuleSelection];
+            const conceptsSummary = module.concepts.map(c => c.title).join(', ');
+            return llmExtractAndPlanTeachingOrder(ai!, text, module.title, module.goal, conceptsSummary);
+        }
+    );
+    
+    if (!curriculumState) {
+        logger.error('[PHASE_SELECTION] Failed to jump to phase');
+        currentMessageId++;
+        await displayMessage({
+            id: `msg-${currentMessageId}`,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: "I encountered an error while preparing that phase. Please try again or select a different phase.",
+            timestamp: new Date(),
+            isLoading: false,
+        });
+        return;
+    }
+    
+    logger.info('[PHASE_SELECTION] Phase selection successful, updating curriculum state');
+    
+    // Update learner model and UI
+    currentActiveConceptIndex = curriculumState.currentConceptIndex;
+    logger.info('Active concept tracking initialized:', currentActiveConceptIndex);
+    notepad.updateActiveConceptIndex(currentActiveConceptIndex);
+    notepad.updateActiveModuleIndex(curriculumState.currentModuleIndex);
+    
+    const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
+    if (currentItem) {
+        learnerModel.CurrentTask.ID = currentItem.curriculumPathId;
+        learnerModel.CurrentTask.TargetKCs = [currentItem.curriculumPathId];
+        if (!learnerModel.KCs[currentItem.curriculumPathId]) {
+            learnerModel.KCs[currentItem.curriculumPathId] = 0;
+        }
+        learnerModel.KCMasteryLastUpdated[currentItem.curriculumPathId] = new Date().toISOString();
+        learnerModel.awardedKcForPhasePoints = new Set<string>();
+        
+        updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
+        
+        // Update KC progress bar for the new phase
+        const currentPhaseKCMastery = learnerModel.KCs[currentItem.curriculumPathId] || 0;
+        updateKCProgressBar(currentPhaseKCMastery);
+        
+        // Remove the phase selection/loading message
+        const phaseMessagesToRemove = document.querySelectorAll('.message-bubble');
+        phaseMessagesToRemove.forEach(bubble => {
+            // Check for either phase buttons or loading container
+            if (bubble.querySelector('.phase-buttons-container') || bubble.querySelector('.phase-loading-container')) {
+                const bubbleId = bubble.id || 'unknown';
+                // Clear the animation intervals if they exist
+                const dotAnimation = (bubble as any).dotAnimation;
+                if (dotAnimation) {
+                    clearInterval(dotAnimation);
+                }
+                const messageAnimation = (bubble as any).messageAnimation;
+                if (messageAnimation) {
+                    clearInterval(messageAnimation);
+                }
+                bubble.remove();
+            }
+        });
+        
+        const selectedModule = curriculum.modules[pendingModuleSelection];
+        const phaseDisplayName = getPhaseDisplayName(curriculumState.currentPhase);
+        const conceptTitle = currentItem.concept?.title || "the module concepts";
+        const initialInstructionForSensei = getCurriculumFocusInstruction(curriculum, currentItem, curriculumState, false);
+        
+        currentMessageId++;
+        const senseiIntroId = `msg-${currentMessageId}`;
+        let introResponseText = "";
+        
+        const introContext = `${MODULE_INTRODUCTION_TASK_TEMPLATE(selectedModule.title, conceptTitle, phaseDisplayName, `Phase: ${phaseDisplayName}`)}
+${initialInstructionForSensei}
+`;
+        
+        logger.info('Sensei:[SOCRATIC_INTRO] First prompt to Sensei when Socratic phase chosen:', introContext);
+        
+        const reloadContext: ReloadContext = {
+            type: 'moduleIntro',
+            introSystemInstruction: introContext,
+            moduleTitleForPrompt: selectedModule.title
+        };
+        
+        // Create empty message for streaming
+        await displayMessage({
+            id: senseiIntroId,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: '',
+            timestamp: new Date(),
+            isLoading: true,
+            isReloadable: true,
+            reloadContext: reloadContext,
+        });
+        
+        try {
+            introResponseText = await streamModuleIntroduction(mainSenseiChat!, introContext, selectedModule.title, senseiIntroId);
+            lastSenseiResponses.unshift(introResponseText);
+            if (lastSenseiResponses.length > 3) lastSenseiResponses.pop();
+            chronologicallyLastLLMSenseiMessageId = senseiIntroId;
+        } catch (error) {
+            logger.error("Error generating phase intro:", error);
+            introResponseText = `Welcome to the **${phaseDisplayName}** phase of **${selectedModule.title}**! Let's begin exploring ${conceptTitle}.`;
+            lastSenseiResponses.unshift(introResponseText);
+            if (lastSenseiResponses.length > 3) lastSenseiResponses.pop();
+            chronologicallyLastLLMSenseiMessageId = senseiIntroId;
+        } finally {
+            // Just update the loading state without replacing content
+            const messageBubble = document.getElementById(senseiIntroId);
+            if (messageBubble) {
+                messageBubble.classList.remove('loading');
+                messageBubble.removeAttribute('data-typing'); // Remove the typing cursor
+                
+                // Remove any typing cursor span that might still be present
+                const existingCursor = messageBubble.querySelector('.typing-cursor');
+                if (existingCursor) {
+                    logger.debug('[PHASE_CURSOR_CLEANUP] Removing cursor from phase intro message');
+                    existingCursor.remove();
+                }
+                
+                // Remove streaming class from message-text to hide CSS cursor
+                const messageTextEl = messageBubble.querySelector('.message-text');
+                if (messageTextEl) {
+                    messageTextEl.classList.remove('streaming');
+                }
+                
+                // Update message metadata for reloadability
+                messageBubble.dataset.reloadable = 'true';
+                messageBubble.dataset.reloadType = 'moduleIntro';
+                messageBubble.dataset.reloadContext = JSON.stringify(reloadContext);
+            }
+            await processMermaidBlocks(senseiIntroId);
+        }
+        
+        // Clear history and reset
+        userInputHistory = [];
+        lastSenseiResponses = [introResponseText];
+        pendingModuleSelection = null;
+        
+        // Update placeholder
+        const userInputElem = document.getElementById('user-input') as HTMLTextAreaElement;
+        if (userInputElem) {
+            userInputElem.placeholder = "Phase selected. Ask questions or type your thoughts...";
+        }
+    }
+}
 
 async function loadCurriculumAndGreet() {
     initializeUI();
@@ -748,8 +1045,22 @@ async function loadCurriculumAndGreet() {
     if (!ai) { 
         return; 
     }
+    
+    // Run test suite (disabled by default, controlled by TEST_SUITE_CONFIG)
+    if (API_KEY) {
+        try {
+            await runTestSuite(API_KEY);
+        } catch (error) {
+            logger.error("Failed to run test suite:", error);
+        }
+    }
+    
     (window as any).handleModuleClick = (moduleId: string, moduleTitle: string) => {
         handleClickedModuleSelection(moduleTitle);
+    };
+    
+    (window as any).handlePhaseSelection = async (phaseName: string) => {
+        await handlePhaseSelection(phaseName);
     };
 
     (window as any).handleReloadSenseiMessage = 
@@ -762,7 +1073,7 @@ async function loadCurriculumAndGreet() {
     // Initialize the new self-contained selection sensei module
     const messageArea = document.getElementById('message-area') as HTMLDivElement;
     if (messageArea) {
-        initializeSelectionSensei(ai, messageArea, streamingMessagesRawText);
+        initializeSelectionSensei(ai, messageArea);
     }
 
 
@@ -773,7 +1084,10 @@ async function loadCurriculumAndGreet() {
         }
         const txt = await response.text();
         curriculum = parseModulesTxt(txt);
-        setCurriculum(curriculum); 
+        setCurriculum(curriculum);
+        
+        // Initialize notepad with curriculum
+        notepad.initialize(curriculum);
 
         if (curriculum && curriculum.modules.length > 0) {
             const initialId = getInitialCurriculumTopicId(curriculum); 
@@ -863,8 +1177,9 @@ function updateKCProgressBar(kcphasemastery: number): void {
     try {
         const progressFill = document.getElementById('kc-progress-fill') as HTMLElement;
         const progressText = document.getElementById('kc-progress-text') as HTMLElement;
+        const progressBar = progressFill?.parentElement as HTMLElement; // Get the .progress-bar element
         
-        if (!progressFill || !progressText) {
+        if (!progressFill || !progressText || !progressBar) {
             logger.warn('KC Progress bar elements not found in DOM');
             return;
         }
@@ -877,6 +1192,13 @@ function updateKCProgressBar(kcphasemastery: number): void {
         progressFill.style.width = percentage + '%';
         progressFill.setAttribute('data-progress', percentage.toString());
         progressText.textContent = percentage + '%';
+        
+        // Set data-has-progress attribute on progress bar for shimmer effect
+        if (percentage > 0) {
+            progressBar.setAttribute('data-has-progress', 'true');
+        } else {
+            progressBar.removeAttribute('data-has-progress');
+        }
         
         // Special celebration animation for completion
         if (percentage === 100) {
@@ -896,6 +1218,9 @@ if (typeof window !== 'undefined') {
     (window as any).recursiveSensei.updateKCProgressBar = updateKCProgressBar;
     // Backward compatibility
     (window as any).updateKCProgressBar = updateKCProgressBar;
+    
+    // Expose concept index getter for notepad
+    (window as any).getCurrentActiveConceptIndex = () => currentActiveConceptIndex;
 }
 
 // Add celebration keyframe animation

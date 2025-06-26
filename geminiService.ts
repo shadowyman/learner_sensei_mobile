@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ComprehensiveAnalysisResultType, MISCONCEPTION_IDS } from "./adaptiveEngine";
 import { TeachingPoint, PHASE_KC_TOTAL } from "./curriculum";
 import { 
     GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
-    GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION
+    GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION,
+    GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT
 } from "./prompts";
 import { 
     TEACHING_PLAN_GENERATION_CONFIG,
@@ -38,20 +39,66 @@ export function parseGeminiJsonResponse(jsonString: string): ComprehensiveAnalys
     }
 }
 
-export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProcess: string): Promise<TeachingPoint[][] | null> {
+export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProcess: string, moduleTitle?: string, moduleGoal?: string, conceptsSummary?: string): Promise<TeachingPoint[][] | null> {
     if (!ai) {
         logger.error("GoogleGenAI instance not provided to llmExtractAndPlanTeachingOrder.");
         return null;
     }
 
-    const prompt = GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess);
+    // Debug: Log what's being sent to the prompt
+    if (textToProcess.includes("IntroIllustrate") || textToProcess.includes("Self-Similarity")) {
+        logger.warn(`[BUG_TRACE] llmExtractAndPlanTeachingOrder - Processing IntroIllustrate content`);
+        logger.warn(`[BUG_TRACE] textToProcess length: ${textToProcess.length} chars`);
+        logger.warn(`[BUG_TRACE] textToProcess preview: "${textToProcess.substring(0, 200)}..."`);
+    }
+    
+    // Detect if this is Socratic content
+    const isSocraticContent = textToProcess.includes("Socratic Instructions for Module-Wide Phase 'Socratic'") || 
+                             textToProcess.includes("--- Socratic Section ---") ||
+                             textToProcess.includes("Socratic:");
+    
+    if (isSocraticContent) {
+        logger.info('Sensei:[SOCRATIC_V4] Detected Socratic phase, using categorization prompt');
+    }
+    
+    let prompt: string;
+    if (isSocraticContent) {
+        // Extract module info from the combined text if not provided as parameters
+        let extractedTitle = moduleTitle;
+        let extractedGoal = moduleGoal;
+        let extractedConcepts = conceptsSummary;
+        
+        if (!extractedTitle || !extractedGoal || !extractedConcepts) {
+            // Extract from combined text
+            const titleMatch = textToProcess.match(/Module Title: (.+?)(?:\n|$)/);
+            const goalMatch = textToProcess.match(/Module Goal:\n(.+?)(?:\n\n|$)/s);
+            const conceptsMatch = textToProcess.match(/All Module Concepts:\n([\s\S]+?)(?:\nSocratic Instructions|$)/);
+            
+            if (titleMatch) extractedTitle = titleMatch[1].trim();
+            if (goalMatch) extractedGoal = goalMatch[1].trim();
+            if (conceptsMatch) {
+                // Extract concept titles from the concepts section
+                const conceptTitles = [...conceptsMatch[1].matchAll(/Concept \d+: (.+?)(?:\n|$)/g)]
+                    .map(match => match[1].trim());
+                extractedConcepts = conceptTitles.join(', ');
+            }
+            
+            logger.info('Sensei:[SOCRATIC_V4] Extracted from text - Title:', extractedTitle);
+            logger.info('Sensei:[SOCRATIC_V4] Extracted from text - Goal:', extractedGoal?.substring(0, 100) + '...');
+            logger.info('Sensei:[SOCRATIC_V4] Extracted from text - Concepts:', extractedConcepts);
+        }
+        
+        prompt = GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(textToProcess, extractedTitle || '', extractedGoal || '', extractedConcepts || '');
+    } else {
+        prompt = GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess);
+    }
 
     if (debug) {
         logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Text sent to LLM for planning:", {textToProcess});
         logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Prompt sent to LLM:", prompt);
     }
     
-    if (debugTeachingPlanPrompt) {
+    if (DEBUG_FLAGS.prompt_debug) {
         logger.log("DEBUG: Teaching Plan Original Prompt:", prompt);
     }
 
@@ -68,6 +115,11 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         if (debug) {
             logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Raw JSON response from LLM:", jsonText);
         }
+        
+        // Always log Socratic teaching plan responses
+        if (isSocraticContent) {
+            logger.info('Sensei:[SOCRATIC_V4] Raw LLM Response for Teaching Plan:', jsonText);
+        }
 
         let cleanedJsonString = jsonText.trim();
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
@@ -81,6 +133,39 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
             logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Parsed teaching_plan object:", parsed);
         }
 
+        // Handle Socratic response structure
+        if (isSocraticContent && parsed && parsed.detected_category && parsed.teaching_plan) {
+            logger.info('Sensei:[SOCRATIC_V4] Received categorized response, category:', parsed.detected_category);
+            
+            // Extract the teaching plan with Socratic metadata
+            const socraticPlan = parsed.teaching_plan;
+            if (Array.isArray(socraticPlan) && socraticPlan.length > 0 && 
+                Array.isArray(socraticPlan[0]) && socraticPlan[0].length > 0) {
+                
+                const socraticItem = socraticPlan[0][0];
+                if (socraticItem.interactionGuidance && socraticItem.interactionGuidance.expectedTurns) {
+                    logger.info('Sensei:[SOCRATIC_V4] Expected turns in plan:', socraticItem.interactionGuidance.expectedTurns);
+                }
+                
+                // Transform Socratic plan to standard TeachingPoint format
+                // The plan already has kcValue from the prompt (0.65)
+                const transformedPlan: TeachingPoint[][] = socraticPlan.map((chunk: any[]) =>
+                    chunk.map((item: any) => ({
+                        text: item.text,
+                        kcValue: item.kcValue || 0.65,
+                        isSocraticIntent: item.isSocraticIntent,
+                        interactionGuidance: item.interactionGuidance
+                    }))
+                );
+                
+                return transformedPlan;
+            } else {
+                logger.error('Sensei:[SOCRATIC_V4] Invalid Socratic teaching plan structure:', parsed);
+                return null;
+            }
+        }
+        
+        // Handle standard teaching plan response
         if (parsed && Array.isArray(parsed.teaching_plan)) {
             
             // Validate structure: array of arrays of objects with text only (no kc_value)
@@ -102,13 +187,12 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
                     logger.error('Invalid teaching plan - zero or negative teaching points:', totalPoints);
                     return null;
                 }
-                if (totalPoints > 200) {
+                if (totalPoints > 20) {
                     logger.error('Suspiciously large teaching plan detected:', totalPoints);
                     return null;
                 }
                 
                 const uniformKcValue = PHASE_KC_TOTAL / totalPoints;
-                
                 
                 // Transform to TeachingPoint[][] with calculated kcValue
                 const transformedPlan: TeachingPoint[][] = parsed.teaching_plan.map((chunk: any[]) =>
@@ -136,6 +220,9 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         logger.error("Parsed JSON for teaching_plan does not match expected structure (not an array or missing 'teaching_plan' key):", parsed);
         return null;
     } catch (error) {
+        if (isSocraticContent) {
+            logger.error('Sensei:[SOCRATIC_V4] Failed to parse teaching plan:', error);
+        }
         logger.error("Error getting or parsing teaching_plan from Gemini:", error);
         logger.error("Original text sent to Gemini for teaching_plan:", textToProcess);
         if (debug) {

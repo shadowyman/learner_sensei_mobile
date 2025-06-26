@@ -15,6 +15,7 @@ import {
     SENSEI_ASK_QUESTION_USER_PROMPT_TEMPLATE_FUNCTION
 } from './prompts';
 import { SELECTION_SENSEI_CONFIG } from './model_usage';
+import { notepad } from './notepad';
 
 // Declare hljs for TypeScript if it's loaded globally from a CDN
 declare var hljs: any;
@@ -26,7 +27,8 @@ const TOOLBAR_ACTIONS = [
     { label: 'Depth', actionType: 'explainInMoreDepth' },
     { label: 'Example', actionType: 'showAnExample' },
     { label: 'Code', actionType: 'showExampleCodeSnippet' },
-    { label: 'Ask', actionType: 'askQuestion' }, // Add this line
+    { label: 'Ask', actionType: 'askQuestion' },
+    { label: 'Add to Notepad', actionType: 'addToNotepad' },
 ];
 
 class SelectionSensei {
@@ -47,8 +49,7 @@ class SelectionSensei {
 
     constructor(
         private ai: GoogleGenAI,
-        private messageArea: HTMLDivElement,
-        private streamingMessagesRawText: Map<string, string>
+        private messageArea: HTMLDivElement
     ) {
         // Bind methods to ensure 'this' context is correct in event handlers
         this.handleTextSelection = this.handleTextSelection.bind(this);
@@ -108,11 +109,8 @@ class SelectionSensei {
                 const senseiMessageTextElement = (parentElement as HTMLElement)?.closest('.message-bubble[data-sender="sensei"] .message-text');
                 if (senseiMessageTextElement) {
                     const messageBubbleElement = senseiMessageTextElement.closest('.message-bubble[data-sender="sensei"]');
-                    let originalSenseiMessageText = senseiMessageTextElement.textContent || ""; 
-
-                    if (messageBubbleElement && messageBubbleElement.id) {
-                        originalSenseiMessageText = this.streamingMessagesRawText.get(messageBubbleElement.id) || originalSenseiMessageText;
-                    }
+                    const originalSenseiMessageText = senseiMessageTextElement.textContent || ""; 
+                    
                     this.createAndShowSelectionToolbar(selection, originalSenseiMessageText);
                     return; 
                 }
@@ -146,9 +144,16 @@ class SelectionSensei {
             const button = document.createElement('button');
             button.textContent = action.label; 
             button.title = action.label;
+            
+            if (action.actionType === 'addToNotepad') {
+                button.className = 'notepad-button';
+            }
+            
             button.addEventListener('click', () => {
                 if (action.actionType === 'askQuestion') {
                     this.activateAskMode(selectedText, originalSenseiMessageText, action.label);
+                } else if (action.actionType === 'addToNotepad') {
+                    this.handleAddToNotepad(selectedText);
                 } else {
                     this.handleToolbarAction(selectedText, action.actionType, originalSenseiMessageText, action.label);
                 }
@@ -162,8 +167,34 @@ class SelectionSensei {
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         
-        this.selectionToolbarElement.style.top = `${window.scrollY + rect.top - this.selectionToolbarElement.offsetHeight - 8}px`; 
-        this.selectionToolbarElement.style.left = `${window.scrollX + rect.left + (rect.width / 2) - (this.selectionToolbarElement.offsetWidth / 2)}px`;
+        // Calculate initial position
+        const toolbarHeight = this.selectionToolbarElement.offsetHeight;
+        const toolbarWidth = this.selectionToolbarElement.offsetWidth;
+        
+        let top = window.scrollY + rect.top - toolbarHeight - 8;
+        let left = window.scrollX + rect.left + (rect.width / 2) - (toolbarWidth / 2);
+        
+        // Viewport boundary checks
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Check right boundary
+        if (left + toolbarWidth > window.scrollX + viewportWidth - 10) {
+            left = window.scrollX + viewportWidth - toolbarWidth - 10;
+        }
+        
+        // Check left boundary
+        if (left < window.scrollX + 10) {
+            left = window.scrollX + 10;
+        }
+        
+        // Check top boundary - if toolbar would go above viewport, show below selection
+        if (top < window.scrollY + 10) {
+            top = window.scrollY + rect.bottom + 8;
+        }
+        
+        this.selectionToolbarElement.style.top = `${top}px`; 
+        this.selectionToolbarElement.style.left = `${left}px`;
 
         requestAnimationFrame(() => {
             if (this.selectionToolbarElement) {
@@ -219,6 +250,37 @@ class SelectionSensei {
             textInput.focus();
         });
     }
+    
+    private handleAddToNotepad(selectedText: string): void {
+        logger.info('Adding to notepad - text length:', selectedText.length);
+        
+        // Get the selection for HTML capture
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            logger.error('No selection available');
+            return;
+        }
+        
+        const range = selection.getRangeAt(0);
+        
+        // Capture the HTML fragment of the selection
+        let selectedHTML = '';
+        try {
+            const fragment = range.cloneContents();
+            const div = document.createElement('div');
+            div.appendChild(fragment);
+            selectedHTML = div.innerHTML;
+            logger.info('Successfully captured HTML fragment');
+        } catch (error) {
+            logger.error('Error capturing HTML fragment:', error);
+        }
+        
+        // Add to notepad with the plain text and HTML version
+        // Pass selectedText for both text and markdown parameters since markdown extraction doesn't work
+        notepad.addNote(selectedText, selectedText, selectedHTML);
+        
+        this.hideSelectionToolbar();
+    }
 
     private showResponseModalWithLoading(): void {
         if (!this.responseModal || !this.responseModalTitleElement || !this.responseModalTextContent || !this.responseModalSpinner) {
@@ -270,12 +332,13 @@ class SelectionSensei {
     private async processMermaidDiagrams(container: HTMLElement): Promise<void> {
         const mermaidBlocks = container.querySelectorAll('pre code.language-mermaid');
         
-        for (const block of mermaidBlocks) {
+        // Process all Mermaid diagrams in parallel
+        const mermaidPromises = Array.from(mermaidBlocks).map(async (block) => {
             const preElement = block.parentElement as HTMLElement;
             const rawMermaidCode = block.textContent || '';
             
             try {
-                const uniqueId = `selection-mermaid-${Date.now()}-${Math.random().toString(36).substring(2)}`;
+                const uniqueId = `selection-mermaid-${crypto.randomUUID()}`;
                 const { svg } = await mermaidManager.render(uniqueId, rawMermaidCode);
                 renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
             } catch (error: any) {
@@ -288,7 +351,9 @@ class SelectionSensei {
                 `;
                 preElement.replaceWith(errorDiv);
             }
-        }
+        });
+        
+        await Promise.all(mermaidPromises);
     }
 
     private async handleToolbarAction(selectedText: string, actionType: string, originalSenseiMessageText: string, actionLabel: string, userQuestion?: string): Promise<void> {
@@ -379,9 +444,8 @@ class SelectionSensei {
 
 export function initializeSelectionSensei(
     ai: GoogleGenAI,
-    messageArea: HTMLDivElement,
-    streamingMessagesRawText: Map<string, string>
+    messageArea: HTMLDivElement
 ): void {
-    const selectionSenseiInstance = new SelectionSensei(ai, messageArea, streamingMessagesRawText);
+    const selectionSenseiInstance = new SelectionSensei(ai, messageArea);
     selectionSenseiInstance.initialize();
 }

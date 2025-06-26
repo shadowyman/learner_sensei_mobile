@@ -2,10 +2,10 @@
 
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Apache-2.1
  */
 
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 import { LearnerModel } from "./adaptiveEngine";
 import { 
     initiateConsolidation,
@@ -36,8 +36,6 @@ import {
 } from "./prompts";
 import { ConsolidationState } from "./consolidationManager";
 
-// Feature flag for optimized instructions
-const USE_OPTIMIZED_INSTRUCTIONS = false;
 
 // Define TeachingPoint as the structure for items in the teaching plan
 export interface TeachingPoint {
@@ -61,27 +59,23 @@ export interface Module {
     title: string;
     goal: string;
     concepts: Concept[];
-    methodology: MethodologyStep[]; // Common methodologies for the module
+    methodology: MethodologyStep[]; // Common methodologies for the module (steps 1., 2.)
+    socratic: string; // NEW: Top-level Socratic section content
+    solidify: string; // NEW: Top-level Solidify & Prepare section content
 }
 
 export interface Curriculum {
     modules: Module[];
 }
 
-export type Phase = 'IntroIllustrate' | 'Socratic' | 'Solidify' | 'Socratic_Module' | 'Solidify_Module';
+export type Phase = 'IntroIllustrate' | 'Socratic' | 'Solidify';
 
-const CONCEPT_PEDAGOGICAL_PHASES: Phase[] = ['IntroIllustrate', 'Socratic', 'Solidify'];
-const MODULE_PEDAGOGICAL_PHASES: Phase[] = ['Socratic_Module', 'Solidify_Module'];
+const CONCEPT_PEDAGOGICAL_PHASES: Phase[] = ['IntroIllustrate'];
+const MODULE_PEDAGOGICAL_PHASES: Phase[] = ['Socratic', 'Solidify'];
 const ALL_PHASES: Phase[] = [...CONCEPT_PEDAGOGICAL_PHASES, ...MODULE_PEDAGOGICAL_PHASES];
 
 
-export const METHODOLOGY_NUMBERS_FOR_PHASE: Record<Phase, string[]> = {
-    IntroIllustrate: ["1.", "2."],
-    Socratic: ["3."],
-    Solidify: ["4."],
-    Socratic_Module: ["3."], 
-    Solidify_Module: ["4."], 
-};
+// NOTE: Updated for new section-based structure - Socratic/Solidify phases now use dedicated section fields
 
 
 export interface CurriculumState {
@@ -94,6 +88,10 @@ export interface CurriculumState {
     currentTeachingChunkIndex: number; 
     coveredPointsInCurrentChunk: Set<string>; // Stores TEXT of covered points
     pointsToRevisitInCurrentChunk?: Set<string>; // Stores TEXT of points to revisit
+    // Socratic v4 specific fields
+    socraticTurnCount?: number;
+    socraticBaseInstruction?: string;
+    socraticCompletionPending?: SocraticCompletionResult;
 }
 
 export interface CurriculumItem {
@@ -104,6 +102,12 @@ export interface CurriculumItem {
     isLastConceptInModule: boolean; 
     isLastPhaseForConcept: boolean; 
     isModuleWidePhase: boolean;
+}
+
+export interface SocraticCompletionResult {
+    triggered: boolean;
+    trigger?: string;
+    cleanResponse: string;
 }
 
 let _curriculum: Curriculum | null = null;
@@ -139,41 +143,62 @@ export async function generateTeachingPlanForPhase(
     }
 
     if (item.isModuleWidePhase) {
+        if (DEBUG_FLAGS.curriculum_debug) {
+        }
+        
         combinedText += `Module Title: ${module.title}\nModule Goal:\n${module.goal}\n\n`;
         
-        // Only include methodology for phases other than IntroIllustrate
-        if (phase !== 'IntroIllustrate') {
-            const methodologyNumbers = METHODOLOGY_NUMBERS_FOR_PHASE[phase];
-            combinedText += `Methodology Instructions for Module-Wide Phase '${phase}' (use these to inform actionable items):\n`;
-            let methodologyFound = false;
-            methodologyNumbers.forEach(numPrefix => {
-                const step = module.methodology.find(m => m.title.trim().startsWith(numPrefix));
-                if (step && step.text.trim()) {
-                    combinedText += `\n--- Methodology Step: ${step.title} ---\n${step.text}\n`;
-                    methodologyFound = true;
-                }
-            });
-            if (!methodologyFound) {
-                combinedText += "No specific module methodology steps listed for this phase; use general pedagogical principles for the phase type.\n";
+        // Include all concepts for module-wide phases
+        combinedText += `All Module Concepts:\n`;
+        module.concepts.forEach((concept, idx) => {
+            combinedText += `\nConcept ${idx + 1}: ${concept.title}\n${concept.text}\n`;
+            if (DEBUG_FLAGS.curriculum_debug) {
+            }
+        });
+        combinedText += `\n`;
+        
+        // Section-based content sourcing
+        if (phase === 'Socratic') {
+            if (module.socratic && module.socratic.trim()) {
+                combinedText += `Socratic Instructions for Module-Wide Phase '${phase}' (use these to inform actionable items):\n`;
+                combinedText += `\n--- Socratic Section ---\n${module.socratic}\n`;
+            } else {
+                combinedText += "No specific Socratic instructions found for this phase; use general pedagogical principles.\n";
+            }
+        } else if (phase === 'Solidify') {
+            if (module.solidify && module.solidify.trim()) {
+                combinedText += `Solidify Instructions for Module-Wide Phase '${phase}' (use these to inform actionable items):\n`;
+                combinedText += `\n--- Solidify & Prepare Section ---\n${module.solidify}\n`;
+            } else {
+                combinedText += "No specific Solidify instructions found for this phase; use general pedagogical principles.\n";
             }
         }
     } else if (item.concept) {
+        // Debug: Log concept data flow for IntroIllustrate
+        if (phase === 'IntroIllustrate') {
+            logger.warn(`[BUG_TRACE] generateTeachingPlanForPhase - IntroIllustrate phase`);
+            logger.warn(`[BUG_TRACE] Concept title: "${item.concept.title}"`);
+            logger.warn(`[BUG_TRACE] Concept text length: ${item.concept.text?.length || 0} chars`);
+            logger.warn(`[BUG_TRACE] Concept text preview: "${item.concept.text?.substring(0, 100) || 'EMPTY'}..."`);
+        }
         combinedText += `Concept Title: ${item.concept.title}\nCore Concept Content:\n${item.concept.text}\n\n`;
         
-        // Only include methodology for phases other than IntroIllustrate
-        if (phase !== 'IntroIllustrate') {
-            const methodologyNumbers = METHODOLOGY_NUMBERS_FOR_PHASE[phase];
-            combinedText += `Methodology Instructions for Phase '${phase}' (use these to inform actionable items):\n`;
-            let methodologyFound = false;
-            methodologyNumbers.forEach(numPrefix => {
-                const step = module.methodology.find(m => m.title.trim().startsWith(numPrefix));
-                if (step && step.text.trim()) {
-                    combinedText += `\n--- Methodology Step: ${step.title} ---\n${step.text}\n`;
-                    methodologyFound = true;
-                }
-            });
-            if (!methodologyFound) {
-                combinedText += "No specific methodology steps listed for this phase; use general pedagogical principles for the phase type.\n";
+        // NEW: Section-based content sourcing for concept-level phases
+        if (phase === 'IntroIllustrate') {
+            // Methodology sections are no longer included to reduce context size
+        } else if (phase === 'Socratic') {
+            if (module.socratic && module.socratic.trim()) {
+                combinedText += `Socratic Instructions for Phase '${phase}' (use these to inform actionable items):\n`;
+                combinedText += `\n--- Socratic Section ---\n${module.socratic}\n`;
+            } else {
+                combinedText += "No specific Socratic instructions found for this phase; use general pedagogical principles.\n";
+            }
+        } else if (phase === 'Solidify') {
+            if (module.solidify && module.solidify.trim()) {
+                combinedText += `Solidify Instructions for Phase '${phase}' (use these to inform actionable items):\n`;
+                combinedText += `\n--- Solidify & Prepare Section ---\n${module.solidify}\n`;
+            } else {
+                combinedText += "No specific Solidify instructions found for this phase; use general pedagogical principles.\n";
             }
         }
     } else {
@@ -188,6 +213,7 @@ export async function generateTeachingPlanForPhase(
     }
 
     logger.log(`Requesting LLM teaching plan generation for: ${item.curriculumPathId}, Phase: ${phase}.`);
+    
 
     const teachingPlan = await llmPlanner(combinedText);
     if (teachingPlan && teachingPlan.length > 0) {
@@ -233,6 +259,7 @@ export async function generateTeachingPlanForPhase(
         if (typeof totalKcValue !== 'number' || isNaN(totalKcValue) || totalKcValue < 0.60 || totalKcValue > 0.70) { 
              logger.warn(`LLM generated total KC value of ${totalKcValueDisplay}, which is outside the target sum range of ~0.65 for ${item.curriculumPathId}, Phase: ${phase}.`);
         }
+        
         return teachingPlan;
     }
 
@@ -241,53 +268,143 @@ export async function generateTeachingPlanForPhase(
 }
 
 
+// Improved regex patterns for Goal and Concepts sections only
+const IMPROVED_REGEX_PATTERNS = {
+    goal: /\nGoal:\s*([\s\S]*?)(?=\nConcepts:|\nModule|$)/,
+    conceptsSection: /\nConcepts:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/,
+    individualConcept: /(?:^|\n)\s*(\d+)\.\s+([^:]+?):\s*([\s\S]*?)(?=\n\s*\d+\.\s+[^:]+:|\nMethodology:|$)/g
+};
+
+
 export function parseModulesTxt(txt: string): Curriculum {
     const modules: Module[] = [];
-    const moduleRegex = /Module (\d+(?:\.\d+)?):\s*(.*?)\n[\s\S]*?Goal:\s*([\s\S]*?)\nConcepts[\s\S]*?:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/gi;
-    const conceptRegex = /([A-Za-z0-9\s.,'&()]+?-?\s*[A-Za-z0-9\s.,'&()]+?):\s*([\s\S]*?)(?=\n\s*[A-Za-z0-9\s.,'&()]+?-?\s*[A-Za-z0-9\s.,'&()]+?:|\nMethodology:|\nModule|$)/g;
-    const methodologyStepRegex = /([0-9]+\.[ \t]*[A-Za-z0-9\s,&#'\-():<>\[\].]+?):\s*([\s\S]*?)(?=\n[ \t]*[0-9]+\.[ \t]*[A-Za-z0-9\s,&#'\-():<>\[\].]+?:|\nMethodology:|\nModule|$)/g;
-
-
-    let moduleMatch;
-    while ((moduleMatch = moduleRegex.exec(txt)) !== null) {
-        const moduleIdStr = moduleMatch[1].replace('.', '_');
+    
+    // Split by module headers to process each module separately
+    const moduleHeaderRegex = /^Module (\d+(?:\.\d+)?):\s*(.*?)$/gm;
+    const moduleHeaders: Array<{ match: RegExpExecArray; index: number }> = [];
+    
+    let headerMatch;
+    while ((headerMatch = moduleHeaderRegex.exec(txt)) !== null) {
+        moduleHeaders.push({ match: headerMatch, index: headerMatch.index });
+    }
+    
+    // Original regex patterns for other sections (unchanged)
+    const methodologyStepRegex = /(?:^|\n)\s*([0-9]+\.[ \t]*[^:\n]+?):\s*([\s\S]*?)(?=\n\s*[0-9]+\.[ \t]*[^:\n]+?:|\n\s*Socratic:|\n\s*Solidify & Prepare|\nModule|$)/g;
+    const socraticRegex = /Socratic:\s*([\s\S]*?)(?=\n\s*Solidify & Prepare|\nModule|$)/g;
+    const solidifyRegex = /\n\s*Solidify & Prepare:\s*([\s\S]*?)(?=\nModule|$)/g;
+    
+    // Process each module
+    for (let i = 0; i < moduleHeaders.length; i++) {
+        const startIndex = moduleHeaders[i].index;
+        const endIndex = i < moduleHeaders.length - 1 ? moduleHeaders[i + 1].index : txt.length;
+        const moduleContent = txt.substring(startIndex, endIndex);
+        const headerInfo = moduleHeaders[i].match;
+        
+        const moduleIdStr = headerInfo[1].replace('.', '_');
         const currentModule: Module = {
             id: `Module${moduleIdStr}`,
-            title: moduleMatch[2].trim().replace(/\s*\(Version.*?\)/i, ''),
-            goal: moduleMatch[3].trim(),
+            title: headerInfo[2].trim().replace(/\s*\(Version.*?\)/i, ''),
+            goal: '',
             concepts: [],
-            methodology: []
+            methodology: [],
+            socratic: '',
+            solidify: ''
         };
-
-        const conceptsSection = moduleMatch[4];
-        let conceptMatch;
-        while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
-            const conceptText = conceptMatch[2].trim();
-            currentModule.concepts.push({
-                title: conceptMatch[1].trim(),
-                text: conceptText
-            });
+        
+        // Extract Goal using improved regex
+        const goalMatch = IMPROVED_REGEX_PATTERNS.goal.exec(moduleContent);
+        if (goalMatch) {
+            currentModule.goal = goalMatch[1].trim();
         }
-
-        const moduleEndIndex = moduleMatch.index + moduleMatch[0].length;
-        const nextModuleStartIndex = txt.indexOf("\nModule", moduleEndIndex);
-        const searchEndIndex = nextModuleStartIndex === -1 ? txt.length : nextModuleStartIndex;
-
-        const methodologySectionMatch = /Methodology:\s*([\s\S]*?)(?=\nModule|$)/g.exec(txt.substring(moduleMatch.index, searchEndIndex));
-
-        if (methodologySectionMatch && methodologySectionMatch[1]) {
-            const methodologyText = methodologySectionMatch[1];
-            let stepMatch;
-            while((stepMatch = methodologyStepRegex.exec(methodologyText)) !== null) {
-                 currentModule.methodology.push({
-                    title: stepMatch[1].trim(),
-                    text: stepMatch[2].trim()
+        
+        // Extract Concepts section using improved regex
+        const conceptsSectionMatch = IMPROVED_REGEX_PATTERNS.conceptsSection.exec(moduleContent);
+        if (conceptsSectionMatch) {
+            const conceptsSection = conceptsSectionMatch[1];
+            
+            // Extract individual concepts
+            IMPROVED_REGEX_PATTERNS.individualConcept.lastIndex = 0;
+            let conceptMatch;
+            while ((conceptMatch = IMPROVED_REGEX_PATTERNS.individualConcept.exec(conceptsSection)) !== null) {
+                currentModule.concepts.push({
+                    title: conceptMatch[2].trim(),
+                    text: conceptMatch[3].trim()
                 });
             }
         }
+        
+        // Extract Methodology section (using original regex)
+        const methodologySectionMatch = /Methodology:\s*([\s\S]*?)(?=\nSocratic|\nSolidify|\nModule|$)/g.exec(moduleContent);
+        if (methodologySectionMatch && methodologySectionMatch[1]) {
+            const methodologyText = methodologySectionMatch[1];
+            let stepMatch;
+            let stepCount = 0;
+            methodologyStepRegex.lastIndex = 0;
+            while((stepMatch = methodologyStepRegex.exec(methodologyText)) !== null) {
+                currentModule.methodology.push({
+                    title: stepMatch[1].trim(),
+                    text: stepMatch[2].trim()
+                });
+                stepCount++;
+                if (stepCount >= 2) break;
+            }
+        }
+        
+        // Extract Socratic section (using original regex)
+        socraticRegex.lastIndex = 0;
+        const socraticMatch = socraticRegex.exec(moduleContent);
+        if (socraticMatch) {
+            currentModule.socratic = socraticMatch[1].trim();
+        }
+        
+        // Extract Solidify section (using original regex)
+        solidifyRegex.lastIndex = 0;
+        const solidifyMatch = solidifyRegex.exec(moduleContent);
+        if (solidifyMatch) {
+            currentModule.solidify = solidifyMatch[1].trim();
+        }
+        
+        // Validation and logging
+        if (!currentModule.socratic) {
+            logger.error('CRITICAL: Module missing Socratic section:', currentModule.id);
+        }
+        if (!currentModule.solidify) {
+            logger.error('CRITICAL: Module missing Solidify section:', currentModule.id);
+        }
+        if (currentModule.methodology.length !== 2) {
+            logger.error('CRITICAL: Methodology step count mismatch - Expected: 2, Got:', currentModule.methodology.length, 'Module:', currentModule.id);
+        }
+        
         modules.push(currentModule);
     }
+    
     return { modules };
+}
+
+// Migration function for old phase names
+function migratePhaseIfNeeded(phase: string): Phase {
+    if (DEBUG_FLAGS.curriculum_debug) {
+    }
+    
+    if (phase === 'Socratic_Module') {
+        if (DEBUG_FLAGS.curriculum_debug) {
+        }
+        return 'Socratic';
+    }
+    if (phase === 'Solidify_Module') {
+        if (DEBUG_FLAGS.curriculum_debug) {
+        }
+        return 'Solidify';
+    }
+    // Validate it's a valid phase
+    if (phase === 'IntroIllustrate' || phase === 'Socratic' || phase === 'Solidify') {
+        if (DEBUG_FLAGS.curriculum_debug) {
+        }
+        return phase as Phase;
+    }
+    if (DEBUG_FLAGS.curriculum_debug) {
+    }
+    return 'IntroIllustrate';
 }
 
 export async function initializeCurriculumState(
@@ -295,6 +412,9 @@ export async function initializeCurriculumState(
     startModuleIndex: number = 0,
     llmPlanner: LLMTeachingPlanGenerator
 ): Promise<CurriculumState | null> {
+    if (DEBUG_FLAGS.curriculum_debug) {
+    }
+    
     if (!curriculumData || curriculumData.modules.length === 0 || startModuleIndex < 0 || startModuleIndex >= curriculumData.modules.length) {
         logger.error("Invalid curriculum data or startModuleIndex for initialization:", startModuleIndex, curriculumData);
         return null;
@@ -306,6 +426,8 @@ export async function initializeCurriculumState(
     }
     const initialConcept = initialModule.concepts[0];
     const initialPhase = CONCEPT_PEDAGOGICAL_PHASES[0];
+    if (DEBUG_FLAGS.curriculum_debug) {
+    }
 
     const tempInitialItemId = `${initialModule.id}-${initialConcept.title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}-Phase_${initialPhase}`;
     const initialItemForPlan: CurriculumItem = {
@@ -333,6 +455,95 @@ export async function initializeCurriculumState(
     };
 }
 
+export async function jumpToPhase(
+    curriculumData: Curriculum,
+    moduleIndex: number,
+    targetPhase: Phase,
+    llmPlanner: LLMTeachingPlanGenerator
+): Promise<CurriculumState | null> {
+    
+    if (!curriculumData || curriculumData.modules.length === 0 || moduleIndex < 0 || moduleIndex >= curriculumData.modules.length) {
+        return null;
+    }
+    
+    const module = curriculumData.modules[moduleIndex];
+    if (!module) {
+        return null;
+    }
+    
+    // Validate phase prerequisites
+    if (targetPhase === 'Socratic' || targetPhase === 'Solidify') {
+        if (!module.concepts || module.concepts.length === 0) {
+            logger.warn('[PHASE_VALIDATION] Cannot jump to Socratic without concepts');
+            return null;
+        }
+    }
+    
+    logger.info('[PHASE_VALIDATION] Phase prerequisites met for:', targetPhase);
+    
+    // Determine initial state based on target phase
+    let conceptIndex = 0;
+    let isModuleWidePhase = MODULE_PEDAGOGICAL_PHASES.includes(targetPhase);
+    
+    if (isModuleWidePhase) {
+        // For Socratic/Solidify, we don't need a specific concept
+        conceptIndex = module.concepts.length - 1; // Set to last concept for state consistency
+    } else {
+        // For IntroIllustrate, start with first concept
+        conceptIndex = 0;
+    }
+    
+    const preJumpState = {
+        currentPhase: 'None',
+        conceptIndex: 0,
+        chunkIndex: 0
+    };
+    
+    
+    // Create the curriculum item for teaching plan generation
+    const curriculumItem: CurriculumItem = {
+        moduleTitle: module.title,
+        moduleGoal: module.goal,
+        concept: isModuleWidePhase ? null : module.concepts[conceptIndex],
+        curriculumPathId: '', // Will be set below
+        isLastConceptInModule: conceptIndex >= module.concepts.length - 1,
+        isLastPhaseForConcept: false, // Will be updated based on phase
+        isModuleWidePhase: isModuleWidePhase
+    };
+    
+    // Generate curriculum path ID
+    if (isModuleWidePhase) {
+        curriculumItem.curriculumPathId = `${module.id}-Phase_${targetPhase}`;
+    } else {
+        const conceptTitleCleaned = module.concepts[conceptIndex].title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+        curriculumItem.curriculumPathId = `${module.id}-${conceptTitleCleaned}-Phase_${targetPhase}`;
+    }
+    
+    // Generate teaching plan for the target phase
+    const teachingPlan = await generateTeachingPlanForPhase(curriculumData, curriculumItem, targetPhase, llmPlanner);
+    
+    const newState: CurriculumState = {
+        currentModuleIndex: moduleIndex,
+        currentConceptIndex: conceptIndex,
+        currentPhase: targetPhase,
+        activeConsolidationState: null,
+        isCompleted: false,
+        teachingPlanForPhase: teachingPlan,
+        currentTeachingChunkIndex: 0,
+        coveredPointsInCurrentChunk: new Set<string>(),
+        pointsToRevisitInCurrentChunk: new Set<string>()
+    };
+    
+    const postJumpState = {
+        newPhase: newState.currentPhase,
+        newConceptIndex: newState.currentConceptIndex,
+        newChunkIndex: newState.currentTeachingChunkIndex
+    };
+    
+    
+    return newState;
+}
+
 export function getInitialCurriculumTopicId(curriculumData: Curriculum | null): string {
     if (!curriculumData || curriculumData.modules.length === 0 || curriculumData.modules[0].concepts.length === 0) {
         return "General_Introduction_To_Recursion";
@@ -352,6 +563,8 @@ export function getCurrentCurriculumItem(curriculumData: Curriculum, state: Curr
 
     const module = curriculumData.modules[state.currentModuleIndex];
     const isModulePhase = MODULE_PEDAGOGICAL_PHASES.includes(state.currentPhase);
+    if (DEBUG_FLAGS.curriculum_debug) {
+    }
 
     let concept: Concept | null = null;
     let conceptTitleCleaned: string;
@@ -369,13 +582,21 @@ export function getCurrentCurriculumItem(curriculumData: Curriculum, state: Curr
         concept = module.concepts[state.currentConceptIndex] || null;
         conceptTitleCleaned = concept ? concept.title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '') : 'NoConcept';
         isLastConceptInModule = state.currentConceptIndex >= module.concepts.length - 1;
+        
+        // Debug: Log concept retrieval
+        if (concept && state.currentPhase === 'IntroIllustrate') {
+            logger.warn(`[BUG_TRACE] getCurrentCurriculumItem - Retrieved concept for IntroIllustrate`);
+            logger.warn(`[BUG_TRACE] Module: ${module.title}, Concept index: ${state.currentConceptIndex}`);
+            logger.warn(`[BUG_TRACE] Concept title: "${concept.title}"`);
+            logger.warn(`[BUG_TRACE] Concept text exists: ${!!concept.text}, length: ${concept.text?.length || 0}`);
+        }
         const currentConceptPhaseIndex = CONCEPT_PEDAGOGICAL_PHASES.indexOf(state.currentPhase);
         isLastPhaseForConcept = currentConceptPhaseIndex >= CONCEPT_PEDAGOGICAL_PHASES.length - 1;
     }
 
     const curriculumPathId = `${module.id}-${isModulePhase ? '' : conceptTitleCleaned + '-'}Phase_${state.currentPhase}`;
 
-    return {
+    const result = {
         moduleTitle: module.title,
         moduleGoal: module.goal,
         concept: concept,
@@ -384,6 +605,18 @@ export function getCurrentCurriculumItem(curriculumData: Curriculum, state: Curr
         isLastPhaseForConcept: isLastPhaseForConcept,
         isModuleWidePhase: isModulePhase,
     };
+    
+    if (DEBUG_FLAGS.curriculum_debug) {
+        logger.info('[CURRICULUM_ITEM] Current item details:', {
+            phase: state.currentPhase,
+            conceptIndex: state.currentConceptIndex,
+            conceptTitle: concept?.title || 'N/A',
+            isModuleWidePhase: isModulePhase,
+            curriculumPathId: curriculumPathId
+        });
+    }
+    
+    return result;
 }
 
 export const PHASE_MASTERY_THRESHOLD = 0.65; // This remains the target sum of kcValues for a phase
@@ -395,7 +628,43 @@ export async function advanceCurriculumState(
     learnerModel: LearnerModel,
     llmPlanner: LLMTeachingPlanGenerator
 ): Promise<boolean> {
+    if (DEBUG_FLAGS.curriculum_debug) {
+        logger.info('[ADVANCE] Attempting to advance curriculum state:', {
+            moduleIndex: state.currentModuleIndex,
+            conceptIndex: state.currentConceptIndex,
+            phase: state.currentPhase,
+            chunkIndex: state.currentTeachingChunkIndex,
+            totalChunks: state.teachingPlanForPhase.length
+        });
+    }
+    
     if (state.isCompleted) return false;
+
+    // Check for pending Socratic completion
+    if (state.socraticCompletionPending?.triggered) {
+        logger.info('Sensei:[SOCRATIC_V4] Processing pending Socratic completion');
+        const currentItem = getCurrentCurriculumItem(curriculumData, state);
+        if (currentItem && state.currentPhase === 'Socratic') {
+            logger.info('Sensei:[SOCRATIC_V4] Phase completed after turns:', state.socraticTurnCount);
+            
+            // Award full phase KC
+            const phaseKCId = currentItem.curriculumPathId;
+            if (!learnerModel.KCs[phaseKCId]) learnerModel.KCs[phaseKCId] = 0;
+            learnerModel.KCs[phaseKCId] = PHASE_MASTERY_THRESHOLD; // Award full 0.65
+            
+            // Log completion details
+            const expectedTurns = state.teachingPlanForPhase?.[0]?.[0]?.interactionGuidance?.expectedTurns || 'unknown';
+            logger.log(`Sensei:[SOCRATIC_V4] Turn efficiency: ${state.socraticTurnCount}/${expectedTurns} turns`);
+            
+            // Clear Socratic state
+            state.socraticCompletionPending = null;
+            state.socraticTurnCount = 0;
+            state.socraticBaseInstruction = null;
+            
+            // Let normal advancement logic handle phase transition
+            // The code below will detect mastery and advance to Solidify
+        }
+    }
 
     const currentItem = getCurrentCurriculumItem(curriculumData, state);
     if (!currentItem) {
@@ -446,21 +715,38 @@ export async function advanceCurriculumState(
             const module = curriculumData.modules[state.currentModuleIndex];
 
             if (CONCEPT_PEDAGOGICAL_PHASES.includes(state.currentPhase)) {
-                const currentConceptPhaseIndex = CONCEPT_PEDAGOGICAL_PHASES.indexOf(state.currentPhase);
-                if (currentConceptPhaseIndex < CONCEPT_PEDAGOGICAL_PHASES.length - 1) { 
-                    state.currentPhase = CONCEPT_PEDAGOGICAL_PHASES[currentConceptPhaseIndex + 1];
+                if (DEBUG_FLAGS.curriculum_debug) {
+                    logger.info('[ADVANCE] Concept phase completed, checking next step');
+                }
+                
+                // Since we only have IntroIllustrate for concepts now
+                if (state.currentConceptIndex < module.concepts.length - 1) { 
+                    state.currentConceptIndex++;
+                    state.currentPhase = CONCEPT_PEDAGOGICAL_PHASES[0];
+                    if (DEBUG_FLAGS.curriculum_debug) {
+                        logger.info('[ADVANCE] Moving to next concept:', state.currentConceptIndex);
+                    }
                 } else { 
-                    if (state.currentConceptIndex < module.concepts.length - 1) { 
-                        state.currentConceptIndex++;
-                        state.currentPhase = CONCEPT_PEDAGOGICAL_PHASES[0]; 
-                    } else { 
-                        state.currentPhase = MODULE_PEDAGOGICAL_PHASES[0]; 
+                    // Last concept completed, move to module phases
+                    const oldPhase = state.currentPhase;
+                    state.currentPhase = MODULE_PEDAGOGICAL_PHASES[0];
+                    if (DEBUG_FLAGS.curriculum_debug) {
+                        logger.info('[ADVANCE] Last concept completed, moving to module phase:', state.currentPhase);
                     }
                 }
             }
-            else if (state.currentPhase === 'Socratic_Module') {
-                state.currentPhase = MODULE_PEDAGOGICAL_PHASES[1]; 
-            } else if (state.currentPhase === 'Solidify_Module') {
+            else if (state.currentPhase === 'Socratic') {
+                // Clear Socratic-specific state when phase completes normally
+                state.socraticTurnCount = 0;
+                state.socraticBaseInstruction = null;
+                state.socraticCompletionPending = null;
+                
+                const oldPhase = state.currentPhase;
+                state.currentPhase = MODULE_PEDAGOGICAL_PHASES[1];
+                if (DEBUG_FLAGS.curriculum_debug) {
+                    logger.info('[ADVANCE] Socratic phase completed, moving to Solidify:', state.currentPhase);
+                }
+            } else if (state.currentPhase === 'Solidify') {
                 if (state.currentModuleIndex < curriculumData.modules.length - 1) { 
                     state.currentModuleIndex++;
                     state.currentConceptIndex = 0;
@@ -475,12 +761,19 @@ export async function advanceCurriculumState(
             state.currentTeachingChunkIndex = 0;
             const newItem = getCurrentCurriculumItem(curriculumData, state);
             if (newItem) {
+                if (DEBUG_FLAGS.curriculum_debug) {
+                    logger.info('[ADVANCE] Generating teaching plan for new phase');
+                }
+                
                 // Reset KC score and awarded points for the new phase
                 learnerModel.KCs[newItem.curriculumPathId] = 0; 
                 learnerModel.KCMasteryLastUpdated[newItem.curriculumPathId] = new Date().toISOString();
                 learnerModel.awardedKcForPhasePoints = new Set<string>(); // Reset awarded KCs for the new phase
 
                 state.teachingPlanForPhase = await generateTeachingPlanForPhase(curriculumData, newItem, state.currentPhase, llmPlanner);
+                if (DEBUG_FLAGS.curriculum_debug) {
+                    logger.info('[ADVANCE] Teaching plan generated, chunks:', state.teachingPlanForPhase.length);
+                }
                 state.coveredPointsInCurrentChunk = new Set<string>();
                 state.pointsToRevisitInCurrentChunk = new Set<string>();
             } else if (!state.isCompleted) {
@@ -505,16 +798,42 @@ export async function advanceCurriculumState(
         learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic++;
          logger.log(`Curriculum progression gated for current chunk ${state.currentTeachingChunkIndex + 1} of ${currentItem.curriculumPathId}. ChunkLocallyCompleted: ${currentChunkLocallyCompleted}. Interaction counter for this chunk: ${learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic}`);
     }
+    
+    // Socratic fallback completion check
+    if (state.currentPhase === 'Socratic' && state.socraticTurnCount) {
+        const expectedTurns = state.teachingPlanForPhase?.[0]?.[0]?.interactionGuidance?.expectedTurns || 20;
+        const maxTurns = expectedTurns * 2;
+        
+        if (state.socraticTurnCount >= maxTurns) {
+            logger.warn('Sensei:[SOCRATIC_V4] Fallback completion at 2x turns:', state.socraticTurnCount);
+            
+            // Award full phase KC
+            const phaseKCId = currentItem.curriculumPathId;
+            if (!learnerModel.KCs[phaseKCId]) learnerModel.KCs[phaseKCId] = 0;
+            learnerModel.KCs[phaseKCId] = PHASE_MASTERY_THRESHOLD; // Award full 0.65
+            
+            // Clear Socratic state
+            state.socraticTurnCount = 0;
+            state.socraticBaseInstruction = null;
+            state.socraticCompletionPending = null;
+            
+            // Force advancement by setting chunk as complete
+            currentChunkLocallyCompleted = true;
+            return await advanceCurriculumState(curriculumData, state, learnerModel, llmPlanner);
+        }
+    }
+    
     return false;
 }
 
 
-// Legacy version with full static content
-function getLegacyCurriculumFocusInstruction(
+// Main implementation of curriculum focus instruction generation
+function getCurriculumFocusInstructionImpl(
     curriculum: Curriculum, 
     item: CurriculumItem,
     state: CurriculumState,
-    isMustObeyTurn: boolean
+    isMustObeyTurn: boolean,
+    preCalculatedFocusPoints?: { focusPoints: string[], primaryActionType: string }
 ): string {
     if (state.isCompleted) {
         return CURRICULUM_COMPLETED_FOCUS_INSTRUCTION;
@@ -525,42 +844,37 @@ function getLegacyCurriculumFocusInstruction(
 
     let primaryActionInstruction = "";
     let primaryActionType = "";
+    let focusPointsStrings: string[] = [];
 
     const phase = state.currentPhase;
-    const currentChunkTeachingPoints = (state.teachingPlanForPhase && state.teachingPlanForPhase[state.currentTeachingChunkIndex]) 
-        ? state.teachingPlanForPhase[state.currentTeachingChunkIndex] 
-        : [];
-    const currentChunkItemTexts = currentChunkTeachingPoints.map(tp => tp.text);
-
+    
+    // Handle consolidation case first as it returns early
     if (state.activeConsolidationState) {
         return getConsolidationInstruction(item, state.activeConsolidationState);
+    }
+    
+    // Use pre-calculated focus points if provided, otherwise calculate them
+    if (preCalculatedFocusPoints) {
+        focusPointsStrings = preCalculatedFocusPoints.focusPoints;
+        primaryActionType = preCalculatedFocusPoints.primaryActionType;
     } else {
-        let focusPointsStrings: string[] = [];
-        if (state.pointsToRevisitInCurrentChunk && state.pointsToRevisitInCurrentChunk.size > 0) {
-            const revisitPointsTexts = currentChunkItemTexts.filter(text => state.pointsToRevisitInCurrentChunk!.has(text));
-            if (revisitPointsTexts.length > 0) {
-                focusPointsStrings = revisitPointsTexts.slice(0, 3); 
-                primaryActionType = "Revisit & Clarify (from current chunk)";
-                primaryActionInstruction = REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, !isMustObeyTurn);
-            } else {
-                 const allRevisitPoints = Array.from(state.pointsToRevisitInCurrentChunk).slice(0,3); 
-                 primaryActionType = "Revisit & Clarify (general points for this phase)";
-                 primaryActionInstruction = REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(allRevisitPoints, !isMustObeyTurn);
-            }
-        } else if (currentChunkItemTexts.length > 0) {
-            const uncoveredInChunkTexts = currentChunkItemTexts.filter(text => !state.coveredPointsInCurrentChunk.has(text));
-            if (uncoveredInChunkTexts.length > 0) {
-                focusPointsStrings = uncoveredInChunkTexts.slice(0, 3); 
-                primaryActionType = "Teach New Content (from current chunk)";
-                primaryActionInstruction = TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, !isMustObeyTurn);
-            } else { 
-                primaryActionType = "Reinforce & Deepen (current chunk)";
-                primaryActionInstruction = REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE(item, currentChunkItemTexts);
-            }
-        } else { 
-            primaryActionType = "General Engagement";
-            primaryActionInstruction = GENERAL_ENGAGEMENT_PROMPT_TEMPLATE(item, state);
-        }
+        // Fallback to calculating focus points inline (for backward compatibility)
+        const calculated = calculateFocusPoints(state);
+        focusPointsStrings = calculated.focusPoints;
+        primaryActionType = calculated.primaryActionType;
+    }
+    
+    // Generate the appropriate instruction based on the primary action type
+    if (primaryActionType === "Revisit & Clarify (from current chunk)") {
+        primaryActionInstruction = REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, !isMustObeyTurn);
+    } else if (primaryActionType === "Revisit & Clarify (general points for this phase)") {
+        primaryActionInstruction = REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(focusPointsStrings, !isMustObeyTurn);
+    } else if (primaryActionType === "Teach New Content (from current chunk)") {
+        primaryActionInstruction = TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, !isMustObeyTurn);
+    } else if (primaryActionType === "Reinforce & Deepen (current chunk)") {
+        primaryActionInstruction = REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE(item, focusPointsStrings);
+    } else if (primaryActionType === "General Engagement") {
+        primaryActionInstruction = GENERAL_ENGAGEMENT_PROMPT_TEMPLATE(item, state);
     }
 
     let instruction = `${CURRICULUM_FOCUS_HEADER_BASE}
@@ -598,96 +912,92 @@ ${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY}`;
     return instruction;
 }
 
-// Optimized version with minimal dynamic content
-function getOptimizedCurriculumFocusInstruction(
-    curriculum: Curriculum, 
-    item: CurriculumItem,
-    state: CurriculumState,
-    isMustObeyTurn: boolean
-): string {
-    if (state.isCompleted) {
-        return CURRICULUM_COMPLETED_FOCUS_INSTRUCTION;
-    }
-    if (!item) {
-        return GENERAL_INTERACTION_FOCUS_INSTRUCTION;
-    }
 
-    let primaryActionType = "";
-    let focusPointsStrings: string[] = [];
-    let includeCheck = !isMustObeyTurn;
-
-    const phase = state.currentPhase;
+/**
+ * Calculates the focus points for the current teaching state.
+ * These are the specific teaching points that should be emphasized in this turn.
+ * @returns An object containing the focus points and metadata about the teaching action
+ */
+export function calculateFocusPoints(
+    state: CurriculumState
+): { focusPoints: string[], primaryActionType: string } {
     const currentChunkTeachingPoints = (state.teachingPlanForPhase && state.teachingPlanForPhase[state.currentTeachingChunkIndex]) 
         ? state.teachingPlanForPhase[state.currentTeachingChunkIndex] 
         : [];
     const currentChunkItemTexts = currentChunkTeachingPoints.map(tp => tp.text);
-
+    
+    let focusPoints: string[] = [];
+    let primaryActionType = "";
+    
     if (state.activeConsolidationState) {
-        return getConsolidationInstruction(item, state.activeConsolidationState);
-    } else {
-        if (state.pointsToRevisitInCurrentChunk && state.pointsToRevisitInCurrentChunk.size > 0) {
-            const revisitPointsTexts = currentChunkItemTexts.filter(text => state.pointsToRevisitInCurrentChunk!.has(text));
-            if (revisitPointsTexts.length > 0) {
-                focusPointsStrings = revisitPointsTexts.slice(0, 3); 
-                primaryActionType = "Revisit & Clarify (from current chunk)";
-            } else {
-                focusPointsStrings = Array.from(state.pointsToRevisitInCurrentChunk).slice(0,3); 
-                primaryActionType = "Revisit & Clarify (general points for this phase)";
-            }
-        } else if (currentChunkItemTexts.length > 0) {
-            const uncoveredInChunkTexts = currentChunkItemTexts.filter(text => !state.coveredPointsInCurrentChunk.has(text));
-            if (uncoveredInChunkTexts.length > 0) {
-                focusPointsStrings = uncoveredInChunkTexts.slice(0, 3); 
-                primaryActionType = "Teach New Content (from current chunk)";
-            } else { 
-                primaryActionType = "Reinforce & Deepen (current chunk)";
-                focusPointsStrings = currentChunkItemTexts;
-            }
-        } else { 
-            primaryActionType = "General Engagement";
+        primaryActionType = "Consolidation";
+        // During consolidation, focus on synthesis across all chunks
+        focusPoints = []; // Consolidation doesn't use specific focus points
+    } else if (state.pointsToRevisitInCurrentChunk && state.pointsToRevisitInCurrentChunk.size > 0) {
+        // Priority 1: Points that need revisiting from current chunk
+        const revisitPointsTexts = currentChunkItemTexts.filter(text => state.pointsToRevisitInCurrentChunk!.has(text));
+        if (revisitPointsTexts.length > 0) {
+            focusPoints = revisitPointsTexts;
+            primaryActionType = "Revisit & Clarify (from current chunk)";
+        } else {
+            // Fallback: revisit points from other chunks
+            focusPoints = Array.from(state.pointsToRevisitInCurrentChunk);
+            primaryActionType = "Revisit & Clarify (general points for this phase)";
         }
+    } else if (currentChunkItemTexts.length > 0) {
+        // Priority 2: New uncovered points
+        const uncoveredInChunkTexts = currentChunkItemTexts.filter(text => !state.coveredPointsInCurrentChunk.has(text));
+        if (uncoveredInChunkTexts.length > 0) {
+            focusPoints = uncoveredInChunkTexts;
+            primaryActionType = "Teach New Content (from current chunk)";
+        } else {
+            // Priority 3: All covered, so reinforce
+            focusPoints = currentChunkItemTexts; // Include all for reinforcement
+            primaryActionType = "Reinforce & Deepen (current chunk)";
+        }
+    } else {
+        // No teaching points available
+        primaryActionType = "General Engagement";
+        focusPoints = [];
     }
-
-    // Build minimal instruction focusing only on dynamic content
-    let instruction = `[CURRICULUM FOCUS]
-Module: ${item.moduleTitle}
-Phase: ${phase} (Chunk ${state.currentTeachingChunkIndex + 1} of ${state.teachingPlanForPhase.length || 1})`;
     
-    if (!item.isModuleWidePhase && item.concept) {
-        instruction += `\nConcept: ${item.concept.title}`;
-    } else if (item.isModuleWidePhase) {
-        instruction += ` (Module-Wide)`;
-    }
-
-    instruction += `\n\nPRIMARY ACTION: ${primaryActionType}`;
-    
-    if (focusPointsStrings.length > 0) {
-        instruction += `\nTeaching Points:\n${focusPointsStrings.map(s => `- ${s}`).join('\n')}`;
-    }
-
-    instruction += `\n\nContext:
-- Module Goal: "${item.moduleGoal}"`;
-
-    if (item.concept && !item.isModuleWidePhase) {
-        instruction += `\n- Concept Explanation: "${item.concept.text}"`;
-    }
-
-    if (includeCheck) {
-        instruction += '\n\nInclude: Check Understanding Section';
-    }
-
-    return instruction;
+    return { focusPoints, primaryActionType };
 }
 
-// Main export function that switches based on feature flag
+
+// Main export function
 export function getCurriculumFocusInstruction(
     curriculum: Curriculum, 
     item: CurriculumItem,
     state: CurriculumState,
-    isMustObeyTurn: boolean
+    isMustObeyTurn: boolean,
+    preCalculatedFocusPoints?: { focusPoints: string[], primaryActionType: string }
 ): string {
-    if (USE_OPTIMIZED_INSTRUCTIONS) {
-        return getOptimizedCurriculumFocusInstruction(curriculum, item, state, isMustObeyTurn);
+    return getCurriculumFocusInstructionImpl(curriculum, item, state, isMustObeyTurn, preCalculatedFocusPoints);
+}
+
+export function checkForSocraticCompletion(senseiResponse: string): SocraticCompletionResult {
+    // Check for completion flag using regex
+    const completionRegex = /\[SOCRATIC_COMPLETION_TRIGGERED:\s*(.+?)\]/;
+    const match = senseiResponse.match(completionRegex);
+    
+    logger.info('Sensei:[SOCRATIC_V4] Checking completion, found flag:', !!match);
+    
+    if (match) {
+        const trigger = match[1].trim();
+        logger.info('Sensei:[SOCRATIC_V4] Completion trigger:', trigger);
+        const cleanResponse = senseiResponse.replace(completionRegex, '').trim();
+        logger.info('Sensei:[SOCRATIC_V4] Clean response length:', cleanResponse.length);
+        
+        return {
+            triggered: true,
+            trigger: trigger,
+            cleanResponse: cleanResponse
+        };
     }
-    return getLegacyCurriculumFocusInstruction(curriculum, item, state, isMustObeyTurn);
+    
+    return {
+        triggered: false,
+        cleanResponse: senseiResponse
+    };
 }

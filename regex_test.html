@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Concept Extraction Test</title>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .module { border: 2px solid #333; margin: 20px 0; padding: 15px; }
+        .concept { border: 1px solid #666; margin: 10px 0; padding: 10px; background: #f0f0f0; }
+        .error { color: red; }
+        .success { color: green; }
+        .section-title { font-weight: bold; font-size: 18px; margin-bottom: 10px; }
+        .raw-section { background: #e0e0e0; padding: 10px; margin: 10px 0; white-space: pre-wrap; font-size: 12px; }
+        #file-input { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Module Concept Extraction Test</h1>
+    <input type="file" id="file-input" accept=".txt" />
+    <div id="results"></div>
+
+    <script>
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const txt = e.target.result;
+                testRegexPatterns(txt);
+            };
+            reader.readAsText(file);
+        });
+
+        function testRegexPatterns(txt) {
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+            
+            // Current regexes from curriculum.ts
+            const moduleRegex = /Module (\d+(?:\.\d+)?):\s*(.*?)\n[\s\S]*?Goal:\s*([\s\S]*?)\nConcepts[\s\S]*?:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/gi;
+            // Updated regex to handle varying indentation
+            const conceptRegex = /(?:^|\n)\s*(\d+)\.\s+([^:]+?):\s*([\s\S]*?)(?=\n\s*\d+\.\s+[^:]+:|\nMethodology:|$)/g;
+            
+            results.innerHTML += '<div class="section-title">Testing Current Regex Patterns</div>';
+            
+            let moduleMatch;
+            let moduleCount = 0;
+            let moduleConceptCounts = []; // Track concepts per module
+            
+            while ((moduleMatch = moduleRegex.exec(txt)) !== null) {
+                const moduleId = moduleMatch[1];
+                const moduleTitle = moduleMatch[2].trim();
+                const moduleGoal = moduleMatch[3].trim();
+                const conceptsSection = moduleMatch[4];
+                
+                // Process all modules
+                {
+                    moduleCount++;
+                    
+                    const moduleDiv = document.createElement('div');
+                    moduleDiv.className = 'module';
+                    
+                    moduleDiv.innerHTML = `
+                        <div class="section-title">Module ${moduleId}: ${moduleTitle}</div>
+                        <div><strong>Goal:</strong> ${escapeHtml(moduleGoal)}</div>
+                        <br>
+                        <div class="section-title">Raw Concepts Section (first 1500 chars):</div>
+                        <div class="raw-section">${escapeHtml(conceptsSection.substring(0, 1500))}...</div>
+                        <br>
+                        <div class="section-title">Extracted Concepts:</div>
+                    `;
+                    
+                    // Test concept extraction
+                    let conceptMatch;
+                    let conceptCount = 0;
+                    conceptRegex.lastIndex = 0; // Reset regex
+                    
+                    while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
+                        conceptCount++;
+                        const conceptNumber = conceptMatch[1];
+                        const conceptTitle = conceptMatch[2].trim();
+                        const conceptText = conceptMatch[3].trim();
+                        
+                        const conceptDiv = document.createElement('div');
+                        conceptDiv.className = 'concept';
+                        conceptDiv.innerHTML = `
+                            <strong>Concept ${conceptNumber}:</strong> "${conceptTitle}"<br>
+                            <strong>Full Text:</strong> ${escapeHtml(conceptText)}
+                        `;
+                        moduleDiv.appendChild(conceptDiv);
+                    }
+                    
+                    if (conceptCount === 0) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'error';
+                        errorDiv.textContent = 'No concepts extracted!';
+                        moduleDiv.appendChild(errorDiv);
+                    } else {
+                        const successDiv = document.createElement('div');
+                        successDiv.className = 'success';
+                        successDiv.textContent = `Total concepts extracted: ${conceptCount}`;
+                        moduleDiv.appendChild(successDiv);
+                    }
+                    
+                    // Track for summary
+                    moduleConceptCounts.push({
+                        id: moduleId,
+                        title: moduleTitle,
+                        conceptCount: conceptCount
+                    });
+                    
+                    results.appendChild(moduleDiv);
+                }
+            }
+            
+            if (moduleCount === 0) {
+                results.innerHTML += '<div class="error">No modules found!</div>';
+            } else {
+                // Add summary table
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'module';
+                summaryDiv.innerHTML = '<div class="section-title">SUMMARY TABLE</div>';
+                
+                const table = document.createElement('table');
+                table.style.width = '100%';
+                table.style.borderCollapse = 'collapse';
+                table.style.marginTop = '10px';
+                
+                // Header row
+                const headerRow = document.createElement('tr');
+                headerRow.innerHTML = `
+                    <th style="border: 1px solid #333; padding: 8px; background: #ddd;">Module ID</th>
+                    <th style="border: 1px solid #333; padding: 8px; background: #ddd;">Module Title</th>
+                    <th style="border: 1px solid #333; padding: 8px; background: #ddd;">Concepts Extracted</th>
+                `;
+                table.appendChild(headerRow);
+                
+                // Data rows
+                let totalConcepts = 0;
+                moduleConceptCounts.forEach(module => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="border: 1px solid #333; padding: 8px;">${module.id}</td>
+                        <td style="border: 1px solid #333; padding: 8px;">${escapeHtml(module.title.substring(0, 50))}...</td>
+                        <td style="border: 1px solid #333; padding: 8px; text-align: center;">${module.conceptCount}</td>
+                    `;
+                    if (module.conceptCount === 0) {
+                        row.style.backgroundColor = '#ffdddd';
+                    }
+                    table.appendChild(row);
+                    totalConcepts += module.conceptCount;
+                });
+                
+                // Total row
+                const totalRow = document.createElement('tr');
+                totalRow.innerHTML = `
+                    <td style="border: 1px solid #333; padding: 8px; background: #ddd; font-weight: bold;" colspan="2">TOTAL</td>
+                    <td style="border: 1px solid #333; padding: 8px; text-align: center; background: #ddd; font-weight: bold;">${totalConcepts}</td>
+                `;
+                table.appendChild(totalRow);
+                
+                summaryDiv.appendChild(table);
+                results.appendChild(summaryDiv);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

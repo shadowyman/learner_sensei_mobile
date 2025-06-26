@@ -4,9 +4,8 @@
  */
 
 // Define model names as constants
-const GEMINI_PRO_JUNE_2025 = 'gemini-2.5-pro'; // Main teaching, higher quality
-const GEMINI_FLASH_MAY_2025 = 'gemini-2.5-flash'; // Faster, for analysis/structured output
-const GEMINI_FLASH_APRIL_2025 = 'gemini-2.5-flash'; // Recommended flash model for general text tasks
+const GEMINI_PRO = 'gemini-2.5-pro'; // Main teaching, higher quality
+const GEMINI_FLASH = 'gemini-2.5-flash'; // Faster, for analysis/structured output
 
 /**
  * Configuration for the "Teaching Plan Generation" task.
@@ -14,7 +13,7 @@ const GEMINI_FLASH_APRIL_2025 = 'gemini-2.5-flash'; // Recommended flash model f
  * Switched to Flash model as it's a structured JSON generation task that might benefit from speed.
  */
 export const TEACHING_PLAN_GENERATION_CONFIG = {
-  modelName: GEMINI_PRO_JUNE_2025,
+  modelName: GEMINI_PRO,
   config: {
     responseMimeType: "application/json",
     temperature: 0.7,
@@ -27,7 +26,7 @@ export const TEACHING_PLAN_GENERATION_CONFIG = {
  * Switched to Flash model for structured JSON output, potentially faster analysis.
  */
 export const COMPREHENSIVE_ANALYSIS_CONFIG = {
-  modelName: GEMINI_FLASH_MAY_2025,
+  modelName: GEMINI_FLASH,
   config: {
     responseMimeType: "application/json",
     temperature: 0.5,
@@ -41,7 +40,7 @@ export const COMPREHENSIVE_ANALYSIS_CONFIG = {
  * Note: This is for ai.chats.create, so systemInstruction is dynamic.
  */
 export const MODULE_INTRODUCTION_CHAT_MODEL_CONFIG = {
-  modelName: GEMINI_PRO_JUNE_2025,
+  modelName: GEMINI_PRO,
   config: {
     temperature: 0.7,
   },
@@ -54,7 +53,7 @@ export const MODULE_INTRODUCTION_CHAT_MODEL_CONFIG = {
  * Note: This is for ai.chats.create, so systemInstruction is dynamic.
  */
 export const MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG = {
-  modelName: GEMINI_PRO_JUNE_2025,
+  modelName: GEMINI_PRO,
   config: {
     temperature: 0.7,
   },
@@ -66,7 +65,7 @@ export const MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG = {
  * Uses Pro model for better understanding of codebase questions.
  */
 export const DEBUG_MODE_CONFIG = {
-  modelName: GEMINI_PRO_JUNE_2025,
+  modelName: GEMINI_PRO,
   config: {
     temperature: 0.6, // A neutral temperature for debugging queries
   },
@@ -78,7 +77,7 @@ export const DEBUG_MODE_CONFIG = {
  * Uses a fast Flash model for low-latency directive creation.
  */
 export const PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG = {
-  modelName: GEMINI_FLASH_APRIL_2025, // Updated to recommended flash model
+  modelName: GEMINI_FLASH, // Updated to recommended flash model
   config: { temperature: 0.8 },
 };
 
@@ -88,7 +87,7 @@ export const PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG = {
  * Uses Flash model for quick, structured responses to text selection actions.
  */
 export const SELECTION_SENSEI_CONFIG = {
-  modelName: GEMINI_FLASH_MAY_2025,
+  modelName: GEMINI_FLASH,
   config: {
     temperature: 0.5,
     responseMimeType: "application/json",
@@ -101,9 +100,21 @@ export const SELECTION_SENSEI_CONFIG = {
  * Uses Flash model for consistent, rule-based diagram fixes.
  */
 export const MERMAID_ERROR_RECOVERY_CONFIG = {
-  modelName: GEMINI_FLASH_MAY_2025,
+  modelName: GEMINI_FLASH,
   config: {
     responseMimeType: "application/json",
     temperature: 0.5,
+  },
+};
+
+/**
+ * Configuration for the "Archetype Comparison Test" task.
+ * Used in test.ts for testing consistency of archetype classification.
+ * Uses Pro model for higher quality archetype analysis.
+ */
+export const ARCHETYPE_COMPARISON_TEST_CONFIG = {
+  modelName: GEMINI_PRO,
+  config: {
+    temperature: 0.7,
   },
 };

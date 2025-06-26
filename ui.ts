@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2 
  */
 
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 import { LearnerModel } from './adaptiveEngine';
 import { attemptMermaidFix, applyBacktickFix, applyUniversalQuoteFix } from './mermaidErrorRecovery.js';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
@@ -46,6 +46,9 @@ export interface Message {
     isReloadable?: boolean;      // New property
     reloadContext?: ReloadContext; // New property
     skipMermaid?: boolean;       // Skip mermaid processing in displayMessage
+    phaseSelectionEnabled?: boolean; // Enable phase selection buttons
+    selectedModuleIndex?: number;    // Module index for phase selection
+    phaseLoadingAnimation?: boolean; // Show phase loading animation
 }
 
 /**
@@ -90,9 +93,9 @@ const ICONS: { [key: string]: string } = {
 
 export function getPhaseDisplayName(phase: Phase): string {
     switch (phase) {
-        case 'IntroIllustrate': return "Teaching: Intro & Examples";
-        case 'Socratic': return "Activity: Discussion & Exploration";
-        case 'Solidify': return "Wrap-up: Check & Transition";
+        case 'IntroIllustrate': return "Teaching";
+        case 'Socratic': return "Exploration";
+        case 'Solidify': return "Wrap Up";
         case 'Socratic_Module': return "Module Discussion";
         case 'Solidify_Module': return "Module Wrap-up";
         default: return "Exploring...";
@@ -439,6 +442,16 @@ export async function displayMessage(message: Message) {
             clearInterval(oldTimerId);
             streamingMessageTimers.delete(message.id);
         }
+        
+        // Clear phase loading animations if they exist
+        if ((bubble as any).dotAnimation) {
+            clearInterval((bubble as any).dotAnimation);
+            delete (bubble as any).dotAnimation;
+        }
+        if ((bubble as any).messageAnimation) {
+            clearInterval((bubble as any).messageAnimation);
+            delete (bubble as any).messageAnimation;
+        }
 
         const appCurriculum = getLoadedCurriculum();
         if (message.sender === 'sensei' && message.text.includes("**Available Modules:**") && appCurriculum && appCurriculum.modules) {
@@ -498,6 +511,103 @@ export async function displayMessage(message: Message) {
             }
             messageText.appendChild(moduleListContainer);
             streamingMessagesRawText.set(message.id, message.text); // Store original raw text
+        } else if (message.sender === 'sensei' && message.phaseSelectionEnabled) {
+            // Handle phase selection display
+            const phases = [
+                { name: 'IntroIllustrate', display: 'Teaching', description: 'Learn core concepts with clear explanations and examples' },
+                { name: 'Socratic', display: 'Exploration', description: 'Engage in guided discovery through questions and discussion' },
+                { name: 'Solidify', display: 'Wrap Up', description: 'Reinforce understanding and prepare for next steps' }
+            ];
+            
+            // Display the message text
+            const sanitizedText = sanitizeCodeFences(message.text);
+            messageText.innerHTML = marked.parse(sanitizedText) as string;
+            
+            // Create phase buttons container
+            const phaseButtonsContainer = document.createElement('div');
+            phaseButtonsContainer.classList.add('phase-buttons-container');
+            
+            phases.forEach(phase => {
+                const button = document.createElement('button');
+                button.classList.add('phase-button');
+                button.classList.add(`phase-${phase.name.toLowerCase()}`);
+                button.dataset.phase = phase.name;
+                
+                button.textContent = phase.display;
+                
+                button.addEventListener('click', () => {
+                    logger.info('[UI] Phase button click detected:', phase.name);
+                    if (typeof (window as any).handlePhaseSelection === 'function') {
+                        (window as any).handlePhaseSelection(phase.name);
+                    }
+                });
+                
+                phaseButtonsContainer.appendChild(button);
+            });
+            
+            messageText.appendChild(phaseButtonsContainer);
+            logger.info('[PHASE_SELECTION] Available phases rendered:', phases.map(p => p.name));
+            streamingMessagesRawText.set(message.id, message.text);
+        } else if (message.sender === 'sensei' && message.phaseLoadingAnimation) {
+            // Handle phase loading animation
+            const loadingContainer = document.createElement('div');
+            loadingContainer.classList.add('phase-loading-container');
+            
+            const spinner = document.createElement('div');
+            spinner.classList.add('phase-loading-spinner');
+            
+            const loadingText = document.createElement('div');
+            loadingText.classList.add('phase-loading-text');
+            
+            // Array of loading messages
+            const loadingMessages = [
+                'Sensei is generating a teaching plan and will be back with you shortly',
+                'Analyzing your learning patterns to optimize the experience',
+                'Crafting personalized examples based on your progress',
+                'Selecting the most effective teaching strategies',
+                'Preparing interactive exercises tailored to your needs',
+                'Building cognitive bridges to deepen understanding'
+            ];
+            
+            let messageIndex = 0;
+            const textSpan = document.createElement('span');
+            textSpan.textContent = loadingMessages[messageIndex];
+            
+            const dots = document.createElement('span');
+            dots.classList.add('phase-loading-dots');
+            dots.textContent = '...';
+            
+            loadingText.appendChild(textSpan);
+            loadingText.appendChild(dots);
+            
+            loadingContainer.appendChild(spinner);
+            loadingContainer.appendChild(loadingText);
+            messageText.appendChild(loadingContainer);
+            
+            // Animate dots
+            let dotCount = 1;
+            const dotAnimation = setInterval(() => {
+                dotCount = (dotCount % 3) + 1;
+                dots.textContent = '.'.repeat(dotCount);
+            }, 500);
+            
+            // Store reference to text span for updates
+            (loadingText as any).textSpan = textSpan;
+            
+            // Cycle through messages
+            const messageAnimation = setInterval(() => {
+                messageIndex = (messageIndex + 1) % loadingMessages.length;
+                const newMessage = loadingMessages[messageIndex];
+                
+                // Update the text content
+                if ((loadingText as any).textSpan) {
+                    (loadingText as any).textSpan.textContent = newMessage;
+                }
+            }, 5000); // Change message every 5 seconds
+            
+            // Store animation intervals to clear later
+            (bubble as any).dotAnimation = dotAnimation;
+            (bubble as any).messageAnimation = messageAnimation;
         } else {
             if (message.sender === 'sensei') {
                 // Store raw text for potential selection action later
@@ -855,7 +965,9 @@ export async function processMermaidBlocks(messageId: string) {
         const rawMermaidCodeFromLLM = block.textContent || '';
         const rawMermaidCode = rawMermaidCodeFromLLM;
 
-        logger.log("Processing Mermaid in phase 2. Raw code is:\n", rawMermaidCode);
+        if (DEBUG_FLAGS.mermaid_debug) {
+            logger.log("Processing Mermaid in phase 2. Raw code is:\n", rawMermaidCode);
+        }
         try {
             const { svg } = await mermaidManager.render(`mermaid-${messageId}-${Math.random().toString(36).substring(2)}`, rawMermaidCode);
             renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
@@ -1192,8 +1304,7 @@ export function initializeUI() {
     // Setup collapsible footer hover
     setupCollapsibleFooter();
     
-    // Setup progress bar expansion for curriculum status hover
-    setupStatusHoverProgressExpansion();
+    // Progress bar now uses direct CSS hover for dropdown labels
     
     // Setup brand hover for meditation overlay
     setupBrandHoverMeditationOverlay();
@@ -1234,56 +1345,7 @@ function setupLiquidMetalButton() {
     }
 }
 
-function setupStatusHoverProgressExpansion() {
-    const statusSegment = document.querySelector('.weighted-segment.status') as HTMLElement;
-    const progressContainer = document.getElementById('kc-progress-container') as HTMLElement;
-    const chatContainer = document.getElementById('chat-container') as HTMLElement;
-    
-    if (!statusSegment || !progressContainer || !chatContainer) {
-        logger.error("Status hover setup failed: Could not find required elements");
-        return;
-    }
-    
-    let collapseTimer: number | null = null;
-    const COLLAPSE_DELAY = 150; // ms
-    
-    function expandProgressBar() {
-        if (collapseTimer) {
-            clearTimeout(collapseTimer);
-            collapseTimer = null;
-        }
-        chatContainer.classList.add('status-hover');
-    }
-    
-    function scheduleCollapse() {
-        if (collapseTimer) {
-            clearTimeout(collapseTimer);
-        }
-        
-        collapseTimer = window.setTimeout(() => {
-            chatContainer.classList.remove('status-hover');
-            collapseTimer = null;
-        }, COLLAPSE_DELAY);
-    }
-    
-    // Status element hover handlers
-    statusSegment.addEventListener('mouseenter', () => {
-        expandProgressBar();
-    });
-    
-    statusSegment.addEventListener('mouseleave', () => {
-        scheduleCollapse();
-    });
-    
-    // Progress container hover handlers
-    progressContainer.addEventListener('mouseenter', () => {
-        expandProgressBar();
-    });
-    
-    progressContainer.addEventListener('mouseleave', () => {
-        scheduleCollapse();
-    });
-}
+// Note: Status hover expansion removed - progress bar now uses direct CSS hover for dropdown labels
 
 export function setupFullscreenToggle(
     buttonId: string,

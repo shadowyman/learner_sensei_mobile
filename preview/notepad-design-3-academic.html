@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recursive Sensei - Academic Style Notepad</title>
+  <style>
+    /* Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      background: #ffffff;
+      color: #1a1a1a;
+      line-height: 1.8;
+      padding: 80px 60px;
+      max-width: 850px;
+      margin: 0 auto;
+    }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      padding-bottom: 40px;
+      border-bottom: 3px double #333;
+    }
+    
+    .header h1 {
+      font-size: 2.2em;
+      font-weight: bold;
+      color: #1a1a1a;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .header .subtitle {
+      font-size: 1.2em;
+      color: #555;
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+    
+    .export-date {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 15px;
+    }
+    
+    /* Table of Contents */
+    .toc {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 25px;
+      margin-bottom: 50px;
+      border-radius: 0;
+    }
+    
+    .toc h3 {
+      font-size: 1.1em;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #333;
+    }
+    
+    .toc-list {
+      list-style: none;
+      counter-reset: section;
+    }
+    
+    .toc-item {
+      counter-increment: section;
+      margin-bottom: 8px;
+      padding-left: 20px;
+      position: relative;
+    }
+    
+    .toc-item::before {
+      content: counter(section, upper-roman) ". ";
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+    
+    /* Module Section */
+    .module-section {
+      margin-bottom: 70px;
+      counter-reset: note;
+    }
+    
+    .module-header {
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    
+    .module-header h2 {
+      font-size: 1.6em;
+      font-weight: bold;
+      color: #1a1a1a;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 10px;
+      display: inline-block;
+    }
+    
+    .note-count {
+      font-size: 0.9em;
+      color: #666;
+      font-style: italic;
+    }
+    
+    /* Note Card */
+    .note-card {
+      margin-bottom: 50px;
+      counter-increment: note;
+      page-break-inside: avoid;
+    }
+    
+    .concept-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #1a1a1a;
+      margin-bottom: 20px;
+      position: relative;
+      padding-left: 40px;
+    }
+    
+    .concept-title::before {
+      content: counter(note) ".";
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .note-content {
+      color: #2a2a2a;
+      line-height: 1.8;
+      font-size: 1em;
+      text-align: justify;
+      margin-left: 40px;
+    }
+    
+    .note-content p {
+      margin-bottom: 15px;
+      text-indent: 30px;
+    }
+    
+    .note-content code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border: 1px solid #ddd;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #d63384;
+    }
+    
+    .note-content pre {
+      background: #f8f8f8;
+      padding: 20px;
+      border: 1px solid #ddd;
+      overflow-x: auto;
+      margin: 25px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      line-height: 1.4;
+    }
+    
+    .note-content pre code {
+      background: transparent;
+      padding: 0;
+      border: none;
+      color: #1a1a1a;
+    }
+    
+    .highlight {
+      background: #fff2cc;
+      padding: 1px 3px;
+      border-bottom: 2px solid #ffd700;
+    }
+    
+    .important {
+      color: #d63384;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+    
+    .note-metadata {
+      margin-top: 30px;
+      margin-left: 40px;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
+      font-size: 0.85em;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .timestamp {
+      font-style: italic;
+    }
+    
+    .tags {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .tag {
+      background: #f0f0f0;
+      color: #555;
+      padding: 3px 8px;
+      border: 1px solid #ccc;
+      font-size: 0.8em;
+      font-style: italic;
+    }
+    
+    .mermaid-container {
+      background: #f9f9f9;
+      border: 2px solid #ddd;
+      padding: 30px;
+      margin: 25px 0;
+      text-align: center;
+    }
+    
+    .mermaid-placeholder {
+      color: #666;
+      font-style: italic;
+      font-size: 1em;
+    }
+    
+    /* Footnotes */
+    .footnotes {
+      margin-top: 60px;
+      padding-top: 30px;
+      border-top: 2px solid #333;
+      font-size: 0.9em;
+      color: #555;
+    }
+    
+    .footnotes h4 {
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    /* Footer */
+    .footer {
+      margin-top: 80px;
+      text-align: center;
+      padding: 30px 0;
+      border-top: 3px double #333;
+      color: #666;
+      font-size: 0.9em;
+      font-style: italic;
+    }
+    
+    /* Print Styles */
+    @media print {
+      body {
+        padding: 40px 30px;
+        font-size: 12pt;
+        line-height: 1.6;
+      }
+      
+      .module-section {
+        page-break-before: always;
+      }
+      
+      .note-card {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>Study Notes</h1>
+    <p class="subtitle">A Comprehensive Academic Review</p>
+    <div class="export-date">Document prepared on December 24, 2025</div>
+  </header>
+  
+  <div class="toc">
+    <h3>Table of Contents</h3>
+    <ul class="toc-list">
+      <li class="toc-item">Machine Learning Fundamentals</li>
+      <li class="toc-item">Data Structures</li>
+    </ul>
+  </div>
+  
+  <!-- Module: Machine Learning Fundamentals -->
+  <section class="module-section">
+    <div class="module-header">
+      <h2>Machine Learning Fundamentals</h2>
+      <div class="note-count">(3 research notes)</div>
+    </div>
+    
+    <div class="note-card">
+      <h3 class="concept-title">Supervised Learning</h3>
+      <div class="note-content">
+        <p>Supervised learning represents a fundamental paradigm in machine learning where algorithms learn from <span class="highlight">labeled training data</span>. This approach enables the systematic mapping of input features to corresponding output labels through iterative learning processes.</p>
+        
+        <p><strong>Key Characteristics:</strong></p>
+        <p>• Training datasets incorporate both input features and their corresponding correct outputs</p>
+        <p>• The primary objective involves predicting accurate labels for previously unseen data</p>
+        <p>• Common algorithmic approaches include <code>Linear Regression</code>, <code>Decision Trees</code>, and <code>Neural Networks</code></p>
+        
+        <pre><code># Example: Simple linear regression implementation
+from sklearn.linear_model import LinearRegression
+
+model = LinearRegression()
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)</code></pre>
+        
+        <p><span class="important">Critical Observation:</span> The efficacy of predictive models demonstrates a direct correlation with both the quality and quantity of available training data.</p>
+      </div>
+      <div class="note-metadata">
+        <div class="timestamp">Recorded: December 24, 2025, 10:30 AM</div>
+        <div class="tags">
+          <span class="tag">fundamentals</span>
+          <span class="tag">algorithms</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="note-card">
+      <h3 class="concept-title">Neural Network Architecture</h3>
+      <div class="note-content">
+        <p>Neural networks constitute sophisticated computational frameworks comprising interconnected layers of artificial neurons designed to process and transform information through hierarchical structures.</p>
+        
+        <div class="mermaid-container">
+          <div class="mermaid-placeholder">Figure 1: Neural Network Architecture Schematic</div>
+        </div>
+        
+        <p><strong>Architectural Components:</strong></p>
+        <p>1. <span class="highlight">Input Layer</span>: Responsible for receiving and processing raw feature data</p>
+        <p>2. <span class="highlight">Hidden Layers</span>: Execute intermediate processing and data transformation operations</p>
+        <p>3. <span class="highlight">Output Layer</span>: Generates final predictive outputs</p>
+        
+        <p>Each artificial neuron implements an activation function applied to weighted inputs according to the mathematical formula: <code>output = activation(Σ(weights × inputs) + bias)</code></p>
+      </div>
+      <div class="note-metadata">
+        <div class="timestamp">Recorded: December 24, 2025, 11:15 AM</div>
+        <div class="tags">
+          <span class="tag">neural-networks</span>
+          <span class="tag">deep-learning</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="note-card">
+      <h3 class="concept-title">Overfitting and Regularization</h3>
+      <div class="note-content">
+        <p><span class="important">Overfitting</span> represents a critical phenomenon wherein machine learning models demonstrate excessive adaptation to training data, including noise and outliers, subsequently resulting in diminished generalization capabilities.</p>
+        
+        <p><strong>Diagnostic Indicators:</strong></p>
+        <p>• Elevated training accuracy accompanied by reduced validation accuracy</p>
+        <p>• Model complexity exceeding the inherent complexity of the underlying data</p>
+        <p>• Substantial discrepancy between training and validation loss metrics</p>
+        
+        <p><strong>Regularization Methodologies:</strong></p>
+        <p>• <code>L1 Regularization</code>: Incorporates the sum of absolute weight values into the loss function</p>
+        <p>• <code>L2 Regularization</code>: Integrates the sum of squared weight values into the loss function</p>
+        <p>• <code>Dropout</code>: Implements stochastic deactivation of neurons during training phases</p>
+        <p>• <code>Early Stopping</code>: Terminates training procedures upon validation loss stagnation</p>
+      </div>
+      <div class="note-metadata">
+        <div class="timestamp">Recorded: December 24, 2025, 2:45 PM</div>
+        <div class="tags">
+          <span class="tag">model-optimization</span>
+          <span class="tag">best-practices</span>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Module: Data Structures -->
+  <section class="module-section">
+    <div class="module-header">
+      <h2>Data Structures</h2>
+      <div class="note-count">(2 research notes)</div>
+    </div>
+    
+    <div class="note-card">
+      <h3 class="concept-title">Binary Search Trees</h3>
+      <div class="note-content">
+        <p>Binary Search Trees (BST) constitute hierarchical data structures wherein each node maintains at most two child nodes, adhering to the fundamental BST ordering property.</p>
+        
+        <p><span class="highlight">BST Property:</span> For any given node, all values contained within the left subtree maintain values less than the node's value, while all values in the right subtree exceed the node's value.</p>
+        
+        <pre><code>class TreeNode {
+  constructor(value) {
+    this.value = value;
+    this.left = null;
+    this.right = null;
+  }
+}
+
+function insert(root, value) {
+  if (!root) return new TreeNode(value);
+  
+  if (value < root.value) {
+    root.left = insert(root.left, value);
+  } else {
+    root.right = insert(root.right, value);
+  }
+  
+  return root;
+}</code></pre>
+        
+        <p><strong>Computational Complexity Analysis:</strong></p>
+        <p>• Search Operations: O(log n) average case, O(n) worst case scenario</p>
+        <p>• Insertion Operations: O(log n) average case, O(n) worst case scenario</p>
+        <p>• Deletion Operations: O(log n) average case, O(n) worst case scenario</p>
+      </div>
+      <div class="note-metadata">
+        <div class="timestamp">Recorded: December 23, 2025, 4:20 PM</div>
+        <div class="tags">
+          <span class="tag">trees</span>
+          <span class="tag">algorithms</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="note-card">
+      <h3 class="concept-title">Hash Tables</h3>
+      <div class="note-content">
+        <p>Hash tables provide <span class="highlight">O(1) average time complexity</span> for insertion, deletion, and lookup operations through the implementation of hash functions that map keys to array indices.</p>
+        
+        <p><strong>Collision Resolution Strategies:</strong></p>
+        <p>1. <strong>Chaining:</strong> Storage of colliding elements within linked lists at each array index</p>
+        <p>2. <strong>Open Addressing:</strong> Identification of subsequent available slots through probing techniques</p>
+        <p>   • Linear probing: Sequential examination of consecutive slots</p>
+        <p>   • Quadratic probing: Examination of slots at quadratic intervals</p>
+        <p>   • Double hashing: Implementation of secondary hash functions</p>
+        
+        <p><span class="important">Load Factor</span> = n/m (items/buckets)</p>
+        <p>Optimal performance maintenance requires load factor < 0.75</p>
+      </div>
+      <div class="note-metadata">
+        <div class="timestamp">Recorded: December 23, 2025, 5:45 PM</div>
+        <div class="tags">
+          <span class="tag">hash-tables</span>
+          <span class="tag">performance</span>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <div class="footnotes">
+    <h4>References</h4>
+    <p>All notes compiled from personal study sessions and research activities conducted during the specified time periods.</p>
+  </div>
+  
+  <footer class="footer">
+    <p>Generated by Recursive Sensei Academic Documentation System</p>
+    <p>Dedicated to the pursuit of knowledge and continuous learning</p>
+  </footer>
+</body>
+</html>

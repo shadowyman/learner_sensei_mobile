@@ -6,7 +6,8 @@
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { LearnerModel } from "./adaptiveEngine";
 import { updateMessageStream } from './ui';
-import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION } from './prompts';
+import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION, buildSocraticInitialInstruction } from './prompts';
+import { logger } from './logger';
 import { 
     MODULE_INTRODUCTION_CHAT_MODEL_CONFIG,
     MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG
@@ -83,6 +84,76 @@ export function buildSenseiDynamicSystemInstruction(
         proseDirective,
         isMustObey
     );
+}
+
+export function buildSocraticExecutionInstruction(
+    teachingPlan: any,
+    pedagogicalGuidance: any,
+    isFirstTurn: boolean = false
+): string {
+    const intent = teachingPlan[0][0]; // The single Socratic intent
+    const guidance = intent.interactionGuidance;
+    
+    logger.info('Sensei:[SOCRATIC_V4] Building execution instruction, turn:', isFirstTurn ? 'first' : 'subsequent');
+    logger.info('Sensei:[SOCRATIC_V4] Teaching plan text length:', intent.text?.length || 0);
+    logger.info('Sensei:[SOCRATIC_V4] Expected turns:', guidance.expectedTurns);
+    logger.info('Sensei:[SOCRATIC_V4] Completion triggers count:', guidance.completionTriggers?.length || 0);
+    
+    // For first turn, include full teaching plan
+    if (isFirstTurn) {
+        logger.info('Sensei:[SOCRATIC_V4] First turn - using initial instruction');
+        const initialInstruction = buildSocraticInitialInstruction(teachingPlan);
+        
+        // Log the complete instruction being sent
+        logger.info('Sensei:[SOCRATIC_V4] Complete first turn instruction:', initialInstruction);
+        
+        return initialInstruction;
+    }
+    
+    // Check if MUST_OBEY
+    const isMustObey = pedagogicalGuidance.metaPrompt && 
+                       pedagogicalGuidance.metaPrompt.includes('MUST_OBEY');
+    
+    if (isMustObey) {
+        logger.info('Sensei:[SOCRATIC_V4] MUST_OBEY detected:', isMustObey);
+    }
+    
+    if (isMustObey) {
+        // Critical override - ONLY execute MUST_OBEY, ignore Socratic plan this turn
+        return `[RecursiveSensei CRITICAL OVERRIDE for THIS TURN:
+A high-priority situation has been detected. For this turn, you MUST IGNORE the standard Socratic dialogue plan provided below.
+Your SOLE TASK is to execute the following high-priority directive with immense detail, empathy, and care. This directive takes absolute precedence.
+
+High-Priority Directive: ${pedagogicalGuidance.metaPrompt}
+
+(The standard Socratic dialogue plan, which you will ignore for this turn, is:
+${intent.text}
+
+You will continue with this plan in the next turn after addressing the current critical situation.)
+]`;
+    }
+    
+    // Normal Socratic turn with pedagogical guidance
+    const subsequentTurnInstruction = `[RecursiveSensei Task & Checklist for THIS TURN:
+Your task is to generate a response by following this prioritized checklist. You MUST evaluate and execute these steps in order.
+
+**Your Response Checklist:**
+1.  **Execute Socratic Plan:** Continue your Socratic dialogue according to your teaching plan.
+2.  **Integrate Guidance Strategy:** You MUST use the methods, tone, and style from the \`PedagogicalGuidance\` to facilitate the Socratic dialogue. For example, if the guidance suggests using simpler language, adjust your questions accordingly.
+
+---
+**Inputs for your checklist:**
+
+- **PedagogicalGuidance:** ${pedagogicalGuidance.directive || 'Continue with standard Socratic questioning approach'}
+- **SocraticContext:** You are executing a Socratic dialogue. Expected length: ~${guidance.expectedTurns} turns. Monitor for completion triggers: ${JSON.stringify(guidance.completionTriggers)}
+
+---
+
+COMPLETION MONITORING: If any completion trigger is met, add [SOCRATIC_COMPLETION_TRIGGERED: <trigger>] at the END of your response.]`;
+    
+    logger.info('Sensei:[SOCRATIC_V4] Subsequent turn instruction:', subsequentTurnInstruction);
+    
+    return subsequentTurnInstruction;
 }
 
 /**
