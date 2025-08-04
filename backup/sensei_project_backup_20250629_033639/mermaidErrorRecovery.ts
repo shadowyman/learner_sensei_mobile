@@ -1,0 +1,346 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { logger } from './logger';
+import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+import { MERMAID_ERROR_RECOVERY_CONFIG } from './model_usage';
+
+interface MermaidFixRequest {
+    failedDiagram: string;
+    errorMessage: string;
+}
+
+interface MermaidFixResponse {
+    fixed: boolean;
+    diagram?: string;
+    explanation?: string;
+}
+
+/**
+ * Applies backtick fix by replacing all backticks with single quotes.
+ * This handles Mermaid syntax errors caused by backticks in node labels.
+ * @param diagram The mermaid diagram code
+ * @returns The diagram with all backticks converted to single quotes
+ */
+export function applyBacktickFix(diagram: string): string {
+    // Count backticks for processing
+    const backtickCount = (diagram.match(/`/g) || []).length;
+    
+    if (backtickCount === 0) {
+        return diagram;
+    }
+    
+    // Replace all backticks with single quotes
+    const fixedDiagram = diagram.replace(/`/g, "'");
+    
+    logger.log(`✅ Applied backtick fix: ${backtickCount} backticks converted to single quotes`);
+    return fixedDiagram;
+}
+
+/**
+ * Applies universal quote fix to all unquoted node text.
+ * This handles the majority of syntax errors caused by missing quotes.
+ * @param diagram The mermaid diagram code
+ * @returns The diagram with all node text quoted
+ */
+export function applyUniversalQuoteFix(diagram: string): string {
+    let fixedDiagram = diagram;
+    
+    // Helper function to find matching closing delimiter
+    function findMatchingDelimiter(text: string, startPos: number, openChar: string, closeChar: string): number {
+        let depth = 1;
+        for (let i = startPos; i < text.length; i++) {
+            if (text[i] === openChar) depth++;
+            else if (text[i] === closeChar) {
+                depth--;
+                if (depth === 0) return i;
+            }
+        }
+        return -1;
+    }
+    
+    // Process line by line for better control
+    const lines = fixedDiagram.split('\n');
+    
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        let line = lines[lineIdx];
+        
+        // Match node definitions: Letter followed by delimiter
+        // IMPORTANT: Longer patterns must come first in alternation
+        const nodePattern = /([A-Z])(\[|\(\(|\{\{|\(|\{)/g;
+        let match;
+        let newLine = '';
+        let lastIndex = 0;
+        
+        while ((match = nodePattern.exec(line)) !== null) {
+            const nodeId = match[1];
+            const openDelim = match[2];
+            const startPos = match.index + match[0].length;
+            
+            // Determine closing delimiter
+            let closeDelim = '';
+            let searchOpenChar = '';
+            let searchCloseChar = '';
+            
+            switch (openDelim) {
+                case '[':
+                    closeDelim = ']';
+                    searchOpenChar = '[';
+                    searchCloseChar = ']';
+                    break;
+                case '(':
+                    closeDelim = ')';
+                    searchOpenChar = '(';
+                    searchCloseChar = ')';
+                    break;
+                case '((': 
+                    closeDelim = '))';
+                    searchOpenChar = '(';
+                    searchCloseChar = ')';
+                    break;
+                case '{':
+                    closeDelim = '}';
+                    searchOpenChar = '{';
+                    searchCloseChar = '}';
+                    break;
+                case '{{':
+                    closeDelim = '}}';
+                    searchOpenChar = '{';
+                    searchCloseChar = '}';
+                    break;
+            }
+            
+            // Find the matching closing delimiter
+            let endPos = -1;
+            
+            if (openDelim === '((') {
+                // For circle, we need to find matching ))
+                let depth = 2; // We already consumed ((
+                for (let i = startPos; i < line.length; i++) {
+                    if (line[i] === '(') {
+                        depth++;
+                    } else if (line[i] === ')') {
+                        depth--;
+                        if (depth === 0) {
+                            endPos = i - 1; // Point to content end, not the first )
+                            break;
+                        }
+                    }
+                }
+            } else if (openDelim === '{{') {
+                // For hexagon, we need to find matching }}
+                let depth = 2; // We already consumed {{
+                for (let i = startPos; i < line.length; i++) {
+                    if (line[i] === '{') {
+                        depth++;
+                    } else if (line[i] === '}') {
+                        depth--;
+                        if (depth === 0) {
+                            endPos = i - 1; // Point to content end, not the first }
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // For single delimiter shapes
+                endPos = findMatchingDelimiter(line, startPos, searchOpenChar, searchCloseChar);
+            }
+            
+            if (endPos !== -1) {
+                // Extract content between delimiters
+                const content = line.substring(startPos, endPos);
+                
+                // Add everything before the node
+                newLine += line.substring(lastIndex, match.index);
+                
+                // Escape any existing quotes in the content
+                const escapedContent = content.replace(/"/g, '\\"');
+                
+                // Add the node with quotes if not already quoted
+                if (!content.startsWith('"') || !content.endsWith('"')) {
+                    newLine += nodeId + openDelim + '"' + escapedContent + '"' + closeDelim;
+                } else {
+                    newLine += nodeId + openDelim + content + closeDelim;
+                }
+                
+                // Update lastIndex to continue after the closing delimiter
+                lastIndex = endPos + closeDelim.length;
+                nodePattern.lastIndex = lastIndex;
+            }
+        }
+        
+        // Add any remaining part of the line
+        newLine += line.substring(lastIndex);
+        lines[lineIdx] = newLine || line;
+    }
+    
+    return lines.join('\n');
+}
+
+/**
+ * Fixes subgraph direction issues by converting TD to TB.
+ * TD is not a valid direction inside subgraphs - must use TB instead.
+ * @param diagram The mermaid diagram code
+ * @returns The diagram with TD converted to TB in subgraphs
+ */
+export function fixSubgraphDirections(diagram: string): string {
+    // Replace 'direction TD' with 'direction TB' only inside subgraphs
+    return diagram.replace(/(\bsubgraph\b[\s\S]*?\bdirection\s+)TD\b/g, '$1TB');
+}
+
+
+const MERMAID_FIX_PROMPT_TEMPLATE = (failedDiagram: string, errorMessage: string) => `
+Fix this Mermaid syntax error.
+
+ERROR MESSAGE:
+${errorMessage}
+
+FAILED DIAGRAM:
+${failedDiagram}
+
+ANALYSIS PROCESS:
+1. Read the error message carefully - note the line number and position
+2. Look at what the parser expected vs what it found
+3. Examine the specific line mentioned in the error
+4. Identify the exact syntax issue causing the failure
+5. COMPREHENSIVE FIX: If the issue is found in one location, scan the ENTIRE diagram for ALL instances of the same problem and fix them all
+6. Check if error involves 'direction' inside a subgraph - valid options are ONLY: TB (Top to Bottom), BT (Bottom to Top), LR (Left to Right), RL (Right to Left). TD is invalid and must be converted to TB
+7. If soup brackets used, convert it to either one of them: e.g. ([ … ]) can be changed to (()) OR [[]]
+
+CRITICAL RULES (MUST BE APPLIED COMPREHENSIVELY):
+- NO BACKTICKS ANYWHERE: Scan the ENTIRE diagram and replace ALL backticks (\`) with single quotes (') in every node label, edge label, and text content
+- NO COMMENTS: Never use %%
+- NO SEMICOLONS: Never end lines with ;
+= NO SOUP BRACKETS: Combo rule: Only two hybrid combos—([ … ]) (pill) and [( … )] (cylinder)—are legal. Any other “bracket soup” will raise a parser error.
+- SUBGRAPH DIRECTIONS: Inside subgraphs, valid directions are ONLY: TB (Top to Bottom), BT (Bottom to Top), LR (Left to Right), RL (Right to Left). Never use 'direction TD' - always convert to 'direction TB'
+- Do not redesign or restructure
+- Apply systematic fixes to resolve ALL instances of detected issues
+
+Return the complete fixed diagram.
+
+Provide your response as JSON with this structure:
+{
+    "fixed": true/false,
+    "diagram": "the corrected Mermaid diagram code",
+    "explanation": "brief explanation of what was fixed"
+}
+`;
+
+export async function attemptMermaidFix(
+    ai: GoogleGenAI,
+    failedDiagram: string,
+    errorMessage: string
+): Promise<MermaidFixResponse> {
+    const startTime = Date.now();
+    
+    // Log the attempt
+    logger.log('🔧 Mermaid Error Recovery: Attempting to fix failed diagram');
+    logger.log('Error:', errorMessage);
+    logger.log('Failed diagram:', failedDiagram);
+    
+    // First try rule-based fixes
+    if (errorMessage.includes('direction') || errorMessage.includes('TD')) {
+        logger.log('🔍 Detected direction-related error, trying fixSubgraphDirections');
+        const fixedDiagram = fixSubgraphDirections(failedDiagram);
+        if (fixedDiagram !== failedDiagram) {
+            logger.log('✅ Applied TD→TB conversion');
+            return {
+                fixed: true,
+                diagram: fixedDiagram,
+                explanation: 'Fixed invalid TD direction in subgraph - converted to TB'
+            };
+        }
+    }
+    
+    // If backtick-related error, try backtick fix first
+    if (errorMessage.includes('backtick') || errorMessage.includes('`') || errorMessage.includes('Unrecognized text') || failedDiagram.includes('`')) {
+        logger.log('🔍 Detected backtick-related error, trying applyBacktickFix');
+        const backtickFixedDiagram = applyBacktickFix(failedDiagram);
+        if (backtickFixedDiagram !== failedDiagram) {
+            // Also apply quote fix after backtick fix
+            const fullyFixedDiagram = applyUniversalQuoteFix(backtickFixedDiagram);
+            logger.log('✅ Applied backtick fix followed by quote fix');
+            return {
+                fixed: true,
+                diagram: fullyFixedDiagram,
+                explanation: 'Fixed backticks in node labels by converting to single quotes'
+            };
+        }
+    }
+    
+    // If quote-related error, try universal quote fix
+    if (errorMessage.includes('quote') || errorMessage.includes('"') || errorMessage.includes("'")) {
+        logger.log('🔍 Detected quote-related error, trying applyUniversalQuoteFix');
+        const fixedDiagram = applyUniversalQuoteFix(failedDiagram);
+        if (fixedDiagram !== failedDiagram) {
+            logger.log('✅ Applied universal quote fix');
+            return {
+                fixed: true,
+                diagram: fixedDiagram,
+                explanation: 'Fixed missing quotes in node labels'
+            };
+        }
+    }
+    
+    // Fall back to LLM-based fix
+    logger.log('🤖 Falling back to LLM-based fix');
+    
+    try {
+        const prompt = MERMAID_FIX_PROMPT_TEMPLATE(failedDiagram, errorMessage);
+        
+        // Log the full prompt being sent
+        logger.log('📤 Sending fix request to LLM with prompt:');
+        logger.log('---PROMPT START---');
+        logger.log(prompt);
+        logger.log('---PROMPT END---');
+        
+        const genAIResponse: GenerateContentResponse = await ai.models.generateContent({
+            model: MERMAID_ERROR_RECOVERY_CONFIG.modelName,
+            contents: prompt, // Pass the prompt string directly
+            config: MERMAID_ERROR_RECOVERY_CONFIG.config 
+        });
+        
+        const text = genAIResponse.text; // Access .text directly
+        
+        // Log raw LLM response
+        logger.log('📥 LLM Response:', text);
+        
+        try {
+            // The Gemini API for JSON output might wrap the JSON in ```json ... ```
+            let jsonText = text.trim();
+            const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+            const match = jsonText.match(fenceRegex);
+            if (match && match[2]) {
+              jsonText = match[2].trim();
+            }
+
+            const fixResponse = JSON.parse(jsonText) as MermaidFixResponse;
+            const elapsed = Date.now() - startTime;
+            
+            if (fixResponse.fixed && fixResponse.diagram) {
+                logger.log(`✅ Mermaid diagram fixed successfully in ${elapsed}ms`);
+                logger.log('Fixed diagram:', fixResponse.diagram);
+                logger.log('Explanation:', fixResponse.explanation);
+            } else {
+                logger.log(`❌ Could not fix Mermaid diagram (${elapsed}ms)`);
+                logger.log('Reason:', fixResponse.explanation);
+            }
+            
+            return fixResponse;
+        } catch (parseError) {
+            logger.error('Failed to parse LLM response as JSON:', parseError);
+            logger.error('Original text from LLM that failed parsing:', text);
+            return {
+                fixed: false,
+                explanation: 'Failed to parse fix response from AI'
+            };
+        }
+    } catch (error: any) {
+        logger.error('Mermaid fix attempt failed:', error);
+        return {
+            fixed: false,
+            explanation: `Error during fix attempt: ${error.message}`
+        };
+    }
+}

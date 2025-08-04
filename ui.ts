@@ -536,7 +536,6 @@ export async function displayMessage(message: Message) {
                 button.textContent = phase.display;
                 
                 button.addEventListener('click', () => {
-                    logger.info('[UI] Phase button click detected:', phase.name);
                     if (typeof (window as any).handlePhaseSelection === 'function') {
                         (window as any).handlePhaseSelection(phase.name);
                     }
@@ -546,7 +545,6 @@ export async function displayMessage(message: Message) {
             });
             
             messageText.appendChild(phaseButtonsContainer);
-            logger.info('[PHASE_SELECTION] Available phases rendered:', phases.map(p => p.name));
             streamingMessagesRawText.set(message.id, message.text);
         } else if (message.sender === 'sensei' && message.phaseLoadingAnimation) {
             // Handle phase loading animation
@@ -639,7 +637,9 @@ export async function displayMessage(message: Message) {
                 const { svg } = await mermaidManager.render(`mermaid-${message.id}-${Math.random().toString(36).substring(2)}`, rawMermaidCode);
                 renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
             } catch (error: any) {
-                logger.error("Mermaid rendering failed:", error);
+                if (DEBUG_FLAGS.mermaid_debug) {
+                    logger.error("Mermaid rendering failed:", error);
+                }
                 
                 // Attempt recovery with our two-step approach
                 if (!block.getAttribute('data-recovery-attempted')) {
@@ -656,7 +656,9 @@ export async function displayMessage(message: Message) {
                             const { svg } = await mermaidManager.render(uniqueId, quotedDiagram);
                             
                             // Success with quote fix!
-                            logger.log('✅ Mermaid diagram fixed with universal quote fix');
+                            if (DEBUG_FLAGS.mermaid_debug) {
+                                logger.log('✅ Mermaid diagram fixed with universal quote fix');
+                            }
                             renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), quotedDiagram);
                             return; // Exit early on success
                         } catch (quotedError) {
@@ -689,7 +691,11 @@ export async function displayMessage(message: Message) {
                                     const { svg } = await mermaidManager.render(uniqueId, fixResult.diagram);
                                     
                                     // Success! Show the fixed diagram
+                                    if (DEBUG_FLAGS.mermaid_debug) {
+                                        if (DEBUG_FLAGS.mermaid_debug) {
                                     logger.log('✨ Mermaid diagram successfully fixed by AI and rendered');
+                                }
+                                    }
                                     renderMermaidThumbnailWithTheme(fixingDiv, svg, mermaidManager.getCurrentTheme(), fixResult.diagram);
                                     return; // Exit early on success
                                 } catch (retryError) {
@@ -697,7 +703,9 @@ export async function displayMessage(message: Message) {
                                 }
                             }
                         } catch (fixError) {
-                            logger.error('Error during Mermaid fix attempt:', fixError);
+                            if (DEBUG_FLAGS.mermaid_debug) {
+                                logger.error('Error during Mermaid fix attempt:', fixError);
+                            }
                         }
                         
                         // If we get here, fix attempt failed
@@ -972,7 +980,9 @@ export async function processMermaidBlocks(messageId: string) {
             const { svg } = await mermaidManager.render(`mermaid-${messageId}-${Math.random().toString(36).substring(2)}`, rawMermaidCode);
             renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
         } catch (error: any) {
-            logger.error("Mermaid rendering failed:", error);
+            if (DEBUG_FLAGS.mermaid_debug) {
+                logger.error("Mermaid rendering failed:", error);
+            }
             
             // Attempt recovery with our three-step approach
             if (!block.getAttribute('data-recovery-attempted')) {
@@ -1023,7 +1033,9 @@ export async function processMermaidBlocks(messageId: string) {
                                 const { svg } = await mermaidManager.render(uniqueId, fixResult.diagram);
                                 
                                 // Success! Show the fixed diagram
-                                logger.log('✨ Mermaid diagram successfully fixed by AI and rendered');
+                                if (DEBUG_FLAGS.mermaid_debug) {
+                                    logger.log('✨ Mermaid diagram successfully fixed by AI and rendered');
+                                }
                                 renderMermaidThumbnailWithTheme(fixingDiv, svg, mermaidManager.getCurrentTheme(), fixResult.diagram);
                                 continue; // Move to next block
                             } catch (retryError) {

@@ -1,4 +1,3 @@
-
 [
   "adaptiveEngine.ts",
   "consolidationManager.ts",
@@ -10,11 +9,21 @@
   "index.html",
   "index.tsx",
   "interactionHelpers.ts",
+  "logger.ts",
+  "mermaid-theme-integration.js",
+  "mermaidErrorRecovery.ts",
+  "mermaidManager.ts",
+  "metadata-1.json",
   "metadata.json",
   "model_usage.ts",
   "Modules.txt",
+  "notepad.ts",
+  "notepadExporter.ts",
   "pedagogicalProfiler.ts",
   "prompts.ts",
   "selectionSensei.ts",
+  "test.ts",
+  "testPrompt1.txt",
+  "testPrompt2.txt",
   "ui.ts"
 ]

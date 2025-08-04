@@ -687,7 +687,45 @@ export function GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION(
     currentTaskIdForAnalysis: string,
     expectedContentPointsForCurrentChunk: string[]
 ): string {
-    return `
+    const currentPhase = (window as any).curriculumState?.currentPhase || 'Unknown';
+    
+    switch (currentPhase) {
+        case 'Socratic':
+        return `
+You are a hyper-efficient, expert-level Learner State Diagnostician. Your SOLE FUNCTION is to analyze the provided context and return a single, valid JSON object.
+
+CRITICAL RULE: You MUST return ONLY the JSON object. Your entire response must be the raw JSON, with no surrounding text, comments, markdown formatting, or apologies.
+
+INPUT DOSSIER
+USER_INPUT: ${userInputText}
+SENSEI_LAST_MESSAGE: ${lastSenseiMsg || "N/A"}
+CURRENT_TASK_ID: ${currentTaskIdForAnalysis}
+
+For the 'planning_observed' and 'monitoring_observed' fields:
+- You MUST distinguish between a lack of evidence ('Uncertain') and evidence of poor skill ('Low'). Use 'Uncertain' for simple inputs (greetings, confirmations). Use 'Low' ONLY for inputs showing chaotic guessing or trial-and-error without a stated goal. Use 'Medium' or 'High' for positive evidence of planning.
+
+For the 'affective_state' fields:
+- Infer emotion from subtext. Hedge words like "I think" or "maybe" indicate 'Medium' or 'Low' confidence. Direct, terse language ("just give me the answer") can signal 'High' frustration.
+
+For the 'srl_indicators.strategy_hint' field:
+- This must be an array of strings. If no specific learning strategies are observed, return an empty array [].
+
+FINAL INSTRUCTION: Based on your analysis, generate the single, valid JSON object that adheres to the following schema.
+{
+  "affective_state": { "confidence": "'Low' | 'Medium' | 'High' | 'Uncertain'", "engagement": "'Waning' | 'Low' | 'Medium' | 'High' | 'Uncertain'", "frustration": "'Low' | 'Medium' | 'High' | 'Uncertain'", "confusion": "'Low' | 'Medium' | 'High' | 'Uncertain'", "boredom": "'Low' | 'Medium' | 'High' | 'Uncertain'", "self_efficacy": "'Low' | 'Medium' | 'High' | 'Uncertain'" },
+  "cognitive_load_indicators": { "perceived_intrinsic_difficulty": "'Low' | 'Medium' | 'High' | 'Uncertain'", "extraneous_load_signals": "'Low' | 'Medium' | 'High' | 'Uncertain'" },
+  "srl_indicators": { "planning_observed": "'Low' | 'Medium' | 'High' | 'Uncertain'", "monitoring_observed": "'Low' | 'Medium' | 'High' | 'Uncertain'", "help_seeking_style": "'Appropriate' | 'Vague' | 'Demanding' | 'None' | 'Uncertain'", "strategy_hint": "string[]" },
+  "misconception_hints": "[]",
+  "knowledge_component_references": "[]",
+  "primary_intent": "'AskingQuestion' | 'AnsweringQuestion' | 'ExpressingConfusion' | 'ExpressingUnderstanding' | 'ProvidingFeedback' | 'SeekingReassurance' | 'RequestingCurriculumStart' | 'Other' | 'Uncertain'",
+  "topic_interaction": { "continues_current_topic": "true | false | 'Uncertain'", "signals_topic_resolution": "false" }
+}
+        `;
+        
+        case 'IntroIllustrate':
+        case 'Solidify':
+        default:
+            return `
 You are a hyper-efficient, expert-level Learner State Diagnostician. Your SOLE FUNCTION is to analyze the provided context and return a single, valid JSON object.
 
 CRITICAL RULE: You MUST return ONLY the JSON object. Your entire response must be the raw JSON, with no surrounding text, comments, markdown formatting, or apologies.
@@ -709,7 +747,7 @@ THEN, you will determine the value for every field in the final JSON object by a
 
 For the 'key_content_point_assessment' field:
 - You will generate one object in the array for EACH 'point_id' in the EXPECTED_POINTS list, regardless of whether Sensei addressed it or not.
-- CRITICAL: For each object, the 'point_id' field MUST EXACTLY MATCH the string from the EXPECTED_POINTS list.
+- CRITICAL: For each object, the 'point_id' field MUST be copied EXACTLY, character-for-character, from the EXPECTED_POINTS JSON array above. Do NOT rephrase, paraphrase, or make any changes whatsoever to the text. Common errors to avoid: "right_right" instead of "right_depth", missing punctuation, extra spaces, or case changes. When in doubt, double-check each character.
 - For each object, you will populate its fields using this two-part analysis:
   - Part A: Determine 'coverage'.
     - Analyze ONLY the SENSEI_LAST_MESSAGE. If it substantively explains or discusses the point, set 'coverage' to 'ExplicitlyAddressed'. Otherwise, set it to 'NotAddressed'.
@@ -748,6 +786,7 @@ FINAL INSTRUCTION: Based on your two-step analysis, generate the single, valid J
   "key_content_point_assessment": "${KEY_CONTENT_POINT_ASSESSMENT_SCHEMA_VALUE}"
 }
     `;
+    }
 }
 
 // --- Prompts for curriculum.ts (getCurriculumFocusInstruction) ----

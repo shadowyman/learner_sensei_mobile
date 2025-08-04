@@ -19,7 +19,7 @@ import {
 } from './model_usage';
 
 const debug = false; // Set to false to turn off llmExtractAndPlanTeachingOrder logs
-const debugTeachingPlanPrompt = true; // Set to true to show only teaching plan prompt logging
+const debugTeachingPlanPrompt = false; // Set to true to show only teaching plan prompt logging
 
 export function parseGeminiJsonResponse(jsonString: string): ComprehensiveAnalysisResultType | null {
     let cleanedJsonString = jsonString.trim();
@@ -47,9 +47,6 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
 
     // Debug: Log what's being sent to the prompt
     if (textToProcess.includes("IntroIllustrate") || textToProcess.includes("Self-Similarity")) {
-        logger.warn(`[BUG_TRACE] llmExtractAndPlanTeachingOrder - Processing IntroIllustrate content`);
-        logger.warn(`[BUG_TRACE] textToProcess length: ${textToProcess.length} chars`);
-        logger.warn(`[BUG_TRACE] textToProcess preview: "${textToProcess.substring(0, 200)}..."`);
     }
     
     // Detect if this is Socratic content
@@ -181,18 +178,25 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
 
             if (isValidPlan) {
                 // Calculate total teaching points for uniform KC distribution
-                const totalPoints = parsed.teaching_plan.reduce((sum: number, chunk: any[]) => sum + chunk.length, 0);
+                const totalNumChunks = parsed.teaching_plan.length;
+                const totalNumPoints = parsed.teaching_plan.reduce((sum: number, chunk: any[]) => sum + chunk.length, 0);
                 // SECURITY: Validate bounds to prevent division by zero and extreme values (CWE-369)
-                if (totalPoints <= 0) {
-                    logger.error('Invalid teaching plan - zero or negative teaching points:', totalPoints);
+                if (totalNumPoints <= 0) {
+                    logger.error('Invalid teaching plan - zero or negative teaching points:', totalNumPoints);
                     return null;
                 }
-                if (totalPoints > 20) {
-                    logger.error('Suspiciously large teaching plan detected:', totalPoints);
+                // [SEMANTIC_FIX] Check chunks, not teaching points - this was the bug!
+                if (totalNumChunks > 10) {
+                    logger.error(`[CHUNK_DEBUG] Suspiciously large teaching plan detected: ${totalNumChunks} CHUNKS exceeds limit of 10 chunks`);
                     return null;
                 }
                 
-                const uniformKcValue = PHASE_KC_TOTAL / totalPoints;
+                // Optional: Also validate reasonable teaching points per chunk (but don't fail on it)
+                if (totalNumPoints > 50) {
+                    logger.warn(`[CHUNK_DEBUG] Warning: Large number of teaching points: ${totalNumPoints} across ${totalNumChunks} chunks (avg ${(totalNumPoints/totalNumChunks).toFixed(1)} per chunk)`);
+                }
+                
+                const uniformKcValue = PHASE_KC_TOTAL / totalNumPoints;
                 
                 // Transform to TeachingPoint[][] with calculated kcValue
                 const transformedPlan: TeachingPoint[][] = parsed.teaching_plan.map((chunk: any[]) =>
@@ -202,13 +206,8 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
                     }))
                 );
 
-                // Validation logging for deterministic KC calculation
-                const calculatedTotalKc = transformedPlan.reduce((sum: number, chunk: TeachingPoint[]) => 
-                    sum + chunk.reduce((cSum: number, tp: TeachingPoint) => cSum + tp.kcValue, 0), 0);
-                
-                
                 if (debug) {
-                    logger.log(`DEBUG: llmExtractAndPlanTeachingOrder - Validated and transformed teaching_plan. Total points: ${totalPoints}`, transformedPlan);
+                    logger.log(`DEBUG: llmExtractAndPlanTeachingOrder - Validated and transformed teaching_plan. Total points: ${totalNumPoints}`, transformedPlan);
                 }
                 
                 return transformedPlan;

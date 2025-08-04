@@ -1,0 +1,6 @@
+projectKey=sensei
+serverUrl=http://localhost:9000
+serverVersion=25.6.0.109173
+dashboardUrl=http://localhost:9000/dashboard?id=sensei
+ceTaskId=f1c7a6f9-950a-4596-a3af-916b4126c98e
+ceTaskUrl=http://localhost:9000/api/ce/task?id=f1c7a6f9-950a-4596-a3af-916b4126c98e

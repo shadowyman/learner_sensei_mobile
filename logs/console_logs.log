@@ -1,5 +1,12 @@
-Sensei Console Logs - Cleared for: sonarqube_report_curriculum_ts.html at 2025-06-26 09:24:47
+Sensei Console Logs - Cleared for: prompts.ts at 2025-08-04 21:30:42
 ============================================================
 Filtering: Only messages starting with 'Sensei:'
 ============================================================
 
+[2025-08-04 21:30:44.549] [LOG] Sensei: Debug console log storage initialized
+[2025-08-04 21:30:44.576] [LOG] Sensei: Successfully loaded 27 file paths from file-manifest.json.
+[2025-08-04 21:30:44.576] [LOG] Sensei: Google AI SDK initialized with persistent chat.
+[2025-08-04 21:30:44.581] [LOG] Sensei: Debug Mode Initialized with AI instance and file paths.
+[2025-08-04 21:30:44.581] [LOG] Sensei: 🎬 ========== TEST SUITE EXECUTION STARTING ==========
+[2025-08-04 21:30:44.581] [LOG] Sensei: ⚠️  No tests enabled in TEST_SUITE_CONFIG
+[2025-08-04 21:30:44.581] [LOG] Sensei: 🎬 ========== TEST SUITE EXECUTION COMPLETED ==========

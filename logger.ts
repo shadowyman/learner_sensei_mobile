@@ -5,7 +5,7 @@
 
 // Debug flags
 export const DEBUG_FLAGS = {
-    prompt_debug: true,
+    prompt_debug: false,
     mermaid_debug: false,
     learner_analysis_debug: false,
     curriculum_debug: false
@@ -30,6 +30,9 @@ class Logger {
         
         const first = args[0];
         if (typeof first === 'string') {
+            // Check if message already starts with "Sensei:" to avoid double-prefixing
+            const prefix = first.startsWith('Sensei:') ? first : `Sensei: ${first}`;
+            
             // Process remaining args to stringify objects
             const processedArgs = args.slice(1).map(arg => {
                 if (typeof arg === 'object' && arg !== null) {
@@ -41,7 +44,7 @@ class Logger {
                 }
                 return arg;
             });
-            return [`Sensei: ${first}`, ...processedArgs];
+            return [prefix, ...processedArgs];
         }
         
         // If first arg is not string, process all args

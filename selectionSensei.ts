@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { marked } from 'marked';
 import { sanitizeCodeFences, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks, setupTextareaAutosize } from './ui';
@@ -108,7 +108,6 @@ class SelectionSensei {
 
                 const senseiMessageTextElement = (parentElement as HTMLElement)?.closest('.message-bubble[data-sender="sensei"] .message-text');
                 if (senseiMessageTextElement) {
-                    const messageBubbleElement = senseiMessageTextElement.closest('.message-bubble[data-sender="sensei"]');
                     const originalSenseiMessageText = senseiMessageTextElement.textContent || ""; 
                     
                     this.createAndShowSelectionToolbar(selection, originalSenseiMessageText);
@@ -191,6 +190,11 @@ class SelectionSensei {
         // Check top boundary - if toolbar would go above viewport, show below selection
         if (top < window.scrollY + 10) {
             top = window.scrollY + rect.bottom + 8;
+        }
+        
+        // Check bottom boundary - if toolbar would go below viewport, show above selection
+        if (top + toolbarHeight > window.scrollY + viewportHeight - 10) {
+            top = window.scrollY + rect.top - toolbarHeight - 8;
         }
         
         this.selectionToolbarElement.style.top = `${top}px`; 
@@ -342,7 +346,9 @@ class SelectionSensei {
                 const { svg } = await mermaidManager.render(uniqueId, rawMermaidCode);
                 renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
             } catch (error: any) {
-                logger.error("Selection Sensei: Mermaid rendering failed:", error);
+                if (DEBUG_FLAGS.mermaid_debug) {
+                    logger.error("Selection Sensei: Mermaid rendering failed:", error);
+                }
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'mermaid-error';
                 errorDiv.innerHTML = `

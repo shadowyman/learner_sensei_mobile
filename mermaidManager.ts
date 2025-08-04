@@ -309,7 +309,9 @@ class MermaidManager {
                 logger.log(`Mermaid initialized with theme: ${this.currentTheme}`);
             }
         } catch (error) {
-            logger.error('Failed to initialize Mermaid:', error);
+            if (DEBUG_FLAGS.mermaid_debug) {
+                logger.error('Failed to initialize Mermaid:', error);
+            }
             this.initializationPromise = null;
             this.isInitialized = false;
             throw error;

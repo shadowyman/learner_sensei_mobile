@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { logger } from './logger';
+import { logger, DEBUG_FLAGS } from './logger';
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { MERMAID_ERROR_RECOVERY_CONFIG } from './model_usage';
 
@@ -34,7 +34,9 @@ export function applyBacktickFix(diagram: string): string {
     // Replace all backticks with single quotes
     const fixedDiagram = diagram.replace(/`/g, "'");
     
-    logger.log(`✅ Applied backtick fix: ${backtickCount} backticks converted to single quotes`);
+    if (DEBUG_FLAGS.mermaid_debug) {
+        logger.log(`✅ Applied backtick fix: ${backtickCount} backticks converted to single quotes`);
+    }
     return fixedDiagram;
 }
 
@@ -235,16 +237,22 @@ export async function attemptMermaidFix(
     const startTime = Date.now();
     
     // Log the attempt
-    logger.log('🔧 Mermaid Error Recovery: Attempting to fix failed diagram');
-    logger.log('Error:', errorMessage);
-    logger.log('Failed diagram:', failedDiagram);
+    if (DEBUG_FLAGS.mermaid_debug) {
+        logger.log('🔧 Mermaid Error Recovery: Attempting to fix failed diagram');
+        logger.log('Error:', errorMessage);
+        logger.log('Failed diagram:', failedDiagram);
+    }
     
     // First try rule-based fixes
     if (errorMessage.includes('direction') || errorMessage.includes('TD')) {
-        logger.log('🔍 Detected direction-related error, trying fixSubgraphDirections');
+        if (DEBUG_FLAGS.mermaid_debug) {
+            logger.log('🔍 Detected direction-related error, trying fixSubgraphDirections');
+        }
         const fixedDiagram = fixSubgraphDirections(failedDiagram);
         if (fixedDiagram !== failedDiagram) {
-            logger.log('✅ Applied TD→TB conversion');
+            if (DEBUG_FLAGS.mermaid_debug) {
+                logger.log('✅ Applied TD→TB conversion');
+            }
             return {
                 fixed: true,
                 diagram: fixedDiagram,
@@ -255,12 +263,16 @@ export async function attemptMermaidFix(
     
     // If backtick-related error, try backtick fix first
     if (errorMessage.includes('backtick') || errorMessage.includes('`') || errorMessage.includes('Unrecognized text') || failedDiagram.includes('`')) {
-        logger.log('🔍 Detected backtick-related error, trying applyBacktickFix');
+        if (DEBUG_FLAGS.mermaid_debug) {
+            logger.log('🔍 Detected backtick-related error, trying applyBacktickFix');
+        }
         const backtickFixedDiagram = applyBacktickFix(failedDiagram);
         if (backtickFixedDiagram !== failedDiagram) {
             // Also apply quote fix after backtick fix
             const fullyFixedDiagram = applyUniversalQuoteFix(backtickFixedDiagram);
-            logger.log('✅ Applied backtick fix followed by quote fix');
+            if (DEBUG_FLAGS.mermaid_debug) {
+                logger.log('✅ Applied backtick fix followed by quote fix');
+            }
             return {
                 fixed: true,
                 diagram: fullyFixedDiagram,
@@ -271,10 +283,14 @@ export async function attemptMermaidFix(
     
     // If quote-related error, try universal quote fix
     if (errorMessage.includes('quote') || errorMessage.includes('"') || errorMessage.includes("'")) {
-        logger.log('🔍 Detected quote-related error, trying applyUniversalQuoteFix');
+        if (DEBUG_FLAGS.mermaid_debug) {
+            logger.log('🔍 Detected quote-related error, trying applyUniversalQuoteFix');
+        }
         const fixedDiagram = applyUniversalQuoteFix(failedDiagram);
         if (fixedDiagram !== failedDiagram) {
-            logger.log('✅ Applied universal quote fix');
+            if (DEBUG_FLAGS.mermaid_debug) {
+                logger.log('✅ Applied universal quote fix');
+            }
             return {
                 fixed: true,
                 diagram: fixedDiagram,
@@ -284,16 +300,20 @@ export async function attemptMermaidFix(
     }
     
     // Fall back to LLM-based fix
-    logger.log('🤖 Falling back to LLM-based fix');
+    if (DEBUG_FLAGS.mermaid_debug) {
+        logger.log('🤖 Falling back to LLM-based fix');
+    }
     
     try {
         const prompt = MERMAID_FIX_PROMPT_TEMPLATE(failedDiagram, errorMessage);
         
         // Log the full prompt being sent
-        logger.log('📤 Sending fix request to LLM with prompt:');
-        logger.log('---PROMPT START---');
-        logger.log(prompt);
-        logger.log('---PROMPT END---');
+        if (DEBUG_FLAGS.mermaid_debug) {
+            logger.log('📤 Sending fix request to LLM with prompt:');
+            logger.log('---PROMPT START---');
+            logger.log(prompt);
+            logger.log('---PROMPT END---');
+        }
         
         const genAIResponse: GenerateContentResponse = await ai.models.generateContent({
             model: MERMAID_ERROR_RECOVERY_CONFIG.modelName,
@@ -304,7 +324,9 @@ export async function attemptMermaidFix(
         const text = genAIResponse.text; // Access .text directly
         
         // Log raw LLM response
-        logger.log('📥 LLM Response:', text);
+        if (DEBUG_FLAGS.mermaid_debug) {
+            logger.log('📥 LLM Response:', text);
+        }
         
         try {
             // The Gemini API for JSON output might wrap the JSON in ```json ... ```
@@ -319,25 +341,33 @@ export async function attemptMermaidFix(
             const elapsed = Date.now() - startTime;
             
             if (fixResponse.fixed && fixResponse.diagram) {
-                logger.log(`✅ Mermaid diagram fixed successfully in ${elapsed}ms`);
-                logger.log('Fixed diagram:', fixResponse.diagram);
-                logger.log('Explanation:', fixResponse.explanation);
+                if (DEBUG_FLAGS.mermaid_debug) {
+                    logger.log(`✅ Mermaid diagram fixed successfully in ${elapsed}ms`);
+                    logger.log('Fixed diagram:', fixResponse.diagram);
+                    logger.log('Explanation:', fixResponse.explanation);
+                }
             } else {
-                logger.log(`❌ Could not fix Mermaid diagram (${elapsed}ms)`);
-                logger.log('Reason:', fixResponse.explanation);
+                if (DEBUG_FLAGS.mermaid_debug) {
+                    logger.log(`❌ Could not fix Mermaid diagram (${elapsed}ms)`);
+                    logger.log('Reason:', fixResponse.explanation);
+                }
             }
             
             return fixResponse;
         } catch (parseError) {
-            logger.error('Failed to parse LLM response as JSON:', parseError);
-            logger.error('Original text from LLM that failed parsing:', text);
+            if (DEBUG_FLAGS.mermaid_debug) {
+                logger.error('Failed to parse LLM response as JSON:', parseError);
+                logger.error('Original text from LLM that failed parsing:', text);
+            }
             return {
                 fixed: false,
                 explanation: 'Failed to parse fix response from AI'
             };
         }
     } catch (error: any) {
-        logger.error('Mermaid fix attempt failed:', error);
+        if (DEBUG_FLAGS.mermaid_debug) {
+            logger.error('Mermaid fix attempt failed:', error);
+        }
         return {
             fixed: false,
             explanation: `Error during fix attempt: ${error.message}`

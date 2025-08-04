@@ -1,0 +1,6 @@
+{
+  "name": "Recursive Sensei Chat",
+  "description": "An interactive chatbot to learn recursion with the Recursive Sensei.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

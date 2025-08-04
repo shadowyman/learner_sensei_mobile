@@ -1,7 +1,7 @@
 
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Apache-2.1
  */
 
 import { logger, DEBUG_FLAGS } from './logger';
@@ -305,8 +305,46 @@ function mapAnalysisValue<T extends string>(value: T | 'Uncertain', defaultValue
 
 function normalizeContentPointText(text: string): string {
     // Removes markdown characters like *, _, `, " and trims whitespace.
-    // This makes the comparison robust to formatting inconsistencies from the LLM.
-    return text.replace(/[*_`"]/g, '').trim();
+    // Also normalizes multiple spaces to single spaces to handle formatting inconsistencies from the LLM.
+    return text.replace(/[*_`"]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function findBestMatchingContentPoint(assessmentPointId: string, expectedPoints: string[]): { match: string | null, isFuzzy: boolean, similarity?: number } {
+    const normalizedAssessment = normalizeContentPointText(assessmentPointId);
+    
+    // First try exact match
+    for (const point of expectedPoints) {
+        if (normalizeContentPointText(point) === normalizedAssessment) {
+            return { match: point, isFuzzy: false };
+        }
+    }
+    
+    // Then try fuzzy matching (high threshold to avoid false positives)
+    const fuzzyThreshold = 0.9;
+    let bestMatch: string | null = null;
+    let bestScore = 0;
+    
+    for (const point of expectedPoints) {
+        const normalizedPoint = normalizeContentPointText(point);
+        const similarity = calculateStringSimilarity(normalizedAssessment, normalizedPoint);
+        if (similarity > fuzzyThreshold && similarity > bestScore) {
+            bestScore = similarity;
+            bestMatch = point;
+        }
+    }
+    
+    return { match: bestMatch, isFuzzy: true, similarity: bestScore };
+}
+
+function calculateStringSimilarity(str1: string, str2: string): number {
+    // Simple character-level similarity using Jaccard index
+    const set1 = new Set(str1.toLowerCase().split(''));
+    const set2 = new Set(str2.toLowerCase().split(''));
+    
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+    
+    return intersection.size / union.size;
 }
 
 
@@ -350,6 +388,9 @@ export function updateLearnerModel(
 
         const newSelfEfficacy = mapAnalysisValue(analysis.affective_state.self_efficacy, model.AffectiveState.SelfEfficacy);
         model.AffectiveState.SelfEfficacy = dynamicCategoricalUpdate(model.AffectiveState.SelfEfficacy, newSelfEfficacy, THREE_LEVEL_MAP, REVERSE_THREE_LEVEL_MAP);
+        
+        if (curriculumState?.currentPhase === 'Socratic') {
+        }
 
         // 2. Cognitive Load (Stateful Update)
         const newIntrinsicLoad = mapAnalysisValue(analysis.cognitive_load_indicators.perceived_intrinsic_difficulty, model.CognitiveLoad.EstimatedIntrinsic);
@@ -435,7 +476,7 @@ export function updateLearnerModel(
         }
 
 
-        if (curriculumState && analysis.key_content_point_assessment && expectedContentPointTextsForCurrentChunk) {
+        if (curriculumState && analysis.key_content_point_assessment && expectedContentPointTextsForCurrentChunk && curriculumState.currentPhase !== 'Socratic') {
             const isConfidentUnderstanding = analysis.primary_intent === 'ExpressingUnderstanding' &&
                                              model.AffectiveState.Confidence === 'High' &&
                                              model.AffectiveState.Confusion === 'Low';
@@ -445,11 +486,13 @@ export function updateLearnerModel(
             }
 
             analysis.key_content_point_assessment.forEach(assessment => { // assessment is KeyContentPointAssessment
-                const normalizedAssessmentPointId = normalizeContentPointText(assessment.point_id);
-                const verbatimPointText = expectedContentPointTextsForCurrentChunk.find(
-                    expectedText => normalizeContentPointText(expectedText) === normalizedAssessmentPointId);
+                const matchResult = findBestMatchingContentPoint(assessment.point_id, expectedContentPointTextsForCurrentChunk);
+                const verbatimPointText = matchResult.match;
 
                 if (verbatimPointText) { // verbatimPointText is string
+                    if (matchResult.isFuzzy) {
+                        logger.info(`Used fuzzy matching (similarity: ${matchResult.similarity?.toFixed(3)}) for assessment point_id "${assessment.point_id}" -> matched to "${verbatimPointText}"`);
+                    }
                     // *** HIGH-WATER MARK LOGIC START ***
                     const newAnalysisScore = (typeof assessment.understanding_score === 'number' && !isNaN(assessment.understanding_score))
                         ? Math.max(0.0, Math.min(1.0, assessment.understanding_score))
@@ -493,9 +536,11 @@ export function updateLearnerModel(
                     };
                     // *** HIGH-WATER MARK LOGIC END ***
                 } else {
-                    logger.warn(`Could not match assessment point_id "${assessment.point_id}" to any expected content point in the current chunk.`);
+                    const bestSimilarity = matchResult.similarity || 0;
+                    logger.warn(`Could not match assessment point_id "${assessment.point_id}" to any expected content point in the current chunk. Best similarity was ${bestSimilarity.toFixed(3)} (threshold: 0.9). Expected points: ${JSON.stringify(expectedContentPointTextsForCurrentChunk)}`);
                 }
             });
+        } else if (curriculumState && curriculumState.currentPhase === 'Socratic') {
         }
 
 

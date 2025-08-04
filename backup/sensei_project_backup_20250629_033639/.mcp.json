@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+      "mcp-sonar": {
+        "command": "node",
+        "args": ["/Users/aligunes/Documents/mcp_sonar/dist/index.js"],
+        "env": {
+          "SONARQUBE_URL": "http://localhost:9000",
+          "SONARQUBE_TOKEN": "squ_838bb80a2aa4bb0a3286555cad6be6cba9239deb"
+        }
+      }
+    },
+    "globalShortcut": "Alt+C"
+  }
