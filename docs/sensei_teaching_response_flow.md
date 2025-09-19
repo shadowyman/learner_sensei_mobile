@@ -1,0 +1,707 @@
+# Sensei Teaching Response Flow: User Response Processing
+
+## Overview
+This document details the complete execution flow that occurs after a user responds to Sensei's chunk introduction with action items. The flow encompasses input processing, learner analysis, model updates, curriculum advancement, and response generation.
+
+## High-Level Flow Diagram
+
+```
+┌─────────────────────┐
+│ User Submits        │
+│ Response            │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ handleUserInput     │
+│ index.tsx:637-713   │
+└──────────┬──────────┘
+           │
+           ▼
+    ┌──────────────┐
+    │ Capture &    │
+    │ Trim Input   │
+    └──────┬───────┘
+           │
+           ▼
+    ┌──────────────┐
+    │ Add to       │
+    │ History      │
+    └──────┬───────┘
+           │
+           ▼
+    ┌──────────────┐
+    │ Display User │
+    │ Message      │
+    └──────┬───────┘
+           │
+           ▼
+      ◆ Special ◆
+     ◆ Command? ◆
+         ◆ ◆
+        ╱   ╲
+    mskip   Normal
+      ╱       ╲
+     ▼         ▼
+┌─────────┐  ┌───────────────────────┐
+│Award KC │  │generateNextSensei     │
+│Advance  │  │Response               │
+│Curricul.│  │index.tsx:323-635      │
+└────┬────┘  └───────────┬───────────┘
+     │                   │
+     ▼                   ▼
+   [End]           ◆ Curriculum ◆
+                  ◆ State Exists?◆
+                       ◆ ◆
+                      ╱   ╲
+                    No     Yes
+                   ╱         ╲
+                  ▼           ▼
+          ┌──────────┐  ┌─────────────────┐
+          │Handle    │  │Get Current Item │
+          │Module    │  │Ensure Teaching  │
+          │Selection │  │Plan             │
+          └────┬─────┘  └────────┬────────┘
+               │                 │
+               ▼                 ▼
+             [End]    ┌─────────────────────┐
+                      │getAnalysisFromGemini│
+                      │geminiService.ts:    │
+                      │256-289              │
+                      └──────────┬──────────┘
+                                 │
+                      ┌──────────▼──────────┐
+                      │Generate Analysis    │
+                      │Prompt               │
+                      └──────────┬──────────┘
+                                 │
+                      ┌──────────▼──────────┐
+                      │LLM Analysis Call    │
+                      │model_flash          │
+                      └──────────┬──────────┘
+                                 │
+                      ┌──────────▼──────────┐
+                      │Parse JSON Response  │
+                      └──────────┬──────────┘
+                                 │
+                      ┌──────────▼──────────┐
+                      │updateLearnerModel   │
+                      │adaptiveEngine.ts:   │
+                      │351-594              │
+                      └──────────┬──────────┘
+                                 │
+                   ┌─────────────▼─────────────┐
+                   │Update Affective State     │
+                   │60/40 or 70/30 smoothing   │
+                   └─────────────┬─────────────┘
+                                 │
+                   ┌─────────────▼─────────────┐
+                   │Update Knowledge Components│
+                   │+0.12/-0.07 adjustments    │
+                   └─────────────┬─────────────┘
+                                 │
+                   ┌─────────────▼─────────────┐
+                   │Update Content Points      │
+                   │High-water marking         │
+                   └─────────────┬─────────────┘
+                                 │
+                   ┌─────────────▼─────────────┐
+                   │Calculate Performance Trend│
+                   └─────────────┬─────────────┘
+                                 │
+                      ┌──────────▼──────────┐
+                      │advanceCurriculum    │
+                      │State                │
+                      │curriculum.ts:864-936│
+                      └──────────┬──────────┘
+                                 │
+                           ◆ All Points ◆
+                          ◆ ≥0.7? ◆
+                             ◆ ◆
+                            ╱   ╲
+                          Yes    No
+                         ╱         ╲
+                        ▼           ▼
+                   ◆ KC ≥0.65? ◆   │
+                      ◆ ◆          │
+                     ╱   ╲         │
+                   Yes    No       │
+                  ╱         ╲      │
+                 ▼           ▼     │
+         ┌──────────┐ ┌──────────┐ │
+         │Advance   │ │Enter     │ │
+         │Phase/    │ │Consolid. │ │
+         │Module    │ └────┬─────┘ │
+         └────┬─────┘      │       │
+              └─────────┬──┴───────┘
+                        │
+                        ▼
+              ┌───────────────────┐
+              │Stay in Current    │
+              │Chunk              │
+              └─────────┬─────────┘
+                        │
+                        ▼
+         ┌──────────────────────────────┐
+         │PedagogicalProfiler.          │
+         │getDirective                  │
+         │pedagogicalProfiler.ts:152-187│
+         └───────────┬──────────────────┘
+                     │
+         ┌───────────▼──────────┐
+         │Detect Active Flags   │
+         │30+ indicators        │
+         └───────────┬──────────┘
+                     │
+                ◆ Critical ◆
+               ◆ Flags? ◆
+                  ◆ ◆
+                 ╱   ╲
+               Yes    No
+              ╱         ╲
+             ▼           ▼
+     ┌──────────┐  ┌──────────┐
+     │MUST_OBEY │  │Select    │
+     │Directive │  │Persona   │
+     └────┬─────┘  │9 experts │
+          │        └────┬─────┘
+          └──────┬──────┘
+                 │
+                 ▼
+      ┌──────────────────┐
+      │Build System      │
+      │Instruction       │
+      └────────┬─────────┘
+               │
+          ◆ Phase ◆
+         ◆ Type? ◆
+            ◆ ◆
+           ╱   ╲
+     Socratic   Other
+        ╱         ╲
+       ▼           ▼
+┌──────────┐  ┌──────────┐
+│buildSocr.│  │buildSensei│
+│Execution │  │Dynamic    │
+│Instruct. │  │SystemInst.│
+└────┬─────┘  └─────┬─────┘
+     └──────┬───────┘
+            │
+            ▼
+┌───────────────────────┐
+│streamMainSensei       │
+│Response               │
+│interactionHelpers.ts: │
+│177-200                │
+└──────────┬────────────┘
+           │
+┌──────────▼──────────┐
+│Initialize Chat      │
+│Context              │
+└──────────┬──────────┘
+           │
+┌──────────▼──────────┐
+│Stream LLM Response  │
+│model_opus           │
+└──────────┬──────────┘
+           │
+┌──────────▼──────────┐
+│Progressive UI       │
+│Update               │
+└──────────┬──────────┘
+           │
+           ▼
+   ┌──────────────┐
+   │Post-         │
+   │Processing    │
+   └──────┬───────┘
+          │
+┌─────────▼─────────┐
+│Update Response    │
+│History            │
+└─────────┬─────────┘
+          │
+┌─────────▼─────────┐
+│Process Mermaid    │
+│Blocks             │
+└─────────┬─────────┘
+          │
+┌─────────▼─────────┐
+│Update UI Footer   │
+│Confidence/        │
+│Confusion/Intent   │
+└─────────┬─────────┘
+          │
+┌─────────▼─────────┐
+│Log State Changes  │
+└─────────┬─────────┘
+          │
+          ▼
+  ┌──────────────┐
+  │Ready for     │
+  │Next Input    │
+  └──────────────┘
+```
+
+## Detailed Process Breakdown
+
+### Phase 6A: User Input Processing (handleUserInput)
+**Location**: `index.tsx:637-713`
+
+```
+┌────────────┐     ┌──────────────┐     ┌──────────────┐
+│User Input  │────▶│Trim &        │────▶│Add to History│
+└────────────┘     │Validate      │     │Max 10 entries│
+                   └──────────────┘     └──────┬───────┘
+                                               │
+                                               ▼
+                                        ┌──────────────┐
+                                        │Display       │
+                                        │Message       │
+                                        └──────┬───────┘
+                                               │
+                                               ▼
+                                          ◆ Check ◆
+                                         ◆ mskip? ◆
+                                            ◆ ◆
+                                           ╱   ╲
+                                         Yes    No
+                                        ╱         ╲
+                                       ▼           ▼
+                               ┌──────────┐  ┌──────────────┐
+                               │Award     │  │Continue to   │
+                               │Full KC   │  │Response      │
+                               └──────────┘  └──────────────┘
+```
+
+**Key Operations**:
+- Input validation and trimming
+- History management (circular buffer of 10)
+- Special command processing ('mskip')
+- Message display with ID tracking
+
+### Phase 6B: Response Generation Orchestration
+**Location**: `index.tsx:323-635`
+
+```
+┌──────────────────────────┐
+│generateNextSenseiResponse│
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│Update Module Handler     │
+└────────────┬─────────────┘
+             │
+             ▼
+      ◆ Has Curriculum ◆
+        ◆ State? ◆
+           ◆ ◆
+          ╱   ╲
+        No     Yes
+       ╱         ╲
+      ▼           ▼
+┌──────────┐  ┌──────────────┐
+│Handle    │  │Get Current   │
+│Module    │  │Item          │
+│Selection │  └──────┬───────┘
+└──────────┘         │
+                     ▼
+              ┌──────────────┐
+              │Ensure        │
+              │Teaching Plan │
+              └──────┬───────┘
+                     │
+                     ▼
+              ┌──────────────┐
+              │Proceed to    │
+              │Analysis      │
+              └──────────────┘
+```
+
+### Phase 6C: Learner Analysis
+**Location**: `geminiService.ts:256-289`
+
+```
+┌──────────┐     ┌─────────────┐     ┌──────────────────┐
+│User      │────▶│Build        │────▶│Include Context:  │
+│Response  │     │Analysis     │     │- User Input      │
+└──────────┘     │Prompt       │     │- Last Sensei Msg │
+                 └─────────────┘     │- Current Task ID │
+                                     │- Expected Points │
+                                     └────────┬─────────┘
+                                              │
+                                              ▼
+                                     ┌──────────────────┐
+                                     │LLM Call          │
+                                     │model_flash       │
+                                     └────────┬─────────┘
+                                              │
+                                              ▼
+                                     ┌──────────────────┐
+                                     │Parse JSON        │
+                                     └────────┬─────────┘
+                                              │
+                                              ▼
+                                ┌───────────────────────┐
+                                │Return Analysis:       │
+                                │- Affective State      │
+                                │- Cognitive Load       │
+                                │- Misconceptions       │
+                                │- KC References        │
+                                │- Intent               │
+                                │- Point Assessment     │
+                                └───────────────────────┘
+```
+
+**Analysis Components**:
+- **Affective State**: confidence, engagement, frustration, confusion, boredom, self_efficacy
+- **Cognitive Load**: perceived_difficulty, extraneous_load
+- **SRL Indicators**: planning, monitoring, help_seeking_style
+- **Misconceptions**: potential issues with likelihood scores
+- **KC References**: positive/negative understanding signals
+- **Primary Intent**: categorical intent classification
+- **Content Point Assessment**: understanding scores for each teaching point
+
+### Phase 6D: Learner Model Update
+**Location**: `adaptiveEngine.ts:351-594`
+
+```
+┌──────────────┐
+│Analysis      │
+│Results       │
+└──────┬───────┘
+       │
+       ▼
+┌─────────────────────────┐
+│Affective Update         │
+│Asymmetrical Smoothing   │
+└──────┬──────────────────┘
+       │
+       ├─────────────┬──────────────┐
+       ▼             ▼              │
+┌──────────┐  ┌──────────┐         │
+│Improve:  │  │Declines: │         │
+│60/40     │  │70/30     │         │
+└────┬─────┘  └────┬─────┘         │
+     └──────┬──────┘               │
+            ▼                       │
+     ┌──────────┐                  │
+     │KC Update │                  │
+     └────┬─────┘                  │
+          │                        │
+     ┌────┴─────┬──────┐          │
+     ▼          ▼      │          │
+┌─────────┐ ┌─────────┐│          │
+│Positive:│ │Negative:││          │
+│+0.12    │ │-0.07    ││          │
+└────┬────┘ └────┬────┘│          │
+     └────┬──────┘     │          │
+          ▼            │          │
+   ┌──────────────┐    │          │
+   │Content Points│◀───┘          │
+   └──────┬───────┘               │
+          │                       │
+          ▼                       │
+   ┌──────────────────┐           │
+   │High-Water Marking│           │
+   └──────┬───────────┘           │
+          │                       │
+          ▼                       │
+   ┌──────────────────┐           │
+   │Update Coverage   │           │
+   │Sets              │           │
+   └──────┬───────────┘           │
+          │                       │
+          ▼                       │
+   ┌──────────────────┐           │
+   │Performance Trend │◀──────────┘
+   └──────┬───────────┘
+          │
+          ▼
+   ┌──────────────────┐
+   │Improving/Declining│
+   │Stable/Stalled     │
+   └──────────────────┘
+```
+
+**Update Mathematics**:
+- **Affective Smoothing**:
+  - Improvements: `new = 0.6 * analysis + 0.4 * previous`
+  - Declines: `new = 0.7 * analysis + 0.3 * previous`
+- **KC Updates**:
+  - Positive signals: `KC += 0.12`
+  - Negative signals: `KC -= 0.07`
+- **Content Points**: `score = max(newScore, previousScore)`
+
+### Phase 6E: Curriculum Advancement
+**Location**: `curriculum.ts:864-936`
+
+```
+┌──────────────┐
+│Check         │
+│Completion    │
+└──────┬───────┘
+       │
+       ▼
+  ◆ All Points ◆
+   ◆ ≥0.7? ◆
+      ◆ ◆
+     ╱   ╲
+   Yes    No
+  ╱         ╲
+ ▼           ▼
+┌──────────┐ ┌──────────┐
+│Mark Chunk│ │Stay in   │
+│Complete  │ │Chunk     │
+└────┬─────┘ └──────────┘
+     │
+     ▼
+ ◆ KC ≥0.65? ◆
+    ◆ ◆
+   ╱   ╲
+ Yes    No
+╱         ╲
+▼          ▼
+┌──────────┐ ┌──────────────┐
+│Advance   │ │Enter         │
+│Phase     │ │Consolidation │
+└────┬─────┘ └──────┬───────┘
+     │              │
+     ▼              ▼
+◆ Phase Type? ◆  ┌──────────────────┐
+    ◆ ◆         │Consolidation     │
+   ╱│╲          │Manager           │
+  ╱ │ ╲         │Remediation       │
+ ╱  │  ╲        │Strategy          │
+▼   ▼   ▼       └──────────────────┘
+┌─────┐┌─────┐┌─────┐
+│Intro││Socr.││Solid│
+│Illus││     ││ify  │
+└──┬──┘└──┬──┘└──┬──┘
+   │      │      │
+   ▼      ▼      ▼
+┌─────┐┌─────┐┌─────┐
+│→    ││→    ││→Next│
+│Socr.││Solid││Mod. │
+└─────┘└─────┘└─────┘
+```
+
+**Thresholds**:
+- Chunk completion: All points ≥ 0.7 understanding
+- Phase advancement: KC ≥ 0.65 mastery
+- Consolidation trigger: KC < 0.65 after chunk completion
+
+### Phase 6F: Pedagogical Guidance
+**Location**: `pedagogicalProfiler.ts:152-187`
+
+```
+┌──────────────────┐
+│Analyze Learner   │
+│State             │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│Detect Active     │
+│Flags             │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│30+ Indicators:   │
+│- Affective       │
+│- Performance     │
+│- Cognitive       │
+│- Profile         │
+└────────┬─────────┘
+         │
+         ▼
+    ◆ Critical ◆
+     ◆ Flags? ◆
+        ◆ ◆
+       ╱   ╲
+     Yes    No
+    ╱         ╲
+   ▼           ▼
+┌──────────┐  ┌──────────────┐
+│MUST_OBEY │  │Select        │
+│Directive │  │Persona       │
+└────┬─────┘  └──────┬───────┘
+     │               │
+     │               ▼
+     │      ┌──────────────────┐
+     │      │9 Expert Personas: │
+     │      │- Expert Panel     │
+     │      │- Socratic Master  │
+     │      │- Empathetic Coach │
+     │      │- Game Designer    │
+     │      │- etc.             │
+     │      └────────┬─────────┘
+     │               │
+     └──────┬────────┘
+            │
+            ▼
+   ┌──────────────────┐
+   │Generate Guidance │
+   └──────────────────┘
+```
+
+**Flag Categories**:
+- **Affective**: High_Frustration, High_Confusion, Waning_Engagement
+- **Performance**: Performance_Declining, Performance_Stalled
+- **Cognitive**: High_Cognitive_Load, Misconception_Active
+- **Profile**: Overwhelmed_Novice, Confident_But_Incorrect
+
+### Phase 6G: System Instruction Building
+**Location**: Various instruction builders
+
+```
+┌──────────────────┐
+│Build Instruction │
+└────────┬─────────┘
+         │
+         ▼
+    ◆ Phase ◆
+    ◆ Type? ◆
+       ◆ ◆
+      ╱   ╲
+ Socratic  Other
+   ╱         ╲
+  ▼           ▼
+┌──────────────────────┐  ┌──────────────────────┐
+│buildSocratic         │  │buildSenseiDynamic    │
+│ExecutionInstruction  │  │SystemInstruction     │
+└──────────┬───────────┘  └──────────┬───────────┘
+           │                         │
+           ▼                         ▼
+┌──────────────────────┐  ┌──────────────────────┐
+│Include:              │  │Include:              │
+│- Interaction Guidance│  │- Phase Instructions  │
+│- Turn Management     │  │- Focus Strategy      │
+│- Completion Triggers │  │- Pedagogical Guidance│
+└──────────┬───────────┘  └──────────┬───────────┘
+           │                         │
+           └──────────┬──────────────┘
+                      │
+                      ▼
+            ┌──────────────────┐
+            │Final Instruction │
+            └──────────────────┘
+```
+
+### Phase 6H: Response Generation
+**Location**: `interactionHelpers.ts:177-200`
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│System        │────▶│Initialize    │────▶│Add User      │
+│Instruction   │     │Chat          │     │Input         │
+└──────────────┘     └──────────────┘     └──────┬───────┘
+                                                  │
+                                                  ▼
+                                         ┌──────────────────┐
+                                         │Stream LLM        │
+                                         │Response          │
+                                         │model_opus        │
+                                         └────────┬─────────┘
+                                                  │
+                                                  ▼
+                                         ┌──────────────────┐
+                                         │Progressive UI    │
+                                         │Update            │
+                                         └────────┬─────────┘
+                                                  │
+                                                  ▼
+                                         ┌──────────────────┐
+                                         │Check Completion  │
+                                         │(Socratic only)   │
+                                         └──────────────────┘
+```
+
+### Phase 6I: State Persistence
+**Location**: Various state management functions
+
+```
+┌──────────────────┐
+│Response Complete │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│Update History    │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│Process Mermaid   │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│Update UI Footer  │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│Log State         │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│Ready for Next    │
+│Input             │
+└──────────────────┘
+```
+
+## Key Decision Points
+
+1. **Special Command Processing**: Direct curriculum advancement vs normal flow
+2. **Module Selection Check**: Module selection handling vs teaching response
+3. **Analysis Success**: Model update vs fallback heuristics
+4. **Chunk Completion**: Advance vs stay in current chunk
+5. **Phase Completion**: Advance phase vs enter consolidation
+6. **Pedagogical Path**: Critical intervention vs orchestration guidance
+7. **Instruction Type**: Socratic-specific vs standard instruction
+
+## Performance Metrics
+
+- **LLM Calls per Interaction**: 2 (analysis + response)
+- **State Updates**: ~15-20 individual state modifications
+- **UI Updates**: Progressive streaming with 3-5 intermediate renders
+- **Processing Time**: ~2-4 seconds typical end-to-end
+
+## Data Flow Summary
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────────┐     ┌──────────────┐
+│User      │────▶│Analysis  │────▶│Learner       │────▶│Curriculum    │
+│Input     │     │          │     │Model         │     │State         │
+└──────────┘     └──────────┘     └──────────────┘     └──────┬───────┘
+                                                               │
+                                                               ▼
+┌──────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│UI        │◀────│Sensei        │◀────│System        │◀────│Pedagogical   │
+│Display   │     │Response      │     │Instruction   │     │Guidance      │
+└──────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+```
+
+## Critical Functions Reference
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `handleUserInput()` | index.tsx:637-713 | Entry point for user responses |
+| `generateNextSenseiResponse()` | index.tsx:323-635 | Main orchestration function |
+| `getAnalysisFromGemini()` | geminiService.ts:256-289 | LLM-based learner analysis |
+| `updateLearnerModel()` | adaptiveEngine.ts:351-594 | Model state updates |
+| `advanceCurriculumState()` | curriculum.ts:864-936 | Curriculum progression |
+| `getDirective()` | pedagogicalProfiler.ts:152-187 | Pedagogical guidance |
+| `streamMainSenseiResponse()` | interactionHelpers.ts:177-200 | Response generation |
+
+## Notes
+
+- The system uses asymmetrical smoothing to be more responsive to improvements than declines
+- High-water marking ensures learner progress is never lost
+- The Socratic phase has special handling for turn management and completion
+- Consolidation is triggered automatically when KC falls below threshold
+- All phases use the same core flow with phase-specific variations
