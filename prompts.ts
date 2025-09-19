@@ -501,6 +501,8 @@ ${textToProcess}
 `;
 }
 
+export const GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION = GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION;
+
 export function GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(
     socraticSectionContent: string,
     moduleTitle: string,
@@ -818,12 +820,7 @@ To inform *how* you teach, discuss, or present these items, you MUST:
 2.  Utilize the 📚 SUPPORTING CONTEXT & GUIDANCE 📚 provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
 3.  Ensure your response directly addresses the user's last input in relation to these primary points.
 4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
-5.  When operating in the IntroIllustrate phase, structure the response as:
-    *   Conceptual Narrative.
-    *   Technical Drilldown.
-    *   Contrasting Scenarios (baseline and high-pressure applications).
-    *   Communication Guidance for interview delivery.
-    *   Reflection segment containing a Self-Assessment Checklist.
+5.  When operating in the IntroIllustrate phase, ensure your response includes a conceptual narrative, a technical drilldown that starts by plainly restating the action item’s technical meaning (contract, inputs/outputs, immediate importance) before walking through mechanics with narrated C++ dry runs, contrasting application scenarios (baseline and high-pressure), interview-oriented communication guidance, and a concise self-assessment checklist.
 ]`;
 
 export const CURRICULUM_COMPLETED_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: Curriculum Completed! User may ask recap questions or general CS topics. Be supportive and congratulate them.]`;

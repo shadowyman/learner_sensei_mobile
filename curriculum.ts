@@ -1117,7 +1117,7 @@ function buildPrimaryActionInstruction(
             return REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding);
         case "Teach New Content (from current chunk)": {
             const introExpansion = state.currentPhase === 'IntroIllustrate'
-                ? `### IntroIllustrate Dual-Pass Structure\n- Conceptual Narrative: walk through the intuition, story, and motivation for the point.\n- Technical Drilldown: provide formal mechanics, complexity, and the full C++ implementation with narrated dry runs.\n- Scenario Pairing: contrast a baseline application with a high-pressure or edge-case scenario and explain the adjustments.\n- Communication Guidance: outline how to explain this to interviewers, including likely probes and trade-off justification.\n- Reflection: present a Self-Assessment Checklist that highlights the critical mastery signals.`
+                ? `### IntroIllustrate Dual-Pass Structure\n- Conceptual Narrative: walk through the intuition, story, and motivation for the point.\n- Technical Drilldown: first articulate the action item in clear technical terms (what the contract guarantees, what inputs/outputs are involved, why it matters now), then detail mechanics, complexity, and the full C++ implementation with narrated dry runs.\n- Present two contrasting application scenarios (baseline and high-pressure or edge-case) and explain how the concept adapts.\n- Provide an algorithmic and communication perspective so the learner can explain trade-offs to interviewers.\n- Wrap up with a self-assessment checklist that highlights the critical mastery signals.`
                 : undefined;
             const template = TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding, introExpansion);
             if (state.currentPhase === 'IntroIllustrate' && DEBUG_FLAGS.curriculum_debug) {
@@ -1185,12 +1185,10 @@ ${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY}`;
     if (phase === 'IntroIllustrate') {
         instruction += `
 == 🔍 INTRO/ILLUSTRATE EXPANSION DIRECTIVE ==
-For every focus point in this phase, deliver two full passes:
-- Conceptual Narrative: walk through the intuition and learner-friendly story.
-- Technical Drilldown: formal definitions, complexity, and precise mechanics.
-Provide two contrasting application scenarios (baseline and high-stress) and explain how the concept adapts.
-Frame the explanation from algorithmic and communication perspectives so the learner can speak to interviewers.
-Conclude with a Self-Assessment Checklist that reinforces mastery.`;
+Deliver two complementary passes: one that builds intuition and one that codifies mechanics with narrated C++ dry runs.
+Include contrasting application scenarios (baseline versus high-pressure) and describe how the learner should adjust in each case.
+Offer an interview-oriented perspective so the learner can justify trade-offs out loud.
+Wrap up with a concise self-assessment checklist reinforcing the mastery signals covered.`;
         if (DEBUG_FLAGS.curriculum_debug) {
             logger.debug('[INTRO_EXPANSION] Applied Intro phase augmentation to curriculum focus');
         }
