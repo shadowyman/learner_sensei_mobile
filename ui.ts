@@ -1295,6 +1295,7 @@ function setupHeaderEllipsisAnimation() {
             return;
         }
         isInteractionPaused = true;
+        ellipsisButton.classList.add('font-toggle-hovered');
         clearIntervalIfNeeded();
         clearTimeoutIfNeeded();
         clearGlowIfNeeded();
@@ -1318,6 +1319,7 @@ function setupHeaderEllipsisAnimation() {
             return;
         }
         isInteractionPaused = false;
+        ellipsisButton.classList.remove('font-toggle-hovered');
         beginIdle();
     };
     const triggerGlow = () => {
