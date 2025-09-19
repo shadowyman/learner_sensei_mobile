@@ -817,7 +817,13 @@ To inform *how* you teach, discuss, or present these items, you MUST:
     *   Your understanding of how to best embody the supportive and insightful Recursive Sensei persona.
 2.  Utilize the 📚 SUPPORTING CONTEXT & GUIDANCE 📚 provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
 3.  Ensure your response directly addresses the user's last input in relation to these primary points.
-4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding
+4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
+5.  When operating in the IntroIllustrate phase, structure the response as:
+    *   Conceptual Narrative.
+    *   Technical Drilldown.
+    *   Contrasting Scenarios (baseline and high-pressure applications).
+    *   Communication Guidance for interview delivery.
+    *   Reflection segment containing a Self-Assessment Checklist.
 ]`;
 
 export const CURRICULUM_COMPLETED_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: Curriculum Completed! User may ask recap questions or general CS topics. Be supportive and congratulate them.]`;
@@ -875,7 +881,7 @@ export const REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE = (allRevisitPoints: string
     return prompt;
 };
 
-export const TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[], includeCheck: boolean): string => {
+export const TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[], includeCheck: boolean, introExpansion?: string): string => {
     let prompt = `For each of the following specific teaching point(s), you MUST explain and/or illustrate them with immense depth and comprehensiveness. These points may already contain specific examples or analogies to use. Your explanation must include:
       - Clearly defining the core idea of each point.
       - Providing at least one illustrative example or analogy for each, or walking through a relevant scenario.
@@ -884,6 +890,11 @@ export const TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: stri
       - If a teaching point itself suggests a specific example or analogy, elaborate on it fully.
     Focus Points:
     ${focusPointsStrings.map(s => `  - "${s}"`).join("\n")}`;
+
+    if (introExpansion) {
+        prompt += `
+${introExpansion}`;
+    }
 
     if (includeCheck) {
         prompt += `

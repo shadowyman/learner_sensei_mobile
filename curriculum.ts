@@ -214,6 +214,7 @@ function calculateTeachingPlanMetrics(teachingPlan: TeachingPoint[][]): {totalAc
     return { totalActionItems, totalKcValue };
 }
 
+// Function kept for debugging purposes - can be re-enabled if needed to diagnose teaching plan generation
 function logTeachingPlanDetails(teachingPlan: TeachingPoint[][], item: CurriculumItem, phase: Phase): void {
     
     teachingPlan.forEach((chunk, chunkIndex) => {
@@ -244,9 +245,9 @@ function validateAndProcessTeachingPlan(teachingPlan: TeachingPoint[][], item: C
         const totalKcValueDisplay = typeof totalKcValue === 'number' && !isNaN(totalKcValue) ? totalKcValue.toFixed(4) : "NaN";
         
         logger.log(`Teaching plan generated with ${teachingPlan.length} chunks, ${totalActionItems} total teaching points, and deterministic KC value of ${totalKcValueDisplay} for ${item.curriculumPathId}, Phase: ${phase}.`);
-        
-        logger.log("LLM generated teaching plan details:");
-        logTeachingPlanDetails(teachingPlan, item, phase);
+
+        // Verbose teaching plan logging removed for cleaner console output
+        // logTeachingPlanDetails(teachingPlan, item, phase);
 
         if (typeof totalKcValue !== 'number' || isNaN(totalKcValue) || totalKcValue < 0.60 || totalKcValue > 0.70) { 
              logger.warn(`LLM generated total KC value of ${totalKcValueDisplay}, which is outside the target sum range of ~0.65 for ${item.curriculumPathId}, Phase: ${phase}.`);
@@ -567,8 +568,110 @@ export async function jumpToPhase(
         coveredPointsInCurrentChunk: new Set<string>(),
         pointsToRevisitInCurrentChunk: new Set<string>()
     };
-    
+
     return newState;
+}
+
+export async function navigateToConcept(
+    targetConceptIndex: number,
+    curriculumData: Curriculum,
+    state: CurriculumState,
+    learnerModel: LearnerModel,
+    llmPlanner: LLMTeachingPlanGenerator
+): Promise<boolean> {
+
+    // Validate inputs
+    if (!curriculumData || !state || !learnerModel) {
+        logger.error('[CONCEPT_NAV] Invalid inputs provided');
+        return false;
+    }
+
+    const module = curriculumData.modules[state.currentModuleIndex];
+    if (!module) {
+        logger.error('[CONCEPT_NAV] Module not found at index:', state.currentModuleIndex);
+        return false;
+    }
+
+    // Validate concept index bounds
+    if (targetConceptIndex < 0 || targetConceptIndex >= module.concepts.length) {
+        logger.warn('[CONCEPT_NAV] Target concept index out of bounds:', targetConceptIndex);
+        return false;
+    }
+
+    // Only allow navigation in IntroIllustrate phase
+    if (state.currentPhase !== 'IntroIllustrate') {
+        logger.warn('[CONCEPT_NAV] Navigation only allowed in IntroIllustrate phase. Current phase:', state.currentPhase);
+        return false;
+    }
+
+    // Check if already at target concept
+    if (state.currentConceptIndex === targetConceptIndex) {
+        logger.info('[CONCEPT_NAV] Already at target concept:', targetConceptIndex);
+        return true;
+    }
+
+    // Log the navigation
+    logger.info('[CONCEPT_NAV] Navigating from concept', state.currentConceptIndex, 'to', targetConceptIndex);
+
+    // Update concept index
+    state.currentConceptIndex = targetConceptIndex;
+
+    // Create curriculum item for the new concept
+    const newConcept = module.concepts[targetConceptIndex];
+    const curriculumItem: CurriculumItem = {
+        moduleTitle: module.title,
+        moduleGoal: module.goal,
+        concept: newConcept,
+        curriculumPathId: `${module.id}-${newConcept.title.replace(/\s+/g, '_').replace(/\W/g, '')}-Phase_IntroIllustrate`,
+        isLastConceptInModule: targetConceptIndex >= module.concepts.length - 1,
+        isLastPhaseForConcept: false,
+        isModuleWidePhase: false
+    };
+
+    // Generate new teaching plan for the concept
+    logger.info('[CONCEPT_NAV] Generating teaching plan for concept:', newConcept.title);
+    const teachingPlan = await generateTeachingPlanForPhase(
+        curriculumData,
+        curriculumItem,
+        'IntroIllustrate',
+        llmPlanner
+    );
+
+    // Reset state for new concept
+    state.teachingPlanForPhase = teachingPlan;
+    state.currentTeachingChunkIndex = 0;
+    state.coveredPointsInCurrentChunk = new Set<string>();
+    state.pointsToRevisitInCurrentChunk = new Set<string>();
+    state.activeConsolidationState = null;
+
+    // Reset learner model progress for new concept
+    learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic = 0;
+
+    // Clear all awarded KC points to start fresh
+    learnerModel.awardedKcForPhasePoints = new Set<string>();
+    logger.info('[CONCEPT_NAV] Cleared awarded KC points for fresh start');
+
+    // Clear content point coverage for ALL points in the new teaching plan
+    // This ensures we start completely fresh for the new concept
+    if (learnerModel.contentPointsCoverage) {
+        for (const chunk of teachingPlan) {
+            for (const point of chunk) {
+                const pointText = point.text;
+                if (learnerModel.contentPointsCoverage[pointText]) {
+                    delete learnerModel.contentPointsCoverage[pointText];
+                }
+            }
+        }
+        logger.info('[CONCEPT_NAV] Cleared content point coverage for new concept');
+    }
+
+    // Initialize KC for new concept - always start at 0 for fresh navigation
+    const kcId = curriculumItem.curriculumPathId;
+    learnerModel.KCs[kcId] = 0.0;
+    logger.info('[CONCEPT_NAV] Initialized KC at 0.0 for fresh start:', kcId);
+
+    logger.info('[CONCEPT_NAV] Successfully navigated to concept:', targetConceptIndex, '- ', newConcept.title);
+    return true;
 }
 
 export function getInitialCurriculumTopicId(curriculumData: Curriculum | null): string {
@@ -774,7 +877,6 @@ async function initializeNewPhaseState(
     learnerModel: LearnerModel,
     llmPlanner: LLMTeachingPlanGenerator
 ): Promise<boolean> {
-    
     // Reset for new phase
     state.currentTeachingChunkIndex = 0;
     const newItem = getCurrentCurriculumItem(curriculumData, state);
@@ -798,7 +900,7 @@ async function initializeNewPhaseState(
         }
         state.coveredPointsInCurrentChunk = new Set<string>();
         state.pointsToRevisitInCurrentChunk = new Set<string>();
-        
+
         logger.log(`Advanced to new state: Module ${state.currentModuleIndex + 1}, Concept ${state.currentConceptIndex + 1}, Phase ${state.currentPhase}, Chunk ${state.currentTeachingChunkIndex + 1}`);
         return true;
     } else if (!state.isCompleted) {
@@ -806,7 +908,7 @@ async function initializeNewPhaseState(
         state.isCompleted = true;
         return true;
     }
-    
+
     return false;
 }
 
@@ -837,7 +939,8 @@ async function handlePhaseCompletion(
     const currentPhaseKCId = currentItem.curriculumPathId;
     const phaseKCMastery = learnerModel.KCs[currentPhaseKCId] || 0;
     const KC_TOLERANCE = 0.001;
-    
+
+
     // Check if mastery achieved
     if (phaseKCMastery >= (PHASE_MASTERY_THRESHOLD - KC_TOLERANCE)) {
         
@@ -848,17 +951,37 @@ async function handlePhaseCompletion(
         if (state.isCompleted) {
             return true;
         }
-        
-        return await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
+
+        const result = await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
+        return result;
     } else {
         // Phase not mastered - initiate or advance consolidation
         if (!state.activeConsolidationState) {
             state.activeConsolidationState = initiateConsolidation(learnerModel, state.teachingPlanForPhase);
         } else {
-            advanceConsolidationStage(state.activeConsolidationState, learnerModel.LastUserInput);
+            // Pass learner model and phase KC ID to check for mastery
+            const shouldExitConsolidation = advanceConsolidationStage(
+                state.activeConsolidationState,
+                learnerModel.LastUserInput,
+                learnerModel,
+                currentPhaseKCId
+            );
+
+            if (shouldExitConsolidation) {
+                // Clear consolidation state and handle phase completion
+                logger.log(`[CONSOLIDATION] Terminated for ${currentItem.curriculumPathId}. Reason: Mastery threshold met during consolidation.`);
+                state.activeConsolidationState = null;
+
+                // Phase mastered - handle transitions
+                cleanupCompletedPhase(state, learnerModel, currentItem);
+                determinePhaseTransition(state, curriculumData);
+                await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
+                return true;
+            }
         }
         return false;
     }
+}
 }
 
 export async function advanceCurriculumState(
@@ -876,13 +999,17 @@ export async function advanceCurriculumState(
             totalChunks: state.teachingPlanForPhase.length
         });
     }
-    
+
     // Early return for completed curriculum
-    if (state.isCompleted) return false;
+    if (state.isCompleted) {
+        return false;
+    }
     
     // Handle Socratic special cases
     const socraticHandled = await handleSocraticPhase(curriculumData, state, learnerModel, llmPlanner);
-    if (socraticHandled) return socraticHandled;
+    if (socraticHandled) {
+        return socraticHandled;
+    }
     
     // Get current item
     const currentItem = getCurrentCurriculumItem(curriculumData, state);
@@ -893,10 +1020,10 @@ export async function advanceCurriculumState(
     }
     
     // Check chunk completion
-    const currentChunkTeachingPoints = (state.teachingPlanForPhase && 
-        state.teachingPlanForPhase[state.currentTeachingChunkIndex]) 
+    const currentChunkTeachingPoints = (state.teachingPlanForPhase &&
+        state.teachingPlanForPhase[state.currentTeachingChunkIndex])
         ? state.teachingPlanForPhase[state.currentTeachingChunkIndex] : [];
-    
+
     let currentChunkLocallyCompleted = false;
     if (currentChunkTeachingPoints.length > 0) {
         const allPointsCovered = currentChunkTeachingPoints.every(
@@ -908,7 +1035,7 @@ export async function advanceCurriculumState(
     } else {
         currentChunkLocallyCompleted = true; // Empty chunk is considered completed
     }
-    
+
     const isLastChunkInPhase = state.currentTeachingChunkIndex >= state.teachingPlanForPhase.length - 1;
     
     // Handle chunk advancement (not last chunk)
@@ -931,7 +1058,7 @@ export async function advanceCurriculumState(
         learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic++;
         logger.log(`Curriculum progression gated for current chunk ${state.currentTeachingChunkIndex + 1} of ${currentItem.curriculumPathId}. ChunkLocallyCompleted: ${currentChunkLocallyCompleted}. Interaction counter for this chunk: ${learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic}`);
     }
-    
+
     return false;
 }
 
@@ -981,15 +1108,23 @@ function buildPrimaryActionInstruction(
     isMustObeyTurn: boolean
 ): string {
     
-    const includeCheck = !isMustObeyTurn;
+    const shouldIncludeCheckUnderstanding = !isMustObeyTurn;
     
     switch (primaryActionType) {
         case "Revisit & Clarify (from current chunk)":
-            return REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, includeCheck);
+            return REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding);
         case "Revisit & Clarify (general points for this phase)":
-            return REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(focusPointsStrings, includeCheck);
-        case "Teach New Content (from current chunk)":
-            return TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, includeCheck);
+            return REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding);
+        case "Teach New Content (from current chunk)": {
+            const introExpansion = state.currentPhase === 'IntroIllustrate'
+                ? `### IntroIllustrate Dual-Pass Structure\n- Conceptual Narrative: walk through the intuition, story, and motivation for the point.\n- Technical Drilldown: provide formal mechanics, complexity, and the full C++ implementation with narrated dry runs.\n- Scenario Pairing: contrast a baseline application with a high-pressure or edge-case scenario and explain the adjustments.\n- Communication Guidance: outline how to explain this to interviewers, including likely probes and trade-off justification.\n- Reflection: present a Self-Assessment Checklist that highlights the critical mastery signals.`
+                : undefined;
+            const template = TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding, introExpansion);
+            if (state.currentPhase === 'IntroIllustrate' && DEBUG_FLAGS.curriculum_debug) {
+                logger.debug('[INTRO_EXPANSION] Emitting enhanced chunk prompt for Intro phase');
+            }
+            return template;
+        }
         case "Reinforce & Deepen (current chunk)":
             return REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE(item, focusPointsStrings);
         case "General Engagement":
@@ -1046,6 +1181,20 @@ ${CURRICULUM_FOCUS_PHASE_SIGNAL_PREFIX} "${phase}". ${CURRICULUM_FOCUS_PHASE_SIG
 
 ${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_HEADER}
 ${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY}`;
+
+    if (phase === 'IntroIllustrate') {
+        instruction += `
+== 🔍 INTRO/ILLUSTRATE EXPANSION DIRECTIVE ==
+For every focus point in this phase, deliver two full passes:
+- Conceptual Narrative: walk through the intuition and learner-friendly story.
+- Technical Drilldown: formal definitions, complexity, and precise mechanics.
+Provide two contrasting application scenarios (baseline and high-stress) and explain how the concept adapts.
+Frame the explanation from algorithmic and communication perspectives so the learner can speak to interviewers.
+Conclude with a Self-Assessment Checklist that reinforces mastery.`;
+        if (DEBUG_FLAGS.curriculum_debug) {
+            logger.debug('[INTRO_EXPANSION] Applied Intro phase augmentation to curriculum focus');
+        }
+    }
 
     return instruction;
 }

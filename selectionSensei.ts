@@ -55,6 +55,7 @@ class SelectionSensei {
         this.handleTextSelection = this.handleTextSelection.bind(this);
         this.handleSelectionChange = this.handleSelectionChange.bind(this);
         this.hideResponseModal = this.hideResponseModal.bind(this);
+        this.handleDragStart = this.handleDragStart.bind(this);
         this.handleDragMove = this.handleDragMove.bind(this);
         this.handleDragEnd = this.handleDragEnd.bind(this);
     }
@@ -62,6 +63,38 @@ class SelectionSensei {
     public initialize(): void {
         this.getDOMElements();
         this.attachEventListeners();
+    }
+
+    public cleanup(): void {
+        // Remove all event listeners to prevent memory leaks and interference
+        this.messageArea.removeEventListener('mouseup', this.handleTextSelection);
+        this.messageArea.removeEventListener('touchend', this.handleTextSelection);
+        document.removeEventListener('selectionchange', this.handleSelectionChange);
+        document.removeEventListener('mousemove', this.handleDragMove);
+        document.removeEventListener('mouseup', this.handleDragEnd);
+
+        if (this.responseModalCloseButton) {
+            this.responseModalCloseButton.removeEventListener('click', this.hideResponseModal);
+        }
+
+        if (this.responseModalHeader) {
+            this.responseModalHeader.removeEventListener('mousedown', this.handleDragStart);
+        }
+
+        // Hide any open modals
+        if (this.responseModal) {
+            this.responseModal.style.display = 'none';
+        }
+        this.hideSelectionToolbar();
+
+        // Clear references
+        this.responseModal = null;
+        this.responseModalHeader = null;
+        this.responseModalTitleElement = null;
+        this.responseModalContentArea = null;
+        this.responseModalTextContent = null;
+        this.responseModalSpinner = null;
+        this.responseModalCloseButton = null;
     }
 
     private getDOMElements(): void {
@@ -72,9 +105,31 @@ class SelectionSensei {
         this.responseModalTextContent = document.getElementById('response-modal-text-content') as HTMLDivElement;
         this.responseModalSpinner = document.getElementById('response-modal-spinner') as HTMLDivElement;
         this.responseModalCloseButton = document.getElementById('response-modal-close-button') as HTMLButtonElement;
-        
+
         if (!this.responseModal || !this.responseModalTextContent) {
-            logger.error("Selection Sensei: Failed to initialize required modal elements");
+            logger.warn("[SENSEI_SELECTION] Modal elements not yet available in DOM - will retry on first use");
+        }
+    }
+
+    private ensureDOMElementsValid(): void {
+        // Check if the modal element is still connected to the document
+        // If not (e.g., after save/load), re-fetch all DOM elements
+        if (!this.responseModal || !this.responseModal.isConnected ||
+            !this.responseModalTextContent || !this.responseModalTextContent.isConnected ||
+            !this.responseModalSpinner || !this.responseModalSpinner.isConnected) {
+
+            this.getDOMElements();
+
+            // Re-attach event listeners for modal elements only
+            if (this.responseModalCloseButton) {
+                this.responseModalCloseButton.removeEventListener('click', this.hideResponseModal);
+                this.responseModalCloseButton.addEventListener('click', this.hideResponseModal);
+            }
+
+            if (this.responseModalHeader) {
+                this.responseModalHeader.removeEventListener('mousedown', this.handleDragStart);
+                this.responseModalHeader.addEventListener('mousedown', this.handleDragStart);
+            }
         }
     }
 
@@ -88,7 +143,7 @@ class SelectionSensei {
         }
 
         if (this.responseModalHeader) {
-            this.responseModalHeader.addEventListener('mousedown', this.handleDragStart.bind(this));
+            this.responseModalHeader.addEventListener('mousedown', this.handleDragStart);
         }
         // Use global listeners for move and up to handle dragging outside the modal
         document.addEventListener('mousemove', this.handleDragMove);
@@ -236,10 +291,19 @@ class SelectionSensei {
         sendButton.className = 'selection-ask-send-button';
         sendButton.textContent = 'Send';
 
-        sendButton.addEventListener('click', () => {
+        const sendMessage = () => {
             const userQuestion = textInput.value.trim();
             if (userQuestion) {
                 this.handleToolbarAction(selectedText, 'askQuestion', originalSenseiMessageText, actionLabel, userQuestion);
+            }
+        };
+
+        sendButton.addEventListener('click', sendMessage);
+
+        textInput.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
             }
         });
 
@@ -287,50 +351,211 @@ class SelectionSensei {
     }
 
     private showResponseModalWithLoading(): void {
+        logger.info("[SENSEI_SELECTION] showResponseModalWithLoading called");
+
+        // Ensure DOM elements are still valid (important after save/load)
+        this.ensureDOMElementsValid();
+
         if (!this.responseModal || !this.responseModalTitleElement || !this.responseModalTextContent || !this.responseModalSpinner) {
             logger.error("Selection Sensei: Cannot show modal - required elements missing");
             return;
         }
 
-        this.responseModalTitleElement.textContent = "Sensei is preparing an explanation..."; 
-        this.responseModalTextContent.innerHTML = ''; 
-        this.responseModalSpinner.style.display = 'block'; 
+        // Log what's currently in the modal before we change it
 
+        // CRITICAL: Clear content BEFORE showing the modal to prevent flash of old content
+        // Force clear any existing content - remove ALL children first
+        while (this.responseModalTextContent.firstChild) {
+            this.responseModalTextContent.removeChild(this.responseModalTextContent.firstChild);
+        }
+        this.responseModalTextContent.innerHTML = '';
+        this.responseModalTextContent.textContent = ''; // Triple clear
+
+        this.responseModalTitleElement.textContent = "Sensei is preparing an explanation...";
+        this.responseModalSpinner.style.display = 'block';
+
+        // Now show the modal with clean content
         this.responseModal.style.left = '50%';
         this.responseModal.style.top = '50%';
         this.responseModal.style.transform = 'translate(-50%, -50%)';
-        this.responseModal.style.display = 'flex'; 
+        this.responseModal.style.display = 'flex';
 
+        logger.info("[SENSEI_SELECTION] Modal shown with loading state");
     }
 
     private async updateResponseModalContentAndTitle(title: string, htmlContent: string): Promise<void> {
+        logger.info("[SENSEI_SELECTION] updateResponseModalContentAndTitle called with:", {
+            titleLength: title?.length,
+            contentLength: htmlContent?.length
+        });
+
+        // Ensure DOM elements are still valid (important after save/load)
+        this.ensureDOMElementsValid();
+
         if (!this.responseModalTextContent || !this.responseModalSpinner || !this.responseModalTitleElement) {
-            logger.error("Selection Sensei: Cannot update content - required elements missing");
+            logger.error("Selection Sensei: Cannot update content - required elements missing", {
+                modalTextContent: !!this.responseModalTextContent,
+                modalSpinner: !!this.responseModalSpinner,
+                modalTitle: !!this.responseModalTitleElement
+            });
             return;
         }
 
 
-        const sanitizedContent = sanitizeCodeFences(htmlContent);
-        this.responseModalTitleElement.textContent = title;
-        this.responseModalSpinner.style.display = 'none'; 
+        try {
+            // Trim the content to prevent accidental code block formatting
+            const trimmedContent = htmlContent.trim();
+            const sanitizedContent = sanitizeCodeFences(trimmedContent);
+            this.responseModalTitleElement.textContent = title;
+            this.responseModalSpinner.style.display = 'none';
+
+            const parsedMarkdown = marked.parse(sanitizedContent) as string;
+
+            // Complete nuclear option: remove all children and set new content
+            while (this.responseModalTextContent.firstChild) {
+                this.responseModalTextContent.removeChild(this.responseModalTextContent.firstChild);
+            }
+
+            // Create a new div with the content and replace everything
+            const contentWrapper = document.createElement('div');
+            contentWrapper.innerHTML = parsedMarkdown;
+            contentWrapper.style.display = 'block'; // Ensure it's visible
+
+            // Replace all content with the new wrapper
+            this.responseModalTextContent.innerHTML = '';
+            this.responseModalTextContent.appendChild(contentWrapper);
+
+            // Force the modal to be visible and content to be displayed
+            this.responseModalTextContent.style.display = 'block';
+            this.responseModal.style.display = 'flex';
+
+        } catch (innerError) {
+            logger.error("[SENSEI_SELECTION] Error in content update:", innerError);
+            throw innerError;
+        }
         
-        this.responseModalTextContent.innerHTML = marked.parse(sanitizedContent) as string;
-        
-        this.responseModalTextContent.querySelectorAll('pre code').forEach((block) => {
-            hljs.highlightElement(block as HTMLElement);
-        });
-        
-        addLanguageDisplayToCodeBlocks(this.responseModalTextContent);
-        addCopyButtonsToCodeBlocks(this.responseModalTextContent);
-        
-        await this.processMermaidDiagrams(this.responseModalTextContent);
+        try {
+            this.responseModalTextContent.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block as HTMLElement);
+            });
+            logger.info("[SENSEI_SELECTION] Code highlighting completed");
+        } catch (highlightError) {
+            logger.warn("[SENSEI_SELECTION] Error during code highlighting:", highlightError);
+            // Continue without highlighting
+        }
+
+        try {
+            addLanguageDisplayToCodeBlocks(this.responseModalTextContent);
+            addCopyButtonsToCodeBlocks(this.responseModalTextContent);
+            logger.info("[SENSEI_SELECTION] Added language displays and copy buttons");
+        } catch (uiError) {
+            logger.warn("[SENSEI_SELECTION] Error adding UI elements:", uiError);
+            // Continue without these UI enhancements
+        }
+
+        try {
+            await this.processMermaidDiagrams(this.responseModalTextContent);
+            logger.info("[SENSEI_SELECTION] Mermaid diagrams processed");
+        } catch (mermaidError) {
+            logger.warn("[SENSEI_SELECTION] Error processing Mermaid diagrams:", mermaidError);
+            // Continue without Mermaid rendering
+        }
     }
 
     private hideResponseModal(): void {
+        // Ensure DOM elements are still valid (important after save/load)
+        this.ensureDOMElementsValid();
+
         if (this.responseModal) {
             this.responseModal.style.display = 'none';
+
+            // Clear the content when hiding to prevent stale content from showing next time
+            if (this.responseModalTextContent) {
+                this.responseModalTextContent.innerHTML = '';
+            }
+            if (this.responseModalTitleElement) {
+                this.responseModalTitleElement.textContent = '';
+            }
         }
-        this.hideSelectionToolbar(); 
+        this.hideSelectionToolbar();
+    }
+
+    private attemptJSONRepair(jsonString: string): string {
+        try {
+            // Remove any BOM characters
+            jsonString = jsonString.replace(/^\uFEFF/, '');
+            
+            // Replace unescaped quotes inside string values
+            // This is a simple heuristic - may need refinement
+            jsonString = jsonString.replace(/"([^"]*)":/g, (match, key) => {
+                return `"${key.replace(/"/g, '\\"')}":`;
+            });
+            
+            // Fix common issues with newlines in JSON strings
+            jsonString = jsonString.replace(/:\s*"([^"]*)"/g, (match, value) => {
+                const fixed = value
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r')
+                    .replace(/\t/g, '\\t')
+                    .replace(/(?<!\\)"/g, '\\"');
+                return `: "${fixed}"`;
+            });
+            
+            // Remove trailing commas
+            jsonString = jsonString.replace(/,\s*}/g, '}');
+            jsonString = jsonString.replace(/,\s*]/g, ']');
+            
+            return jsonString;
+        } catch (error) {
+            logger.warn("[SENSEI_SELECTION] JSON repair attempt failed:", error);
+            return jsonString;
+        }
+    }
+
+    private extractContentWithRegex(text: string): { suggestedTitle?: string; explanation?: string } {
+        try {
+            // Try to extract title pattern
+            const titlePatterns = [
+                /"suggestedTitle"\s*:\s*"([^"]+)"/,
+                /'suggestedTitle'\s*:\s*'([^']+)'/,
+                /suggestedTitle['":\s]+([^'",\n]+)/i
+            ];
+            
+            let title: string | undefined;
+            for (const pattern of titlePatterns) {
+                const match = text.match(pattern);
+                if (match && match[1]) {
+                    title = match[1].trim();
+                    break;
+                }
+            }
+            
+            // Try to extract explanation pattern
+            const explanationPatterns = [
+                /"explanation"\s*:\s*"([\s\S]*?)"\s*}/,
+                /'explanation'\s*:\s*'([\s\S]*?)'\s*}/,
+                /explanation['":\s]+([\s\S]+)/i
+            ];
+            
+            let explanation: string | undefined;
+            for (const pattern of explanationPatterns) {
+                const match = text.match(pattern);
+                if (match && match[1]) {
+                    explanation = match[1]
+                        .replace(/\\n/g, '\n')
+                        .replace(/\\r/g, '\r')
+                        .replace(/\\t/g, '\t')
+                        .replace(/\\"/g, '"')
+                        .trim();
+                    break;
+                }
+            }
+            
+            return { suggestedTitle: title, explanation: explanation };
+        } catch (error) {
+            logger.warn("[SENSEI_SELECTION] Regex extraction failed:", error);
+            return {};
+        }
     }
 
     private async processMermaidDiagrams(container: HTMLElement): Promise<void> {
@@ -363,8 +588,29 @@ class SelectionSensei {
     }
 
     private async handleToolbarAction(selectedText: string, actionType: string, originalSenseiMessageText: string, actionLabel: string, userQuestion?: string): Promise<void> {
+        logger.info("[SENSEI_SELECTION] handleToolbarAction called with:", {
+            actionType,
+            selectedTextLength: selectedText?.length,
+            hasUserQuestion: !!userQuestion
+        });
+
         this.showResponseModalWithLoading();
-        this.hideSelectionToolbar(); 
+        this.hideSelectionToolbar();
+
+        // Check if AI instance is available
+        logger.info("[SENSEI_SELECTION] Checking AI instance:", {
+            aiExists: !!this.ai,
+            modelsExists: this.ai ? !!this.ai.models : false
+        });
+
+        if (!this.ai || !this.ai.models) {
+            logger.error("Selection Sensei: AI instance is not properly initialized", {
+                aiExists: !!this.ai,
+                modelsExists: this.ai ? !!this.ai.models : false
+            });
+            await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.");
+            return;
+        }
 
         let instructionText = "";
         let userPrompt = "";
@@ -377,7 +623,7 @@ class SelectionSensei {
                 case 'explainWithAnalogy': instructionText = "Provide a clear and concise analogy to help understand the 'SELECTED TEXT'."; break;
                 case 'explainInMoreDepth': instructionText = "Explain the 'SELECTED TEXT' in more depth, providing more details and context. Try to understand why someone would require more depth for 'SELECTED TEXT' and tailor your response accordingly. The goal is proactively making sure you cover everything for it."; break;
                 case 'showAnExample': instructionText = "Provide a new relevant and illustrative example for the concept in the 'SELECTED TEXT'. The example should be explained in detail."; break;
-                case 'showExampleCodeSnippet': instructionText = "Provide a relevant C++ code snippet that demonstrates the concept discussed in the 'SELECTED TEXT'. Explain the code snippet in detail, making connections to the context."; break;
+                case 'showExampleCodeSnippet': instructionText = "Provide a complete, fully functional C++ code implementation that demonstrates the concept discussed in the 'SELECTED TEXT'. This must be a FULL implementation, not just a snippet. After the code, provide a LINE-BY-LINE explanation of the code, anticipating and addressing common questions or pitfalls a novice programmer might have about each part of the code. Make connections to the context throughout your explanation."; break;
                 default: await this.updateResponseModalContentAndTitle("Error", "Unknown action type."); return;
             }
             userPrompt = SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(originalSenseiMessageText, selectedText, instructionText, actionLabel);
@@ -394,19 +640,107 @@ class SelectionSensei {
             });
             
             let jsonText = response.text.trim();
+
+            logger.info("[SENSEI_SELECTION] Raw response received:", {
+                length: jsonText.length,
+                first200: jsonText.substring(0, 200),
+                last200: jsonText.substring(Math.max(0, jsonText.length - 200))
+            });
+
+            // Try to extract from code fence if present
             const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
             const match = jsonText.match(fenceRegex);
             if (match && match[2]) jsonText = match[2].trim();
 
-            const parsedResponse = JSON.parse(jsonText);
-            if (parsedResponse.suggestedTitle && parsedResponse.explanation) {
-                await this.updateResponseModalContentAndTitle(parsedResponse.suggestedTitle, parsedResponse.explanation);
+            let parsedResponse: { suggestedTitle?: string; explanation?: string } = {};
+            let parseSuccess = false;
+
+            // Step 1: Try standard JSON parsing
+            try {
+                parsedResponse = JSON.parse(jsonText);
+                parseSuccess = true;
+                logger.info("[SENSEI_SELECTION] JSON parsed successfully on first attempt");
+            } catch (firstError) {
+                logger.warn("[SENSEI_SELECTION] Initial JSON parse failed, attempting repair:", firstError);
+                
+                // Step 2: Try to repair and parse JSON
+                try {
+                    const repairedJson = this.attemptJSONRepair(jsonText);
+                    parsedResponse = JSON.parse(repairedJson);
+                    parseSuccess = true;
+                    logger.info("[SENSEI_SELECTION] JSON parsed successfully after repair");
+                } catch (secondError) {
+                    logger.warn("[SENSEI_SELECTION] JSON repair failed, attempting regex extraction:", secondError);
+
+                    // Step 3: Try regex extraction
+                    parsedResponse = this.extractContentWithRegex(jsonText);
+                    if (parsedResponse.suggestedTitle || parsedResponse.explanation) {
+                        parseSuccess = true;
+                        logger.info("[SENSEI_SELECTION] Content extracted successfully with regex");
+                    }
+                }
+            }
+
+            // Step 4: Display the response or fallback
+            if (parseSuccess && parsedResponse.suggestedTitle && parsedResponse.explanation) {
+                logger.info("[SENSEI_SELECTION] Updating modal with parsed content");
+                try {
+                    await this.updateResponseModalContentAndTitle(
+                        parsedResponse.suggestedTitle,
+                        parsedResponse.explanation
+                    );
+                    logger.info("[SENSEI_SELECTION] Modal updated successfully");
+                } catch (updateError) {
+                    logger.error("[SENSEI_SELECTION] Error updating modal:", updateError);
+                    throw updateError; // Re-throw to be caught by outer catch
+                }
+            } else if (parseSuccess && parsedResponse.explanation) {
+                // We have explanation but no title
+                logger.info("[SENSEI_SELECTION] Updating modal with explanation only");
+                await this.updateResponseModalContentAndTitle(
+                    "Sensei Explains...",
+                    parsedResponse.explanation
+                );
+            } else if (jsonText && jsonText.length > 0) {
+                // Last resort: show the raw response as content
+                logger.warn("[SENSEI_SELECTION] Using raw response as fallback");
+                await this.updateResponseModalContentAndTitle(
+                    "Sensei's Response",
+                    jsonText
+                );
             } else {
-                await this.updateResponseModalContentAndTitle("Sensei Explains...", "Sorry, I had trouble formatting my thoughts.");
+                logger.warn("[SENSEI_SELECTION] No valid content to display");
+                await this.updateResponseModalContentAndTitle(
+                    "Error",
+                    "Sorry, I couldn't generate a proper response. Please try again."
+                );
             }
         } catch (error) {
-            logger.error("Error calling Gemini for selected text action:", error);
-            await this.updateResponseModalContentAndTitle("Error", "Sorry, I encountered an error. Please try again.");
+            // Improved error logging to capture the actual error details
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : '';
+            
+            logger.error("Error calling Gemini for selected text action:", {
+                message: errorMessage,
+                stack: errorStack,
+                error: error,
+                actionType: actionType,
+                selectedTextLength: selectedText?.length || 0,
+                timestamp: new Date().toISOString()
+            });
+            
+            // More specific error messages based on error type
+            let userMessage = "Sorry, I encountered an error. Please try again.";
+            
+            if (errorMessage.includes('quota') || errorMessage.includes('rate') || errorMessage.includes('429')) {
+                userMessage = "API rate limit reached. Please wait a moment before trying again.";
+            } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+                userMessage = "Network error occurred. Please check your connection and try again.";
+            } else if (errorMessage.includes('parse') || errorMessage.includes('JSON')) {
+                userMessage = "Failed to process the response. Please try again.";
+            }
+            
+            await this.updateResponseModalContentAndTitle("Error", userMessage);
         }
     }
 
@@ -448,10 +782,28 @@ class SelectionSensei {
     }
 }
 
+let currentSelectionSenseiInstance: SelectionSensei | null = null;
+
 export function initializeSelectionSensei(
     ai: GoogleGenAI,
     messageArea: HTMLDivElement
 ): void {
-    const selectionSenseiInstance = new SelectionSensei(ai, messageArea);
-    selectionSenseiInstance.initialize();
+    // Clean up any existing instance
+    if (currentSelectionSenseiInstance) {
+        currentSelectionSenseiInstance.cleanup();
+        currentSelectionSenseiInstance = null;
+    }
+
+    currentSelectionSenseiInstance = new SelectionSensei(ai, messageArea);
+    currentSelectionSenseiInstance.initialize();
+}
+
+export function reinitializeSelectionSensei(
+    ai: GoogleGenAI
+): void {
+    const messageArea = document.getElementById('message-area') as HTMLDivElement;
+    if (messageArea) {
+        logger.info("[SENSEI_SELECTION] Re-initializing SelectionSensei after DOM change");
+        initializeSelectionSensei(ai, messageArea);
+    }
 }

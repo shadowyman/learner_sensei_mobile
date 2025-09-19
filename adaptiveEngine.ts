@@ -1,4 +1,5 @@
 
+// Sync trigger: 2024-12-19
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.1
@@ -6,7 +7,7 @@
 
 import { logger, DEBUG_FLAGS } from './logger';
 // Based on Section I-B: The Recursive Sensei's Adaptive Teaching Engine - Operational Mechanisms (Version 2.1)
-import { CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; 
+import { CurriculumState, PHASE_MASTERY_THRESHOLD, CurriculumItem } from "./curriculum"; 
 import type { TeachingPoint as CurriculumTeachingPoint } from "./curriculum"; // For clarity when dealing with teachingPlanForPhase
 
 // --- INTERFACES ---
@@ -353,8 +354,9 @@ export function updateLearnerModel(
     analysis: ComprehensiveAnalysisResultType | null,
     currentModel: LearnerModel,
     expectedContentPointTextsForCurrentChunk: string[], // Renamed for clarity, stores TEXT of points
-    curriculumState?: CurriculumState | null 
+    curriculumState?: CurriculumState | null
 ): LearnerModel {
+
     const modelAsPlainObject = JSON.parse(JSON.stringify(currentModel));
     const newAwardedKcForPhasePoints = new Set<string>(currentModel.awardedKcForPhasePoints || []);
 
@@ -362,7 +364,7 @@ export function updateLearnerModel(
         ...modelAsPlainObject,
         awardedKcForPhasePoints: newAwardedKcForPhasePoints
     };
-    
+
     model.LastUserInput = userInput;
     model.LastAnalysis = analysis;
 
@@ -388,7 +390,7 @@ export function updateLearnerModel(
 
         const newSelfEfficacy = mapAnalysisValue(analysis.affective_state.self_efficacy, model.AffectiveState.SelfEfficacy);
         model.AffectiveState.SelfEfficacy = dynamicCategoricalUpdate(model.AffectiveState.SelfEfficacy, newSelfEfficacy, THREE_LEVEL_MAP, REVERSE_THREE_LEVEL_MAP);
-        
+
         if (curriculumState?.currentPhase === 'Socratic') {
         }
 
@@ -453,7 +455,7 @@ export function updateLearnerModel(
                 }
             });
         }
-        
+
         // 5b. Update LearnerModel.contentPointsCoverage
         if (!model.contentPointsCoverage) model.contentPointsCoverage = {};
         if (expectedContentPointTextsForCurrentChunk) {
@@ -466,7 +468,7 @@ export function updateLearnerModel(
                 }
             });
         }
-        
+
         // 5c. Update CurriculumState's coverage sets AND Award KC values
         const phaseKCId = model.CurrentTask.ID;
         if (!model.KCs[phaseKCId] && curriculumState) {
@@ -506,13 +508,14 @@ export function updateLearnerModel(
                         : [];
                     const teachingPointObject = currentChunkTeachingPoints.find(tp => tp.text === verbatimPointText);
 
+
                     if (teachingPointObject && teachingPointObject.kcValue > 0 && effectiveScore > previousScore) {
                         const awardedKc = (effectiveScore - previousScore) * teachingPointObject.kcValue;
                         updateKC(model, phaseKCId, awardedKc, true);
                         if (DEBUG_FLAGS.learner_analysis_debug) {
                             logger.warn(`Phase KC Update: Awarded ${awardedKc.toFixed(4)} for improving from ${previousScore.toFixed(2)} to ${effectiveScore.toFixed(2)} on "${verbatimPointText}". New '${phaseKCId}' mastery: ${model.KCs[phaseKCId].toFixed(4)}`);
                         }
-                        
+                    } else {
                         // Update KC progress bar with new mastery level
                         const updatedKCMastery = model.KCs[phaseKCId];
                         // Update KC progress bar with new mastery level
@@ -531,7 +534,7 @@ export function updateLearnerModel(
                     }
 
                     model.contentPointsCoverage![verbatimPointText] = { // verbatimPointText is string
-                        coverage: assessment.coverage, 
+                        coverage: assessment.coverage,
                         understanding_score: effectiveScore, // Store the new high-water mark
                     };
                     // *** HIGH-WATER MARK LOGIC END ***
@@ -540,11 +543,14 @@ export function updateLearnerModel(
                     logger.warn(`Could not match assessment point_id "${assessment.point_id}" to any expected content point in the current chunk. Best similarity was ${bestSimilarity.toFixed(3)} (threshold: 0.9). Expected points: ${JSON.stringify(expectedContentPointTextsForCurrentChunk)}`);
                 }
             });
+
+
         } else if (curriculumState && curriculumState.currentPhase === 'Socratic') {
         }
 
 
-        // 6. Learning Trajectory 
+        // 6. Learning Trajectory
+ 
         let positiveKCSignals = analysis.knowledge_component_references.filter(ref => ref.understanding_signal === 'Positive').length;
         let negativeKCSignals = analysis.knowledge_component_references.filter(ref => ref.understanding_signal === 'Negative').length;
 
@@ -559,7 +565,8 @@ export function updateLearnerModel(
         } else {
             model.LearningTrajectory.RecentPerformanceTrend = 'Stable';
         }
-    } else { 
+    } else {
+ 
         const inputLower = userInput.toLowerCase();
         if (inputLower.includes("stuck") || inputLower.includes("confused") || inputLower.includes("don't understand")) {
             model.AffectiveState.Confusion = 'High';
@@ -587,5 +594,72 @@ export function updateLearnerModel(
         model.ZPD_Estimate.ScaffoldingNeed = 'Medium';
     }
 
+
     return model;
+}
+
+export function overrideChunkUnderstanding(
+    learnerModel: LearnerModel,
+    curriculumState: CurriculumState,
+    curriculumItem: CurriculumItem,
+    chunkIndex: number,
+    understood: boolean
+): { kcDelta: number } {
+    if (!curriculumState.teachingPlanForPhase || chunkIndex < 0 || chunkIndex >= curriculumState.teachingPlanForPhase.length) {
+        logger.warn('[CHUNK_CHECK] Invalid chunk override request', { chunkIndex });
+        return { kcDelta: 0 };
+    }
+    const chunkPoints = curriculumState.teachingPlanForPhase[chunkIndex];
+    if (!learnerModel.contentPointsCoverage) {
+        learnerModel.contentPointsCoverage = {};
+    }
+    if (!(learnerModel.awardedKcForPhasePoints instanceof Set)) {
+        learnerModel.awardedKcForPhasePoints = new Set<string>();
+    }
+    const phaseKCId = curriculumItem.curriculumPathId;
+    const currentMastery = learnerModel.KCs[phaseKCId] || 0;
+    let totalDelta = 0;
+    chunkPoints.forEach(point => {
+        const previousScore = learnerModel.contentPointsCoverage?.[point.text]?.understanding_score || 0;
+        const targetScore = understood ? 1 : 0;
+        if (!learnerModel.contentPointsCoverage![point.text]) {
+            learnerModel.contentPointsCoverage![point.text] = {
+                coverage: 'NotAddressed',
+                understanding_score: 0
+            };
+        }
+        const scoreDelta = targetScore - previousScore;
+        if (scoreDelta !== 0 && point.kcValue > 0) {
+            totalDelta += scoreDelta * point.kcValue;
+        }
+        learnerModel.contentPointsCoverage![point.text] = {
+            coverage: understood ? 'ExplicitlyAddressed' : 'NotAddressed',
+            understanding_score: targetScore
+        };
+        if (understood) {
+            learnerModel.awardedKcForPhasePoints.add(point.text);
+        } else {
+            learnerModel.awardedKcForPhasePoints.delete(point.text);
+        }
+    });
+    const updatedMastery = Math.max(0, Math.min(1, currentMastery + totalDelta));
+    const appliedDelta = updatedMastery - currentMastery;
+    learnerModel.KCs[phaseKCId] = updatedMastery;
+    learnerModel.KCMasteryLastUpdated[phaseKCId] = new Date().toISOString();
+    if (curriculumState.currentTeachingChunkIndex === chunkIndex) {
+        if (understood) {
+            curriculumState.coveredPointsInCurrentChunk = new Set(chunkPoints.map(point => point.text));
+            if (!curriculumState.pointsToRevisitInCurrentChunk) {
+                curriculumState.pointsToRevisitInCurrentChunk = new Set<string>();
+            }
+            chunkPoints.forEach(point => curriculumState.pointsToRevisitInCurrentChunk!.delete(point.text));
+        } else {
+            curriculumState.coveredPointsInCurrentChunk = new Set<string>();
+            if (!curriculumState.pointsToRevisitInCurrentChunk) {
+                curriculumState.pointsToRevisitInCurrentChunk = new Set<string>();
+            }
+            chunkPoints.forEach(point => curriculumState.pointsToRevisitInCurrentChunk!.add(point.text));
+        }
+    }
+    return { kcDelta: appliedDelta };
 }

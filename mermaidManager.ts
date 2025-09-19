@@ -300,7 +300,8 @@ class MermaidManager {
                 },
                 flowchart: {
                     htmlLabels: true,
-                    curve: 'basis'
+                    curve: 'basis',
+                    defaultRenderer: 'elk'
                 }
             });
 

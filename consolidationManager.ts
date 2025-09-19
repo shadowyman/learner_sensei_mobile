@@ -5,7 +5,7 @@
 
 import { logger } from './logger';
 import { LearnerModel } from "./adaptiveEngine";
-import { TeachingPoint, CurriculumItem, CurriculumState } from "./curriculum"; // Changed import for TeachingPoint
+import { TeachingPoint, CurriculumItem, CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; // Changed import for TeachingPoint
 import {
     CURRICULUM_FOCUS_HEADER_BASE,
     CURRICULUM_FOCUS_PRIMARY_ACTION_HEADER_TEMPLATE,
@@ -44,14 +44,29 @@ export function initiateConsolidation(
     const WEAKNESS_THRESHOLD = 0.7; // Points with scores below this are candidates for remediation.
     const MAX_POINTS_TO_REMEDIATE = 4;
 
+    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] === CONSOLIDATION INITIALIZATION ===`);
+    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Total chunks in phase: ${teachingPlanForPhase.length}`);
+    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Weakness threshold: ${WEAKNESS_THRESHOLD}`);
+
     const allPointsWithScores = teachingPlanForPhase
         .flatMap((chunk, chunkIndex) =>
-            chunk.map(point => ({ // point here is TeachingPoint {text, kcValue}
-                ...point, // Spread text and kcValue
-                chunkIndex,
-                // Access understanding_score using point.text as the key
-                score: learnerModel.contentPointsCoverage?.[point.text]?.understanding_score ?? WEAKNESS_THRESHOLD,
-            }))
+            chunk.map(point => { // point here is TeachingPoint {text, kcValue}
+                const foundScore = learnerModel.contentPointsCoverage?.[point.text]?.understanding_score;
+                const isFound = foundScore !== undefined;
+                const finalScore = foundScore ?? WEAKNESS_THRESHOLD;
+
+                logger.info(`[CONSOLIDATION_MANAGER_DEBUG] Chunk ${chunkIndex + 1} Point: "${point.text.substring(0, 50)}..."`);
+                logger.info(`[CONSOLIDATION_MANAGER_DEBUG]   - Found in coverage: ${isFound}`);
+                logger.info(`[CONSOLIDATION_MANAGER_DEBUG]   - Score: ${isFound ? foundScore?.toFixed(2) : 'NOT FOUND (defaulting to ' + WEAKNESS_THRESHOLD + ')'}`);
+                logger.info(`[CONSOLIDATION_MANAGER_DEBUG]   - KC value: ${point.kcValue}`);
+
+                return {
+                    ...point, // Spread text and kcValue
+                    chunkIndex,
+                    score: finalScore,
+                    wasFound: isFound
+                };
+            })
         );
 
     let weakPoints = allPointsWithScores
@@ -59,13 +74,21 @@ export function initiateConsolidation(
         .sort((a, b) => a.score - b.score) // Sort by score to get weakest first
         .slice(0, MAX_POINTS_TO_REMEDIATE);
 
+    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Points below threshold (${WEAKNESS_THRESHOLD}): ${weakPoints.length}`);
+
     if (weakPoints.length === 0 && allPointsWithScores.length > 0) {
+        logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] No points below threshold, but KC < 0.65. Taking lowest scoring points...`);
         // This can happen if all points are >= 0.7 but the cumulative score is still < 0.65.
         // In this case, we take the up to 4 lowest-scoring points, regardless of threshold.
         const lowestScoringPoints = allPointsWithScores
             .sort((a, b) => a.score - b.score)
             .slice(0, MAX_POINTS_TO_REMEDIATE);
         weakPoints = lowestScoringPoints; // Assign directly
+
+        logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Selected ${weakPoints.length} lowest-scoring points for consolidation`);
+        weakPoints.forEach((wp, idx) => {
+            logger.warn(`[CONSOLIDATION_MANAGER_DEBUG]   ${idx + 1}. Score: ${wp.score.toFixed(2)}, Was found: ${wp.wasFound}, Text: "${wp.text.substring(0, 50)}..."`);
+        });
     }
     
     if (weakPoints.length === 0) return null; // No points to remediate.
@@ -94,6 +117,13 @@ export function initiateConsolidation(
         plan: Object.fromEntries(plan.entries())
     });
 
+    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] === CONSOLIDATION PLAN CREATED ===`);
+    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Weak points summary:`);
+    weakPoints.forEach((wp, idx) => {
+        logger.warn(`[CONSOLIDATION_MANAGER_DEBUG]   ${idx + 1}. Chunk ${wp.chunkIndex + 1}, Score: ${wp.score.toFixed(2)}, Text: "${wp.text.substring(0, 50)}..."`);
+    });
+    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] ================================`);
+
     return initialState;
 }
 
@@ -101,8 +131,16 @@ export function initiateConsolidation(
  * Advances the consolidation state to the next stage.
  * @param state - The current consolidation state.
  * @param userInput - The user's last input.
+ * @param learnerModel - The learner model to check for mastery.
+ * @param currentPhaseKCId - The KC ID for the current phase.
+ * @returns true if consolidation should exit due to mastery, false otherwise.
  */
-export function advanceConsolidationStage(state: ConsolidationState, userInput: string): void {
+export function advanceConsolidationStage(
+    state: ConsolidationState,
+    userInput: string,
+    learnerModel?: LearnerModel,
+    currentPhaseKCId?: string
+): boolean {
     const oldStage = state.stage;
     switch (state.stage) {
         case 'Diagnosing':
@@ -116,8 +154,19 @@ export function advanceConsolidationStage(state: ConsolidationState, userInput: 
             if (state.currentPlanStep < state.planOrder.length - 1) {
                 state.currentPlanStep++;
             } else {
-                // The plan is complete. Loop back to the beginning for re-diagnosis on the next turn.
-                // The main curriculum loop will terminate this if mastery is achieved.
+                // Before looping back, check if mastery has been achieved
+                if (learnerModel && currentPhaseKCId) {
+                    const phaseKCMastery = learnerModel.KCs[currentPhaseKCId] || 0;
+                    const KC_TOLERANCE = 0.001;
+
+                    if (phaseKCMastery >= (PHASE_MASTERY_THRESHOLD - KC_TOLERANCE)) {
+                        // Mastery achieved! Exit consolidation
+                        logger.log(`[CONSOLIDATION] Mastery achieved for ${currentPhaseKCId}. KC: ${phaseKCMastery.toFixed(4)}. Exiting consolidation.`);
+                        return true; // Signal to exit consolidation
+                    }
+                }
+
+                // The plan is complete but mastery not achieved. Loop back for re-diagnosis.
                 state.stage = 'Diagnosing';
                 state.currentPlanStep = 0;
             }
@@ -125,6 +174,7 @@ export function advanceConsolidationStage(state: ConsolidationState, userInput: 
     }
     // Centralized Log Point 2: Stage Transition
     logger.log(`[CONSOLIDATION] Stage advanced: ${oldStage} -> ${state.stage}`);
+    return false; // Continue consolidation
 }
 
 /**

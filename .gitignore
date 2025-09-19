@@ -27,3 +27,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp.scannerwork
+backup/
+.mcp-storage/
+sonarqube-25.6.0.109173/

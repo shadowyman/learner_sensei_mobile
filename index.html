@@ -15,7 +15,7 @@
       "imports": {
         "@google/genai": "https://esm.sh/@google/genai@^1.6.0",
         "marked": "https://esm.sh/marked@^15.0.12",
-        "mermaid": "https://esm.sh/mermaid@^11.6.0",
+        "mermaid": "https://esm.sh/mermaid@^11.11.0",
         "jszip": "https://esm.sh/jszip@^3.10.1",
         "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1"
       }
@@ -40,8 +40,14 @@
                 <div class="weighted-segment status">
                     <div class="status-content">
                         <div id="curriculum-status-container">
+                            <button id="concept-nav-prev" class="concept-nav-arrow prev" title="Previous Concept" style="display: none;">
+                                <span class="arrow-icon">‹</span>
+                            </button>
                             <span class="status-label">Current Focus</span>
                             <span id="curriculum-status-topic" class="status-text">Loading curriculum...</span>
+                            <button id="concept-nav-next" class="concept-nav-arrow next" title="Next Concept" style="display: none;">
+                                <span class="arrow-icon">›</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -59,6 +65,13 @@
                         <button id="notepad-button" class="chat-header-button control-btn" title="Open Notepad">
                             <span class="icon-placeholder" data-icon="notepad">📓</span>
                         </button>
+                        <button id="save-button" class="chat-header-button control-btn" title="Save Progress">
+                            <span class="icon-placeholder" data-icon="save">💾</span>
+                        </button>
+                        <button id="load-button" class="chat-header-button control-btn" title="Load Progress">
+                            <span class="icon-placeholder" data-icon="load">📂</span>
+                        </button>
+                        <input type="file" id="load-file-input" accept=".json" style="display: none;">
                     </div>
                 </div>
             </div>
@@ -203,6 +216,12 @@
                     <div id="debug-console-controls" class="console-controls-bar">
                         <button id="export-logs-button" class="console-control-btn" title="Download all logs">
                             💾 Download Logs
+                        </button>
+                        <button id="perf-summary-button" class="console-control-btn" title="Show performance summary">
+                            ⏱️ Perf Summary
+                        </button>
+                        <button id="perf-clear-button" class="console-control-btn" title="Clear performance metrics">
+                            🗑️ Clear Perf
                         </button>
                         <span id="export-status" class="export-status-text"></span>
                     </div>

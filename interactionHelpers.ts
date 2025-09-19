@@ -35,6 +35,11 @@ export async function streamModuleIntroduction(
 
 Let's begin ${moduleTitleForPrompt}.`;
     
+    // Log the full prompt being sent to Sensei
+    logger.log("========== FULL SENSEI PROMPT START ==========");
+    logger.log(messageWithContext);
+    logger.log("========== FULL SENSEI PROMPT END ==========");
+    
     if (DEBUG_FLAGS.curriculum_debug) {
         logger.warn(`[CURRICULUM] Initial teaching prompt:`, messageWithContext);
     }
@@ -176,24 +181,39 @@ export async function streamMainSenseiResponse(
     senseiMessageId: string
 ): Promise<string> {
     let fullResponseText = "";
-    
+
     // Combine context with user input in the message
     const messageWithContext = `${dynamicContext}
 
 User: ${currentUserInput}`;
-    
+
+    // Log the full prompt being sent to Sensei
+    logger.log("========== FULL SENSEI PROMPT START ==========");
+    logger.log(messageWithContext);
+    logger.log("========== FULL SENSEI PROMPT END ==========");
+
     if (DEBUG_FLAGS.curriculum_debug) {
         logger.warn(`[CURRICULUM] User interaction prompt:`, messageWithContext);
     }
-    
+
+    // Start streaming from LLM
     const stream = await chat.sendMessageStream({ message: messageWithContext });
-    
+
+    let chunkCount = 0;
+    let firstChunkTime: number | null = null;
+
     for await (const chunk of stream) { // chunk type is GenerateContentResponse
         const chunkText = chunk.text;
         if (chunkText) {
+            if (chunkCount === 0) {
+                firstChunkTime = performance.now();
+            }
+            chunkCount++;
             fullResponseText += chunkText;
             updateMessageStream(senseiMessageId, fullResponseText);
         }
     }
+
+
     return fullResponseText;
 }

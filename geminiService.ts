@@ -7,8 +7,8 @@ import { logger, DEBUG_FLAGS } from './logger';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ComprehensiveAnalysisResultType, MISCONCEPTION_IDS } from "./adaptiveEngine";
 import { TeachingPoint, PHASE_KC_TOTAL } from "./curriculum";
-import { 
-    GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
+import {
+    GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
     GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION,
     GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT
 } from "./prompts";
@@ -87,7 +87,7 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         
         prompt = GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(textToProcess, extractedTitle || '', extractedGoal || '', extractedConcepts || '');
     } else {
-        prompt = GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess);
+        prompt = GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess);
     }
 
     if (debug) {
@@ -187,17 +187,12 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
                 }
                 // [SEMANTIC_FIX] Check chunks, not teaching points - this was the bug!
                 if (totalNumChunks > 10) {
-                    logger.error(`[CHUNK_DEBUG] Suspiciously large teaching plan detected: ${totalNumChunks} CHUNKS exceeds limit of 10 chunks`);
+                    logger.error(`Suspiciously large teaching plan detected: ${totalNumChunks} CHUNKS exceeds limit of 10 chunks`);
                     return null;
                 }
                 
-                // Optional: Also validate reasonable teaching points per chunk (but don't fail on it)
-                if (totalNumPoints > 50) {
-                    logger.warn(`[CHUNK_DEBUG] Warning: Large number of teaching points: ${totalNumPoints} across ${totalNumChunks} chunks (avg ${(totalNumPoints/totalNumChunks).toFixed(1)} per chunk)`);
-                }
-                
                 const uniformKcValue = PHASE_KC_TOTAL / totalNumPoints;
-                
+
                 // Transform to TeachingPoint[][] with calculated kcValue
                 const transformedPlan: TeachingPoint[][] = parsed.teaching_plan.map((chunk: any[]) =>
                     chunk.map((item: any) => ({
@@ -206,10 +201,36 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
                     }))
                 );
 
-                if (debug) {
-                    logger.log(`DEBUG: llmExtractAndPlanTeachingOrder - Validated and transformed teaching_plan. Total points: ${totalNumPoints}`, transformedPlan);
+                // OPTION 2 FIX: Redistribute KC to exclude titles (first item in each chunk)
+                // The first teaching point in each chunk is the concept title by design
+                // Titles should not contribute to KC since they're duplicated across chunks
+
+                // Count non-title items (all items except first in each chunk)
+                const numTitles = totalNumChunks; // One title per chunk
+                const numNonTitlePoints = totalNumPoints - numTitles;
+
+                if (numNonTitlePoints > 0) {
+                    // Calculate new KC value for non-title items
+                    const adjustedKcValue = PHASE_KC_TOTAL / numNonTitlePoints;
+
+                    // Apply the redistribution
+                    transformedPlan.forEach((chunk, chunkIndex) => {
+                        chunk.forEach((item, itemIndex) => {
+                            if (itemIndex === 0) {
+                                // First item is the title - gets no KC
+                                item.kcValue = 0;
+                            } else {
+                                // Non-title items get the adjusted KC value
+                                item.kcValue = adjustedKcValue;
+                            }
+                        });
+                    });
                 }
-                
+
+                if (debug) {
+                    logger.log(`DEBUG: llmExtractAndPlanTeachingOrder - Validated and transformed teaching_plan with KC redistribution. Total points: ${totalNumPoints}`, transformedPlan);
+                }
+
                 return transformedPlan;
             } else {
                  logger.error("Parsed teaching_plan does not have the expected structure (items with text only):", parsed.teaching_plan);
@@ -243,7 +264,7 @@ export async function getAnalysisFromGemini(
         logger.error("GoogleGenAI instance not provided to getAnalysisFromGemini.");
         return null;
     }
-    
+
     const analysisPrompt = GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION(
         userInputText,
         lastSenseiMsg,
@@ -253,13 +274,14 @@ export async function getAnalysisFromGemini(
 
     try {
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: COMPREHENSIVE_ANALYSIS_CONFIG.modelName, 
+            model: COMPREHENSIVE_ANALYSIS_CONFIG.modelName,
             contents: [{ parts: [{ text: analysisPrompt }] }],
             config: COMPREHENSIVE_ANALYSIS_CONFIG.config
         });
         const jsonText = response.text;
-        
+
         const parsedResult = parseGeminiJsonResponse(jsonText);
+
         return parsedResult;
     } catch (error) {
         logger.error("Error getting analysis from Gemini:", error);
@@ -274,6 +296,7 @@ export async function generateDirectiveFromMetaPrompt(ai: GoogleGenAI, metaPromp
             contents: [{ parts: [{ text: metaPrompt }] }],
             config: PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG.config
         });
+
         const directiveText = response.text.trim();
         if (directiveText) {
             return directiveText;

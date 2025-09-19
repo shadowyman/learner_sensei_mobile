@@ -10,6 +10,7 @@ import {
     LearnerModel,
     initializeLearnerModel,
     updateLearnerModel,
+    overrideChunkUnderstanding,
     // getPedagogicalGuidance is now obsolete
 } from "./adaptiveEngine";
 import {
@@ -44,9 +45,12 @@ import {
     updateFooter,    
     setupFullscreenToggle,
     setupTextareaAutosize,
-    streamingMessagesRawText
+    streamingMessagesRawText,
+    updateSenseiMeditationOverlay
 } from './ui';
-import { 
+import { SaveLoadProgressManager } from './saveloadProgressManager';
+import { ChatWindowController } from './chatWindowController';
+import {
     llmExtractAndPlanTeachingOrder, 
     getAnalysisFromGemini
 } from './geminiService';
@@ -68,15 +72,10 @@ import { initializeSelectionSensei } from "./selectionSensei"; // Import the new
 import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG } from './model_usage';
 import { notepad } from './notepad';
 import { runTestSuite } from './test';
+import { ModuleSelectionHandler } from './moduleSelectionHandler';
 
 // Auto-resize system configuration
-const AUTO_RESIZE_CONFIG = {
-    enabled: true, // Default enabled
-    expansionThreshold: 200, // Minimum viewport increase in pixels to trigger auto-resize
-    debounceDelay: 150, // Delay in ms for debouncing resize events
-    maxScaleFactor: 1.5, // Maximum scaling factor for auto-resize
-    preferenceKey: 'sensei-auto-resize-enabled'
-};
+
 
 const debug = false; 
 
@@ -96,8 +95,6 @@ let learnerModel: LearnerModel = initializeLearnerModel();
 let lastSenseiResponses: string[] = [];
 let chronologicallyLastLLMSenseiMessageId: string | null = null; // For reload logic
 
-// Global flag to coordinate between drag and resize
-let isResizingWindow = false;
 
 let curriculum: Curriculum | null = null;
 let curriculumState: CurriculumState | null = null;
@@ -109,12 +106,135 @@ let pendingModuleSelection: number | null = null; // Track module selection pend
 const projectFileContents = new Map<string, string>();
 let availableProjectFilePaths: string[] = []; // Stores the list of file paths
 
-// Auto-resize system state
-let autoResizeEnabled = true;
-let previousViewportWidth = window.innerWidth;
-let previousViewportHeight = window.innerHeight;
-let resizeDebounceTimer: number | null = null;
-let isAutoResizing = false;
+// Chat window controller instance
+let chatWindowController: ChatWindowController | null = null;
+// Module selection handler instance
+let moduleSelectionHandler: ModuleSelectionHandler | null = null;
+
+declare global {
+    interface Window {
+        switchToChunk?: (targetIndex: number) => Promise<void>;
+        overrideChunkUnderstanding?: (payload: { chunkIndex: number; understood: boolean }) => Promise<void>;
+        advanceConceptFromChunk?: () => Promise<void>;
+    }
+}
+
+// Immediately expose state variables for SaveLoadProgressManager
+// Using getters/setters to ensure we always get current values
+Object.defineProperties(window, {
+    curriculum: { get: () => curriculum, set: (v) => { curriculum = v; }, enumerable: true },
+    curriculumState: { get: () => curriculumState, set: (v) => { curriculumState = v; }, enumerable: true },
+    learnerModel: { get: () => learnerModel, set: (v) => { learnerModel = v; }, enumerable: true },
+    currentMessageId: { get: () => currentMessageId, set: (v) => { currentMessageId = v; }, enumerable: true },
+    lastSenseiResponses: { get: () => lastSenseiResponses, set: (v) => { lastSenseiResponses = v; }, enumerable: true },
+    chronologicallyLastLLMSenseiMessageId: { get: () => chronologicallyLastLLMSenseiMessageId, set: (v) => { chronologicallyLastLLMSenseiMessageId = v; }, enumerable: true },
+    mainSenseiChat: { get: () => mainSenseiChat, set: (v) => { mainSenseiChat = v; }, enumerable: true },
+    userInputHistory: { get: () => userInputHistory, set: (v) => { userInputHistory = v; }, enumerable: true },
+    pendingModuleSelection: { get: () => pendingModuleSelection, set: (v) => { pendingModuleSelection = v; }, enumerable: true },
+    autoResizeEnabled: { get: () => chatWindowController?.getAutoResizePreference() || true, set: (v) => { chatWindowController?.setAutoResizePreference(v); }, enumerable: true },
+    currentActiveConceptIndex: { get: () => currentActiveConceptIndex, set: (v) => { currentActiveConceptIndex = v; }, enumerable: true },
+    projectFileContents: { get: () => projectFileContents, enumerable: true },
+    notepad: { get: () => notepad, enumerable: true },
+    streamingMessagesRawText: { get: () => streamingMessagesRawText, enumerable: true },
+    // Expose UI functions for save/load restoration
+    displayMessage: { get: () => displayMessage, enumerable: true },
+    updateFooter: { get: () => updateFooter, enumerable: true },
+    updateCurriculumDisplay: { get: () => updateCurriculumDisplay, enumerable: true },
+    getCurrentCurriculumItem: { get: () => getCurrentCurriculumItem, enumerable: true },
+    processMermaidBlocks: { get: () => processMermaidBlocks, enumerable: true }
+});
+
+window.switchToChunk = async (targetIndex: number) => {
+    if (!curriculum || !curriculumState) {
+        logger.warn('[CHUNK_SWITCH] Cannot switch chunk without active curriculum');
+        return;
+    }
+    const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
+    if (!currentItem) {
+        logger.warn('[CHUNK_SWITCH] Current curriculum item unavailable');
+        return;
+    }
+    if (targetIndex < 0) {
+        logger.warn('[CHUNK_SWITCH] Requested chunk index below zero', { chunkIndex: targetIndex });
+        return;
+    }
+    if (!curriculumState.teachingPlanForPhase ||
+        curriculumState.teachingPlanForPhase.length === 0 ||
+        targetIndex >= curriculumState.teachingPlanForPhase.length) {
+        if (!ai) {
+            logger.warn('[CHUNK_SWITCH] Teaching plan missing and AI unavailable');
+            return;
+        }
+        await ensureTeachingPlanExists(curriculum, curriculumState, currentItem, ai);
+    }
+    if (!curriculumState.teachingPlanForPhase || targetIndex >= curriculumState.teachingPlanForPhase.length) {
+        logger.warn('[CHUNK_SWITCH] Requested chunk index out of bounds after regeneration', { chunkIndex: targetIndex });
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const chunkPoints = curriculumState.teachingPlanForPhase[targetIndex] || [];
+        curriculumState.currentTeachingChunkIndex = targetIndex;
+        curriculumState.coveredPointsInCurrentChunk = new Set<string>();
+        curriculumState.pointsToRevisitInCurrentChunk = new Set<string>();
+        curriculumState.activeConsolidationState = null;
+        learnerModel.awardedKcForPhasePoints = new Set<string>();
+        if (learnerModel.contentPointsCoverage) {
+            chunkPoints.forEach(point => {
+                if (learnerModel.contentPointsCoverage && learnerModel.contentPointsCoverage[point.text]) {
+                    delete learnerModel.contentPointsCoverage[point.text];
+                }
+            });
+        }
+        learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic = 0;
+
+        const phaseKCId = currentItem.curriculumPathId;
+        const currentKCMastery = learnerModel.KCs[phaseKCId] || 0;
+        updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
+        updateSenseiMeditationOverlay(curriculumState, true);
+        updateKCProgressBar(currentKCMastery);
+
+        await generateNextSenseiResponse('', true);
+    } catch (error) {
+        logger.error('[CHUNK_SWITCH] Chunk switch failed', error);
+    } finally {
+        showLoading(false);
+    }
+};
+
+window.overrideChunkUnderstanding = async ({ chunkIndex, understood }) => {
+    if (!curriculum || !curriculumState) {
+        logger.warn('[CHUNK_CHECK] Override attempted without active curriculum');
+        return;
+    }
+    const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
+    if (!currentItem) {
+        logger.warn('[CHUNK_CHECK] Override failed: curriculum item unavailable');
+        return;
+    }
+    if (!curriculumState.teachingPlanForPhase || chunkIndex < 0 || chunkIndex >= curriculumState.teachingPlanForPhase.length) {
+        logger.warn('[CHUNK_CHECK] Override chunk index out of bounds', { chunkIndex });
+        return;
+    }
+
+    overrideChunkUnderstanding(learnerModel, curriculumState, currentItem, chunkIndex, understood);
+    const mastery = learnerModel.KCs[currentItem.curriculumPathId] || 0;
+    updateKCProgressBar(mastery);
+    updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
+    const overlayElement = document.getElementById('sensei-meditation-overlay');
+    const overlayVisible = !!overlayElement && overlayElement.style.display !== 'none';
+    updateSenseiMeditationOverlay(curriculumState, overlayVisible);
+};
+
+window.advanceConceptFromChunk = async () => {
+    await handleConceptNavigation('next');
+    const overlayElement = document.getElementById('sensei-meditation-overlay');
+    const overlayVisible = !!overlayElement && overlayElement.style.display !== 'none';
+    if (overlayVisible && curriculumState) {
+        updateSenseiMeditationOverlay(curriculumState, true);
+    }
+};
 
 const FALLBACK_FILE_PATHS = [
     'adaptiveEngine.ts',
@@ -200,6 +320,7 @@ async function initializeGoogleAI() {
     logger.log("Google AI SDK initialized with persistent chat.");
     profiler = new PedagogicalProfiler(ai);
 
+
     if (ai) {
         initializeDebugMode(
             ai, 
@@ -212,69 +333,31 @@ async function initializeGoogleAI() {
 
 
 async function handleInitialModuleSelectionInternal(userInputText: string): Promise<boolean> {
-    if (curriculum && !curriculumState) {
-        let selectedModuleIndex: number | null = null;
-        const lowerInput = userInputText.toLowerCase();
-
-        if (lowerInput === "start curriculum") {
-            selectedModuleIndex = 0;
-        } else {
-            const moduleMatch = lowerInput.match(/^(?:module\s*)?(\d+(?:[._]\d+)?)/);
-            if (moduleMatch && moduleMatch[1]) {
-                const moduleIdNumber = moduleMatch[1].replace('_', '.');
-                selectedModuleIndex = curriculum.modules.findIndex(m => {
-                    const curriculumModuleIdNum = m.id.replace('Module', '').replace('_', '.');
-                    return curriculumModuleIdNum === moduleIdNumber;
-                });
-            }
-            if (selectedModuleIndex === null || selectedModuleIndex === -1) {
-                // Try matching by title, this will be hit by clicks passing the title
-                selectedModuleIndex = curriculum.modules.findIndex(m => m.title.toLowerCase().includes(lowerInput) && lowerInput.length >= 3);
-            }
-        }
-
-        if (selectedModuleIndex !== null && selectedModuleIndex >= 0 && selectedModuleIndex < curriculum.modules.length) {
-            pendingModuleSelection = selectedModuleIndex;
-            
-            // Display phase selection message
-            currentMessageId++;
-            const phaseSelectionId = `msg-${currentMessageId}`;
-            const selectedModule = curriculum.modules[selectedModuleIndex];
-            
-            
-            const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.
-
-Where would you like to begin your learning journey?`;
-            
-            await displayMessage({
-                id: phaseSelectionId,
-                sender: 'sensei',
-                displayName: 'Recursive Sensei',
-                text: phaseSelectionText,
-                timestamp: new Date(),
-                isLoading: false,
-                phaseSelectionEnabled: true,
-                selectedModuleIndex: selectedModuleIndex
-            });
-            
-            return true;
-        } else if (selectedModuleIndex === null || selectedModuleIndex === -1) {
-            currentMessageId++;
-            const nudgeText = "I'm ready to start a module when you are! Please choose from the list I provided, or type 'start curriculum' for the first one. If you have a general question, feel free to ask!";
-            await displayMessage({ // This is a static message, not reloadable by LLM
-                id: `msg-${currentMessageId}`,
-                sender: 'sensei',
-                displayName: 'Recursive Sensei',
-                text: nudgeText,
-                timestamp: new Date(),
-                isLoading: false,
-                isReloadable: false 
-            });
-            updateResponseHistory(nudgeText, `msg-${currentMessageId}`);
-            return true; 
-        }
-    }
-    return false; 
+    if (!moduleSelectionHandler) return false;
+    
+    // Update handler state before processing
+    moduleSelectionHandler.updateState({
+        curriculum,
+        curriculumState,
+        currentMessageId,
+        lastSenseiResponses,
+        userInputHistory,
+        learnerModel,
+        currentActiveConceptIndex,
+        mainSenseiChat,
+        ai,
+        pendingModuleSelection
+    });
+    
+    const result = await moduleSelectionHandler.handleInitialModuleSelectionInternal(userInputText);
+    
+    // Read back state changes - especially pendingModuleSelection
+    const handlerState = moduleSelectionHandler.getState();
+    pendingModuleSelection = handlerState.pendingModuleSelection;
+    currentMessageId = handlerState.currentMessageId;
+    lastSenseiResponses = handlerState.lastSenseiResponses;
+    
+    return result;
 }
 
 function createLLMPlannerCallback(
@@ -282,10 +365,11 @@ function createLLMPlannerCallback(
     curriculumState: CurriculumState,
     ai: GoogleGenAI
 ): (text: string) => Promise<TeachingPoint[][]> {
-    return (text: string) => {
+    return async (text: string) => {
         const module = curriculum.modules[curriculumState.currentModuleIndex];
         const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-        return llmExtractAndPlanTeachingOrder(ai, text, module.title, module.goal, conceptsSummary);
+        const result = await llmExtractAndPlanTeachingOrder(ai, text, module.title, module.goal, conceptsSummary);
+        return result || [];
     };
 }
 
@@ -337,70 +421,28 @@ function updateResponseHistory(
     chronologicallyLastLLMSenseiMessageId = messageId;
 }
 
-async function sendSystemSocraticMessage(): Promise<void> {
-    
-    if (!curriculumState || !curriculumState.teachingPlanForPhase) {
-        logger.error('[SOCRATIC_FIX] Cannot send system message: missing curriculum state or teaching plan');
-        return;
-    }
-    
-    // Build system initialization instruction
-    const systemInstruction = buildSocraticExecutionInstruction(
-        curriculumState.teachingPlanForPhase,
-        { directive: undefined }, // No pedagogical guidance for system initialization
-        true // isSystemInitialization = true
-    );
-    
-    // Create message for display
-    currentMessageId++;
-    const messageId = `msg-${currentMessageId}`;
-    
-    // Display loading message
-    await displayMessage({
-        id: messageId,
-        sender: 'sensei',
-        displayName: 'Recursive Sensei',
-        text: '',
-        timestamp: new Date(),
-        isLoading: true,
-        isReloadable: false  // System messages are not reloadable
-    });
-    
-    try {
-        // Send system instruction to LLM (no user input)
-        const response = await streamMainSenseiResponse(mainSenseiChat!, systemInstruction, "", messageId);
-        
-        // Update response history for future analysis
-        updateResponseHistory(response, messageId);
-        
-        
-    } catch (error) {
-        logger.error('[SOCRATIC_FIX] Error in system message generation:', error);
-        
-        // Fallback message
-        const fallbackMessage = "Welcome to the Socratic exploration phase! I'm ready to guide you through this learning journey.";
-        await displayMessage({
-            id: messageId,
-            sender: 'sensei',
-            displayName: 'Recursive Sensei',
-            text: fallbackMessage,
-            timestamp: new Date(),
-            isLoading: false,
-            isReloadable: false
-        });
-        updateResponseHistory(fallbackMessage, messageId);
-    }
-    
-    // Process any mermaid blocks
-    await processMermaidBlocks(messageId);
-}
 
-async function generateNextSenseiResponse(inputText: string) {
+async function generateNextSenseiResponse(inputText: string, skipPedagogicalIntervention: boolean = false) {
+    // Update module selection handler state before processing
+    if (moduleSelectionHandler) {
+        moduleSelectionHandler.updateState({
+            curriculum,
+            curriculumState,
+            currentMessageId,
+            lastSenseiResponses,
+            userInputHistory,
+            learnerModel,
+            currentActiveConceptIndex,
+            mainSenseiChat,
+            ai,
+            pendingModuleSelection
+        });
+    }
+
     if (curriculum && !curriculumState && !await handleInitialModuleSelectionInternal(inputText)){
         showLoading(false);
         return;
     }
-
 
     let currentCurriculumItem = curriculum && curriculumState ? getCurrentCurriculumItem(curriculum, curriculumState) : null;
     
@@ -413,7 +455,13 @@ async function generateNextSenseiResponse(inputText: string) {
         ? curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex].map(tp => tp.text)
         : [];
 
-    const analysisResult = await getAnalysisFromGemini(ai!, inputText, lastSenseiResponses[0] || null, currentTaskIdForAnalysis, expectedContentPointTextsForCurrentChunk);
+    // Skip analysis completely when navigating via arrows
+    let analysisResult = null;
+    if (!skipPedagogicalIntervention || inputText.trim() !== '') {
+        analysisResult = await getAnalysisFromGemini(ai!, inputText, lastSenseiResponses[0] || null, currentTaskIdForAnalysis, expectedContentPointTextsForCurrentChunk);
+    } else {
+        logger.info('[CONCEPT_NAV] Skipping learner analysis for arrow navigation');
+    }
 
     if (analysisResult) {
         if (DEBUG_FLAGS.learner_analysis_debug) {
@@ -451,7 +499,10 @@ async function generateNextSenseiResponse(inputText: string) {
     }
 
 
-    learnerModel = updateLearnerModel(inputText, analysisResult, learnerModel, expectedContentPointTextsForCurrentChunk, curriculumState);
+    // Only update learner model if we have analysis results
+    if (analysisResult) {
+        learnerModel = updateLearnerModel(inputText, analysisResult, learnerModel, expectedContentPointTextsForCurrentChunk, curriculumState);
+    }
     updateFooter(learnerModel); // NEW: Update the footer with the new model state
     if (debug) { 
         logger.log("Updated Learner Model:", JSON.stringify(learnerModel, null, 2)); 
@@ -459,10 +510,31 @@ async function generateNextSenseiResponse(inputText: string) {
     if (curriculumState) { 
         logger.log("After Learner Model Update - Covered Points in Current Chunk (text):", Array.from(curriculumState.coveredPointsInCurrentChunk));
         logger.log("After Learner Model Update - Points to Revisit in Current Chunk (text):", Array.from(curriculumState.pointsToRevisitInCurrentChunk || new Set()));
+        
+        // Log teaching point understanding scores for current chunk
+        const currentChunkTeachingPoints = (curriculumState.teachingPlanForPhase && 
+            curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex]) 
+            ? curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex] : [];
+        
+        const pointScores = currentChunkTeachingPoints.map(tp => {
+            const score = learnerModel.contentPointsCoverage?.[tp.text]?.understanding_score || 0.0;
+            return {
+                point: tp.text.substring(0, 80) + (tp.text.length > 80 ? '...' : ''),
+                score: score.toFixed(2),
+                covered: curriculumState.coveredPointsInCurrentChunk.has(tp.text) ? '✓' : '✗'
+            };
+        });
+        
+        const formattedScores = pointScores.map((item, index) => 
+            `  ${index + 1}. ${item.covered} [${item.score}] ${item.point}`
+        ).join('\n');
+        
+        logger.log(`[CHUNK_UNDERSTANDING] Teaching Point Scores for Current Chunk:\n${formattedScores}`);
     }
     
     let curriculumWasAdvanced = false;
-    if (curriculum && curriculumState && !curriculumState.isCompleted) {
+    // Skip curriculum advancement when navigating via arrows (already at desired concept)
+    if (curriculum && curriculumState && !curriculumState.isCompleted && !skipPedagogicalIntervention) {
         const llmPlannerForAdvance = createLLMPlannerCallback(curriculum, curriculumState, ai!);
         curriculumWasAdvanced = await advanceCurriculumState(curriculum, curriculumState, learnerModel, llmPlannerForAdvance);
         
@@ -516,16 +588,24 @@ async function generateNextSenseiResponse(inputText: string) {
     } : null;
     const upcomingActionItems = focusStrategy.upcomingActionItems;
 
-    const guidanceText = await profiler!.getDirective(learnerModel, {
-        upcomingActionItems: upcomingActionItems, // Now uses the focused subset
-        lastThreeUserResponses: userInputHistory.slice(-3), // Pass last 3 user responses
-        lastThreeSenseiResponses: lastSenseiResponses.slice(0, 3)   // Pass last 3 sensei responses
-    });
+    // Skip pedagogical intervention when navigating via arrows to start fresh
+    let guidanceText = "";
+    let isMustObey = false;
 
-    logger.log("Pedagogical Guidance Directive:", guidanceText);
-    logger.log("Focus Points Type:", focusPointsData?.primaryActionType || "None");
+    if (!skipPedagogicalIntervention) {
+        guidanceText = await profiler!.getDirective(learnerModel, {
+            upcomingActionItems: upcomingActionItems, // Now uses the focused subset
+            lastThreeUserResponses: userInputHistory.slice(-3), // Pass last 3 user responses
+            lastThreeSenseiResponses: lastSenseiResponses.slice(0, 3)   // Pass last 3 sensei responses
+        });
 
-    const isMustObey = guidanceText.startsWith('MUST_OBEY');
+        logger.log("Pedagogical Guidance Directive:", guidanceText);
+        logger.log("Focus Points Type:", focusPointsData?.primaryActionType || "None");
+
+        isMustObey = guidanceText.startsWith('MUST_OBEY');
+    } else {
+        logger.log("Pedagogical Guidance SKIPPED - Navigation via arrows");
+    }
     
     // Track Socratic turns
     if (curriculumState && curriculumState.currentPhase === 'Socratic') {
@@ -538,7 +618,7 @@ async function generateNextSenseiResponse(inputText: string) {
     
     const curriculumFocusInstruction = (curriculum && curriculumState && newCurrentItem)
         ? getCurriculumFocusInstruction(curriculum, newCurrentItem, curriculumState, isMustObey, focusPointsData || undefined)
-        : curriculumState?.isCompleted 
+        : curriculumState?.isCompleted
             ? CURRICULUM_COMPLETED_FOCUS_INSTRUCTION
             : GENERAL_INTERACTION_FOCUS_INSTRUCTION;
     
@@ -652,19 +732,26 @@ async function generateNextSenseiResponse(inputText: string) {
         }
 
         showLoading(false);
+
+        // End overall timing was previously here but moved to function end
     }
+
 }
 
 async function handleUserInput(event: Event) {
     event.preventDefault();
     const inputText = userInputElement.value.trim();
-    if (!inputText || !ai || !profiler) return;
-
-    userInputHistory.push(inputText);
-    if (userInputHistory.length > 10) { // Keep last 10 user inputs
-        userInputHistory.shift(); 
+    if (!inputText || !ai || !profiler) {
+        return;
     }
 
+    // Track input history management
+    userInputHistory.push(inputText);
+    if (userInputHistory.length > 10) { // Keep last 10 user inputs
+        userInputHistory.shift();
+    }
+
+    // Track message creation
     currentMessageId++;
     const userMessage: Message = {
         id: `msg-${currentMessageId}`,
@@ -674,15 +761,21 @@ async function handleUserInput(event: Event) {
         timestamp: new Date(),
         skipMermaid: true,  // Phase 1: Skip mermaid processing
     };
+
+    // Track display message
     await displayMessage(userMessage);
+
     // Phase 2: Process mermaid blocks after display is stable
     await processMermaidBlocks(userMessage.id);
+
+    // Track UI cleanup
     userInputElement.value = '';
     setupTextareaAutosize(userInputElement); // Reset textarea height
 
     if (inputText.trim().toLowerCase() === 'mskip') {
         if (curriculumState && curriculum && ai) {
             showLoading(true);
+
             // Award full KC for all points in the current chunk.
             const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
             const currentChunkPoints = curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex] || [];
@@ -709,7 +802,9 @@ async function handleUserInput(event: Event) {
             // Immediately advance state and generate the next turn's response.
             const llmPlannerForAdvance = createLLMPlannerCallback(curriculum, curriculumState, ai!);
             await advanceCurriculumState(curriculum, curriculumState, learnerModel, llmPlannerForAdvance);
+
             await generateNextSenseiResponse(inputText); // Call the refactored function for the new state.
+
             showLoading(false);
             return; // End execution for this input.
         } else {
@@ -718,14 +813,19 @@ async function handleUserInput(event: Event) {
     }
 
 
-    if (curriculum && !curriculumState && await handleInitialModuleSelectionInternal(inputText)) {
-        // showLoading(false) will be handled within handleInitialModuleSelectionInternal if it returns true
-        // or by the subsequent generateNextSenseiResponse path.
-        const userInputElem = document.getElementById('user-input') as HTMLTextAreaElement;
-        if (userInputElem && curriculumState) { 
-            userInputElem.placeholder = "Module selected. Ask questions or type your thoughts...";
+    // Track module selection path
+    if (curriculum && !curriculumState) {
+        const moduleSelected = await handleInitialModuleSelectionInternal(inputText);
+
+        if (moduleSelected) {
+            // showLoading(false) will be handled within handleInitialModuleSelectionInternal if it returns true
+            // or by the subsequent generateNextSenseiResponse path.
+            const userInputElem = document.getElementById('user-input') as HTMLTextAreaElement;
+            if (userInputElem && curriculumState) {
+                userInputElem.placeholder = "Module selected. Ask questions or type your thoughts...";
+            }
+            return;
         }
-        return;
     }
 
     showLoading(true);
@@ -798,318 +898,124 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
 }
 
 async function handleClickedModuleSelection(moduleTitle: string) {
-    if (!ai || !curriculum) { 
-        logger.warn("AI or Curriculum not ready for clicked module selection.");
-        currentMessageId++;
-        await displayMessage({ // Not reloadable by LLM
-            id: `msg-${currentMessageId}`,
-            sender: 'sensei',
-            displayName: 'Recursive Sensei',
-            text: "I'm not quite ready to start a module yet. Please wait a moment and try again.",
-            timestamp: new Date(),
-            isLoading: false,
-            isReloadable: false
-        });
-        return;
-    }
-
-    currentMessageId++;
-    const userMessage: Message = {
-        id: `msg-${currentMessageId}`,
-        sender: 'user',
-        displayName: 'You',
-        text: `Start module: "${moduleTitle}"`, 
-        timestamp: new Date(),
-        skipMermaid: true,  // Phase 1: Skip mermaid processing
-    };
-    await displayMessage(userMessage);
-    // Phase 2: Process mermaid blocks after display is stable
-    await processMermaidBlocks(userMessage.id);
-    if (userInputElement) userInputElement.value = ''; 
-    setupTextareaAutosize(userInputElement); // Reset textarea height
-
-    const success = await handleInitialModuleSelectionInternal(moduleTitle);
-
-    if (success) { 
-        // Phase selection is now shown, no need to update placeholder here
-    } else if (!success) {
-        currentMessageId++;
-        const errorMessage = `I'm sorry, I had trouble starting the module "${moduleTitle}" properly. Please try selecting again or type the module name.`;
-        await displayMessage({ // Not reloadable by LLM
-            id: `msg-${currentMessageId}`,
-            sender: 'sensei',
-            displayName: 'Recursive Sensei',
-            text: errorMessage,
-            timestamp: new Date(),
-            isLoading: false,
-            isReloadable: false
-        });
-        updateResponseHistory(errorMessage, `msg-${currentMessageId}`);
-    }
+    if (!moduleSelectionHandler) return;
+    
+    // Update handler state before processing
+    moduleSelectionHandler.updateState({
+        curriculum,
+        curriculumState,
+        currentMessageId,
+        lastSenseiResponses,
+        userInputHistory,
+        learnerModel,
+        currentActiveConceptIndex,
+        mainSenseiChat,
+        ai,
+        pendingModuleSelection
+    });
+    
+    await moduleSelectionHandler.handleClickedModuleSelection(moduleTitle);
+    
+    // Read back any state changes - including pendingModuleSelection
+    const handlerState = moduleSelectionHandler.getState();
+    pendingModuleSelection = handlerState.pendingModuleSelection;
+    currentMessageId = handlerState.currentMessageId;
+    lastSenseiResponses = handlerState.lastSenseiResponses;
 }
 
 async function handlePhaseSelection(phaseName: string) {
+    logger.log('[PHASE_DEBUG] handlePhaseSelection called with:', phaseName, 'handler exists:', !!moduleSelectionHandler);
+    logger.log('[PHASE_DEBUG] Current pendingModuleSelection:', pendingModuleSelection);
     
-    // Small delay to ensure DOM is fully rendered
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    if (!curriculum || pendingModuleSelection === null || !ai) {
+    if (!moduleSelectionHandler) {
+        logger.error('[PHASE_DEBUG] moduleSelectionHandler is null!');
         return;
     }
     
-    const phase = phaseName as Phase;
-    const validPhases: Phase[] = ['IntroIllustrate', 'Socratic', 'Solidify'];
+    // Update handler state before processing
+    moduleSelectionHandler.updateState({
+        curriculum,
+        curriculumState,
+        currentMessageId,
+        lastSenseiResponses,
+        userInputHistory,
+        learnerModel,
+        currentActiveConceptIndex,
+        mainSenseiChat,
+        ai,
+        pendingModuleSelection
+    });
     
-    if (!validPhases.includes(phase)) {
+    await moduleSelectionHandler.handlePhaseSelection(phaseName);
+    
+    // Read back any state changes from the handler
+    const handlerState = moduleSelectionHandler.getState();
+    pendingModuleSelection = handlerState.pendingModuleSelection;
+    currentMessageId = handlerState.currentMessageId;
+    lastSenseiResponses = handlerState.lastSenseiResponses;
+    userInputHistory = handlerState.userInputHistory;
+    learnerModel = handlerState.learnerModel;
+    curriculumState = handlerState.curriculumState;
+    currentActiveConceptIndex = handlerState.currentActiveConceptIndex;
+}
+
+/**
+ * Initialize Save/Load UI Controls
+ */
+function initializeSaveLoadUI(): void {
+    logger.info('[SAVELOAD-UI] Initializing save/load buttons');
+    
+    const saveButton = document.getElementById('save-button');
+    const loadButton = document.getElementById('load-button');
+    const fileInput = document.getElementById('load-file-input') as HTMLInputElement;
+    
+    if (!saveButton || !loadButton || !fileInput) {
+        logger.warn('[SAVELOAD-UI] Save/load buttons not found in header');
         return;
     }
     
-    // Find the phase selection message and transform it to loading state
-    const phaseMessages = document.querySelectorAll('.message-bubble');
+    saveButton.onclick = async () => {
+        try {
+            logger.info('[SAVELOAD-UI] Save clicked');
+            await SaveLoadProgressManager.saveProgress();
+        } catch (error) {
+            logger.error('[SAVELOAD-UI] Save failed:', error);
+            console.error('Failed to save progress. Check console for details.', error);
+        }
+    };
     
-    let phaseMessageBubble: Element | null = null;
-    let phaseMessageId: string | null = null;
+    fileInput.onchange = async (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (file) {
+            try {
+                logger.info('[SAVELOAD-UI] Loading file:', file.name);
+                await SaveLoadProgressManager.loadProgress(file);
+            } catch (error) {
+                logger.error('[SAVELOAD-UI] Load failed:', error);
+                console.error('Failed to load progress. File may be corrupted.', error);
+            }
+            fileInput.value = ''; // Reset input
+        }
+    };
     
-    phaseMessages.forEach((bubble, index) => {
-        const bubbleId = bubble.id || 'no-id';
-        const hasPhaseButtons = bubble.querySelector('.phase-buttons-container') !== null;
-        
-        
-        if (hasPhaseButtons) {
-            phaseMessageBubble = bubble;
-            phaseMessageId = bubbleId;
+    loadButton.onclick = () => fileInput.click();
+    
+    // Add keyboard shortcut for save (Ctrl+S / Cmd+S)
+    document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+            event.preventDefault();
+            SaveLoadProgressManager.saveProgress().catch(error => {
+                logger.error('[SAVELOAD-UI] Save shortcut failed:', error);
+            });
         }
     });
     
-    if (phaseMessageBubble) {
-        // Find the message bubble content area
-        const messageText = phaseMessageBubble.querySelector('.message-text');
-        if (messageText) {
-            // Clear existing content
-            messageText.innerHTML = '';
-            
-            // Add loading animation
-            const loadingContainer = document.createElement('div');
-            loadingContainer.classList.add('phase-loading-container');
-            
-            const spinner = document.createElement('div');
-            spinner.classList.add('phase-loading-spinner');
-            
-            const loadingText = document.createElement('div');
-            loadingText.classList.add('phase-loading-text');
-            
-            // Array of loading messages
-            const loadingMessages = [
-                'Sensei is generating a teaching plan and will be back with you shortly',
-                'Analyzing your learning patterns to optimize the experience',
-                'Crafting personalized examples based on your progress',
-                'Selecting the most effective teaching strategies',
-                'Preparing interactive exercises tailored to your needs',
-                'Building cognitive bridges to deepen understanding'
-            ];
-            
-            let messageIndex = 0;
-            const textSpan = document.createElement('span');
-            textSpan.textContent = loadingMessages[messageIndex];
-            
-            const dots = document.createElement('span');
-            dots.classList.add('phase-loading-dots');
-            dots.textContent = '...';
-            
-            loadingText.appendChild(textSpan);
-            loadingText.appendChild(dots);
-            
-            loadingContainer.appendChild(spinner);
-            loadingContainer.appendChild(loadingText);
-            messageText.appendChild(loadingContainer);
-            
-            // Animate dots
-            let dotCount = 1;
-            const dotAnimation = setInterval(() => {
-                dotCount = (dotCount % 3) + 1;
-                dots.textContent = '.'.repeat(dotCount);
-            }, 500);
-            
-            // Cycle through messages
-            const messageAnimation = setInterval(() => {
-                messageIndex = (messageIndex + 1) % loadingMessages.length;
-                textSpan.textContent = loadingMessages[messageIndex];
-            }, 5000); // Change message every 5 seconds
-            
-            // Store animation intervals to clear later
-            (phaseMessageBubble as any).dotAnimation = dotAnimation;
-            (phaseMessageBubble as any).messageAnimation = messageAnimation;
-        } else {
-        }
-    } else {
-    }
-    
-    // Jump to the selected phase
-    curriculumState = await jumpToPhase(
-        curriculum, 
-        pendingModuleSelection, 
-        phase,
-        (text) => {
-            const module = curriculum.modules[pendingModuleSelection];
-            const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-            return llmExtractAndPlanTeachingOrder(ai!, text, module.title, module.goal, conceptsSummary);
-        }
-    );
-    
-    if (!curriculumState) {
-        currentMessageId++;
-        await displayMessage({
-            id: `msg-${currentMessageId}`,
-            sender: 'sensei',
-            displayName: 'Recursive Sensei',
-            text: "I encountered an error while preparing that phase. Please try again or select a different phase.",
-            timestamp: new Date(),
-            isLoading: false,
-        });
-        return;
-    }
-    
-    
-    // Initialize Socratic turn counter for Socratic phases
-    if (curriculumState.currentPhase === 'Socratic') {
-        curriculumState.socraticTurnCount = 0;
-        }
-    
-    // Update learner model and UI
-    currentActiveConceptIndex = curriculumState.currentConceptIndex;
-    logger.info('Active concept tracking initialized:', currentActiveConceptIndex);
-    notepad.updateActiveConceptIndex(currentActiveConceptIndex);
-    notepad.updateActiveModuleIndex(curriculumState.currentModuleIndex);
-    
-    const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
-    if (currentItem) {
-        learnerModel.CurrentTask.ID = currentItem.curriculumPathId;
-        learnerModel.CurrentTask.TargetKCs = [currentItem.curriculumPathId];
-        if (!learnerModel.KCs[currentItem.curriculumPathId]) {
-            learnerModel.KCs[currentItem.curriculumPathId] = 0;
-        }
-        learnerModel.KCMasteryLastUpdated[currentItem.curriculumPathId] = new Date().toISOString();
-        learnerModel.awardedKcForPhasePoints = new Set<string>();
-        
-        updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
-        
-        // Update KC progress bar for the new phase
-        const currentPhaseKCMastery = learnerModel.KCs[currentItem.curriculumPathId] || 0;
-        updateKCProgressBar(currentPhaseKCMastery);
-        
-        // Remove the phase selection/loading message
-        const phaseMessagesToRemove = document.querySelectorAll('.message-bubble');
-        phaseMessagesToRemove.forEach(bubble => {
-            // Check for either phase buttons or loading container
-            if (bubble.querySelector('.phase-buttons-container') || bubble.querySelector('.phase-loading-container')) {
-                const bubbleId = bubble.id || 'unknown';
-                // Clear the animation intervals if they exist
-                const dotAnimation = (bubble as any).dotAnimation;
-                if (dotAnimation) {
-                    clearInterval(dotAnimation);
-                }
-                const messageAnimation = (bubble as any).messageAnimation;
-                if (messageAnimation) {
-                    clearInterval(messageAnimation);
-                }
-                bubble.remove();
-            }
-        });
-        
-        const selectedModule = curriculum.modules[pendingModuleSelection];
-        const phaseDisplayName = getPhaseDisplayName(curriculumState.currentPhase);
-        const conceptTitle = currentItem.concept?.title || "the module concepts";
-        
-        // Use system message for Socratic phases, existing logic for others
-        if (curriculumState.currentPhase === 'Socratic') {
-            
-            // Send system initialization message (no turn counting, no analysis)
-            await sendSystemSocraticMessage();
-        } else {
-            // Keep existing logic for non-Socratic phases (IntroIllustrate, Solidify)
-            const initialInstructionForSensei = getCurriculumFocusInstruction(curriculum, currentItem, curriculumState, false);
-            
-            currentMessageId++;
-            const senseiIntroId = `msg-${currentMessageId}`;
-            let introResponseText = "";
-            
-            const introContext = `${MODULE_INTRODUCTION_TASK_TEMPLATE(selectedModule.title, conceptTitle, phaseDisplayName, `Phase: ${phaseDisplayName}`)}
-${initialInstructionForSensei}
-`;
-            
-            const reloadContext: ReloadContext = {
-                type: 'moduleIntro',
-                introSystemInstruction: introContext,
-                moduleTitleForPrompt: selectedModule.title
-            };
-            
-            // Create empty message for streaming
-            await displayMessage({
-                id: senseiIntroId,
-                sender: 'sensei',
-                displayName: 'Recursive Sensei',
-                text: '',
-                timestamp: new Date(),
-                isLoading: true,
-                isReloadable: true,
-                reloadContext: reloadContext,
-            });
-            
-            try {
-                introResponseText = await streamModuleIntroduction(mainSenseiChat!, introContext, selectedModule.title, senseiIntroId);
-                updateResponseHistory(introResponseText, senseiIntroId);
-            } catch (error) {
-                logger.error("Error generating phase intro:", error);
-                introResponseText = `Welcome to the **${phaseDisplayName}** phase of **${selectedModule.title}**! Let's begin exploring ${conceptTitle}.`;
-                updateResponseHistory(introResponseText, senseiIntroId);
-            } finally {
-                // Just update the loading state without replacing content
-                const messageBubble = document.getElementById(senseiIntroId);
-                if (messageBubble) {
-                    messageBubble.classList.remove('loading');
-                    messageBubble.removeAttribute('data-typing'); // Remove the typing cursor
-                    
-                    // Remove any typing cursor span that might still be present
-                    const existingCursor = messageBubble.querySelector('.typing-cursor');
-                    if (existingCursor) {
-                        logger.debug('[PHASE_CURSOR_CLEANUP] Removing cursor from phase intro message');
-                        existingCursor.remove();
-                    }
-                    
-                    // Remove streaming class from message-text to hide CSS cursor
-                    const messageTextEl = messageBubble.querySelector('.message-text');
-                    if (messageTextEl) {
-                        messageTextEl.classList.remove('streaming');
-                    }
-                    
-                    // Update message metadata for reloadability
-                    messageBubble.dataset.reloadable = 'true';
-                    messageBubble.dataset.reloadType = 'moduleIntro';
-                    messageBubble.dataset.reloadContext = JSON.stringify(reloadContext);
-                }
-                await processMermaidBlocks(senseiIntroId);
-            }
-        }
-        
-        // Clear history and reset
-        userInputHistory = [];
-        if (curriculumState.currentPhase !== 'Socratic') {
-            // For non-Socratic phases, store the intro response for analysis context
-            lastSenseiResponses = [introResponseText];
-        }
-        // For Socratic phases, lastSenseiResponses will be updated by generateNextSenseiResponse via updateResponseHistory
-        pendingModuleSelection = null;
-        
-        // Update placeholder
-        const userInputElem = document.getElementById('user-input') as HTMLTextAreaElement;
-        if (userInputElem) {
-            userInputElem.placeholder = "Phase selected. Ask questions or type your thoughts...";
-        }
-    }
+    logger.info('[SAVELOAD-UI] Save/load buttons initialized in header');
 }
 
 async function loadCurriculumAndGreet() {
     initializeUI();
+    initializeSaveLoadUI(); // Add save/load buttons
     await loadProjectFileManifestAndPaths(); // Load manifest and paths
     await initializeGoogleAI(); // Initializes AI and then Debug Mode with paths
 
@@ -1138,8 +1044,19 @@ async function loadCurriculumAndGreet() {
         (messageId: string, context: ReloadContext) => 
         handleReloadSenseiMessage(messageId, context);
     
+    // Expose SaveLoadProgressManager for save/load functionality
+    (window as any).SaveLoadManager = SaveLoadProgressManager;
+    (window as any).saveProgress = () => SaveLoadProgressManager.saveProgress();
+    (window as any).loadProgress = (file: File) => SaveLoadProgressManager.loadProgress(file);
+    
     // Setup the new main chat fullscreen button
     setupFullscreenToggle('main-chat-fullscreen-button', 'chat-container', 'main-chat-fullscreen');
+
+    // Automatically start in fullscreen mode
+    const fullscreenButton = document.getElementById('main-chat-fullscreen-button') as HTMLButtonElement;
+    if (fullscreenButton) {
+        fullscreenButton.click();
+    }
 
     // Initialize the new self-contained selection sensei module
     const messageArea = document.getElementById('message-area') as HTMLDivElement;
@@ -1159,6 +1076,30 @@ async function loadCurriculumAndGreet() {
         
         // Initialize notepad with curriculum
         notepad.initialize(curriculum);
+        
+        // Initialize module selection handler after curriculum is loaded
+        if (ai && mainSenseiChat) {
+            moduleSelectionHandler = new ModuleSelectionHandler({
+                pendingModuleSelection,
+                currentMessageId,
+                lastSenseiResponses,
+                userInputHistory,
+                learnerModel,
+                curriculum,
+                curriculumState,
+                currentActiveConceptIndex,
+                mainSenseiChat,
+                ai
+            });
+        }
+        
+        // Check for session restoration (as per save_load_implementation_plan.md line 1182)
+        if (window.location.hash === '#restore' || sessionStorage.getItem('pendingRestore')) {
+            logger.info('[INIT] Restoration mode detected - waiting for save file');
+            displayMessage('🔄 Ready to restore your saved session. Please use the Load button to select a save file.', 'system');
+            // Skip normal initialization - user will load a save file
+            return;
+        }
 
         if (curriculum && curriculum.modules.length > 0) {
             const initialId = getInitialCurriculumTopicId(curriculum); 
@@ -1219,9 +1160,11 @@ async function loadCurriculumAndGreet() {
     }
     
     // Initialize draggable and resizable after everything is loaded
-    makeMainWindowDraggable();
-    makeMainWindowResizable();
-    initializeAutoResizeSystem();
+    // Initialize chat window controller with a small delay to ensure DOM is ready
+    setTimeout(() => {
+        chatWindowController = ChatWindowController.getInstance();
+        chatWindowController.initialize();
+    }, 100);
 }
 
 inputArea.addEventListener('submit', handleUserInput);
@@ -1232,6 +1175,120 @@ userInputElement.addEventListener('keydown', (event) => {
     }
 });
 debugModeButton.addEventListener('click', () => toggleDebugModalVisibility(true));
+
+// Concept Navigation Handler
+async function handleConceptNavigation(direction: 'prev' | 'next') {
+    if (!curriculumState || !curriculum || !learnerModel || !ai) {
+        logger.warn('[CONCEPT_NAV] Cannot navigate: system not initialized');
+        return;
+    }
+
+    // Only allow in IntroIllustrate phase
+    if (curriculumState.currentPhase !== 'IntroIllustrate') {
+        logger.warn('[CONCEPT_NAV] Navigation only allowed in IntroIllustrate phase');
+        return;
+    }
+
+    const module = curriculum.modules[curriculumState.currentModuleIndex];
+    if (!module) {
+        logger.error('[CONCEPT_NAV] Current module not found');
+        return;
+    }
+
+    const currentIndex = curriculumState.currentConceptIndex;
+    const targetIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
+    // Check bounds
+    if (targetIndex < 0 || targetIndex >= module.concepts.length) {
+        logger.warn('[CONCEPT_NAV] Target concept index out of bounds:', targetIndex);
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        const llmPlanner = createLLMPlannerCallback(curriculum, curriculumState, ai);
+        const { navigateToConcept } = await import('./curriculum');
+
+        const success = await navigateToConcept(
+            targetIndex,
+            curriculum,
+            curriculumState,
+            learnerModel,
+            llmPlanner
+        );
+
+        if (success) {
+            // Update UI
+            currentActiveConceptIndex = targetIndex;
+            const newCurrentItem = getCurrentCurriculumItem(curriculum, curriculumState);
+            if (newCurrentItem) {
+                updateCurriculumDisplay(newCurrentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
+                updateConceptNavigationArrows(curriculumState, curriculum);
+            }
+
+            // Update notepad
+            notepad.updateActiveConceptIndex(targetIndex);
+
+            // Reset KC progress bar for new concept
+            updateKCProgressBar(0);
+
+            // Clear interaction history for fresh start
+            userInputHistory = [];
+            lastSenseiResponses = [];
+            logger.info('[CONCEPT_NAV] Cleared interaction history for fresh start');
+
+            // Generate initial response for new concept with special flag
+            // to skip pedagogical intervention
+            await generateNextSenseiResponse('', true);
+        }
+    } catch (error) {
+        logger.error('[CONCEPT_NAV] Navigation failed:', error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Update concept navigation arrow visibility and state
+function updateConceptNavigationArrows(state: CurriculumState | null, curriculum: Curriculum | null) {
+    const prevButton = document.getElementById('concept-nav-prev') as HTMLButtonElement;
+    const nextButton = document.getElementById('concept-nav-next') as HTMLButtonElement;
+
+    if (!prevButton || !nextButton) return;
+
+    // Hide arrows if not in IntroIllustrate phase or no state
+    if (!state || !curriculum || state.currentPhase !== 'IntroIllustrate') {
+        prevButton.style.display = 'none';
+        nextButton.style.display = 'none';
+        return;
+    }
+
+    const module = curriculum.modules[state.currentModuleIndex];
+    if (!module) {
+        prevButton.style.display = 'none';
+        nextButton.style.display = 'none';
+        return;
+    }
+
+    // Show arrows and update disabled state
+    prevButton.style.display = 'block';
+    nextButton.style.display = 'block';
+
+    prevButton.disabled = state.currentConceptIndex <= 0;
+    nextButton.disabled = state.currentConceptIndex >= module.concepts.length - 1;
+}
+
+// Add event listeners for concept navigation arrows
+const conceptNavPrev = document.getElementById('concept-nav-prev');
+const conceptNavNext = document.getElementById('concept-nav-next');
+
+if (conceptNavPrev) {
+    conceptNavPrev.addEventListener('click', () => handleConceptNavigation('prev'));
+}
+
+if (conceptNavNext) {
+    conceptNavNext.addEventListener('click', () => handleConceptNavigation('next'));
+}
 
 loadCurriculumAndGreet();
 
@@ -1305,277 +1362,3 @@ celebrationStyle.textContent = `
     }
 `;
 document.head.appendChild(celebrationStyle);
-
-function makeMainWindowDraggable() {
-    const chatContainer = document.getElementById('chat-container');
-    const header = document.querySelector('.chat-window-header') as HTMLElement;
-    if (!chatContainer || !header) return;
-
-    let isDragging = false;
-    let currentX: number;
-    let currentY: number;
-    let initialX: number;
-    let initialY: number;
-
-    // Set initial styles once
-    if (!chatContainer.style.position || chatContainer.style.position === 'relative') {
-        const rect = chatContainer.getBoundingClientRect();
-        chatContainer.style.position = 'fixed';
-        chatContainer.style.width = rect.width + 'px';
-        chatContainer.style.height = rect.height + 'px';
-        chatContainer.style.top = '50%';
-        chatContainer.style.left = '50%';
-        chatContainer.style.transform = 'translate(-50%, -50%)';
-        chatContainer.style.margin = '0';
-    }
-    header.style.cursor = 'move';
-
-    function dragStart(e: MouseEvent) {
-        // Ignore if clicking on controls or resize handle
-        if ((e.target as HTMLElement).closest('.chat-window-controls')) return;
-        if ((e.target as HTMLElement).closest('.resize-handle')) return;
-        
-        // Don't start dragging if resizing is in progress
-        if (isResizingWindow) return;
-        
-        const targetElement = e.target as HTMLElement;
-        if (targetElement === header || targetElement.closest('.chat-window-header')) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const rect = chatContainer.getBoundingClientRect();
-            
-            // If still centered, convert to absolute positioning
-            if (chatContainer.style.transform.includes('translate')) {
-                chatContainer.style.transform = 'none';
-                chatContainer.style.left = rect.left + 'px';
-                chatContainer.style.top = rect.top + 'px';
-            }
-            
-            isDragging = true;
-            currentX = parseInt(chatContainer.style.left);
-            currentY = parseInt(chatContainer.style.top);
-            initialX = e.clientX;
-            initialY = e.clientY;
-            
-            document.body.style.userSelect = 'none';
-        }
-    }
-
-    function dragEnd() {
-        if (isDragging) {
-            isDragging = false;
-            document.body.style.userSelect = '';
-        }
-    }
-
-    function drag(e: MouseEvent) {
-        if (!isDragging || isResizingWindow) return;
-        
-        e.preventDefault();
-        
-        currentX = currentX + (e.clientX - initialX);
-        currentY = currentY + (e.clientY - initialY);
-        initialX = e.clientX;
-        initialY = e.clientY;
-        
-        chatContainer.style.left = currentX + 'px';
-        chatContainer.style.top = currentY + 'px';
-    }
-
-    header.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
-}
-
-function makeMainWindowResizable() {
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) return;
-
-    // Check if resize handle already exists
-    if (chatContainer.querySelector('.resize-handle')) return;
-
-    // Add resize handle
-    const resizeHandle = document.createElement('div');
-    resizeHandle.className = 'resize-handle';
-    resizeHandle.style.cssText = `
-        position: absolute;
-        bottom: 0;
-        right: 0;
-        width: 20px;
-        height: 20px;
-        cursor: se-resize;
-        background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);
-        z-index: 10000;
-        pointer-events: auto;
-    `;
-    chatContainer.appendChild(resizeHandle);
-
-    let isResizing = false;
-    let startX: number;
-    let startY: number;
-    let startWidth: number;
-    let startHeight: number;
-
-    resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
-        isResizingWindow = true; // Use only global flag for consistency
-        isResizing = true; // Keep local for backwards compatibility
-        startX = e.clientX;
-        startY = e.clientY;
-        startWidth = parseInt(document.defaultView!.getComputedStyle(chatContainer).width, 10);
-        startHeight = parseInt(document.defaultView!.getComputedStyle(chatContainer).height, 10);
-        
-        // Prevent text selection and event bubbling
-        e.preventDefault();
-        e.stopPropagation();
-        document.body.style.userSelect = 'none';
-        
-        document.addEventListener('mousemove', doResize);
-        document.addEventListener('mouseup', stopResize);
-        
-        // Safety mechanism: force reset if mouse leaves window
-        document.addEventListener('mouseleave', forceStopResize);
-    });
-    
-    function forceStopResize() {
-        if (isResizingWindow) {
-            isResizing = false;
-            isResizingWindow = false;
-            document.body.style.userSelect = '';
-            document.removeEventListener('mousemove', doResize);
-            document.removeEventListener('mouseup', stopResize);
-            document.removeEventListener('mouseleave', forceStopResize);
-        }
-    }
-
-    function doResize(e: MouseEvent) {
-        // Use global flag for consistency instead of local isResizing
-        if (!isResizingWindow) return;
-        e.preventDefault();
-        
-        const newWidth = Math.max(400, startWidth + e.clientX - startX); // Min width 400px
-        const newHeight = Math.max(300, startHeight + e.clientY - startY); // Min height 300px
-        
-        chatContainer.style.width = newWidth + 'px';
-        chatContainer.style.height = newHeight + 'px';
-    }
-
-    function stopResize(e: MouseEvent) {
-        // Use global flag check for consistency and add safety reset
-        if (isResizingWindow) {
-            isResizing = false;
-            isResizingWindow = false; // Clear global flag
-            document.body.style.userSelect = '';
-            document.removeEventListener('mousemove', doResize);
-            document.removeEventListener('mouseup', stopResize);
-            document.removeEventListener('mouseleave', forceStopResize);
-            
-            // Prevent event from bubbling to drag handler
-            e.stopPropagation();
-        } else if (isResizing) {
-            // Safety check: clear local flag if global is already false
-            isResizing = false;
-            document.body.style.userSelect = '';
-            document.removeEventListener('mousemove', doResize);
-            document.removeEventListener('mouseup', stopResize);
-            document.removeEventListener('mouseleave', forceStopResize);
-        }
-    }
-}
-
-// Auto-resize system implementation
-function initializeAutoResizeSystem(): void {
-    // Load user preferences
-    const savedPreference = localStorage.getItem(AUTO_RESIZE_CONFIG.preferenceKey);
-    if (savedPreference !== null) {
-        autoResizeEnabled = savedPreference === 'true';
-    }
-    
-    // Auto-resize system ready
-    
-    // Set up viewport monitoring
-    window.addEventListener('resize', handleViewportChange);
-}
-
-function handleViewportChange(): void {
-    // Clear existing timer
-    if (resizeDebounceTimer) {
-        clearTimeout(resizeDebounceTimer);
-    }
-    
-    // Debounce the resize handling
-    resizeDebounceTimer = window.setTimeout(() => {
-        processViewportChange();
-    }, AUTO_RESIZE_CONFIG.debounceDelay);
-}
-
-function processViewportChange(): void {
-    if (!autoResizeEnabled || isAutoResizing || isResizingWindow) {
-        return;
-    }
-    
-    const currentWidth = window.innerWidth;
-    const currentHeight = window.innerHeight;
-    
-    const widthIncrease = currentWidth - previousViewportWidth;
-    const heightIncrease = currentHeight - previousViewportHeight;
-    
-    // Check if expansion threshold is met
-    if (widthIncrease >= AUTO_RESIZE_CONFIG.expansionThreshold || heightIncrease >= AUTO_RESIZE_CONFIG.expansionThreshold) {
-        applyAutoResize(widthIncrease, heightIncrease);
-    }
-    
-    // Update previous dimensions
-    previousViewportWidth = currentWidth;
-    previousViewportHeight = currentHeight;
-}
-
-function applyAutoResize(widthIncrease: number, heightIncrease: number): void {
-    isAutoResizing = true;
-    
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) {
-        isAutoResizing = false;
-        return;
-    }
-    
-    const currentRect = chatContainer.getBoundingClientRect();
-    const currentWidth = currentRect.width;
-    const currentHeight = currentRect.height;
-    
-    // Calculate new dimensions with scaling factor limits
-    const availableWidth = window.innerWidth * 0.9; // Respect 90vw constraint
-    const availableHeight = window.innerHeight * 0.9; // Respect 90vh constraint
-    
-    let newWidth = Math.min(
-        currentWidth + (widthIncrease * 0.7), // Use 70% of increase
-        availableWidth,
-        currentWidth * AUTO_RESIZE_CONFIG.maxScaleFactor
-    );
-    
-    let newHeight = Math.min(
-        currentHeight + (heightIncrease * 0.7), // Use 70% of increase
-        availableHeight,
-        currentHeight * AUTO_RESIZE_CONFIG.maxScaleFactor
-    );
-    
-    // Ensure minimum constraints
-    newWidth = Math.max(newWidth, 400);
-    newHeight = Math.max(newHeight, 300);
-    
-    // Apply resize with smooth transition
-    requestAnimationFrame(() => {
-        chatContainer.style.width = `${newWidth}px`;
-        chatContainer.style.height = `${newHeight}px`;
-        
-        // Reset auto-resize flag after animation
-        setTimeout(() => {
-            isAutoResizing = false;
-        }, 200);
-    });
-}
-
-function setAutoResizePreference(enabled: boolean): void {
-    autoResizeEnabled = enabled;
-    localStorage.setItem(AUTO_RESIZE_CONFIG.preferenceKey, enabled.toString());
-}

@@ -1035,7 +1035,37 @@ export function initializeDebugMode(
     if (exportLogsButtonElement) {
         exportLogsButtonElement.addEventListener('click', handleExportLogs);
     }
-    
+
+    // Performance summary control
+    const perfSummaryButtonElement = document.getElementById('perf-summary-button') as HTMLButtonElement;
+    if (perfSummaryButtonElement) {
+        perfSummaryButtonElement.addEventListener('click', () => {
+            logger.logPerfSummary();
+            const exportStatusElement = document.getElementById('export-status') as HTMLSpanElement;
+            if (exportStatusElement) {
+                exportStatusElement.textContent = 'Performance summary logged to console';
+                setTimeout(() => {
+                    exportStatusElement.textContent = '';
+                }, 3000);
+            }
+        });
+    }
+
+    // Clear performance metrics control
+    const perfClearButtonElement = document.getElementById('perf-clear-button') as HTMLButtonElement;
+    if (perfClearButtonElement) {
+        perfClearButtonElement.addEventListener('click', () => {
+            logger.clearPerfMetrics();
+            const exportStatusElement = document.getElementById('export-status') as HTMLSpanElement;
+            if (exportStatusElement) {
+                exportStatusElement.textContent = 'Performance metrics cleared';
+                setTimeout(() => {
+                    exportStatusElement.textContent = '';
+                }, 3000);
+            }
+        });
+    }
+
     logger.log("Debug Mode Initialized with AI instance and file paths.");
 }
 
