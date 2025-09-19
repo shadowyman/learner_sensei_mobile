@@ -407,6 +407,10 @@ function displayDebugMessage(message: DebugMessage) {
         timerSpan.dataset.startTime = String(startTime);
         timerSpan.textContent = '(0s)';
         thinkingArea.appendChild(timerSpan);
+        const statusSpan = document.createElement('span');
+        statusSpan.classList.add('typing-status');
+        statusSpan.textContent = 'Sensei is typing its response...';
+        thinkingArea.appendChild(statusSpan);
         messageTextElement.appendChild(thinkingArea);
 
         const oldTimerId = debugStreamingMessageTimers.get(message.id);
@@ -418,13 +422,21 @@ function displayDebugMessage(message: DebugMessage) {
         }, 1000);
         debugStreamingMessageTimers.set(message.id, timerId);
         debugStreamingMessagesRawText.set(message.id, '');
+        if (message.sender === 'gemini') {
+            logger.info('[SENSEI_TYPING_DEBUG] Debug typing indicator mounted', { messageId: message.id });
+            logger.info('[SENSEI_TYPING_UI] Typing indicator layout verified');
+        }
     } else {
         bubble.removeAttribute('data-typing');
         bubble.classList.remove('loading');
+        const hadTimer = debugStreamingMessageTimers.has(message.id);
         const oldTimerId = debugStreamingMessageTimers.get(message.id);
         if (oldTimerId) {
             clearInterval(oldTimerId);
             debugStreamingMessageTimers.delete(message.id);
+        }
+        if (message.sender === 'gemini' && hadTimer) {
+            logger.info('[SENSEI_TYPING_DEBUG] Debug typing indicator removed', { messageId: message.id });
         }
         const rawText = debugStreamingMessagesRawText.get(message.id) || message.text;
         const sanitizedText = sanitizeCodeFences(rawText);

@@ -12,11 +12,17 @@ MUST_OBEY: IF using styling in mermaid, must use darkTheme (darker colors) for n
 
 ### Generating Mermaid Instruction Set
 1. Provide visual aids—diagrams, flowcharts, trees, etc. when appropriate—you **must** emit valid Mermaid.js syntax inside a \`\`\`mermaid\`\`\` code block. These visuals support your explanation but never replace detailed text. Our renderer has an extremely strict, non-standard parser; any deviation from the rules below will cause a fatal rendering error.
-2. Add an italic annotation below the generated mermaid diagram that briefly explains what's being depicted.
+2. Add an italic annotation below the generated mermaid diagram that narrates the diagram’s flow, clarifies what each node represents, and states the precise reading order the learner should follow, including how edges connect the steps.
 3. IF using styling in mermaid, must use darkTheme (darker colors) for node background color for proper rendering by the system. Failure to do so is a critical system bug.
 
 ### Core Principle: Plan the Flow First
 Before writing any code, map out the diagram's logical flow. A good diagram tells a story from start to finish. Your primary goal is to write code that makes this flow visually clear and easy to follow.
+
+---
+### Annotation Requirements
+1. Make the annotation multi-sentence. Start by naming the entry point, then walk the learner through each major node or subgraph in order, and end with the final outcome or decision point.
+2. Explicitly mention how edges or arrows transition between nodes so the learner understands why each hop occurs.
+3. Highlight any branching logic or parallel lanes so the user knows when to split their attention or revisit earlier steps.
 
 ---
 ### Golden Rules
@@ -472,7 +478,7 @@ For each \`Core Topic\`, you WILL follow this process to construct the \`teachin
 
 #### **Blueprint for \`Foundational Concept\` & \`Component Deep-Dive\`**
 * **The Hook:** Generate Action Items that **(1)** Define the core concept from the text, **(2)** Create a simple, powerful analogy to make it intuitive, and **(3)** State its critical importance to the overall process of recursion.
-* **The Mechanism:** Generate Action Items that **(1)** Deconstruct the concept into its primary, logical components, and **(2)** Explain the function of each component. **You WILL mandate a visualization** to illustrate the mechanism.
+* **The Mechanism:** Generate Action Items that **(1)** Deconstruct the concept into its primary, logical components, and **(2)** Explain the function of each component.
 * **The Impact:** Generate Action Items that **(1)** Present a comparative scenario showing the positive outcome of applying the concept correctly, and **(2)** Contrast this with the negative outcome or common error that occurs when it is ignored or applied incorrectly.
 * **Synthesis:** Generate Action Items that **(1)** Summarize the concept's main takeaway, and **(2)** Create an explicit conceptual link by posing a question that the next topic will answer.
 
@@ -820,7 +826,7 @@ To inform *how* you teach, discuss, or present these items, you MUST:
 2.  Utilize the 📚 SUPPORTING CONTEXT & GUIDANCE 📚 provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
 3.  Ensure your response directly addresses the user's last input in relation to these primary points.
 4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
-5.  When operating in the IntroIllustrate phase, ensure your response includes a conceptual narrative, a technical drilldown that starts by plainly restating the action item’s technical meaning (contract, inputs/outputs, immediate importance) before walking through mechanics with narrated C++ dry runs, contrasting application scenarios (baseline and high-pressure), interview-oriented communication guidance, and a concise self-assessment checklist.
+5.  When operating in the IntroIllustrate phase, ensure your response includes a conceptual narrative that restates the teaching point in plain language, highlights the pain it removes and the stakes if it’s neglected, and ties it to previously mastered recursion tools so it feels like a natural upgrade. Add a brief thought experiment contrasting a success path with a failure path to seed intuition without overwhelming detail, and offer a gentle readiness signal (for example, noting that once the idea feels natural, the upcoming mechanics will click) before explicitly previewing the technical drilldown to follow. After completing this foundation, deliver an exceptionally expansive technical drilldown (covering contract, inputs, outputs, guarantees, applications, strengths, trade-offs, and pitfalls). You may optionally choose exactly one supplemental mode—or skip them entirely if they would overwhelm the learner on this turn: (a) present a tightly scoped full C++ walkthrough with narrated dry run and line-by-line linkage back to the concept (only when prerequisites are satisfied), or (b) provide a fill-in-the-blank snippet, guide the learner through the missing pieces, then reveal and discuss the completed solution. Always include contrasting application scenarios (baseline and high-pressure), interview-oriented communication guidance, and a concise self-assessment checklist.
 ]`;
 
 export const CURRICULUM_COMPLETED_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: Curriculum Completed! User may ask recap questions or general CS topics. Be supportive and congratulate them.]`;

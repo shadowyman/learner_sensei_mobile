@@ -433,7 +433,109 @@ body::before {
     opacity: 1 !important;
     visibility: visible !important;
     width: 28px !important;
+    height: 28px;
     transform: none !important;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    color: var(--text-secondary);
+    font-size: 1.1em;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 10px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: color 0.2s ease-in-out, background 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.weighted-segment.controls:hover .chat-window-controls #font-size-toggle,
+.chat-window-controls:hover #font-size-toggle {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.weighted-segment.controls:hover .chat-window-controls #font-size-toggle:hover,
+.weighted-segment.controls:hover .chat-window-controls #font-size-toggle:focus-visible,
+.chat-window-controls:hover #font-size-toggle:hover,
+.chat-window-controls:hover #font-size-toggle:focus-visible {
+    border: 1px solid rgba(96, 165, 250, 0.6);
+}
+
+.chat-window-controls #font-size-toggle:hover,
+#font-size-toggle:focus-visible {
+    border: 1px solid rgba(96, 165, 250, 0.6);
+    background: rgba(96, 165, 250, 0.12);
+    box-shadow: 0 8px 20px rgba(96, 165, 250, 0.2);
+}
+
+.weighted-segment.controls:hover .chat-window-controls #font-size-toggle:hover,
+.weighted-segment.controls:hover .chat-window-controls #font-size-toggle:focus-visible,
+.chat-window-controls:hover #font-size-toggle:hover,
+.chat-window-controls:hover #font-size-toggle:focus-visible {
+    border: 1px solid rgba(96, 165, 250, 0.6);
+}
+
+#font-size-toggle::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 32px;
+    height: 32px;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(102, 255, 178, 0.45) 0%, rgba(102, 255, 178, 0.18) 55%, rgba(102, 255, 178, 0) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    pointer-events: none;
+}
+
+.chat-window-controls #font-size-toggle:hover::before,
+.chat-window-controls #font-size-toggle:focus-visible::before {
+    opacity: 0.25;
+}
+
+#font-size-toggle.ellipsis-glow::before {
+    opacity: 0.45;
+}
+
+#font-size-toggle.ellipsis-glow {
+    color: var(--text-secondary);
+}
+
+.ellipsis-dots {
+    display: block;
+    transform: translateY(-1px);
+    letter-spacing: 0.15em;
+}
+
+#font-size-toggle .font-size-icon {
+    display: none;
+    width: 1.1em;
+    height: 1.1em;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-window-controls:hover #font-size-toggle .font-size-icon,
+.weighted-segment.controls:hover #font-size-toggle .font-size-icon,
+#font-size-toggle:focus-visible .font-size-icon {
+    display: inline-flex;
+}
+
+.chat-window-controls:hover #font-size-toggle .ellipsis-dots,
+.weighted-segment.controls:hover #font-size-toggle .ellipsis-dots,
+#font-size-toggle:focus-visible .ellipsis-dots {
+    display: none;
 }
 
 /* Hide other buttons initially */
@@ -464,28 +566,6 @@ body::before {
 .chat-window-controls:hover button:nth-of-type(7) { transition-delay: 0.3s; }
 
 /* Remove position relative from controls segment to avoid positioning issues */
-
-/* Add visual hint as inline element before controls */
-.chat-window-controls::before {
-    content: '•••';
-    display: inline-block;
-    margin-right: 5px; /* Small gap before font button */
-    color: rgba(196, 229, 56, 0.3); /* Slightly more subtle */
-    font-size: 9px;
-    letter-spacing: 1px;
-    line-height: 28px; /* Match button height */
-    vertical-align: text-bottom; /* Align to bottom of text line */
-    opacity: 1;
-    transition: opacity 0.3s ease-in-out, width 0.3s ease-in-out, margin 0.3s ease-in-out;
-}
-
-/* Hide hint on hover by collapsing */
-.weighted-segment.controls:hover .chat-window-controls::before {
-    opacity: 0;
-    width: 0;
-    margin-right: 0;
-    overflow: hidden;
-}
 
 .control-btn {
     width: 28px;

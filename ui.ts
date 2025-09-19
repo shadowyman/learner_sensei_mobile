@@ -805,7 +805,7 @@ export async function displayMessage(message: Message) {
             clearInterval(oldTimerId);
             streamingMessageTimers.delete(message.id);
         }
-        
+
         // Clear phase loading animations if they exist
         if ((bubble as any).dotAnimation) {
             clearInterval((bubble as any).dotAnimation);
@@ -1259,6 +1259,109 @@ function setupFontSizeControls() {
     });
 }
 
+function setupHeaderEllipsisAnimation() {
+    const ellipsisButton = document.getElementById('font-size-toggle') as HTMLButtonElement;
+    if (!ellipsisButton) return;
+    const ellipsisDots = ellipsisButton.querySelector('.ellipsis-dots') as HTMLElement | null;
+    if (!ellipsisDots) return;
+    const states = ['.', '..', '...'];
+    let intervalId: number | null = null;
+    let timeoutId: number | null = null;
+    let glowTimeoutId: number | null = null;
+    const controlsContainer = ellipsisButton.closest('.chat-window-controls') as HTMLElement | null;
+    let isInteractionPaused = false;
+    const clearIntervalIfNeeded = () => {
+        if (intervalId !== null) {
+            window.clearInterval(intervalId);
+            intervalId = null;
+        }
+    };
+    const clearTimeoutIfNeeded = () => {
+        if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+    };
+    const clearGlowIfNeeded = () => {
+        if (glowTimeoutId !== null) {
+            window.clearTimeout(glowTimeoutId);
+            glowTimeoutId = null;
+        }
+        ellipsisButton.classList.remove('ellipsis-glow');
+    };
+
+    const pauseForInteraction = () => {
+        if (isInteractionPaused) {
+            return;
+        }
+        isInteractionPaused = true;
+        clearIntervalIfNeeded();
+        clearTimeoutIfNeeded();
+        clearGlowIfNeeded();
+        ellipsisDots.textContent = '...';
+    };
+    const beginIdle = () => {
+        clearTimeoutIfNeeded();
+        if (isInteractionPaused) {
+            return;
+        }
+        timeoutId = window.setTimeout(() => {
+            if (isInteractionPaused) {
+                return;
+            }
+            startCycle();
+        }, 5000);
+    };
+
+    const resumeFromInteraction = () => {
+        if (!isInteractionPaused) {
+            return;
+        }
+        isInteractionPaused = false;
+        beginIdle();
+    };
+    const triggerGlow = () => {
+        clearGlowIfNeeded();
+        ellipsisButton.classList.add('ellipsis-glow');
+        glowTimeoutId = window.setTimeout(() => {
+            ellipsisButton.classList.remove('ellipsis-glow');
+            glowTimeoutId = null;
+            beginIdle();
+        }, 1000);
+    };
+    const startCycle = () => {
+        clearIntervalIfNeeded();
+        clearTimeoutIfNeeded();
+        clearGlowIfNeeded();
+        if (isInteractionPaused) {
+            return;
+        }
+        let position = 0;
+        intervalId = window.setInterval(() => {
+            const state = states[position];
+            ellipsisDots.textContent = state;
+            position += 1;
+            if (position >= states.length) {
+                ellipsisDots.textContent = '...';
+                clearIntervalIfNeeded();
+                triggerGlow();
+            }
+        }, 500);
+    };
+    controlsContainer?.addEventListener('mouseenter', pauseForInteraction);
+    controlsContainer?.addEventListener('mouseleave', resumeFromInteraction);
+    controlsContainer?.addEventListener('focusin', pauseForInteraction);
+    controlsContainer?.addEventListener('focusout', resumeFromInteraction);
+    ellipsisButton.addEventListener('focusin', pauseForInteraction);
+    ellipsisButton.addEventListener('focusout', resumeFromInteraction);
+
+    ellipsisDots.textContent = '...';
+    clearIntervalIfNeeded();
+    clearTimeoutIfNeeded();
+    clearGlowIfNeeded();
+    beginIdle();
+}
+
 function setupMermaidThemeControls() {
     // Add theme cycling to the debug button (double-click for theme switching)
     const debugButton = document.getElementById('debug-mode-button');
@@ -1682,6 +1785,7 @@ export function initializeUI() {
     const mainUserInput = document.getElementById('user-input') as HTMLTextAreaElement;
     renderIcons();
     setupFontSizeControls();
+    setupHeaderEllipsisAnimation();
     setupMermaidThemeControls();
 
     // Make mermaidManager, DEFAULT_MERMAID_THEME, and updateMermaidThemeClass available globally for mermaid-theme-integration.js

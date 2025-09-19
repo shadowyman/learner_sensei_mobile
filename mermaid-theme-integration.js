@@ -1,6 +1,8 @@
 
 import { logger } from './logger';
 
+let mermaidAnnotationSuccessLogged = false;
+
 /**
  * Mermaid Theme Integration for Recursive Sensei
  * Handles rendering of Mermaid diagrams with theme support
@@ -73,6 +75,42 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
     }
 
     preElement.replaceWith(thumbnail);
+
+    if (thumbnail.parentElement && !thumbnail.parentElement.classList.contains('mermaid-figure')) {
+        const figure = document.createElement('div');
+        figure.className = 'mermaid-figure';
+        if (thumbnail.classList.contains('mermaid-thumbnail--horizontal')) {
+            figure.classList.add('mermaid-thumbnail--horizontal');
+        }
+        if (thumbnail.classList.contains('mermaid-thumbnail--vertical')) {
+            figure.classList.add('mermaid-thumbnail--vertical');
+        }
+        thumbnail.replaceWith(figure);
+        figure.appendChild(thumbnail);
+        let sibling = figure.nextSibling;
+        while (sibling && sibling.nodeType !== Node.ELEMENT_NODE) {
+            sibling = sibling.nextSibling;
+        }
+        let annotationElement = null;
+        if (sibling instanceof HTMLElement && sibling.tagName.toLowerCase() === 'p') {
+            const firstChild = sibling.firstElementChild;
+            const trimmed = sibling.textContent ? sibling.textContent.trim() : '';
+            if (firstChild && firstChild.tagName.toLowerCase() === 'em' && sibling.childElementCount === 1 && trimmed.length > 0) {
+                annotationElement = sibling;
+            }
+        }
+        if (annotationElement) {
+            const sentenceCount = annotationElement.textContent
+                ? annotationElement.textContent.split(/[.!?]+/).map((segment) => segment.trim()).filter((segment) => segment.length > 0).length
+                : 0;
+            annotationElement.classList.add('mermaid-annotation');
+            figure.appendChild(annotationElement);
+            if (!mermaidAnnotationSuccessLogged && sentenceCount > 0) {
+                logger.info('[MERMAID_ANNOTATION] Caption aligned with diagram');
+                mermaidAnnotationSuccessLogged = true;
+            }
+        }
+    }
 
     // Lightbox functionality
     thumbnail.addEventListener('click', async (e) => {
@@ -150,7 +188,6 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
             }
         } else {
             // Fast path: Clone existing SVG without re-rendering
-            logger.log(`Theme unchanged ('${storedTheme}'), using fast path to clone existing SVG`);
             const svgElement = thumbnail.querySelector('svg');
             if (svgElement) {
                 const clonedSvg = svgElement.cloneNode(true);

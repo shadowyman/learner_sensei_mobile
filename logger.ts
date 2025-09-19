@@ -6,7 +6,7 @@
 // Debug flags
 export const DEBUG_FLAGS = {
     prompt_debug: false,
-    mermaid_debug: true,
+    mermaid_debug: false,
     learner_analysis_debug: false,
     curriculum_debug: false,
     performance_debug: true  // Enable performance logging

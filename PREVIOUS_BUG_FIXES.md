@@ -13,3 +13,17 @@
 - `mermaid-theme-integration.js:59-66` (orientation detection logic)
 
 **Keywords for Future Reference**: mermaid, diagram, centering, alignment, inline-grid, display, fit-content, vertical orientation
+## Bug #2: Chunk Navigation Triggered False Praise
+
+**Issue**: Switching chunks from the meditation overlay caused Sensei to open the next teaching turn by congratulating the learner on answering "Let's Check Your Understanding" questions, even though no user response was provided.
+
+**Root Cause**: `window.switchToChunk` called `generateNextSenseiResponse('', true)`, which submitted an empty user message to the persistent chat without any system hint. The LLM interpreted the silence as a successful learner answer because the system prompt still contained the prior "Let's Check" section.
+
+**Fix Applied**: Detected navigation turns without user input and appended a navigation context block to the system prompt explaining that the learner switched chunks without responding, ensuring the next response restarts instruction instead of assuming mastery.
+
+**Related Files**:
+- `index.tsx:462`
+- `interactionHelpers.ts:62`
+- `interactionHelpers.ts:108`
+
+**Keywords for Future Reference**: chunk navigation, meditation overlay, navigation context, empty input, false praise

@@ -450,14 +450,22 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         await ensureTeachingPlanExists(curriculum, curriculumState, currentCurriculumItem, ai!);
     }
     const currentTaskIdForAnalysis = currentCurriculumItem ? currentCurriculumItem.curriculumPathId : learnerModel.CurrentTask.ID;
-    
+
     const expectedContentPointTextsForCurrentChunk = (curriculumState?.teachingPlanForPhase && curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex])
         ? curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex].map(tp => tp.text)
         : [];
 
     // Skip analysis completely when navigating via arrows
     let analysisResult = null;
-    if (!skipPedagogicalIntervention || inputText.trim() !== '') {
+    const trimmedInput = inputText.trim();
+    const hasUserInput = trimmedInput.length > 0;
+    const navigationContext = skipPedagogicalIntervention && !hasUserInput
+        ? 'The learner navigated to a different teaching chunk without submitting an answer. Restart the instructional sequence for the new chunk without assuming mastery of the previous questions.'
+        : null;
+    if (navigationContext) {
+        logger.info('[CHUNK_NAV] Navigation context applied for chunk navigation turn');
+    }
+    if (!skipPedagogicalIntervention || hasUserInput) {
         analysisResult = await getAnalysisFromGemini(ai!, inputText, lastSenseiResponses[0] || null, currentTaskIdForAnalysis, expectedContentPointTextsForCurrentChunk);
     } else {
         logger.info('[CONCEPT_NAV] Skipping learner analysis for arrow navigation');
@@ -621,9 +629,9 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         : curriculumState?.isCompleted
             ? CURRICULUM_COMPLETED_FOCUS_INSTRUCTION
             : GENERAL_INTERACTION_FOCUS_INSTRUCTION;
-    
+
     let dynamicContext: string;
-    
+
     // Log diagnostic info for Socratic phase detection
     logger.info('Sensei:[SOCRATIC_V4] Phase check - currentPhase:', curriculumState?.currentPhase);
     logger.info('Sensei:[SOCRATIC_V4] Phase check - has teachingPlanForPhase:', !!curriculumState?.teachingPlanForPhase);
@@ -640,13 +648,15 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         dynamicContext = buildSocraticExecutionInstruction(
             curriculumState.teachingPlanForPhase,
             pedagogicalGuidance,
-            false  // isSystemInitialization = false for user responses
+            false,
+            navigationContext || undefined
         );
     } else {
         logger.info('Sensei:[SOCRATIC_V4] NOT using Socratic execution - using standard dynamic instruction');
         dynamicContext = buildSenseiDynamicSystemInstruction(
             curriculumFocusInstruction,
-            guidanceText
+            guidanceText,
+            navigationContext || undefined
         );
     }
 

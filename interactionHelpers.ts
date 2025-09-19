@@ -61,7 +61,8 @@ Let's begin ${moduleTitleForPrompt}.`;
  */
 export function buildSenseiDynamicSystemInstruction(
     curriculumFocusInstruction: string,
-    pedagogicalGuidanceDirective: string | undefined
+    pedagogicalGuidanceDirective: string | undefined,
+    navigationContext?: string
 ): string {
     let isMustObey = false;
     let proseDirective = pedagogicalGuidanceDirective; // Default to the full string if parsing fails
@@ -88,17 +89,27 @@ export function buildSenseiDynamicSystemInstruction(
         proseDirective = undefined;
     }
 
-    return MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
+    const coreInstruction = MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
         curriculumFocusInstruction,
         proseDirective,
         isMustObey
     );
+
+    if (!navigationContext) {
+        return coreInstruction;
+    }
+
+    return `${coreInstruction}
+
+[NavigationContext]
+${navigationContext}`;
 }
 
 export function buildSocraticExecutionInstruction(
     teachingPlan: any,
     pedagogicalGuidance: any,
-    isSystemInitialization: boolean = false
+    isSystemInitialization: boolean = false,
+    navigationContext?: string
 ): string {
     const intent = teachingPlan[0][0]; // The single Socratic intent
     const guidance = intent.interactionGuidance;
@@ -116,7 +127,14 @@ export function buildSocraticExecutionInstruction(
         // Log the complete instruction being sent
         logger.info('Sensei:[SOCRATIC_V4] Complete system initialization instruction:', initialInstruction);
         
-        return initialInstruction;
+        if (!navigationContext) {
+            return initialInstruction;
+        }
+
+        return `${initialInstruction}
+
+[NavigationContext]
+${navigationContext}`;
     }
     
     // Check if MUST_OBEY
@@ -129,7 +147,7 @@ export function buildSocraticExecutionInstruction(
     
     if (isMustObey) {
         // Critical override - ONLY execute MUST_OBEY, ignore Socratic plan this turn
-        return `[RecursiveSensei CRITICAL OVERRIDE for THIS TURN:
+        const overrideInstruction = `[RecursiveSensei CRITICAL OVERRIDE for THIS TURN:
 A high-priority situation has been detected. For this turn, you MUST IGNORE the standard Socratic dialogue plan provided below.
 Your SOLE TASK is to execute the following high-priority directive with immense detail, empathy, and care. This directive takes absolute precedence.
 
@@ -140,8 +158,17 @@ ${intent.text}
 
 You will continue with this plan in the next turn after addressing the current critical situation.)
 ]`;
+
+        if (!navigationContext) {
+            return overrideInstruction;
+        }
+
+        return `${overrideInstruction}
+
+[NavigationContext]
+${navigationContext}`;
     }
-    
+
     // Normal Socratic turn with pedagogical guidance
     const subsequentTurnInstruction = `[RecursiveSensei Task & Checklist for THIS TURN:
 Your task is to generate a response by following this prioritized checklist. You MUST evaluate and execute these steps in order.
@@ -162,7 +189,14 @@ COMPLETION MONITORING: If any completion trigger is met, add [SOCRATIC_COMPLETIO
     
     logger.info('Sensei:[SOCRATIC_V4] Subsequent turn instruction:', subsequentTurnInstruction);
     
-    return subsequentTurnInstruction;
+    if (!navigationContext) {
+        return subsequentTurnInstruction;
+    }
+
+    return `${subsequentTurnInstruction}
+
+[NavigationContext]
+${navigationContext}`;
 }
 
 /**
