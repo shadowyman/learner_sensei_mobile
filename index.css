@@ -290,7 +290,7 @@ body::before {
 .nav-group {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     min-width: 54px;
     justify-content: center;
     flex: 0 0 auto;
@@ -312,8 +312,6 @@ body::before {
     transition: all 0.25s ease;
     padding: 0;
     color: rgba(226, 232, 240, 0.85);
-    font-size: 0.75rem;
-    font-weight: 700;
 }
 
 .concept-nav-arrow:hover:not(:disabled),
@@ -322,6 +320,7 @@ body::before {
     background: rgba(196, 229, 56, 0.12);
     border-color: rgba(196, 229, 56, 0.45);
     transform: scale(1.08);
+    color: rgba(233, 255, 153, 1);
 }
 
 .concept-nav-arrow:active:not(:disabled),
@@ -335,20 +334,20 @@ body::before {
     cursor: not-allowed;
 }
 
-.arrow-icon {
-    color: rgba(226, 232, 240, 0.85);
-    font-size: 0.9rem;
-    line-height: 1;
+.nav-icon {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
-.concept-nav-arrow:hover:not(:disabled) .arrow-icon,
-.chunk-nav-arrow:hover:not(:disabled) .arrow-icon {
-    color: rgba(233, 255, 153, 1);
+.nav-icon.nav-icon-double {
+    width: 20px;
 }
 
-.arrow-icon-double {
-    letter-spacing: 0.08em;
-}
 
 /* Show arrows on hover of status segment */
 .weighted-segment.status:hover .concept-nav-arrow,

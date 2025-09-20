@@ -12,8 +12,8 @@
 
 ## Key Changes
 - `index.html:42-70` restructures the status segment with `nav-group` wrappers and adds chunk navigation buttons (`chunk-nav-prev/next`).
-- `index.css:270-433` introduces three-line styling, color palette updates, and shared circular button styles for concept/chunk arrows while keeping them horizontally aligned.
-- `ui.ts:70-185,236-280` renders phase/concept spans safely, manages navigation button visibility for both concepts and chunks, and shifts validation logs to debug level.
+- `index.css:270-350` introduces three-line styling, color palette updates, shared circular button styles, and now styles inline SVG navigation icons for both concept and chunk controls.
+- `ui.ts:70-185,236-280` renders phase/concept spans safely, manages navigation button visibility for both concepts and chunks, and keeps navigation state logging at debug level.
 - `index.tsx:1248-1385` adds `handleChunkNavigation`, synchronises button state updates, and wires click handlers using existing `switchToChunk` functionality.
 
 ## Behavioral Impact
@@ -25,5 +25,5 @@
 - Layout no longer shifts vertically; arrows stay centered left/right even with long module names.
 
 ## Validation Evidence
-- Manual check: Reloaded UI, verified new color scheme and three-line layout, toggled chunk/concept buttons to confirm state guards and overlay-free chunk switching.
+- Manual check: Reloaded UI, verified new color scheme and three-line layout, toggled chunk/concept buttons to confirm state guards, overlay-free chunk switching, and refreshed SVG icons.
 - `logs/console_logs.log` contains the temporary debug entries `"[STATUS_PANEL] Status panel updated"` and `"[NAV_PANEL] Chunk navigation attempt"` around 2025-09-20T04:59-05:00 demonstrating the feature before debug logs were reverted.
