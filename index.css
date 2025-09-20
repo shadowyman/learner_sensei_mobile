@@ -867,6 +867,7 @@ body::before {
 /* Bold text styling for sensei messages - also add underline */
 .message-bubble[data-sender="sensei"] .markdown-content strong,
 .message-bubble[data-sender="sensei"] .markdown-content b {
+    color: #A2FF9A;
     text-decoration: underline;
     text-decoration-color: currentColor;
     text-underline-offset: 2px;

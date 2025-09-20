@@ -3,17 +3,13 @@
  * Handles conversion of Sets, Maps, Dates, and other non-JSON types
  */
 
-import { logger } from './logger';
-
 /**
  * Custom JSON replacer for serializing complex types
  * Converts Sets, Maps, Dates, and undefined values to JSON-compatible format
  */
 export function serializeForSave(key: string, value: any): any {
-    logger.debug(`[SAVELOAD] Serializing key: ${key}, type: ${typeof value}`);
     
     if (value instanceof Set) {
-        logger.debug(`[SAVELOAD] Converting Set with ${value.size} items`);
         return {
             __type: 'Set',
             data: Array.from(value)
@@ -21,7 +17,6 @@ export function serializeForSave(key: string, value: any): any {
     }
     
     if (value instanceof Map) {
-        logger.debug(`[SAVELOAD] Converting Map with ${value.size} entries`);
         return {
             __type: 'Map',
             data: Array.from(value.entries())
@@ -29,7 +24,6 @@ export function serializeForSave(key: string, value: any): any {
     }
     
     if (value instanceof Date) {
-        logger.debug(`[SAVELOAD] Converting Date: ${value.toISOString()}`);
         return {
             __type: 'Date',
             data: value.toISOString()
@@ -37,7 +31,6 @@ export function serializeForSave(key: string, value: any): any {
     }
     
     if (value === undefined) {
-        logger.debug(`[SAVELOAD] Converting undefined to null for key: ${key}`);
         return null;
     }
     
@@ -50,20 +43,16 @@ export function serializeForSave(key: string, value: any): any {
  */
 export function deserializeFromSave(key: string, value: any): any {
     if (value && typeof value === 'object' && value.__type) {
-        logger.debug(`[SAVELOAD] Deserializing ${value.__type} for key: ${key}`);
         
         if (value.__type === 'Set') {
-            logger.debug(`[SAVELOAD] Restoring Set with ${value.data.length} items`);
             return new Set(value.data);
         }
         
         if (value.__type === 'Map') {
-            logger.debug(`[SAVELOAD] Restoring Map with ${value.data.length} entries`);
             return new Map(value.data);
         }
         
         if (value.__type === 'Date') {
-            logger.debug(`[SAVELOAD] Restoring Date: ${value.data}`);
             return new Date(value.data);
         }
     }
@@ -77,20 +66,14 @@ export function deserializeFromSave(key: string, value: any): any {
 export function serializeCurriculumState(state: any): any {
     if (!state) return null;
     
-    logger.info('[SAVELOAD] Serializing curriculum state');
-    logger.info('[SAVELOAD] Has teachingPlanForPhase:', !!state.teachingPlanForPhase);
-    logger.info('[SAVELOAD] currentTeachingChunkIndex:', state.currentTeachingChunkIndex);
-    
     const serialized = { ...state };
     
     if (state.coveredPointsInCurrentChunk instanceof Set) {
         serialized.coveredPointsInCurrentChunk = Array.from(state.coveredPointsInCurrentChunk);
-        logger.debug(`[SAVELOAD] Converted coveredPoints Set: ${serialized.coveredPointsInCurrentChunk.length} items`);
     }
     
     if (state.pointsToRevisitInCurrentChunk instanceof Set) {
         serialized.pointsToRevisitInCurrentChunk = Array.from(state.pointsToRevisitInCurrentChunk);
-        logger.debug(`[SAVELOAD] Converted pointsToRevisit Set: ${serialized.pointsToRevisitInCurrentChunk.length} items`);
     }
     
     if (state.activeConsolidationState?.plan instanceof Map) {
@@ -98,7 +81,6 @@ export function serializeCurriculumState(state: any): any {
             ...state.activeConsolidationState,
             plan: Array.from(state.activeConsolidationState.plan.entries())
         };
-        logger.debug(`[SAVELOAD] Converted consolidation plan Map: ${serialized.activeConsolidationState.plan.length} entries`);
     }
 
     if (!serialized.chunkUnderstandingLedger) {
@@ -114,20 +96,14 @@ export function serializeCurriculumState(state: any): any {
 export function deserializeCurriculumState(state: any): any {
     if (!state) return null;
     
-    logger.info('[SAVELOAD] Deserializing curriculum state');
-    logger.info('[SAVELOAD] Loaded teachingPlanForPhase:', !!state.teachingPlanForPhase);
-    logger.info('[SAVELOAD] Loaded currentTeachingChunkIndex:', state.currentTeachingChunkIndex);
-    
     const deserialized = { ...state };
     
     if (Array.isArray(state.coveredPointsInCurrentChunk)) {
         deserialized.coveredPointsInCurrentChunk = new Set(state.coveredPointsInCurrentChunk);
-        logger.debug(`[SAVELOAD] Restored coveredPoints Set: ${deserialized.coveredPointsInCurrentChunk.size} items`);
     }
     
     if (Array.isArray(state.pointsToRevisitInCurrentChunk)) {
         deserialized.pointsToRevisitInCurrentChunk = new Set(state.pointsToRevisitInCurrentChunk);
-        logger.debug(`[SAVELOAD] Restored pointsToRevisit Set: ${deserialized.pointsToRevisitInCurrentChunk.size} items`);
     }
     
     if (state.activeConsolidationState?.plan && Array.isArray(state.activeConsolidationState.plan)) {
@@ -135,7 +111,6 @@ export function deserializeCurriculumState(state: any): any {
             ...state.activeConsolidationState,
             plan: new Map(state.activeConsolidationState.plan)
         };
-        logger.debug(`[SAVELOAD] Restored consolidation plan Map: ${deserialized.activeConsolidationState.plan.size} entries`);
     }
 
     if (!deserialized.chunkUnderstandingLedger) {
@@ -151,13 +126,10 @@ export function deserializeCurriculumState(state: any): any {
 export function serializeLearnerModel(model: any): any {
     if (!model) return null;
     
-    logger.info('[SAVELOAD] Serializing learner model');
-    
     const serialized = { ...model };
     
     if (model.awardedKcForPhasePoints instanceof Set) {
         serialized.awardedKcForPhasePoints = Array.from(model.awardedKcForPhasePoints);
-        logger.debug(`[SAVELOAD] Converted awardedKc Set: ${serialized.awardedKcForPhasePoints.length} items`);
     }
     
     return serialized;
@@ -169,13 +141,10 @@ export function serializeLearnerModel(model: any): any {
 export function deserializeLearnerModel(model: any): any {
     if (!model) return null;
     
-    logger.info('[SAVELOAD] Deserializing learner model');
-    
     const deserialized = { ...model };
     
     if (Array.isArray(model.awardedKcForPhasePoints)) {
         deserialized.awardedKcForPhasePoints = new Set(model.awardedKcForPhasePoints);
-        logger.debug(`[SAVELOAD] Restored awardedKc Set: ${deserialized.awardedKcForPhasePoints.size} items`);
     }
     
     return deserialized;
@@ -224,8 +193,6 @@ export function deepCloneState(obj: any): any {
 export function validateSerializedData(data: any): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    logger.info('[SAVELOAD] Validating serialized data structure');
-    
     if (!data) {
         errors.push('Data is null or undefined');
         return { isValid: false, errors };
@@ -265,12 +232,5 @@ export function validateSerializedData(data: any): { isValid: boolean; errors: s
     }
     
     const isValid = errors.length === 0;
-    
-    if (!isValid) {
-        logger.error('[SAVELOAD] Validation failed:', errors);
-    } else {
-        logger.info('[SAVELOAD] Validation passed');
-    }
-    
     return { isValid, errors };
 }

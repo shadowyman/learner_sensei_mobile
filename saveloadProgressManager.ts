@@ -4,7 +4,6 @@
  * Based on save_load_implementation_plan.md v2.0
  */
 
-import { logger } from './logger';
 import { 
     serializeForSave, 
     deserializeFromSave,
@@ -76,25 +75,17 @@ export class SaveLoadProgressManager {
      */
     static async saveProgress(): Promise<void> {
         try {
-            logger.info('[SAVELOAD] ========== STARTING SAVE OPERATION ==========');
-            logger.info('[SAVELOAD] Save version: ' + this.SAVE_VERSION);
             
             if (this.hasActiveStreamingMessages()) {
-                logger.warn('[SAVELOAD] Active streaming detected, waiting for completion...');
                 await this.waitForStreamingCompletion();
             }
             
-            logger.info('[SAVELOAD] Collecting session data...');
             const sessionData = this.collectSessionData();
             
-            logger.info('[SAVELOAD] Validating collected data...');
             const validation = validateSerializedData(sessionData);
             if (!validation.isValid) {
-                logger.error('[SAVELOAD] Validation failed:', validation.errors);
-                logger.error('[SAVELOAD] Validation failed:', JSON.stringify(validation.errors));
                 throw new Error(`State validation failed: ${validation.errors.join(', ')}`);
             }
-            logger.info('[SAVELOAD] ✅ Validation passed');
             
             const saveFile = {
                 version: this.SAVE_VERSION,
@@ -103,33 +94,23 @@ export class SaveLoadProgressManager {
                 session: sessionData
             };
             
-            logger.info('[SAVELOAD] Serializing to JSON...');
             const jsonString = JSON.stringify(saveFile, serializeForSave, 2);
-            logger.info(`[SAVELOAD] Serialized size: ${jsonString.length} bytes`);
             
             try {
                 const isoString = new Date().toISOString();
-                logger.info(`[SAVELOAD] ISO string: ${isoString}`);
                 const filename = `sensei_progress_${isoString.replace(/[:.]/g, '-')}.json`;
-                logger.info(`[SAVELOAD] Downloading as: ${filename}`);
                 
                 this.downloadSaveFile(jsonString, filename);
             } catch (fileError) {
-                logger.error('[SAVELOAD] Error creating filename or downloading:', fileError);
                 // Fallback filename without replace
                 const fallbackFilename = `sensei_progress_${Date.now()}.json`;
-                logger.info(`[SAVELOAD] Using fallback filename: ${fallbackFilename}`);
                 this.downloadSaveFile(jsonString, fallbackFilename);
             }
             
-            logger.info('[SAVELOAD] ========== SAVE COMPLETED SUCCESSFULLY ==========');
             // Note: displayMessage requires a full Message object, not just text and sender
             // For now, just log success - UI feedback handled in index.tsx
             
         } catch (error) {
-            logger.error('[SAVELOAD] ========== SAVE FAILED ==========');
-            logger.error('[SAVELOAD] Error:', error);
-            logger.error('[SAVELOAD] Error stack:', (error as any).stack);
             // Note: displayMessage requires a full Message object, not just text and sender
             // For now, just log error - UI feedback handled in index.tsx
             throw error;
@@ -141,27 +122,17 @@ export class SaveLoadProgressManager {
      */
     static async loadProgress(file: File): Promise<void> {
         try {
-            logger.info('[SAVELOAD] ========== STARTING LOAD OPERATION ==========');
-            logger.info('[SAVELOAD] Loading file: ' + file.name);
             this.isRestoring = true;
             
             const jsonString = await this.readFile(file);
-            logger.info(`[SAVELOAD] File size: ${jsonString.length} bytes`);
             
-            logger.info('[SAVELOAD] Parsing JSON...');
             const saveFile = JSON.parse(jsonString, deserializeFromSave);
-            logger.info(`[SAVELOAD] Save version: ${saveFile.version}`);
             
             const compatibility = this.checkCompatibility(saveFile);
             if (!compatibility.isCompatible) {
-                logger.error('[SAVELOAD] Incompatible save file:', compatibility.reason);
                 throw new Error(`Incompatible save file: ${compatibility.reason}`);
             }
-            logger.info('[SAVELOAD] ✅ Version compatible');
             
-            logger.info('[SAVELOAD] Curriculum compatibility check skipped (curriculum not saved, always loaded from Modules.txt)');
-            
-            logger.info('[SAVELOAD] Restoring session data...');
             await this.restoreSessionData(saveFile.session);
 
             // Re-initialize SelectionSensei after DOM has been rebuilt
@@ -171,17 +142,13 @@ export class SaveLoadProgressManager {
                 const w = window as any;
                 if (w.ai) {
                     reinitializeSelectionSensei(w.ai);
-                    logger.info('[SAVELOAD] SelectionSensei re-initialized after load');
                 }
             }, 100);
 
-            logger.info('[SAVELOAD] ========== LOAD COMPLETED SUCCESSFULLY ==========');
             // Note: displayMessage requires a full Message object, not just text and sender
             // For now, just log success - UI feedback handled in index.tsx
             
         } catch (error) {
-            logger.error('[SAVELOAD] ========== LOAD FAILED ==========');
-            logger.error('[SAVELOAD] Error:', error);
             // Note: displayMessage requires a full Message object, not just text and sender
             // For now, just log error - UI feedback handled in index.tsx
             throw error;
@@ -194,27 +161,16 @@ export class SaveLoadProgressManager {
      * Collects all session state from the running application
      */
     private static collectSessionData(): SessionData {
-        logger.info('[SAVELOAD] Collecting core state variables...');
         
         const w = window as any;
         
         // Debug log to see what's actually on window
-        logger.info('[SAVELOAD] Window properties:', Object.getOwnPropertyNames(w).filter(p => p.includes('curriculum') || p.includes('learner') || p.includes('Message')).join(', '));
-        
-        logger.info('[SAVELOAD] - curriculum: ' + (w.curriculum ? 'present' : 'missing'));
-        logger.info('[SAVELOAD] - curriculumState: ' + (w.curriculumState ? 'present' : 'missing'));
-        logger.info('[SAVELOAD] - learnerModel: ' + (w.learnerModel ? 'present' : 'missing'));
-        logger.info('[SAVELOAD] - currentMessageId: ' + w.currentMessageId);
-        logger.info('[SAVELOAD] - lastSenseiResponses: ' + (w.lastSenseiResponses?.length || 0) + ' items');
         
         const chatHistory = this.extractChatHistory(w.mainSenseiChat);
-        logger.info(`[SAVELOAD] Extracted chat history: ${chatHistory.length} messages`);
         
         const notepadNotes = w.notepad?.getAllNotes?.() || [];
-        logger.info(`[SAVELOAD] Collected notepad notes: ${notepadNotes.length} notes`);
         
         const uiState = this.collectUIState();
-        logger.info(`[SAVELOAD] Collected UI messages: ${uiState.messages.length} messages`);
         
         const sessionData: SessionData = {
             curriculum: null as any, // Curriculum is always loaded from Modules.txt, no need to save
@@ -240,7 +196,6 @@ export class SaveLoadProgressManager {
                 this.serializeConsolidation(w.curriculumState.activeConsolidationState) : null
         };
         
-        logger.info('[SAVELOAD] Session data collection complete');
         return sessionData;
     }
     
@@ -250,7 +205,6 @@ export class SaveLoadProgressManager {
     private static async restoreSessionData(session: SessionData): Promise<void> {
         const w = window as any;
         
-        logger.info('[SAVELOAD] Phase 1: Restoring core state variables...');
         // Curriculum is not saved/restored - it's always loaded from Modules.txt
         // w.curriculum = session.curriculum; // Skip this - curriculum already loaded
         
@@ -262,9 +216,7 @@ export class SaveLoadProgressManager {
         // via currentModuleIndex and currentConceptIndex when needed.
         
         w.learnerModel = deserializeLearnerModelHelper(session.learnerModel);
-        logger.info('[SAVELOAD] ✅ Core state restored (curriculum already loaded from Modules.txt)');
         
-        logger.info('[SAVELOAD] Phase 2: Restoring application state...');
         w.currentActiveConceptIndex = session.applicationState.currentActiveConceptIndex;
         w.currentMessageId = session.applicationState.currentMessageId;
         w.lastSenseiResponses = session.applicationState.lastSenseiResponses;
@@ -272,43 +224,29 @@ export class SaveLoadProgressManager {
         w.userInputHistory = session.applicationState.userInputHistory;
         w.pendingModuleSelection = session.applicationState.pendingModuleSelection;
         w.autoResizeEnabled = session.applicationState.autoResizeEnabled;
-        logger.info(`[SAVELOAD] ✅ Message ID will continue from: ${w.currentMessageId}`);
         
-        logger.info('[SAVELOAD] Phase 3: Recreating chat session...');
         await this.recreateChatSession(session.chatSession);
-        logger.info('[SAVELOAD] ✅ Chat session recreated with history');
         
-        logger.info('[SAVELOAD] Phase 4: Restoring UI state...');
         await this.restoreUIState(session.ui);
-        logger.info('[SAVELOAD] ✅ UI messages restored');
         
-        logger.info('[SAVELOAD] Phase 5: Restoring notepad...');
         if (session.notepad?.notes && w.notepad?.restoreNotes) {
             w.notepad.restoreNotes(session.notepad.notes);
-            logger.info(`[SAVELOAD] ✅ Restored ${session.notepad.notes.length} notes`);
         }
         
-        logger.info('[SAVELOAD] Phase 6: Handling pending operations...');
         this.handlePendingOperations(session);
         
-        logger.info('[SAVELOAD] Phase 7: Updating all displays...');
         try {
             this.updateAllDisplays(session);
-            logger.info('[SAVELOAD] Display updates complete');
         } catch (error) {
-            logger.error('[SAVELOAD] Error in updateAllDisplays:', error);
-            logger.error('[SAVELOAD] Error stack:', (error as any)?.stack);
             throw error;
         }
         
-        logger.info('[SAVELOAD] All state restoration complete');
     }
     
     /**
      * Extracts chat history from the active chat session
      */
     private static extractChatHistory(chat: any): any[] {
-        logger.info('[SAVELOAD] Extracting chat history from DOM (preferred method)...');
         
         // Always prefer DOM extraction as it has the actual user input without system prompts
         const history: any[] = [];
@@ -320,8 +258,6 @@ export class SaveLoadProgressManager {
             const isUser = sender === 'user';
             const msgId = msg.id;
             
-            logger.debug(`[SAVELOAD] Processing message ${msgId}: sender=${sender}, isUser=${isUser}`);
-            
             const messageTextEl = msg.querySelector('.message-text');
             let content = messageTextEl?.textContent || messageTextEl?.innerText || '';
             
@@ -331,7 +267,6 @@ export class SaveLoadProgressManager {
                 if (w.streamingMessagesRawText && w.streamingMessagesRawText.has(msgId)) {
                     // Use raw text if available (preserves formatting)
                     content = w.streamingMessagesRawText.get(msgId);
-                    logger.debug(`[SAVELOAD] Using raw text for sensei message ${msgId}`);
                 }
             }
             
@@ -343,20 +278,14 @@ export class SaveLoadProgressManager {
                     timestamp: msg.dataset.timestamp || new Date().toISOString()
                 };
                 history.push(messageData);
-                logger.debug(`[SAVELOAD] Added ${messageData.role} message with ${trimmedContent.length} chars`);
             } else {
-                logger.debug(`[SAVELOAD] Skipping empty message ${msgId} from ${sender}`);
             }
         });
         
-        logger.info(`[SAVELOAD] Extracted ${history.length} messages from DOM`);
-        
         // If DOM extraction failed, try chat API as fallback (but note it includes system prompts)
         if (history.length === 0 && chat && typeof chat.getHistory === 'function') {
-            logger.warn('[SAVELOAD] DOM extraction found no messages, falling back to chat API...');
             try {
                 const rawHistory = chat.getHistory();
-                logger.info(`[SAVELOAD] Retrieved ${rawHistory.length} raw messages from chat.getHistory()`);
                 
                 // Combine consecutive model messages that are part of the same streaming response
                 const combinedHistory: any[] = [];
@@ -372,7 +301,6 @@ export class SaveLoadProgressManager {
                         const userInputMatch = content.match(/\n\nUser:\s*([\s\S]*?)$/);
                         if (userInputMatch) {
                             content = userInputMatch[1];
-                            logger.debug('[SAVELOAD] Extracted user input from system prompt');
                         } else {
                             // Try another pattern - sometimes the user input is at the end after all directives
                             const lines = content.split('\n');
@@ -418,11 +346,9 @@ export class SaveLoadProgressManager {
                     combinedHistory.push(currentMessage);
                 }
                 
-                logger.info(`[SAVELOAD] Combined into ${combinedHistory.length} complete messages`);
                 return combinedHistory;
                 
             } catch (e) {
-                logger.error('[SAVELOAD] Failed to get history from chat object:', e);
             }
         }
         
@@ -436,14 +362,10 @@ export class SaveLoadProgressManager {
         const w = window as any;
         
         if (!chatSession?.history || !w.ai) {
-            logger.warn('[SAVELOAD] Cannot recreate chat: missing history or AI service');
             return;
         }
         
-        logger.info(`[SAVELOAD] Recreating chat with ${chatSession.history.length} messages`);
-        
         const limitedHistory = chatSession.history.slice(-100);
-        logger.info(`[SAVELOAD] Using last ${limitedHistory.length} messages (context limit)`);
         
         const sdkHistory = limitedHistory.map((entry: any) => ({
             role: entry.role,
@@ -460,9 +382,7 @@ export class SaveLoadProgressManager {
                 },
                 history: sdkHistory
             });
-            logger.info('[SAVELOAD] Chat session recreated successfully');
         } catch (error) {
-            logger.error('[SAVELOAD] Failed to recreate chat session:', error);
         }
     }
     
@@ -470,7 +390,6 @@ export class SaveLoadProgressManager {
      * Collects current UI state
      */
     private static collectUIState(): any {
-        logger.info('[SAVELOAD] Collecting UI state...');
         
         const messages: any[] = [];
         const messageElements = document.querySelectorAll('.message-bubble:not(#response-modal-sensei-bubble)');
@@ -505,8 +424,6 @@ export class SaveLoadProgressManager {
         
         const curriculumStatus = document.getElementById('curriculum-status')?.textContent || '';
         
-        logger.info(`[SAVELOAD] Collected ${messages.length} UI messages`);
-        
         return {
             messages,
             rawTextMap,
@@ -519,12 +436,10 @@ export class SaveLoadProgressManager {
      * Restores UI state
      */
     private static async restoreUIState(uiState: any): Promise<void> {
-        logger.info('[SAVELOAD] Restoring UI messages...');
         
         // Target the message area specifically, NOT the entire chat container
         const messageArea = document.getElementById('message-area');
         if (!messageArea) {
-            logger.warn('[SAVELOAD] Message area not found');
             return;
         }
         
@@ -533,7 +448,6 @@ export class SaveLoadProgressManager {
         const displayMessage = w.displayMessage;
         
         if (!displayMessage) {
-            logger.error('[SAVELOAD] displayMessage function not available on window');
             // Try importing directly as fallback
             try {
                 const uiModule = await import('./ui');
@@ -590,7 +504,6 @@ export class SaveLoadProgressManager {
                     }
                 }
             } catch (error) {
-                logger.error('[SAVELOAD] Failed to import displayMessage:', error);
                 return;
             }
         } else {
@@ -641,7 +554,6 @@ export class SaveLoadProgressManager {
             }
             
             // After all messages are restored, process mermaid diagrams
-            logger.info('[SAVELOAD] Processing mermaid diagrams in restored messages...');
             const processMermaidBlocks = w.processMermaidBlocks;
             if (processMermaidBlocks) {
                 for (const msg of uiState.messages) {
@@ -657,7 +569,6 @@ export class SaveLoadProgressManager {
             messageArea.scrollTop = messageArea.scrollHeight;
         }
         
-        logger.info(`[SAVELOAD] Restored ${uiState.messages.length} UI messages`);
     }
     
     /**
@@ -667,21 +578,13 @@ export class SaveLoadProgressManager {
         const w = window as any;
         
         if (session.applicationState.pendingModuleSelection !== null) {
-            logger.info(`[SAVELOAD] Restoring pending module selection: ${session.applicationState.pendingModuleSelection}`);
-            
             const module = w.curriculum?.modules[session.applicationState.pendingModuleSelection];
             if (module && w.displayPhaseSelectionMessage) {
                 w.displayPhaseSelectionMessage(module);
-                logger.info('[SAVELOAD] Phase selection UI recreated');
             }
         }
-        
-        if (session.curriculumState?.socraticCompletionPending) {
-            logger.info('[SAVELOAD] Socratic completion is pending');
-        }
-        
+
         if (session.consolidation) {
-            logger.info('[SAVELOAD] Restoring consolidation state');
             if (w.curriculumState) {
                 w.curriculumState.activeConsolidationState = this.deserializeConsolidation(session.consolidation);
             }
@@ -694,11 +597,8 @@ export class SaveLoadProgressManager {
     private static updateAllDisplays(session: SessionData): void {
         const w = window as any;
         
-        logger.info('[SAVELOAD] Starting updateAllDisplays...');
-        
         // Use the existing updateFooter function if available
         if (w.updateFooter && w.learnerModel) {
-            logger.info('[SAVELOAD] Calling updateFooter...');
             w.updateFooter(w.learnerModel);
         } else {
             // Fallback to manual update
@@ -713,11 +613,8 @@ export class SaveLoadProgressManager {
             }
         }
         
-        logger.info('[SAVELOAD] Footer update completed');
-        
         // Use the existing updateCurriculumDisplay function if available
         if (w.updateCurriculumDisplay && w.curriculumState && w.curriculum) {
-            logger.info('[SAVELOAD] Starting curriculum display update...');
             try {
                 // Get the current curriculum item using the helper function from curriculum.ts
                 // This properly reconstructs the curriculum item from indices
@@ -727,38 +624,37 @@ export class SaveLoadProgressManager {
                 if (getCurrentCurriculumItem && w.curriculum) {
                     currentItem = getCurrentCurriculumItem(w.curriculum, w.curriculumState);
                 } else if (!w.curriculum) {
-                    logger.warn('[SAVELOAD] Curriculum not loaded yet, skipping curriculum display update');
                     return;
                 } else {
-                // Fallback: manually get the current item
-                const module = w.curriculum.modules[w.curriculumState.currentModuleIndex];
-                if (module) {
-                    const isModulePhase = ['Introduce', 'HighLevelOverview', 'ConceptOverviews', 'Solidify'].includes(w.curriculumState.currentPhase);
-                    if (!isModulePhase && module.concepts) {
-                        const concept = module.concepts[w.curriculumState.currentConceptIndex];
-                        if (concept) {
+                    // Fallback: manually get the current item
+                    const module = w.curriculum.modules[w.curriculumState.currentModuleIndex];
+                    if (module) {
+                        const isModulePhase = ['Introduce', 'HighLevelOverview', 'ConceptOverviews', 'Solidify'].includes(w.curriculumState.currentPhase);
+                        if (!isModulePhase && module.concepts) {
+                            const concept = module.concepts[w.curriculumState.currentConceptIndex];
+                            if (concept) {
+                                currentItem = {
+                                    moduleTitle: module.title,
+                                    moduleGoal: module.goal,
+                                    concept: concept,
+                                    curriculumPathId: `${module.id}-${concept.id}-Phase_${w.curriculumState.currentPhase}`,
+                                    isLastConceptInModule: w.curriculumState.currentConceptIndex === module.concepts.length - 1,
+                                    isLastPhaseForConcept: false, // Would need more logic to determine
+                                    isModuleWidePhase: false
+                                };
+                            }
+                        } else {
                             currentItem = {
                                 moduleTitle: module.title,
                                 moduleGoal: module.goal,
-                                concept: concept,
-                                curriculumPathId: `${module.id}-${concept.id}-Phase_${w.curriculumState.currentPhase}`,
-                                isLastConceptInModule: w.curriculumState.currentConceptIndex === module.concepts.length - 1,
-                                isLastPhaseForConcept: false, // Would need more logic to determine
-                                isModuleWidePhase: false
+                                concept: null,
+                                curriculumPathId: `${module.id}-Phase_${w.curriculumState.currentPhase}`,
+                                isLastConceptInModule: false,
+                                isLastPhaseForConcept: false,
+                                isModuleWidePhase: true
                             };
                         }
-                    } else {
-                        currentItem = {
-                            moduleTitle: module.title,
-                            moduleGoal: module.goal,
-                            concept: null,
-                            curriculumPathId: `${module.id}-Phase_${w.curriculumState.currentPhase}`,
-                            isLastConceptInModule: false,
-                            isLastPhaseForConcept: false,
-                            isModuleWidePhase: true
-                        };
                     }
-                }
                 }
                 
                 w.updateCurriculumDisplay(
@@ -770,8 +666,6 @@ export class SaveLoadProgressManager {
                     w.learnerModel                      // learnerModel
                 );
             } catch (error) {
-                logger.error('[SAVELOAD] Error updating curriculum display:', error);
-                logger.error('[SAVELOAD] Error details:', JSON.stringify(error));
                 // Don't throw - continue with rest of restoration
             }
         } else {
@@ -782,20 +676,13 @@ export class SaveLoadProgressManager {
             }
         }
         
-        logger.info('[SAVELOAD] Curriculum display update completed');
-        
         // Make sure input area is visible and enabled
-        logger.info('[SAVELOAD] Enabling input area...');
         const userInput = document.getElementById('user-input') as HTMLTextAreaElement;
         if (userInput) {
             userInput.disabled = false;
             userInput.focus();
-            logger.info('[SAVELOAD] Input area enabled');
-        } else {
-            logger.warn('[SAVELOAD] Input area element not found');
         }
         
-        logger.info('[SAVELOAD] updateAllDisplays completed successfully');
     }
     
     /**
@@ -849,10 +736,6 @@ export class SaveLoadProgressManager {
         while (this.hasActiveStreamingMessages() && Date.now() - startTime < maxWait) {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
-        
-        if (this.hasActiveStreamingMessages()) {
-            logger.warn('[SAVELOAD] Streaming did not complete in time');
-        }
     }
     
     private static downloadSaveFile(jsonString: string, filename: string): void {
@@ -896,7 +779,6 @@ export class SaveLoadProgressManager {
         // It's always loaded fresh from Modules.txt
         // This function is kept for potential future use if we need to verify module compatibility
         if (!savedCurriculum) {
-            logger.info('[SAVELOAD] No saved curriculum to verify (expected behavior)');
             return;
         }
         
@@ -912,7 +794,6 @@ export class SaveLoadProgressManager {
         
         const missingIds = savedIds.filter((id: string) => !currentIds.includes(id));
         if (missingIds.length > 0) {
-            logger.warn(`[SAVELOAD] Warning: Some modules from save file are missing: ${missingIds.join(', ')}`);
         }
     }
     
