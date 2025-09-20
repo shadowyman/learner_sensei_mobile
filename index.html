@@ -40,14 +40,26 @@
                 <div class="weighted-segment status">
                     <div class="status-content">
                         <div id="curriculum-status-container">
-                            <button id="concept-nav-prev" class="concept-nav-arrow prev" title="Previous Concept" style="display: none;">
-                                <span class="arrow-icon">‹</span>
-                            </button>
-                            <span class="status-label">Current Focus</span>
-                            <span id="curriculum-status-topic" class="status-text">Loading curriculum...</span>
-                            <button id="concept-nav-next" class="concept-nav-arrow next" title="Next Concept" style="display: none;">
-                                <span class="arrow-icon">›</span>
-                            </button>
+                            <div class="nav-group nav-group-prev">
+                                <button id="concept-nav-prev" class="concept-nav-arrow prev" title="Previous Concept" aria-label="Previous Concept" style="display: none;">
+                                    <span class="arrow-icon arrow-icon-double">&laquo;</span>
+                                </button>
+                                <button id="chunk-nav-prev" class="chunk-nav-arrow prev" title="Previous Chunk" aria-label="Previous Chunk" style="display: none;">
+                                    <span class="arrow-icon">&lt;</span>
+                                </button>
+                            </div>
+                            <div class="status-text-group">
+                                <span class="status-label">Current Focus</span>
+                                <span id="curriculum-status-topic" class="status-text">Loading curriculum...</span>
+                            </div>
+                            <div class="nav-group nav-group-next">
+                                <button id="chunk-nav-next" class="chunk-nav-arrow next" title="Next Chunk" aria-label="Next Chunk" style="display: none;">
+                                    <span class="arrow-icon">&gt;</span>
+                                </button>
+                                <button id="concept-nav-next" class="concept-nav-arrow next" title="Next Concept" aria-label="Next Concept" style="display: none;">
+                                    <span class="arrow-icon arrow-icon-double">&raquo;</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -75,6 +75,10 @@ let meditationOverlay: HTMLDivElement | null = null;
 let meditationActionItems: HTMLDivElement | null = null;
 const brandSegment = document.querySelector('.weighted-segment.brand') as HTMLDivElement;
 const statusSegment = document.querySelector('.weighted-segment.status') as HTMLDivElement;
+const conceptNavPrevButton = document.getElementById('concept-nav-prev') as HTMLButtonElement | null;
+const conceptNavNextButton = document.getElementById('concept-nav-next') as HTMLButtonElement | null;
+const chunkNavPrevButton = document.getElementById('chunk-nav-prev') as HTMLButtonElement | null;
+const chunkNavNextButton = document.getElementById('chunk-nav-next') as HTMLButtonElement | null;
 
 const footerConfidence = document.getElementById('footer-confidence') as HTMLSpanElement;
 const footerConfusion = document.getElementById('footer-confusion') as HTMLSpanElement;
@@ -117,17 +121,71 @@ export function updateCurriculumDisplay(
 ) {
     // Make curriculum state globally accessible for meditation overlay
     (window as any).curriculumState = appCurriculumState;
-    if (curriculumItem && currentPhase) {
-        let topicString = "";
-        if (curriculumItem.isModuleWidePhase) {
-            topicString = `Module: ${curriculumItem.moduleTitle}`;
-        } else if (curriculumItem.concept) {
-            topicString = `${curriculumItem.moduleTitle} / ${curriculumItem.concept.title}`;
-        } else {
-            topicString = `Module: ${curriculumItem.moduleTitle}`;
+    const setStatusLines = (
+        moduleLine: string,
+        phaseLabel: string,
+        options?: {
+            conceptTitle?: string;
+            moduleTitleTooltip?: string;
+            phaseTooltip?: string;
+            conceptTooltip?: string;
         }
-        topicString += ` / ${getPhaseDisplayName(currentPhase)}`;
-        curriculumStatusTopic.textContent = topicString;
+    ) => {
+        if (!curriculumStatusTopic) {
+            return;
+        }
+        curriculumStatusTopic.textContent = '';
+        const moduleSpan = document.createElement('span');
+        moduleSpan.className = 'status-module';
+        moduleSpan.textContent = moduleLine;
+        if (options?.moduleTitleTooltip) {
+            moduleSpan.title = options.moduleTitleTooltip;
+        }
+        const conceptTitle = options?.conceptTitle;
+        if (conceptTitle) {
+            const phaseLine = document.createElement('span');
+            phaseLine.className = 'status-phase-line';
+            const phaseSpan = document.createElement('span');
+            phaseSpan.className = 'status-phase';
+            phaseSpan.textContent = phaseLabel;
+            if (options?.phaseTooltip) {
+                phaseSpan.title = options.phaseTooltip;
+            }
+            const separatorSpan = document.createElement('span');
+            separatorSpan.className = 'status-phase-separator';
+            separatorSpan.textContent = '–';
+            const conceptSpan = document.createElement('span');
+            conceptSpan.className = 'status-concept';
+            conceptSpan.textContent = conceptTitle;
+            if (options?.conceptTooltip) {
+                conceptSpan.title = options.conceptTooltip;
+            }
+            phaseLine.appendChild(phaseSpan);
+            phaseLine.appendChild(separatorSpan);
+            phaseLine.appendChild(conceptSpan);
+            curriculumStatusTopic.appendChild(moduleSpan);
+            curriculumStatusTopic.appendChild(phaseLine);
+        } else {
+            const phaseSpan = document.createElement('span');
+            phaseSpan.className = 'status-phase';
+            phaseSpan.textContent = phaseLabel;
+            if (options?.phaseTooltip) {
+                phaseSpan.title = options.phaseTooltip;
+            }
+            curriculumStatusTopic.appendChild(moduleSpan);
+            curriculumStatusTopic.appendChild(phaseSpan);
+        }
+    };
+    if (curriculumItem && currentPhase) {
+        const moduleTitle = curriculumItem.moduleTitle;
+        const phaseLabel = getPhaseDisplayName(currentPhase);
+        const conceptTitle = curriculumItem.concept?.title || null;
+        setStatusLines(moduleTitle, phaseLabel, {
+            conceptTitle: conceptTitle || undefined,
+            moduleTitleTooltip: moduleTitle,
+            phaseTooltip: phaseLabel,
+            conceptTooltip: conceptTitle || undefined
+        });
 
         // Sync KC progress bar with current curriculum state
         if (learnerModel && curriculumItem) {
@@ -141,17 +199,18 @@ export function updateCurriculumDisplay(
             // Skip progress bar sync - missing required data
         }
 
-    } else if (appCurriculum && appCurriculumState?.isCompleted) {
-        curriculumStatusTopic.textContent = "Curriculum Completed! Congratulations! 🎉";
-    } else if (appIsCurriculumLoaded && !appCurriculumState) {
-        curriculumStatusTopic.textContent = "Ready. Please select a module to begin.";
-    } else if (appIsCurriculumLoaded) {
-        curriculumStatusTopic.textContent = "Curriculum loaded. Ask Sensei to begin or ask any question!";
-    } else if (!appIsCurriculumLoaded && !(process.env.API_KEY)) {
-         curriculumStatusTopic.textContent = "API Key not found. Please set up your API_KEY.";
-    }
-    else {
-        curriculumStatusTopic.textContent = "Curriculum loading...";
+    } else {
+        if (appCurriculum && appCurriculumState?.isCompleted) {
+            setStatusLines('Curriculum Completed', 'Congratulations! 🎉');
+        } else if (appIsCurriculumLoaded && !appCurriculumState) {
+            setStatusLines('Ready to Begin', 'Select a module to get started');
+        } else if (appIsCurriculumLoaded) {
+            setStatusLines('Curriculum Loaded', 'Ask Sensei to begin');
+        } else if (!appIsCurriculumLoaded && !(process.env.API_KEY)) {
+            setStatusLines('API Key Missing', 'Set API_KEY to continue');
+        } else {
+            setStatusLines('Loading Curriculum…', 'Preparing your journey');
+        }
     }
 
     const newText = curriculumStatusTopic.textContent;
@@ -176,31 +235,37 @@ export function updateCurriculumDisplay(
 }
 
 function updateConceptNavigationArrowsUI(state: CurriculumState | null, curriculum: Curriculum | null) {
-    const prevButton = document.getElementById('concept-nav-prev') as HTMLButtonElement;
-    const nextButton = document.getElementById('concept-nav-next') as HTMLButtonElement;
+    if (!conceptNavPrevButton || !conceptNavNextButton || !chunkNavPrevButton || !chunkNavNextButton) {
+        return;
+    }
 
-    if (!prevButton || !nextButton) return;
-
-    // Hide arrows if not in IntroIllustrate phase or no state
+    // Concept navigation visibility
     if (!state || !curriculum || state.currentPhase !== 'IntroIllustrate') {
-        prevButton.style.display = 'none';
-        nextButton.style.display = 'none';
-        return;
+        conceptNavPrevButton.style.display = 'none';
+        conceptNavNextButton.style.display = 'none';
+    } else {
+        const module = curriculum.modules[state.currentModuleIndex];
+        if (!module) {
+            conceptNavPrevButton.style.display = 'none';
+            conceptNavNextButton.style.display = 'none';
+        } else {
+            conceptNavPrevButton.style.display = 'flex';
+            conceptNavNextButton.style.display = 'flex';
+            conceptNavPrevButton.disabled = state.currentConceptIndex <= 0;
+            conceptNavNextButton.disabled = state.currentConceptIndex >= module.concepts.length - 1;
+        }
     }
 
-    const module = curriculum.modules[state.currentModuleIndex];
-    if (!module) {
-        prevButton.style.display = 'none';
-        nextButton.style.display = 'none';
-        return;
+    // Chunk navigation visibility
+    if (!state || !state.teachingPlanForPhase || state.teachingPlanForPhase.length <= 1 || state.currentTeachingChunkIndex === undefined) {
+        chunkNavPrevButton.style.display = 'none';
+        chunkNavNextButton.style.display = 'none';
+    } else {
+        chunkNavPrevButton.style.display = 'flex';
+        chunkNavNextButton.style.display = 'flex';
+        chunkNavPrevButton.disabled = state.currentTeachingChunkIndex <= 0;
+        chunkNavNextButton.disabled = state.currentTeachingChunkIndex >= state.teachingPlanForPhase.length - 1;
     }
-
-    // Show arrows and update disabled state
-    prevButton.style.display = 'block';
-    nextButton.style.display = 'block';
-
-    prevButton.disabled = state.currentConceptIndex <= 0;
-    nextButton.disabled = state.currentConceptIndex >= module.concepts.length - 1;
 }
 
 function showChunkResetConfirmation(chunkIndex: number): Promise<boolean> {

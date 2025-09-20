@@ -1259,33 +1259,67 @@ async function handleConceptNavigation(direction: 'prev' | 'next') {
     }
 }
 
+async function handleChunkNavigation(direction: 'prev' | 'next') {
+    if (!curriculumState || !curriculumState.teachingPlanForPhase) {
+        return;
+    }
+
+    const currentIndex = curriculumState.currentTeachingChunkIndex ?? 0;
+    const plan = curriculumState.teachingPlanForPhase;
+    const targetIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
+    if (targetIndex < 0 || targetIndex >= plan.length) {
+        return;
+    }
+
+    if (typeof window.switchToChunk !== 'function') {
+        return;
+    }
+
+    try {
+        await window.switchToChunk(targetIndex);
+        updateConceptNavigationArrows(curriculumState, curriculum);
+    } catch (error) {
+        logger.error('[NAV_PANEL] Chunk navigation failed', error);
+    }
+}
+
 // Update concept navigation arrow visibility and state
 function updateConceptNavigationArrows(state: CurriculumState | null, curriculum: Curriculum | null) {
-    const prevButton = document.getElementById('concept-nav-prev') as HTMLButtonElement;
-    const nextButton = document.getElementById('concept-nav-next') as HTMLButtonElement;
+    const conceptPrev = document.getElementById('concept-nav-prev') as HTMLButtonElement;
+    const conceptNext = document.getElementById('concept-nav-next') as HTMLButtonElement;
+    const chunkPrev = document.getElementById('chunk-nav-prev') as HTMLButtonElement;
+    const chunkNext = document.getElementById('chunk-nav-next') as HTMLButtonElement;
 
-    if (!prevButton || !nextButton) return;
+    if (!conceptPrev || !conceptNext || !chunkPrev || !chunkNext) {
+        return;
+    }
 
-    // Hide arrows if not in IntroIllustrate phase or no state
     if (!state || !curriculum || state.currentPhase !== 'IntroIllustrate') {
-        prevButton.style.display = 'none';
-        nextButton.style.display = 'none';
-        return;
+        conceptPrev.style.display = 'none';
+        conceptNext.style.display = 'none';
+    } else {
+        const module = curriculum.modules[state.currentModuleIndex];
+        if (!module) {
+            conceptPrev.style.display = 'none';
+            conceptNext.style.display = 'none';
+        } else {
+            conceptPrev.style.display = 'flex';
+            conceptNext.style.display = 'flex';
+            conceptPrev.disabled = state.currentConceptIndex <= 0;
+            conceptNext.disabled = state.currentConceptIndex >= module.concepts.length - 1;
+        }
     }
 
-    const module = curriculum.modules[state.currentModuleIndex];
-    if (!module) {
-        prevButton.style.display = 'none';
-        nextButton.style.display = 'none';
-        return;
+    if (!state || !state.teachingPlanForPhase || state.teachingPlanForPhase.length <= 1 || state.currentTeachingChunkIndex === undefined) {
+        chunkPrev.style.display = 'none';
+        chunkNext.style.display = 'none';
+    } else {
+        chunkPrev.style.display = 'flex';
+        chunkNext.style.display = 'flex';
+        chunkPrev.disabled = state.currentTeachingChunkIndex <= 0;
+        chunkNext.disabled = state.currentTeachingChunkIndex >= state.teachingPlanForPhase.length - 1;
     }
-
-    // Show arrows and update disabled state
-    prevButton.style.display = 'block';
-    nextButton.style.display = 'block';
-
-    prevButton.disabled = state.currentConceptIndex <= 0;
-    nextButton.disabled = state.currentConceptIndex >= module.concepts.length - 1;
 }
 
 // Add event listeners for concept navigation arrows
@@ -1298,6 +1332,17 @@ if (conceptNavPrev) {
 
 if (conceptNavNext) {
     conceptNavNext.addEventListener('click', () => handleConceptNavigation('next'));
+}
+
+const chunkNavPrev = document.getElementById('chunk-nav-prev');
+const chunkNavNext = document.getElementById('chunk-nav-next');
+
+if (chunkNavPrev) {
+    chunkNavPrev.addEventListener('click', () => handleChunkNavigation('prev'));
+}
+
+if (chunkNavNext) {
+    chunkNavNext.addEventListener('click', () => handleChunkNavigation('next'));
 }
 
 loadCurriculumAndGreet();
