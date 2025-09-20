@@ -73,6 +73,7 @@ import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG } from './model_usage';
 import { notepad } from './notepad';
 import { runTestSuite } from './test';
 import { ModuleSelectionHandler } from './moduleSelectionHandler';
+import { initializeCodeEditorModal } from './codeEditorModal';
 
 // Auto-resize system configuration
 
@@ -1021,6 +1022,16 @@ function initializeSaveLoadUI(): void {
 
 async function loadCurriculumAndGreet() {
     initializeUI();
+    initializeCodeEditorModal({
+        textarea: userInputElement,
+        onAppend: code => {
+            const prefix = userInputElement.value && !userInputElement.value.endsWith('\n') ? '\n' : '';
+            userInputElement.value = `${userInputElement.value}${prefix}${code}\n`;
+            userInputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            setupTextareaAutosize(userInputElement);
+            userInputElement.focus();
+        }
+    });
     initializeSaveLoadUI(); // Add save/load buttons
     await loadProjectFileManifestAndPaths(); // Load manifest and paths
     await initializeGoogleAI(); // Initializes AI and then Debug Mode with paths

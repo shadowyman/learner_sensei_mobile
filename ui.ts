@@ -5,6 +5,7 @@
  */
 
 import { logger, DEBUG_FLAGS } from './logger';
+import { openCodeEditorModal, isCodeEditorModalOpen } from './codeEditorModal';
 import { LearnerModel } from './adaptiveEngine';
 import { attemptMermaidFix, applyBacktickFix, applyUniversalQuoteFix } from './mermaidErrorRecovery.js';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
@@ -67,6 +68,7 @@ export function sanitizeCodeFences(text: string): string {
 export const messageArea = document.getElementById('message-area') as HTMLDivElement;
 export const userInput = document.getElementById('user-input') as HTMLTextAreaElement; // Changed to HTMLTextAreaElement
 export const sendButton = document.getElementById('send-button') as HTMLButtonElement;
+const codeEditorButton = document.getElementById('code-editor-button') as HTMLButtonElement | null;
 const curriculumStatusContainer = document.getElementById('curriculum-status-container') as HTMLDivElement; // ADD THIS
 const curriculumStatusTopic = document.getElementById('curriculum-status-topic') as HTMLDivElement;
 const headerTitleElement = document.getElementById('header-title') as HTMLHeadingElement; // Added for glow effect
@@ -1313,11 +1315,13 @@ export function showLoading(isLoading: boolean) {
         if (brandSegment) brandSegment.classList.add('thinking');
         sendButton.disabled = true;
         userInput.disabled = true;
+        if (codeEditorButton) codeEditorButton.disabled = true;
     } else {
         if (brandSegment) brandSegment.classList.remove('thinking');
         sendButton.disabled = false;
         userInput.disabled = false;
-        userInput.focus();
+        if (codeEditorButton) codeEditorButton.disabled = false;
+        if (!isCodeEditorModalOpen()) userInput.focus();
     }
 }
 
@@ -1881,6 +1885,13 @@ export function initializeUI() {
     (window as any).updateMermaidThemeClass = updateMermaidThemeClass;
 
     setupTextareaAutosize(mainUserInput);
+
+    if (codeEditorButton) {
+        codeEditorButton.addEventListener('click', () => {
+            logger.info('[CODE_EDITOR] Launcher clicked');
+            openCodeEditorModal();
+        });
+    }
 
     document.fonts.ready.then(() => {
         setupTextareaAutosize(mainUserInput);

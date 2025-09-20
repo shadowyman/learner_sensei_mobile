@@ -42,3 +42,17 @@
 - `docs/features/feature_mermaid_annotation_alignment_20250920_015950.md:22`
 
 **Keywords for Future Reference**: mermaid, caption, overlap, flex layout, annotation, figure wrapper
+
+## Bug #4: Code Editor Modal Lacked Scrollbar
+
+**Issue**: The in-chat code editor modal could not scroll when code exceeded the visible viewport. Users were forced to select text to reveal hidden content, and in some cases could not scroll at all.
+
+**Root Cause**: The modal instantiated CodeMirror while the dialog was still hidden, so the editor measured zero height. Additionally, the surrounding layout did not reserve vertical space, causing the editor to collapse even after content was inserted.
+
+**Fix Applied**: Delayed CodeMirror initialization until after the modal becomes visible (`requestAnimationFrame` inside `openCodeEditorModal`) and restructured the modal body as a flex column with explicit height clamps. The `#code-editor-root`, `.cm-editor`, and `.cm-scroller` layers now propagate flex sizing with `min-height: 0`, ensuring the scroll container maintains usable height.
+
+**Related Files**:
+- `codeEditorModal.ts:352`
+- `index.css:1735`
+
+**Keywords for Future Reference**: codemirror, modal, scrollbar, flex layout, initialization timing, overflow
