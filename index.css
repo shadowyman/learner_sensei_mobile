@@ -2185,6 +2185,38 @@ body::before {
 
 
 /* --- THIRD-PARTY STYLES: MERMAID.JS --- */
+.mermaid-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 0 auto 1.5em auto;
+    width: min(68%, 520px);
+    max-width: 100%;
+}
+.mermaid-figure.mermaid-thumbnail--horizontal {
+    width: min(68%, 520px);
+}
+.mermaid-figure.mermaid-thumbnail--vertical {
+    width: min(60%, 440px);
+    max-height: none;
+}
+.mermaid-figure.mermaid-thumbnail--vertical,
+.mermaid-figure.mermaid-thumbnail--horizontal {
+    display: flex;
+}
+.mermaid-annotation {
+    font-size: 0.92em;
+    color: rgba(236, 244, 255, 0.78);
+    text-align: left;
+    line-height: 1.6;
+    width: 100%;
+    max-width: 100%;
+}
+.mermaid-annotation em {
+    color: inherit;
+}
 .mermaid-thumbnail {
     display: block;
     margin: 0 auto 1em auto;
@@ -2225,6 +2257,10 @@ body::before {
 .mermaid-thumbnail--vertical svg {
     width: 100%;
     height: 100%;
+}
+.mermaid-figure .mermaid-thumbnail {
+    width: 100%;
+    max-width: 100%;
 }
 .mermaid-lightbox {
     position: fixed;

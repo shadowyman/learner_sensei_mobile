@@ -27,3 +27,18 @@
 - `interactionHelpers.ts:108`
 
 **Keywords for Future Reference**: chunk navigation, meditation overlay, navigation context, empty input, false praise
+
+## Bug #3: Mermaid Caption Overlapped Instruction Text
+
+**Issue**: After narrowing mermaid caption widths, the italic annotation beneath diagrams appeared underneath Sensei's instructional paragraphs, making the caption unreadable.
+
+**Root Cause**: Dedicated `.mermaid-figure` and `.mermaid-annotation` styles were removed, so the wrapper inherited the thumbnail's orientation classes (`display: grid`, `width: fit-content`). The caption and subsequent paragraphs then occupied the same horizontal space, letting later text overlap the annotation.
+
+**Fix Applied**: Reintroduced scoped CSS that centers the figure as a flex column with controlled width while keeping the caption full-width inside the container. Verified via temporary `[MERMAID_FIX]` logs before removing the instrumentation.
+
+**Related Files**:
+- `index.css:2188`
+- `mermaid-theme-integration.js:102`
+- `docs/features/feature_mermaid_annotation_alignment_20250920_015950.md:22`
+
+**Keywords for Future Reference**: mermaid, caption, overlap, flex layout, annotation, figure wrapper
