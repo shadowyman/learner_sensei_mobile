@@ -45,7 +45,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding through teach-back prompts ("Explain the two roles of a base case"). Conclude by framing the next natural questions: "Now that we understand the idea, how does the computer actually execute these recursive calls?" (leading to Module 2) and "How does information get passed between these calls?" (leading to Module 3).
 
-Module 1.5: The Generative Soul - Exploring Downward (Version 1.0 - Detailed Instructional Guide for Sensei AI)
+Module 2: The Generative Soul - Exploring Downward (Version 1.0 - Detailed Instructional Guide for Sensei AI)
 Summary: Generative recursion fundamentally shifts from computing a single value to enabling exploration and action, aiming to generate all valid combinations or find all possible paths. This process operates like navigating a decision tree through Choice & Consequence, where the recursive step involves making choices and updating state. Unlike M1's upward returns, the primary channel for critical context is Downward Information Flow, with parameters serving as state carriers that convey the current situation (state) or accumulated state to subsequent calls. Base cases revisited mark the end of one particular path of exploration, either signifying success (where results are recorded) or termination/dead end. A core principle is the Generative Leap of Faith, which assumes the recursive call will correctly explore all valid possibilities from the newState provided, a concept frequently visualized using state-space tree diagrams.
 Goal: Develop a deep, intuitive understanding of the generative recursive paradigm by:
 	- Clearly distinguishing the Generative Goal (Exploration/Action) from the Computational Goal (Calculation) established in M1.
@@ -188,7 +188,7 @@ Solidify & Prepare:
 	3. Sensei's Final Check for M1.5:
 		Verify the user understands generative recursion as a distinct approach, can articulate its core mechanics (choice, downward state, base case actions), and can contrast it effectively with the computational patterns from M1. They should be comfortable with the idea that recursion serves these two fundamental goals. Ensure Infinite Patience & Unshakable Support [I-A Mandate 8].
 
-Module 2: The Engine Room - Understanding Recursive Execution (Version 1.1)
+Module 3: The Engine Room - Understanding Recursive Execution (Version 1.1)
 Summary: The call stack is a LIFO (Last-In, First-Out) memory mechanism essential for managing the execution flow of function calls. When a function is invoked, a stack frame (or activation record) is pushed onto the stack, creating an isolated scope and a specific variable lifecycle for that call's parameters and local variables, and storing the return address of its caller. The process of meticulously tracing execution follows these stack operations: recursive calls progressively push new frames until a base case is reached, at which point the stack begins to unwind. As each function completes, its frame is popped, its return value is passed back, and control resumes at the saved return address in the calling frame. This entire process relies on the stack's finite resource limits, meaning that recursion without a terminating base case will exhaust this memory and cause a stack overflow error.
 Goal: Achieve a crystal-clear, mechanistic understanding of how recursive function calls are executed by the computer using the call stack. Demystify the "magic" of recursion.
 Concepts:
@@ -238,7 +238,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding via trace challenges ("Trace execution for input X"). Conclude by highlighting that understanding how calls execute sets the stage for understanding how data and results flow between these calls, leading directly into Module 3.
 
-Module 3: Information Flow in Recursion - Data Dynamics (Version 1.5 - Updated)
+Module 4: Information Flow in Recursion - Data Dynamics (Version 1.5 - Updated)
 Summary: A technical approach to recursion begins by establishing a clear Function Contract and defining the Recursive Goal as either Computational, which aggregates results upward via return values, or Generative, which builds solutions downward using mechanisms like the Accumulator Pattern. The flow of information is managed by passing data downward through parameters and propagating results upward via return values, which can present a Dual Information Challenge when both local and global results are needed. The timing of a function's core work, its Processing Point (e.g., pre-order, post-order), is dictated by data dependency—whether a result depends on subproblems or not. All of this is executed on the call stack, which uses LIFO dynamics to manage distinct stack frames, each with its own isolated scope and variable lifecycle, making meticulous execution tracing essential for understanding the program's state.
 Goal: Master the critical techniques for directing the flow of data and results through the chain of recursive calls, enabling the construction of functions that correctly compute and propagate information necessary for solving typical interview-level problems, understanding the distinction between computational and generative recursive goals, and managing scenarios requiring both local results and global state updates.
 Concepts:
@@ -252,21 +252,7 @@ Concepts:
 				ii. Generative: To construct or find one or more collections, sequences, or specific structures (e.g., all subsets, all paths, permutations, building a modified tree, finding a specific path). Often leans towards using accumulator parameters passed down and potentially modifying state or collecting results externally.
 		b. Importance:
 			A clear contract and understanding the computational vs. generative goal informs the optimal choice of data flow patterns and combination logic. Force clarity via Socratic questioning ("What exactly should solve(k) return?", "What must be true about the input k for this function to work?", "Is the main goal here to compute one value, or generate many possibilities?").
-	2. Passing Data Downward: Using Parameters
-		a. Mechanism:
-			Review how parameters are placed onto the stack (Module 2) for each new call (pass-by-value vs. pass-by-reference mechanics).
-		b. Purpose:
-			Identify and exemplify the types of necessary context passed from callers to callees (ancestors to descendants in the recursion tree):
-			- Domain Boundaries/Indices (e.g., start, end for array slices, current coordinates in a grid).
-			- Target Values or Search Criteria (e.g., targetSum, valueToFind).
-			- Accumulated State (running path sum, current permutation/subset string/list, current depth). (Often used for Generative goals)
-			- Constraints/Context (valid range for BST check, visited set for graph/grid traversal, available choices). (Used for both goals)
-			- Pointers/References to shared data structures. (Can serve both, critical for Accumulators in Generative goals)
-		c. Visualization:
-			Use data flow diagrams on recursion trees showing specific parameter values moving down the call chain.
-		d. Connection to Goal:
-			Frame parameter passing as providing the necessary context or the accumulator structure needed for both computational checks (e.g., bounds for BST) and generative construction (e.g., the current path being built).
-	3. Propagating Information Upward: Leveraging Return Values
+	2. Propagating Information Upward: Leveraging Return Values
 		a. Mechanism:
 			Review how a function's return value replaces the call site in the caller's context after the callee's stack frame pops (Module 2).
 		b. Purpose:
@@ -286,6 +272,20 @@ Concepts:
 				- The Data Flow Question: How do we structure the information flow to manage both the necessary local return value and the update to the global state? Module 4 will explore the design patterns (like returning complex objects or using helper functions with shared state) to address this common scenario.
 		d. Connection to Goal:
 			While primarily serving Computational goals, note that even Generative recursion might return status codes (e.g., boolean found_solution) to control the exploration. The "Dual Information Challenge" often arises in complex Computational goals.
+	3. Passing Data Downward: Using Parameters
+		a. Mechanism:
+			Review how parameters are placed onto the stack (Module 2) for each new call (pass-by-value vs. pass-by-reference mechanics).
+		b. Purpose:
+			Identify and exemplify the types of necessary context passed from callers to callees (ancestors to descendants in the recursion tree):
+			- Domain Boundaries/Indices (e.g., start, end for array slices, current coordinates in a grid).
+			- Target Values or Search Criteria (e.g., targetSum, valueToFind).
+			- Accumulated State (running path sum, current permutation/subset string/list, current depth). (Often used for Generative goals)
+			- Constraints/Context (valid range for BST check, visited set for graph/grid traversal, available choices). (Used for both goals)
+			- Pointers/References to shared data structures. (Can serve both, critical for Accumulators in Generative goals)
+		c. Visualization:
+			Use data flow diagrams on recursion trees showing specific parameter values moving down the call chain.
+		d. Connection to Goal:
+			Frame parameter passing as providing the necessary context or the accumulator structure needed for both computational checks (e.g., bounds for BST) and generative construction (e.g., the current path being built).
 	4. Modifying State Directly: Accumulators & Side Effects
 		a. Alternative Mechanism:
 			Explore modifying data during the recursion via non-local means, rather than only relying on return values.
@@ -295,14 +295,28 @@ Concepts:
 			Briefly discuss modifying external structures or class members directly within recursive calls (generally discouraged for pure functions due to side effects making reasoning harder, but sometimes necessary, particularly for the "Dual Information Challenge" discussed above). Note scoping risks.
 		d. Connection to Goal:
 			Frame the Accumulator Pattern as a primary technique for Generative recursion, contrasting its typical use case with return values (Computation). Direct modification can sometimes be used for Computational goals when managing dual information flow.
-	5. Processing Point Relativity: Pre-order, In-order, Post-order Logic
+	5. Processing Point Relativity: The Data Dependency Rule
 		a. Concept:
-			Emphasize that when the work involving the current node/state/element happens relative to the recursive call(s) is crucial and dictated by data dependencies and the recursive goal. Extend traversal terminology conceptually:
-			- Pre-order Logic: Process the current state before making recursive calls. Typical Use: Passing information derived from the current state down (Computational constraints); Making a choice or adding to state before exploring consequences (Generative path building/subset construction).
-			- Post-order Logic: Process the current state after receiving results from all necessary recursive calls. Typical Use: When the result for the current state depends on the results from subproblems (Computational aggregation like size/height/validation); Cleaning up state after exploring choices (Generative backtracking/unchoose step); Handling the "Dual Information Challenge" where local results from children are needed before updating global state.
-			- In-order Logic: Process the current state between recursive calls. Typical Use: BST operations, specific sequence processing. (Less strongly tied to Comp/Gen distinction).
-		b. Data Dependency Rule:
-			Guide the user to determine the processing point by asking: "To calculate the result/perform the action for the current step, what information do you need first (from children/subproblems, or from current state)?".
+			The timing of work relative to recursive calls (Pre-order, Post-order, In-order) is a critical architectural decision. It is not arbitrary, but dictated by the flow of information and data dependencies. This concept empowers the learner to logically structure their recursive functions.
+		b. The Core Heuristic for Design (Sensei Mandate):
+			The AI will guide the user to always apply the Data Dependency Rule by asking:
+			"To perform the work at this current step, do I need an answer from my subproblems (children) first?"
+			This question directly determines the optimal processing order.
+		c. Post-order Logic (Work After Calls):
+			Trigger: The answer to the Data Dependency question is "YES."
+			Use When: The current step's result or action requires values or effects returned from the recursive calls on subproblems. You must wait for subproblems to complete.
+			Why it Matters: Essential for Computational goals (e.g., aggregating sums, finding max/min, calculating heights/sizes) and the "unchoose" step in Backtracking. Incorrect timing leads to missing or incorrect subproblem results.
+		d. Pre-order Logic (Work Before Calls):
+			Trigger: The answer to the Data Dependency question is "NO."
+			Use When: The current step's work involves providing context, making a choice, or modifying state that is then used by the recursive calls. The children need information from the parent.
+			Why it Matters: Crucial for Generative goals (e.g., building paths, forming subsets) and passing down dynamic constraints (e.g., updated min/max bounds in BST validation). Incorrect timing means children receive outdated or insufficient context.
+		e. In-order Logic (Work Between Calls):
+			Use When: A problem specifically requires processing the current state between two distinct recursive calls, typically for sequential ordering.
+			Why it Matters: Primarily for operations on structures like Binary Search Trees (e.g., visiting elements in sorted order). Deviating from this order breaks the inherent property being leveraged.
+		f. Control Flow & Short-Circuiting:
+			Concept: This is a special application where the return value of one recursive call directly influences whether subsequent recursive calls are made. It leverages upward information flow to prune the recursion tree.
+			Use When: A partial result (e.g., element_found = true) from one branch means no further exploration of other branches is necessary.
+			Why it Matters: Critical for optimizing search problems where finding any valid solution allows for early termination, preventing unnecessary computations.
 Methodology:
 	1. Introduce & Explain:
 		Clearly define the Function Contract and the Computational vs. Generative goal distinction. Explain core mechanisms (Params Down, Returns Up, Direct Mod, Processing Pt), linking them conceptually to these goals using definitions, analogies, and connections to Module 2's stack mechanics (I-A Mandate 1). Explicitly introduce the "Dual Information Challenge" as a specific data flow scenario.
@@ -374,7 +388,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding ("Explain when you might prefer using an accumulator parameter over a return value, considering the goal. Give an example.", NEW:"Describe a situation where a simple return value from a recursive call might not be enough to solve the entire problem."). Conclude by emphasizing that understanding goal->data flow dynamics is key for designing effective recursive architectures (Module 4), including handling complex information needs.
 
-Module 4: Designing Recursive Solutions - Architecture & Logic (Version 1.3 - Updated)
+Module 5: Designing Recursive Solutions - Architecture & Logic (Version 1.3 - Updated)
 Summary: Recursive design hinges on the Recursive Leap of Faith: define the function's contract and goal, then assume solve(smaller_input) magically fulfills that contract to construct solve(current_input). This process begins by choosing a Decomposition Strategy (e.g., Decrementing, Dividing, Subset/Subtree/Sublist) and precisely Defining "State"—the minimum parameters for each subproblem. The Combination Step then determines how to use the subproblem's result or effect to fulfill the current problem's Computational Goal (e.g., using arithmetic, logical, or comparison operations on returned values) or Generative Goal (e.g., aggregation into accumulators or sequence construction via backtracking). The Dual Information Challenge, where a function needs to return local data while updating global state, is often managed by using Complex Return Objects or, more cleanly, by Helper Functions that handle parameter accumulation, resolve return value mismatch, and manage internal state not exposed publicly, allowing the main function to serve as a focused entry point.
 Goal: Develop the ability to systematically architect and design the core logic of recursive functions to solve novel problems, translating problem requirements and the recursive goal (Computational vs. Generative) into appropriate recursive structure, combination logic, and handling scenarios requiring complex data propagation.
 Concepts:
@@ -508,7 +522,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding ("Design the function signature and explain the combination/state update step for generating permutations, considering it's a generative task.", NEW: "For the Tree Diameter problem, explain one way to design the recursion to correctly calculate both the height needed by the caller and update the overall maximum diameter found."). Conclude by stating that once the core recursive architecture is designed considering the goal (M4) and data flow (M3), the next crucial step is rigorously defining the corresponding base cases (Module 5) to ensure correctness and termination.
 
-Module 5: Bedrock of Correctness - Mastering Base Cases (Version 1.2 - Updated)
+Module 6: Bedrock of Correctness - Mastering Base Cases (Version 1.2 - Updated)
 Goal: Achieve mastery in identifying, implementing, and validating all necessary and sufficient base cases, ensuring recursive functions terminate correctly and provide the foundational values or actions for the computation or generation.
 Concepts:
 	1. The "Why": Purpose and Criticality of Base Cases
@@ -614,7 +628,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding ("Explain why the base case return value for recursive summation is 0 by showing how the combination step current + recursive_sum relies on it.", "For checking tree validity with &&, what happens if the nullptr base case returns false?"). Conclude by emphasizing that with a solid recursive step design (Module 4) and correct, terminating base cases (Module 5) whose return values/actions mesh perfectly with the combination logic/generative goal, the user now has the tools to build complete recursive functions. The next step (Module 6) is recognizing recurring structures (patterns) in these designs.
 
-Module 6: Recognizing the Recurring - Recursive Patterns & Strategies (Version 1.1)
+Module 7: Recognizing the Recurring - Recursive Patterns & Strategies (Version 1.1)
 Goal: Develop the ability to recognize, understand, and apply common recursive algorithms and problem-solving paradigms (patterns) as templates, accelerating the design and implementation of solutions for typical algorithmic problems.
 Introduction: Explain that while every problem is unique, many recursive solutions share underlying structural similarities or patterns. Recognizing these patterns helps in quickly choosing an appropriate strategy, structuring the code, and communicating the approach. This module focuses on discovering these patterns through guided problem-solving before formalizing them.
 Concepts:
@@ -712,7 +726,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding ("Describe the 'Divide' step for LC 108."). Conclude by stating that recognizing these patterns provides powerful starting points for solving problems and analyzing their efficiency, which is the focus of Module 7. Before Module 7, we want to acclimate the learner with Module 6.5 where we will discuss pattern detection/selection for user.
 
-Module 6.5: Strategic Pattern Selection - Decoding the Problem (Version 1.1 - Updated)
+Module 8: Strategic Pattern Selection - Decoding the Problem (Version 1.1 - Updated)
 Goal: Develop heuristic skills to analyze algorithmic problem descriptions and identify clues that suggest which recursive pattern(s) (Linear, Tree/Multiple, Divide & Conquer, Backtracking) might be the most promising initial approach, thereby accelerating the design process (Module 4) and informing the choice of data flow strategy (Module 3).
 Prerequisites: Module 1 (Core Concepts), Module 3 (Data Flow), Module 4 (Design), Module 5 (Base Cases), Module 6 (Pattern Definitions).
 Introduction: Explain that while designing a solution (Module 4) is key, experienced developers often quickly categorize problems based on keywords, input/output types, and constraints, leaning towards certain recursive structures. This module focuses on developing that "intuition" by looking for common signals in problem statements typical of LeetCode/interviews. Emphasize this provides a starting point or hypothesis; the detailed design (M4) and verification (M5) are still essential. Linking the hypothesized pattern to typical data flow strategies (Module 3) can further streamline the design process.
@@ -795,7 +809,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding ("For a problem asking to check if a path sum exists in a tree, what pattern does that initially suggest? Why? Is the goal Comp or Gen? What data flow would you expect?"). Conclude by emphasizing that this module provides heuristics for the crucial first step of approaching a recursive problem. This strategic selection, linked with anticipated data flow, directly feeds into the detailed design (M4), implementation (M6+), optimization (M7), and ultimately solving complex problems (M8).
 
-Module 7: Recursive Performance - Analysis & Optimization (Version 1.1)
+Module 9: Recursive Performance - Analysis & Optimization (Version 1.1)
 Goal: Develop the ability to analyze the time and space efficiency of recursive algorithms and apply standard optimization techniques, primarily memoization, to address performance issues caused by redundant computations.
 Concepts:
 	1. Asymptotic Analysis for Recursive Algorithms:
@@ -907,7 +921,7 @@ Socratic:
 Solidify & Prepare:
 	Check understanding ("Explain why memoization doesn't improve the asymptotic time complexity of Merge Sort." Hint: Are there overlapping subproblems?). Conclude by emphasizing that understanding performance is crucial for writing effective code and that these optimization techniques are vital for tackling harder problems, leading into Module 8 where complex problems requiring optimization might appear.
 
-Module 8: Recursive Mastery - Synthesis & Interview Readiness (Version 1.2 - Updated)
+Module 10: Recursive Mastery - Synthesis & Interview Readiness (Version 1.2 - Updated)
 Goal: Integrate all acquired recursive knowledge and skills to confidently solve complex algorithmic problems, effectively compare recursive and iterative approaches, debug implementations, and articulate solutions clearly and comprehensively in an interview context.
 Concepts:
 	1. Advanced Problem Solving & Pattern Synthesis:

@@ -146,12 +146,14 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
                 
                 // Transform Socratic plan to standard TeachingPoint format
                 // The plan already has kcValue from the prompt (0.65)
+                const detectedCategory = parsed.detected_category;
                 const transformedPlan: TeachingPoint[][] = socraticPlan.map((chunk: any[]) =>
                     chunk.map((item: any) => ({
                         text: item.text,
                         kcValue: item.kcValue || 0.65,
                         isSocraticIntent: item.isSocraticIntent,
-                        interactionGuidance: item.interactionGuidance
+                        interactionGuidance: item.interactionGuidance,
+                        socraticMetadata: detectedCategory ? { detectedCategory } : undefined
                     }))
                 );
                 

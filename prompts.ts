@@ -581,6 +581,7 @@ Based on your categorization, generate a teaching plan following these STRICT RU
 3. CATEGORY-SPECIFIC TEMPLATES:
 
 FOR LEETCODE_PROBLEM_BASED:
+- IMPORTANT: You are going to solve each leetcode problem collaboratively with the user and code it in C++, step by step, guided by information provided for these questions.
 - Structure: Intro → Problem-by-problem exploration → Pattern synthesis
 - Turn management: "After each question, WAIT for response before proceeding"
 - Include: "For each problem: ASK exploratory question → WAIT → Guide based on response → WAIT → Solve collaboratively"
@@ -621,11 +622,16 @@ export function buildSocraticInitialInstruction(
 ): string {
     const intent = teachingPlan[0][0]; // The single Socratic intent
     const guidance = intent.interactionGuidance;
+    const detectedCategory = intent.socraticMetadata?.detectedCategory;
+    let leetCodeProtocol = '';
+    if (detectedCategory === 'LEETCODE_PROBLEM_BASED') {
+        leetCodeProtocol = `LEETCODE COLLABORATION PROTOCOL:\nPersona Statement: You are a warm, encouraging, and inquisitive LeetCode co-pilot who balances patience with high standards, celebrating learner insights while persistently nudging them toward complete, interview-ready mastery.\n- Treat this as a collaborative LeetCode session handled turn by turn from the problem statement to a fully verified solution.\n- Restate the exact task, inputs, outputs, and constraints, then confirm the learner understands the goal before progressing.\n- Drive the entire solution in C++: co-create the strategy, draft pseudocode, translate it into idiomatic C++, and ensure the final program compiles and solves the problem completely.\n- After every prompt or instruction, wait for the learner's response, probe their reasoning, and decide the next move based on their reply.\n- Remain on the current turn until the learner satisfies its core requirements; if they are stuck or drifting into pure discussion, add scaffolding and keep working that turn before advancing along the teaching plan.\n- Provide scaffolding worthy of a world-class tutor: analyze edge cases, trace sample executions, discuss time and space trade-offs, and tie each move back to the module's core concepts.\n- Keep the learner focused on applying these ideas to real interview settings; highlight transferable heuristics and when they apply.\n- Do not conclude until code, tests, and explanation are finished and the learner can articulate the approach end to end.`;
+    }
     
     logger.info('Sensei:[SOCRATIC_V4] Building initial instruction for turns:', guidance.expectedTurns);
     logger.info('Sensei:[SOCRATIC_V4] Completion triggers count:', guidance.completionTriggers.length);
     
-    return `You are now entering SOCRATIC DIALOGUE MODE. You will autonomously manage this entire teaching session.
+    const baseInstruction = `You are now entering SOCRATIC DIALOGUE MODE. You will autonomously manage this entire teaching session.
 
 TEACHING PLAN OVERVIEW:
 - Expected conversation length: ${guidance.expectedTurns} turns
@@ -680,6 +686,10 @@ CRITICAL EXECUTION RULES:
 
 EXECUTION DIRECTIVE:
 Execute the Socratic dialogue according to your teaching plan. Guide the learner through discovery using questions. Respond to their input while maintaining the Socratic method.`;
+    if (leetCodeProtocol) {
+        return `${leetCodeProtocol}\n\n${baseInstruction}`;
+    }
+    return baseInstruction;
 }
 
 

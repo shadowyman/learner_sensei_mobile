@@ -934,11 +934,7 @@ async function handleClickedModuleSelection(moduleTitle: string) {
 }
 
 async function handlePhaseSelection(phaseName: string) {
-    logger.log('[PHASE_DEBUG] handlePhaseSelection called with:', phaseName, 'handler exists:', !!moduleSelectionHandler);
-    logger.log('[PHASE_DEBUG] Current pendingModuleSelection:', pendingModuleSelection);
-    
     if (!moduleSelectionHandler) {
-        logger.error('[PHASE_DEBUG] moduleSelectionHandler is null!');
         return;
     }
     

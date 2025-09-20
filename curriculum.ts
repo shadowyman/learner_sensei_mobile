@@ -47,6 +47,9 @@ export interface TeachingPoint {
         turnManagement?: any;
         completionTriggers?: any;
     };
+    socraticMetadata?: {
+        detectedCategory?: string;
+    };
 }
 
 

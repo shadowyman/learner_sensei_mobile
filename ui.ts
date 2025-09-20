@@ -266,10 +266,6 @@ function updateConceptNavigationArrowsUI(state: CurriculumState | null, curricul
         chunkNavPrevButton.disabled = state.currentTeachingChunkIndex <= 0;
         chunkNavNextButton.disabled = state.currentTeachingChunkIndex >= state.teachingPlanForPhase.length - 1;
     }
-    logger.debug('[NAV_SVG] Navigation state verified', {
-        conceptsVisible: conceptNavPrevButton.style.display !== 'none' || conceptNavNextButton.style.display !== 'none',
-        chunksVisible: chunkNavPrevButton.style.display !== 'none' || chunkNavNextButton.style.display !== 'none'
-    });
 }
 
 function showChunkResetConfirmation(chunkIndex: number): Promise<boolean> {
@@ -1879,8 +1875,6 @@ export function initializeUI() {
     setupFontSizeControls();
     setupHeaderEllipsisAnimation();
     setupMermaidThemeControls();
-    logger.debug('[NAV_SVG] Navigation SVG styling active');
-
     // Make mermaidManager, DEFAULT_MERMAID_THEME, and updateMermaidThemeClass available globally for mermaid-theme-integration.js
     (window as any).mermaidManager = mermaidManager;
     (window as any).DEFAULT_MERMAID_THEME = DEFAULT_MERMAID_THEME;

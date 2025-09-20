@@ -179,17 +179,9 @@ Where would you like to begin your learning journey?`;
     }
 
     async handlePhaseSelection(phaseName: string): Promise<void> {
-        logger.log('[PHASE_DEBUG] ModuleSelectionHandler.handlePhaseSelection called with:', phaseName);
-        logger.log('[PHASE_DEBUG] State check:', {
-            hasCurriculum: !!this.state.curriculum,
-            pendingModuleSelection: this.state.pendingModuleSelection,
-            hasAI: !!this.state.ai
-        });
-        
         await new Promise(resolve => setTimeout(resolve, 50));
-        
+
         if (!this.state.curriculum || this.state.pendingModuleSelection === null || !this.state.ai) {
-            logger.error('[PHASE_DEBUG] Missing required state for phase selection');
             return;
         }
         
