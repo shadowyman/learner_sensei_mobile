@@ -5,7 +5,7 @@
  */
 
 import { logger, DEBUG_FLAGS } from './logger';
-import { openCodeEditorModal, isCodeEditorModalOpen } from './codeEditorModal';
+import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
 import { LearnerModel } from './adaptiveEngine';
 import { attemptMermaidFix, applyBacktickFix, applyUniversalQuoteFix } from './mermaidErrorRecovery.js';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
@@ -776,43 +776,74 @@ function getOrCreateButtonContainer(preEl: HTMLElement): HTMLElement {
     return container;
 }
 
-function addCopyButtonsToCodeBlocks_internal(containerElement: HTMLElement) {
+type CodeBlockEnhancementContext = {
+    sender?: string;
+    messageId?: string;
+};
+
+function addCopyButtonsToCodeBlocks_internal(containerElement: HTMLElement, context: CodeBlockEnhancementContext = {}) {
     const preElements = containerElement.querySelectorAll('pre');
     preElements.forEach(preEl => {
+        const codeElement = preEl.querySelector('code');
+        if (!codeElement) {
+            return;
+        }
+        const languageClass = Array.from(codeElement.classList).find(className => className.startsWith('language-')) || '';
+        const language = languageClass ? languageClass.substring('language-'.length) : '';
+        const normalizedLanguage = language.toLowerCase();
+        const languageLabel = language.toUpperCase();
+        const bubble = preEl.closest('.message-bubble') as HTMLElement | null;
+        const effectiveSender = context.sender ?? bubble?.dataset.sender ?? '';
+        const effectiveMessageId = context.messageId ?? bubble?.id ?? '';
+        const showOpenButton = effectiveSender === 'sensei' && normalizedLanguage === 'cpp';
+
         const buttonContainer = getOrCreateButtonContainer(preEl);
 
-        if (buttonContainer.querySelector('.copy-code-button')) {
-            return; // Button already exists
+        if (!buttonContainer.querySelector('.copy-code-button')) {
+            const copyButton = document.createElement('button');
+            copyButton.type = 'button';
+            copyButton.textContent = 'Copy';
+            copyButton.className = 'copy-code-button';
+            copyButton.setAttribute('aria-label', 'Copy code to clipboard');
+
+            copyButton.addEventListener('click', async () => {
+                if (codeElement.textContent) {
+                    try {
+                        await navigator.clipboard.writeText(codeElement.textContent);
+                        copyButton.textContent = 'Copied!';
+                        copyButton.disabled = true;
+                        setTimeout(() => {
+                            copyButton.textContent = 'Copy';
+                            copyButton.disabled = false;
+                        }, 2000);
+                    } catch (err) {
+                        logger.error('Failed to copy code: ', err);
+                        copyButton.textContent = 'Error';
+                        copyButton.disabled = true;
+                        setTimeout(() => {
+                            copyButton.textContent = 'Copy';
+                            copyButton.disabled = false;
+                        }, 2000);
+                    }
+                }
+            });
+            buttonContainer.appendChild(copyButton);
         }
 
-        const button = document.createElement('button');
-        button.textContent = 'Copy';
-        button.className = 'copy-code-button';
-        button.setAttribute('aria-label', 'Copy code to clipboard');
+        if (showOpenButton && !buttonContainer.querySelector('.open-in-editor-button')) {
+            const openButton = document.createElement('button');
+            openButton.type = 'button';
+            openButton.textContent = 'Edit';
+            openButton.className = 'open-in-editor-button';
+            openButton.setAttribute('aria-label', 'Open code in editor');
 
-        button.addEventListener('click', async () => {
-            const codeElement = preEl.querySelector('code');
-            if (codeElement && codeElement.textContent) {
-                try {
-                    await navigator.clipboard.writeText(codeElement.textContent);
-                    button.textContent = 'Copied!';
-                    button.disabled = true;
-                    setTimeout(() => {
-                        button.textContent = 'Copy';
-                        button.disabled = false;
-                    }, 2000);
-                } catch (err) {
-                    logger.error('Failed to copy code: ', err);
-                    button.textContent = 'Error';
-                    button.disabled = true;
-                    setTimeout(() => {
-                        button.textContent = 'Copy';
-                        button.disabled = false;
-                    }, 2000);
-                }
-            }
-        });
-        buttonContainer.appendChild(button);
+            openButton.addEventListener('click', () => {
+                const snippet = codeElement.textContent ?? '';
+                setCodeEditorContentAndOpen(snippet);
+                logger.info('[CODE_EDITOR_OPEN_BUTTON] Open-in-editor invoked', { messageId: effectiveMessageId, language: languageLabel });
+            });
+            buttonContainer.appendChild(openButton);
+        }
     });
 }
 
@@ -1193,7 +1224,7 @@ export async function displayMessage(message: Message) {
         }
 
         addLanguageDisplayToCodeBlocks_internal(messageText);
-        addCopyButtonsToCodeBlocks_internal(messageText); // Add copy buttons
+        addCopyButtonsToCodeBlocks_internal(messageText, { sender: message.sender, messageId: message.id }); // Add copy buttons
     }
     bubble.appendChild(messageText);
 
@@ -1300,7 +1331,7 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
             });
 
             addLanguageDisplayToCodeBlocks_internal(messageTextElement);
-            addCopyButtonsToCodeBlocks_internal(messageTextElement);
+            addCopyButtonsToCodeBlocks_internal(messageTextElement, { sender: messageBubble?.dataset.sender, messageId });
 
             if (fullTextSoFar.length > 0) {
                 messageBubble.setAttribute('data-typing', 'true');
