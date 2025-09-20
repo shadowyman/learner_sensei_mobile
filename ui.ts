@@ -811,10 +811,6 @@ export async function displayMessage(message: Message) {
             dotsSpan.textContent = '.'.repeat(dotCount);
         }, 500);
         (bubble as any).dotAnimation = dotAnimation;
-        if (message.sender === 'sensei') {
-            logger.info('[SENSEI_TYPING] Main typing indicator mounted', { messageId: message.id });
-            logger.info('[SENSEI_TYPING_UI] Typing indicator layout verified');
-        }
     } else {
         bubble.removeAttribute('data-typing');
         bubble.classList.remove('loading');
@@ -824,8 +820,10 @@ export async function displayMessage(message: Message) {
             clearInterval(oldTimerId);
             streamingMessageTimers.delete(message.id);
         }
-        if (message.sender === 'sensei' && hadTimer) {
-            logger.info('[SENSEI_TYPING] Main typing indicator removed', { messageId: message.id });
+        const dotAnimation = (bubble as any).dotAnimation;
+        if (dotAnimation) {
+            clearInterval(dotAnimation);
+            delete (bubble as any).dotAnimation;
         }
 
         // Clear phase loading animations if they exist

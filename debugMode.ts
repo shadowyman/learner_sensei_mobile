@@ -432,10 +432,6 @@ function displayDebugMessage(message: DebugMessage) {
             dotsSpan.textContent = '.'.repeat(dotCount);
         }, 500);
         (bubble as any).dotAnimation = dotAnimation;
-        if (message.sender === 'gemini') {
-            logger.info('[SENSEI_TYPING_DEBUG] Debug typing indicator mounted', { messageId: message.id });
-            logger.info('[SENSEI_TYPING_UI] Typing indicator layout verified');
-        }
     } else {
         bubble.removeAttribute('data-typing');
         bubble.classList.remove('loading');
@@ -449,9 +445,6 @@ function displayDebugMessage(message: DebugMessage) {
         if (dotAnimation) {
             clearInterval(dotAnimation);
             delete (bubble as any).dotAnimation;
-        }
-        if (message.sender === 'gemini' && hadTimer) {
-            logger.info('[SENSEI_TYPING_DEBUG] Debug typing indicator removed', { messageId: message.id });
         }
         const rawText = debugStreamingMessagesRawText.get(message.id) || message.text;
         const sanitizedText = sanitizeCodeFences(rawText);
