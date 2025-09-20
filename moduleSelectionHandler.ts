@@ -415,7 +415,9 @@ ${initialInstructionForSensei}
         const systemInstruction = buildSocraticExecutionInstruction(
             this.state.curriculumState.teachingPlanForPhase,
             { directive: undefined },
-            true
+            true,
+            undefined,
+            this.buildSocraticConceptReference()
         );
         
         this.state.currentMessageId++;
@@ -460,6 +462,36 @@ ${initialInstructionForSensei}
         if (this.state.lastSenseiResponses.length > 3) {
             this.state.lastSenseiResponses.pop();
         }
+    }
+
+    private buildSocraticConceptReference(): string | undefined {
+        if (!this.state.curriculum || !this.state.curriculumState) {
+            return undefined;
+        }
+
+        const moduleIndex = this.state.curriculumState.currentModuleIndex;
+        if (moduleIndex < 0 || moduleIndex >= this.state.curriculum.modules.length) {
+            return undefined;
+        }
+
+        const selectedModule = this.state.curriculum.modules[moduleIndex];
+        if (!selectedModule || !selectedModule.concepts || selectedModule.concepts.length === 0) {
+            return undefined;
+        }
+
+        const conceptLines: string[] = [
+            'CONCEPT REFERENCE FOR SOCRATIC PHASE:',
+            'The user learned the following concepts in this module. This context is provided so you understand the learner’s background during the Socratic phase—use it to enrich the dialogue while still following the teaching plan and any LeetCode collaboration protocol.',
+            ''
+        ];
+
+        selectedModule.concepts.forEach((concept, index) => {
+            conceptLines.push(`Concept ${index + 1}: ${concept.title}`);
+            conceptLines.push(concept.text);
+            conceptLines.push('');
+        });
+
+        return conceptLines.join('\n').trim();
     }
 
     private updateKCProgressBar(kcphasemastery: number): void {

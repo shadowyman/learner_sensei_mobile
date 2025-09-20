@@ -618,7 +618,8 @@ REMEMBER: The plan should guide a conversation over 8-20 turns, not be executed 
 }
 
 export function buildSocraticInitialInstruction(
-    teachingPlan: any
+    teachingPlan: any,
+    conceptContext?: string
 ): string {
     const intent = teachingPlan[0][0]; // The single Socratic intent
     const guidance = intent.interactionGuidance;
@@ -686,10 +687,15 @@ CRITICAL EXECUTION RULES:
 
 EXECUTION DIRECTIVE:
 Execute the Socratic dialogue according to your teaching plan. Guide the learner through discovery using questions. Respond to their input while maintaining the Socratic method.`;
-    if (leetCodeProtocol) {
-        return `${leetCodeProtocol}\n\n${baseInstruction}`;
+    const sections: string[] = [];
+    if (conceptContext) {
+        sections.push(conceptContext.trim());
     }
-    return baseInstruction;
+    if (leetCodeProtocol) {
+        sections.push(leetCodeProtocol);
+    }
+    sections.push(baseInstruction);
+    return sections.join('\n\n');
 }
 
 

@@ -109,7 +109,8 @@ export function buildSocraticExecutionInstruction(
     teachingPlan: any,
     pedagogicalGuidance: any,
     isSystemInitialization: boolean = false,
-    navigationContext?: string
+    navigationContext?: string,
+    conceptContext?: string
 ): string {
     const intent = teachingPlan[0][0]; // The single Socratic intent
     const guidance = intent.interactionGuidance;
@@ -122,7 +123,7 @@ export function buildSocraticExecutionInstruction(
     // For system initialization, include full teaching plan
     if (isSystemInitialization) {
         logger.info('Sensei:[SOCRATIC_V4] System initialization - using initial instruction');
-        const initialInstruction = buildSocraticInitialInstruction(teachingPlan);
+        const initialInstruction = buildSocraticInitialInstruction(teachingPlan, conceptContext);
         
         // Log the complete instruction being sent
         logger.info('Sensei:[SOCRATIC_V4] Complete system initialization instruction:', initialInstruction);
