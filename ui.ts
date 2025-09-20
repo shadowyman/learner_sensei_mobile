@@ -74,6 +74,7 @@ const headerTitleElement = document.getElementById('header-title') as HTMLHeadin
 let meditationOverlay: HTMLDivElement | null = null;
 let meditationActionItems: HTMLDivElement | null = null;
 const brandSegment = document.querySelector('.weighted-segment.brand') as HTMLDivElement;
+const statusSegment = document.querySelector('.weighted-segment.status') as HTMLDivElement;
 
 const footerConfidence = document.getElementById('footer-confidence') as HTMLSpanElement;
 const footerConfusion = document.getElementById('footer-confusion') as HTMLSpanElement;
@@ -1826,11 +1827,12 @@ export function initializeUI() {
 
     // Setup collapsible footer hover
     setupCollapsibleFooter();
-    
+
     // Progress bar now uses direct CSS hover for dropdown labels
     
     // Setup brand hover for meditation overlay
     setupBrandHoverMeditationOverlay();
+    setupStatusClickMeditationOverlay();
 }
 
 function setupCollapsibleFooter() {
@@ -1955,6 +1957,26 @@ function setupBrandHoverMeditationOverlay(): void {
                 meditationHoverState.hoverTimeout = null;
             }, 500); // Increased from 150ms to 500ms
         }
+    });
+}
+
+function setupStatusClickMeditationOverlay(): void {
+    if (!statusSegment) {
+        logger.error('[HEADER_CHUNK] Status segment not found for overlay setup');
+        return;
+    }
+
+    statusSegment.addEventListener('click', event => {
+        const target = event.target as HTMLElement | null;
+        if (target && (target.closest('#concept-nav-prev') || target.closest('#concept-nav-next'))) {
+            return;
+        }
+        const curriculumState = (window as any).curriculumState || null;
+        if (!curriculumState || !curriculumState.teachingPlanForPhase || curriculumState.currentTeachingChunkIndex === undefined) {
+            return;
+        }
+        meditationHoverState.showAllChunks = true;
+        updateSenseiMeditationOverlay(curriculumState, true);
     });
 }
 
