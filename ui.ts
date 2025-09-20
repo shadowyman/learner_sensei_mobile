@@ -778,15 +778,23 @@ export async function displayMessage(message: Message) {
         const thinkingArea = document.createElement('div');
         thinkingArea.classList.add('thinking-indicator');
         // The blinking cursor will serve as the thinking indicator
-        const spinner = document.createElement('span');
-        spinner.classList.add('inline-spinner');
-        thinkingArea.appendChild(spinner);
+        const statusSpan = document.createElement('span');
+        statusSpan.classList.add('typing-status');
+        statusSpan.textContent = 'Sensei is typing its response';
+        const dotsSpan = document.createElement('span');
+        dotsSpan.classList.add('typing-dots');
+        dotsSpan.textContent = '.';
+        statusSpan.appendChild(dotsSpan);
+        thinkingArea.appendChild(statusSpan);
         const timerSpan = document.createElement('span');
         timerSpan.classList.add('inline-timer');
         const startTime = Date.now();
         timerSpan.dataset.startTime = String(startTime);
         timerSpan.textContent = '(0s)';
         thinkingArea.appendChild(timerSpan);
+        const spinner = document.createElement('span');
+        spinner.classList.add('inline-spinner');
+        thinkingArea.appendChild(spinner);
         messageText.appendChild(thinkingArea);
 
         const oldTimerId = streamingMessageTimers.get(message.id);
@@ -797,13 +805,27 @@ export async function displayMessage(message: Message) {
         }, 1000);
         streamingMessageTimers.set(message.id, timerId);
         streamingMessagesRawText.set(message.id, ''); // Initialize raw text for loading message
+        let dotCount = 1;
+        const dotAnimation = window.setInterval(() => {
+            dotCount = (dotCount % 3) + 1;
+            dotsSpan.textContent = '.'.repeat(dotCount);
+        }, 500);
+        (bubble as any).dotAnimation = dotAnimation;
+        if (message.sender === 'sensei') {
+            logger.info('[SENSEI_TYPING] Main typing indicator mounted', { messageId: message.id });
+            logger.info('[SENSEI_TYPING_UI] Typing indicator layout verified');
+        }
     } else {
         bubble.removeAttribute('data-typing');
         bubble.classList.remove('loading');
+        const hadTimer = streamingMessageTimers.has(message.id);
         const oldTimerId = streamingMessageTimers.get(message.id);
         if (oldTimerId) {
             clearInterval(oldTimerId);
             streamingMessageTimers.delete(message.id);
+        }
+        if (message.sender === 'sensei' && hadTimer) {
+            logger.info('[SENSEI_TYPING] Main typing indicator removed', { messageId: message.id });
         }
 
         // Clear phase loading animations if they exist

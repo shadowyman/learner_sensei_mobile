@@ -398,19 +398,23 @@ function displayDebugMessage(message: DebugMessage) {
         bubble.dataset.typing = 'true';
         const thinkingArea = document.createElement('div');
         thinkingArea.classList.add('thinking-indicator');
-        const spinner = document.createElement('span');
-        spinner.classList.add('inline-spinner');
-        thinkingArea.appendChild(spinner);
+        const statusSpan = document.createElement('span');
+        statusSpan.classList.add('typing-status');
+        statusSpan.textContent = 'Sensei is typing its response';
+        const dotsSpan = document.createElement('span');
+        dotsSpan.classList.add('typing-dots');
+        dotsSpan.textContent = '.';
+        statusSpan.appendChild(dotsSpan);
+        thinkingArea.appendChild(statusSpan);
         const timerSpan = document.createElement('span');
         timerSpan.classList.add('inline-timer');
         const startTime = Date.now();
         timerSpan.dataset.startTime = String(startTime);
         timerSpan.textContent = '(0s)';
         thinkingArea.appendChild(timerSpan);
-        const statusSpan = document.createElement('span');
-        statusSpan.classList.add('typing-status');
-        statusSpan.textContent = 'Sensei is typing its response...';
-        thinkingArea.appendChild(statusSpan);
+        const spinner = document.createElement('span');
+        spinner.classList.add('inline-spinner');
+        thinkingArea.appendChild(spinner);
         messageTextElement.appendChild(thinkingArea);
 
         const oldTimerId = debugStreamingMessageTimers.get(message.id);
@@ -422,6 +426,12 @@ function displayDebugMessage(message: DebugMessage) {
         }, 1000);
         debugStreamingMessageTimers.set(message.id, timerId);
         debugStreamingMessagesRawText.set(message.id, '');
+        let dotCount = 1;
+        const dotAnimation = window.setInterval(() => {
+            dotCount = (dotCount % 3) + 1;
+            dotsSpan.textContent = '.'.repeat(dotCount);
+        }, 500);
+        (bubble as any).dotAnimation = dotAnimation;
         if (message.sender === 'gemini') {
             logger.info('[SENSEI_TYPING_DEBUG] Debug typing indicator mounted', { messageId: message.id });
             logger.info('[SENSEI_TYPING_UI] Typing indicator layout verified');
@@ -434,6 +444,11 @@ function displayDebugMessage(message: DebugMessage) {
         if (oldTimerId) {
             clearInterval(oldTimerId);
             debugStreamingMessageTimers.delete(message.id);
+        }
+        const dotAnimation = (bubble as any).dotAnimation;
+        if (dotAnimation) {
+            clearInterval(dotAnimation);
+            delete (bubble as any).dotAnimation;
         }
         if (message.sender === 'gemini' && hadTimer) {
             logger.info('[SENSEI_TYPING_DEBUG] Debug typing indicator removed', { messageId: message.id });

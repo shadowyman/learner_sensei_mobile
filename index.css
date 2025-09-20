@@ -1339,6 +1339,18 @@ body::before {
     font-style: normal;
 }
 
+.typing-status {
+    font-size: 0.95em;
+    color: var(--text-muted);
+    vertical-align: middle;
+    font-style: normal;
+}
+
+.typing-dots {
+    display: inline-block;
+    min-width: 1.5ch;
+}
+
 /* Spinner Variants */
 .message-bubble[data-view="debug"] .inline-spinner {
     border-color: var(--color-spinner-debug-track);
