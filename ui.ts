@@ -65,6 +65,32 @@ export function sanitizeCodeFences(text: string): string {
     return text.replace(/^\s+(```)/gm, '$1');
 }
 
+function escapeHtml(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function renderUserMessageHtml(rawText: string): { html: string; segments: number; codeBlockCount: number } {
+    const parts = rawText.split(/(```[\s\S]*?```)/g);
+    let html = '';
+    let codeBlockCount = 0;
+    for (const part of parts) {
+        if (part.trim().startsWith('```')) {
+            html += marked.parse(sanitizeCodeFences(part)) as string;
+            codeBlockCount += 1;
+        } else if (part.length > 0) {
+            html += escapeHtml(part);
+        } else {
+            html += part;
+        }
+    }
+    return { html, segments: parts.length, codeBlockCount };
+}
+
 export const messageArea = document.getElementById('message-area') as HTMLDivElement;
 export const userInput = document.getElementById('user-input') as HTMLTextAreaElement; // Changed to HTMLTextAreaElement
 export const sendButton = document.getElementById('send-button') as HTMLButtonElement;
@@ -1097,17 +1123,9 @@ export async function displayMessage(message: Message) {
                 const sanitizedText = sanitizeCodeFences(message.text);
                 messageText.innerHTML = marked.parse(sanitizedText) as string;
             } else {
-                // For user messages, preserve exact formatting including single newlines
-                streamingMessagesRawText.set(message.id, message.text); // Store raw text for user messages too
-                // Convert newlines to <br> tags and escape HTML to preserve user input exactly
-                const escapedText = message.text
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#39;')
-                    .replace(/\n/g, '<br>');
-                messageText.innerHTML = escapedText;
+                streamingMessagesRawText.set(message.id, message.text);
+                const renderedUserMessage = renderUserMessageHtml(message.text);
+                messageText.innerHTML = renderedUserMessage.html;
             }
         }
 

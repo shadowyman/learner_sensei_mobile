@@ -751,13 +751,13 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
 
 async function handleUserInput(event: Event) {
     event.preventDefault();
-    const inputText = userInputElement.value.trim();
-    if (!inputText || !ai || !profiler) {
+    const rawInput = userInputElement.value;
+    if (!rawInput.trim() || !ai || !profiler) {
         return;
     }
 
     // Track input history management
-    userInputHistory.push(inputText);
+    userInputHistory.push(rawInput);
     if (userInputHistory.length > 10) { // Keep last 10 user inputs
         userInputHistory.shift();
     }
@@ -768,7 +768,7 @@ async function handleUserInput(event: Event) {
         id: `msg-${currentMessageId}`,
         sender: 'user',
         displayName: 'You',
-        text: inputText,
+        text: rawInput,
         timestamp: new Date(),
         skipMermaid: true,  // Phase 1: Skip mermaid processing
     };
@@ -783,7 +783,7 @@ async function handleUserInput(event: Event) {
     userInputElement.value = '';
     setupTextareaAutosize(userInputElement); // Reset textarea height
 
-    if (inputText.trim().toLowerCase() === 'mskip') {
+    if (rawInput.trim().toLowerCase() === 'mskip') {
         if (curriculumState && curriculum && ai) {
             showLoading(true);
 
@@ -814,7 +814,7 @@ async function handleUserInput(event: Event) {
             const llmPlannerForAdvance = createLLMPlannerCallback(curriculum, curriculumState, ai!);
             await advanceCurriculumState(curriculum, curriculumState, learnerModel, llmPlannerForAdvance);
 
-            await generateNextSenseiResponse(inputText); // Call the refactored function for the new state.
+            await generateNextSenseiResponse(rawInput); // Call the refactored function for the new state.
 
             showLoading(false);
             return; // End execution for this input.
@@ -826,7 +826,7 @@ async function handleUserInput(event: Event) {
 
     // Track module selection path
     if (curriculum && !curriculumState) {
-        const moduleSelected = await handleInitialModuleSelectionInternal(inputText);
+        const moduleSelected = await handleInitialModuleSelectionInternal(rawInput);
 
         if (moduleSelected) {
             // showLoading(false) will be handled within handleInitialModuleSelectionInternal if it returns true
@@ -841,7 +841,7 @@ async function handleUserInput(event: Event) {
 
     showLoading(true);
     // Normal processing path
-    await generateNextSenseiResponse(inputText);
+    await generateNextSenseiResponse(rawInput);
 }
 
 async function handleReloadSenseiMessage(messageId: string, context: ReloadContext) {

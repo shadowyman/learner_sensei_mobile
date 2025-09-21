@@ -891,6 +891,11 @@ body::before {
     text-align: justify;
 }
 
+.message-bubble[data-sender="user"] .message-text {
+    white-space: pre-wrap;
+    text-align: left;
+}
+
 /* Timestamp styling */
 .message-bubble .timestamp {
     font-size: 0.7em;
@@ -1918,10 +1923,10 @@ body::before {
     max-width: 90vw;
     min-width: 320px;
     height: auto;
-    max-height: 75vh;
+    max-height: 85vh;
     min-height: 200px;
     padding: 24px;
-    background: var(--glass-bg);
+    background: rgba(15, 23, 42, 0.16);
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
     border: 1px solid var(--glass-border);
@@ -3923,4 +3928,3 @@ svg[aria-roledescription="error"] {
     cursor: not-allowed;
     transform: none;
 }
-
