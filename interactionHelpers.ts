@@ -7,7 +7,11 @@ import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { LearnerModel } from "./adaptiveEngine";
 import { updateMessageStream } from './ui';
 import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION, buildSocraticInitialInstruction } from './prompts';
-import { logger, DEBUG_FLAGS } from './logger';
+import { logger } from './logger';
+
+function logSenseiPromptValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[SENSEI_PROMPT_VALIDATION]', { event, ...payload });
+}
 import { 
     MODULE_INTRODUCTION_CHAT_MODEL_CONFIG,
     MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG
@@ -35,14 +39,10 @@ export async function streamModuleIntroduction(
 
 Let's begin ${moduleTitleForPrompt}.`;
     
-    // Log the full prompt being sent to Sensei
-    logger.log("========== FULL SENSEI PROMPT START ==========");
-    logger.log(messageWithContext);
-    logger.log("========== FULL SENSEI PROMPT END ==========");
-    
-    if (DEBUG_FLAGS.curriculum_debug) {
-        logger.warn(`[CURRICULUM] Initial teaching prompt:`, messageWithContext);
-    }
+    logSenseiPromptValidation('module-introduction', {
+        moduleTitle: moduleTitleForPrompt,
+        promptLength: messageWithContext.length
+    });
     
     const stream = await chat.sendMessageStream({ message: messageWithContext });
     for await (const chunk of stream) {
@@ -114,19 +114,19 @@ export function buildSocraticExecutionInstruction(
 ): string {
     const intent = teachingPlan[0][0]; // The single Socratic intent
     const guidance = intent.interactionGuidance;
-    
-    logger.info('Sensei:[SOCRATIC_V4] Building execution instruction, type:', isSystemInitialization ? 'system_initialization' : 'user_response');
-    logger.info('Sensei:[SOCRATIC_V4] Teaching plan text length:', intent.text?.length || 0);
-    logger.info('Sensei:[SOCRATIC_V4] Expected turns:', guidance.expectedTurns);
-    logger.info('Sensei:[SOCRATIC_V4] Completion triggers count:', guidance.completionTriggers?.length || 0);
+    logSenseiPromptValidation('socratic-instruction-build', {
+        buildType: isSystemInitialization ? 'system_initialization' : 'user_response',
+        teachingPlanLength: intent.text?.length || 0,
+        expectedTurns: guidance.expectedTurns,
+        completionTriggerCount: guidance.completionTriggers?.length || 0
+    });
     
     // For system initialization, include full teaching plan
     if (isSystemInitialization) {
-        logger.info('Sensei:[SOCRATIC_V4] System initialization - using initial instruction');
         const initialInstruction = buildSocraticInitialInstruction(teachingPlan, conceptContext);
-        
-        // Log the complete instruction being sent
-        logger.info('Sensei:[SOCRATIC_V4] Complete system initialization instruction:', initialInstruction);
+        logSenseiPromptValidation('socratic-initial-instruction-ready', {
+            instructionLength: initialInstruction.length
+        });
         
         if (!navigationContext) {
             return initialInstruction;
@@ -141,10 +141,9 @@ ${navigationContext}`;
     // Check if MUST_OBEY
     const isMustObey = pedagogicalGuidance.metaPrompt && 
                        pedagogicalGuidance.metaPrompt.includes('MUST_OBEY');
-    
-    if (isMustObey) {
-        logger.info('Sensei:[SOCRATIC_V4] MUST_OBEY detected:', isMustObey);
-    }
+    logSenseiPromptValidation('socratic-guidance-evaluated', {
+        mustObey: !!isMustObey
+    });
     
     if (isMustObey) {
         // Critical override - ONLY execute MUST_OBEY, ignore Socratic plan this turn
@@ -187,8 +186,10 @@ Your task is to generate a response by following this prioritized checklist. You
 ---
 
 COMPLETION MONITORING: If any completion trigger is met, add [SOCRATIC_COMPLETION_TRIGGERED: <trigger>] at the END of your response.]`;
-    
-    logger.info('Sensei:[SOCRATIC_V4] Subsequent turn instruction:', subsequentTurnInstruction);
+    logSenseiPromptValidation('socratic-subsequent-instruction-ready', {
+        instructionLength: subsequentTurnInstruction.length,
+        mustObey: false
+    });
     
     if (!navigationContext) {
         return subsequentTurnInstruction;
@@ -222,33 +223,34 @@ export async function streamMainSenseiResponse(
 
 User: ${currentUserInput}`;
 
-    // Log the full prompt being sent to Sensei
-    logger.log("========== FULL SENSEI PROMPT START ==========");
-    logger.log(messageWithContext);
-    logger.log("========== FULL SENSEI PROMPT END ==========");
-
-    if (DEBUG_FLAGS.curriculum_debug) {
-        logger.warn(`[CURRICULUM] User interaction prompt:`, messageWithContext);
-    }
+    logSenseiPromptValidation('main-response-requested', {
+        userInputLength: currentUserInput.length,
+        dynamicContextLength: dynamicContext.length
+    });
 
     // Start streaming from LLM
     const stream = await chat.sendMessageStream({ message: messageWithContext });
 
     let chunkCount = 0;
-    let firstChunkTime: number | null = null;
+    const streamStart = performance.now();
+    let firstChunkLatencyMs: number | null = null;
 
     for await (const chunk of stream) { // chunk type is GenerateContentResponse
         const chunkText = chunk.text;
         if (chunkText) {
             if (chunkCount === 0) {
-                firstChunkTime = performance.now();
+                firstChunkLatencyMs = performance.now() - streamStart;
             }
             chunkCount++;
             fullResponseText += chunkText;
             updateMessageStream(senseiMessageId, fullResponseText);
         }
     }
-
+    logSenseiPromptValidation('main-response-streamed', {
+        chunks: chunkCount,
+        firstChunkLatencyMs,
+        responseLength: fullResponseText.length
+    });
 
     return fullResponseText;
 }

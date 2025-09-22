@@ -306,9 +306,6 @@ class MermaidManager {
             });
 
             this.isInitialized = true;
-            if (DEBUG_FLAGS.mermaid_debug) {
-                logger.log(`Mermaid initialized with theme: ${this.currentTheme}`);
-            }
         } catch (error) {
             if (DEBUG_FLAGS.mermaid_debug) {
                 logger.error('Failed to initialize Mermaid:', error);

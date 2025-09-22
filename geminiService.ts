@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger, DEBUG_FLAGS } from './logger';
+import { logger } from './logger';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ComprehensiveAnalysisResultType, MISCONCEPTION_IDS } from "./adaptiveEngine";
 import { TeachingPoint, PHASE_KC_TOTAL } from "./curriculum";
@@ -18,8 +18,13 @@ import {
     PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG
 } from './model_usage';
 
-const debug = false; // Set to false to turn off llmExtractAndPlanTeachingOrder logs
-const debugTeachingPlanPrompt = false; // Set to true to show only teaching plan prompt logging
+function logTeachingPlanRequest(event: string, payload: Record<string, unknown>): void {
+    logger.info('[TEACHING_PLAN_VALIDATION]', { event, ...payload });
+}
+
+function logSocraticPlanValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[SOCRATIC_PLAN_VALIDATION]', { event, ...payload });
+}
 
 export function parseGeminiJsonResponse(jsonString: string): ComprehensiveAnalysisResultType | null {
     let cleanedJsonString = jsonString.trim();
@@ -45,17 +50,17 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         return null;
     }
 
-    // Debug: Log what's being sent to the prompt
-    if (textToProcess.includes("IntroIllustrate") || textToProcess.includes("Self-Similarity")) {
-    }
-    
     // Detect if this is Socratic content
     const isSocraticContent = textToProcess.includes("Socratic Instructions for Module-Wide Phase 'Socratic'") || 
                              textToProcess.includes("--- Socratic Section ---") ||
                              textToProcess.includes("Socratic:");
     
     if (isSocraticContent) {
-        logger.info('Sensei:[SOCRATIC_V4] Detected Socratic phase, using categorization prompt');
+        logSocraticPlanValidation('phase-detected', {
+            moduleTitleProvided: !!moduleTitle,
+            moduleGoalProvided: !!moduleGoal,
+            conceptsProvided: !!conceptsSummary
+        });
     }
     
     let prompt: string;
@@ -79,10 +84,13 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
                     .map(match => match[1].trim());
                 extractedConcepts = conceptTitles.join(', ');
             }
-            
-            logger.info('Sensei:[SOCRATIC_V4] Extracted from text - Title:', extractedTitle);
-            logger.info('Sensei:[SOCRATIC_V4] Extracted from text - Goal:', extractedGoal?.substring(0, 100) + '...');
-            logger.info('Sensei:[SOCRATIC_V4] Extracted from text - Concepts:', extractedConcepts);
+            const goalPreview = extractedGoal ? extractedGoal.substring(0, 120) : '';
+            const conceptCount = extractedConcepts ? extractedConcepts.split(',').filter(item => item.trim().length > 0).length : 0;
+            logSocraticPlanValidation('metadata-extracted', {
+                title: extractedTitle || '',
+                goalPreview,
+                conceptCount
+            });
         }
         
         prompt = GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(textToProcess, extractedTitle || '', extractedGoal || '', extractedConcepts || '');
@@ -90,33 +98,22 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         prompt = GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess);
     }
 
-    if (debug) {
-        logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Text sent to LLM for planning:", {textToProcess});
-        logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Prompt sent to LLM:", prompt);
-    }
-    
-    if (DEBUG_FLAGS.prompt_debug) {
-        logger.log("DEBUG: Teaching Plan Original Prompt:", prompt);
-    }
-
     try {
-        logger.log(`[${new Date().toISOString()}] Starting expensive call to generate teaching plan...`);
+        const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: TEACHING_PLAN_GENERATION_CONFIG.modelName, 
             contents: [{ parts: [{ text: prompt }] }],
             config: TEACHING_PLAN_GENERATION_CONFIG.config
         });
-        logger.log(`[${new Date().toISOString()}] Finished call to generate teaching plan.`);
+        const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const durationMs = endTime - startTime;
+        logTeachingPlanRequest('generation-complete', {
+            durationMs: Number(durationMs.toFixed(2)),
+            model: TEACHING_PLAN_GENERATION_CONFIG.modelName,
+            isSocraticContent,
+            promptLength: prompt.length
+        });
         const jsonText = response.text;
-
-        if (debug) {
-            logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Raw JSON response from LLM:", jsonText);
-        }
-        
-        // Always log Socratic teaching plan responses
-        if (isSocraticContent) {
-            logger.info('Sensei:[SOCRATIC_V4] Raw LLM Response for Teaching Plan:', jsonText);
-        }
 
         let cleanedJsonString = jsonText.trim();
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
@@ -126,23 +123,21 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         }
         const parsed = JSON.parse(cleanedJsonString);
 
-        if (debug) {
-            logger.log("DEBUG: llmExtractAndPlanTeachingOrder - Parsed teaching_plan object:", parsed);
-        }
-
         // Handle Socratic response structure
         if (isSocraticContent && parsed && parsed.detected_category && parsed.teaching_plan) {
-            logger.info('Sensei:[SOCRATIC_V4] Received categorized response, category:', parsed.detected_category);
-            
             // Extract the teaching plan with Socratic metadata
             const socraticPlan = parsed.teaching_plan;
             if (Array.isArray(socraticPlan) && socraticPlan.length > 0 && 
                 Array.isArray(socraticPlan[0]) && socraticPlan[0].length > 0) {
                 
                 const socraticItem = socraticPlan[0][0];
-                if (socraticItem.interactionGuidance && socraticItem.interactionGuidance.expectedTurns) {
-                    logger.info('Sensei:[SOCRATIC_V4] Expected turns in plan:', socraticItem.interactionGuidance.expectedTurns);
-                }
+                const guidance = socraticItem.interactionGuidance;
+                const completionTriggers = Array.isArray(guidance?.completionTriggers) ? guidance!.completionTriggers.length : 0;
+                logSocraticPlanValidation('response-metadata', {
+                    category: parsed.detected_category || 'unknown',
+                    expectedTurns: guidance?.expectedTurns ?? null,
+                    completionTriggerCount: completionTriggers
+                });
                 
                 // Transform Socratic plan to standard TeachingPoint format
                 // The plan already has kcValue from the prompt (0.65)
@@ -229,10 +224,6 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
                     });
                 }
 
-                if (debug) {
-                    logger.log(`DEBUG: llmExtractAndPlanTeachingOrder - Validated and transformed teaching_plan with KC redistribution. Total points: ${totalNumPoints}`, transformedPlan);
-                }
-
                 return transformedPlan;
             } else {
                  logger.error("Parsed teaching_plan does not have the expected structure (items with text only):", parsed.teaching_plan);
@@ -247,9 +238,6 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         }
         logger.error("Error getting or parsing teaching_plan from Gemini:", error);
         logger.error("Original text sent to Gemini for teaching_plan:", textToProcess);
-        if (debug) {
-            logger.error("Prompt sent to Gemini for teaching_plan:", prompt);
-        }
         return null;
     }
 }

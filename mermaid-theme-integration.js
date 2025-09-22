@@ -1,6 +1,10 @@
 
 import { logger } from './logger';
 
+function logMermaidValidation(event, payload) {
+  logger.info('[MERMAID_VALIDATION]', { event, ...payload });
+}
+
 let mermaidAnnotationSuccessLogged = false;
 
 /**
@@ -106,7 +110,7 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
             annotationElement.classList.add('mermaid-annotation');
             figure.appendChild(annotationElement);
             if (!mermaidAnnotationSuccessLogged && sentenceCount > 0) {
-                logger.info('[MERMAID_ANNOTATION] Caption aligned with diagram');
+                logMermaidValidation('caption-aligned', { sentenceCount });
                 mermaidAnnotationSuccessLogged = true;
             }
         }
@@ -135,7 +139,10 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
         
         if (needsRerender) {
             try {
-                logger.log(`Theme changed from '${storedTheme}' to '${currentTheme}', re-rendering mermaid diagram`);
+                logMermaidValidation('theme-rerender', {
+                    fromTheme: storedTheme,
+                    toTheme: currentTheme
+                });
                 
                 // Re-render the diagram with the current theme
                 const uniqueId = `lightbox-mermaid-${Date.now()}-${Math.random().toString(36).substring(2)}`;

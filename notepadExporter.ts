@@ -16,7 +16,10 @@ export class NotepadExporter {
         const mergedOptions = { ...this.defaultOptions, ...options };
         const html = this.generateStyledHTML(notes, mergedOptions);
         this.downloadHTML(html, `study-notes-${new Date().toISOString().split('T')[0]}.html`);
-        logger.info('Notes exported as HTML');
+        logger.info('[NOTEPAD_EXPORT]', {
+            event: 'html-exported',
+            noteCount: notes.length
+        });
     }
     
     private generateStyledHTML(notes: Note[], options: ExportOptions): string {

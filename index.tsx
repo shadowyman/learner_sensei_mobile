@@ -4,7 +4,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger, DEBUG_FLAGS } from './logger';
+import { logger } from './logger';
+
+function logManifestValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[MANIFEST_VALIDATION]', { event, ...payload });
+}
+
+function logAiInitialization(payload: Record<string, unknown>): void {
+    logger.info('[AI_INITIALIZATION_VALIDATION]', payload);
+}
+
+function logChunkNavValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[CHUNK_NAV_VALIDATION]', { event, ...payload });
+}
+
+function logSocraticTurnValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[SOCRATIC_TURN_VALIDATION]', { event, ...payload });
+}
+
+function logSaveloadValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[SAVELOAD_VALIDATION]', { event, ...payload });
+}
+
+function logInitValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[INIT_VALIDATION]', { event, ...payload });
+}
+
+function logAdvanceValidator(event: string, payload: Record<string, unknown>): void {
+    logger.info('[ADVANCE_VALIDATION]', { event, ...payload });
+}
+
+function logConceptNavValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[CONCEPT_NAV_VALIDATION]', { event, ...payload });
+}
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import {
     LearnerModel,
@@ -273,7 +305,9 @@ async function loadProjectFileManifestAndPaths() {
             if (Array.isArray(parsedManifest) && parsedManifest.every(item => typeof item === 'string')) {
                 filePathsToLoadFromManifest = parsedManifest;
                 manifestStatusMessage = `Successfully loaded ${filePathsToLoadFromManifest.length} file paths from file-manifest.json.`;
-                logger.info(manifestStatusMessage);
+                logManifestValidation('loaded', {
+                    fileCount: filePathsToLoadFromManifest.length
+                });
                 availableProjectFilePaths = filePathsToLoadFromManifest;
             } else {
                 throw new Error("file-manifest.json is not a valid array of strings.");
@@ -318,7 +352,7 @@ async function initializeGoogleAI() {
     
     // Make AI available globally for Mermaid error recovery
     (window as any).ai = ai;
-    logger.log("Google AI SDK initialized with persistent chat.");
+    logAiInitialization({ persistentChat: true });
     profiler = new PedagogicalProfiler(ai);
 
 
@@ -464,47 +498,12 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         ? 'The learner navigated to a different teaching chunk without submitting an answer. Restart the instructional sequence for the new chunk without assuming mastery of the previous questions.'
         : null;
     if (navigationContext) {
-        logger.info('[CHUNK_NAV] Navigation context applied for chunk navigation turn');
+        logChunkNavValidation('navigation-context-applied', {
+            reason: 'arrow-navigation'
+        });
     }
     if (!skipPedagogicalIntervention || hasUserInput) {
         analysisResult = await getAnalysisFromGemini(ai!, inputText, lastSenseiResponses[0] || null, currentTaskIdForAnalysis, expectedContentPointTextsForCurrentChunk);
-    } else {
-        logger.info('[CONCEPT_NAV] Skipping learner analysis for arrow navigation');
-    }
-
-    if (analysisResult) {
-        if (DEBUG_FLAGS.learner_analysis_debug) {
-            logger.warn("Recursive Sensei - Gemini Analysis of User Input:", {
-                userInput: inputText,
-                primaryIntent: analysisResult.primary_intent,
-                affectiveState: {
-                    confidence: analysisResult.affective_state.confidence,
-                    engagement: analysisResult.affective_state.engagement,
-                    frustration: analysisResult.affective_state.frustration,
-                    confusion: analysisResult.affective_state.confusion,
-                    selfEfficacy: analysisResult.affective_state.self_efficacy,
-                },
-                cognitiveLoad: {
-                    perceivedDifficulty: analysisResult.cognitive_load_indicators.perceived_intrinsic_difficulty,
-                    extraneousLoad: analysisResult.cognitive_load_indicators.extraneous_load_signals,
-                },
-                srl: {
-                    planning: analysisResult.srl_indicators.planning_observed,
-                    monitoring: analysisResult.srl_indicators.monitoring_observed,
-                    helpSeeking: analysisResult.srl_indicators.help_seeking_style,
-                    strategyHint: analysisResult.srl_indicators.strategy_hint,
-                },
-                misconceptions: analysisResult.misconception_hints.filter(m => m.likelihood === 'High' || m.likelihood === 'Medium'),
-                knowledgeComponentUpdates: analysisResult.knowledge_component_references
-                    .filter(kc => kc.kc_id !== currentTaskIdForAnalysis && (kc.understanding_signal === 'Positive' || kc.understanding_signal === 'Negative')),
-                topicInteraction: analysisResult.topic_interaction,
-                keyContentPointsCoverage: analysisResult.key_content_point_assessment?.map(kcp => ({
-                    point: kcp.point_id,
-                    coverage: kcp.coverage,
-                    understanding_score: kcp.understanding_score
-                })) || "Not assessed in this turn",
-            });
-        }
     }
 
 
@@ -512,56 +511,24 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     if (analysisResult) {
         learnerModel = updateLearnerModel(inputText, analysisResult, learnerModel, expectedContentPointTextsForCurrentChunk, curriculumState);
     }
-    updateFooter(learnerModel); // NEW: Update the footer with the new model state
-    if (debug) { 
-        logger.log("Updated Learner Model:", JSON.stringify(learnerModel, null, 2)); 
-    }
-    if (curriculumState) { 
-        logger.log("After Learner Model Update - Covered Points in Current Chunk (text):", Array.from(curriculumState.coveredPointsInCurrentChunk));
-        logger.log("After Learner Model Update - Points to Revisit in Current Chunk (text):", Array.from(curriculumState.pointsToRevisitInCurrentChunk || new Set()));
-        
-        // Log teaching point understanding scores for current chunk
-        const currentChunkTeachingPoints = (curriculumState.teachingPlanForPhase && 
-            curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex]) 
-            ? curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex] : [];
-        
-        const pointScores = currentChunkTeachingPoints.map(tp => {
-            const score = learnerModel.contentPointsCoverage?.[tp.text]?.understanding_score || 0.0;
-            return {
-                point: tp.text.substring(0, 80) + (tp.text.length > 80 ? '...' : ''),
-                score: score.toFixed(2),
-                covered: curriculumState.coveredPointsInCurrentChunk.has(tp.text) ? '✓' : '✗'
-            };
-        });
-        
-        const formattedScores = pointScores.map((item, index) => 
-            `  ${index + 1}. ${item.covered} [${item.score}] ${item.point}`
-        ).join('\n');
-        
-        logger.log(`[CHUNK_UNDERSTANDING] Teaching Point Scores for Current Chunk:\n${formattedScores}`);
-    }
+    updateFooter(learnerModel);
     
     let curriculumWasAdvanced = false;
     // Skip curriculum advancement when navigating via arrows (already at desired concept)
     if (curriculum && curriculumState && !curriculumState.isCompleted && !skipPedagogicalIntervention) {
         const llmPlannerForAdvance = createLLMPlannerCallback(curriculum, curriculumState, ai!);
         curriculumWasAdvanced = await advanceCurriculumState(curriculum, curriculumState, learnerModel, llmPlannerForAdvance);
-        
+        logAdvanceValidator('advance-result', {
+            advanced: curriculumWasAdvanced,
+            moduleIndex: curriculumState.currentModuleIndex,
+            conceptIndex: curriculumState.currentConceptIndex,
+            phase: curriculumState.currentPhase
+        });
+
         if (curriculumWasAdvanced) {
-            if (DEBUG_FLAGS.curriculum_debug) {
-                logger.info('[PHASE_REFACTOR_VALIDATION] Curriculum was advanced! New state:', {
-                    moduleIndex: curriculumState.currentModuleIndex,
-                    conceptIndex: curriculumState.currentConceptIndex,
-                    phase: curriculumState.currentPhase
-                });
-            }
             const newPhaseKCId = getCurrentCurriculumItem(curriculum, curriculumState)?.curriculumPathId;
             if (newPhaseKCId && (!learnerModel.KCs[newPhaseKCId] || learnerModel.KCs[newPhaseKCId] === 0)) {
                  learnerModel.awardedKcForPhasePoints = new Set<string>();
-            }
-        } else {
-            if (DEBUG_FLAGS.curriculum_debug) {
-                logger.debug('[PHASE_REFACTOR_VALIDATION] Curriculum not advanced this turn');
             }
         }
     }
@@ -569,7 +536,6 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     const newCurrentItem = curriculum && curriculumState ? getCurrentCurriculumItem(curriculum, curriculumState) : null;
     if (newCurrentItem && curriculumState) {
         currentActiveConceptIndex = curriculumState.currentConceptIndex;
-        logger.info('Active concept updated to:', currentActiveConceptIndex);
         notepad.updateActiveConceptIndex(currentActiveConceptIndex);
         notepad.updateActiveModuleIndex(curriculumState.currentModuleIndex);
         
@@ -608,12 +574,11 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             lastThreeSenseiResponses: lastSenseiResponses.slice(0, 3)   // Pass last 3 sensei responses
         });
 
-        logger.log("Pedagogical Guidance Directive:", guidanceText);
-        logger.log("Focus Points Type:", focusPointsData?.primaryActionType || "None");
-
         isMustObey = guidanceText.startsWith('MUST_OBEY');
     } else {
-        logger.log("Pedagogical Guidance SKIPPED - Navigation via arrows");
+        logChunkNavValidation('analysis-skipped', {
+            reason: 'arrow-navigation'
+        });
     }
     
     // Track Socratic turns
@@ -622,7 +587,9 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             curriculumState.socraticTurnCount = 0;
         }
         curriculumState.socraticTurnCount++;
-        logger.info('Sensei:[SOCRATIC_V4] Socratic phase detected, turn:', curriculumState.socraticTurnCount);
+        logSocraticTurnValidation('turn-count-updated', {
+            turnCount: curriculumState.socraticTurnCount
+        });
     }
     
     const curriculumFocusInstruction = (curriculum && curriculumState && newCurrentItem)
@@ -634,14 +601,18 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     let dynamicContext: string;
 
     // Log diagnostic info for Socratic phase detection
-    logger.info('Sensei:[SOCRATIC_V4] Phase check - currentPhase:', curriculumState?.currentPhase);
-    logger.info('Sensei:[SOCRATIC_V4] Phase check - has teachingPlanForPhase:', !!curriculumState?.teachingPlanForPhase);
-    logger.info('Sensei:[SOCRATIC_V4] Phase check - socraticTurnCount:', curriculumState?.socraticTurnCount);
+    logSocraticTurnValidation('phase-check', {
+        phase: curriculumState?.currentPhase ?? null,
+        hasTeachingPlan: !!curriculumState?.teachingPlanForPhase,
+        turnCount: curriculumState?.socraticTurnCount ?? 0
+    });
     
     // Use Socratic-specific instruction building for Socratic phase
     if (curriculumState && curriculumState.currentPhase === 'Socratic' && curriculumState.teachingPlanForPhase) {
-        logger.info('Sensei:[SOCRATIC_V4] Using Socratic execution instruction');
-        logger.info('Sensei:[SOCRATIC_V4] User response turn, count:', curriculumState.socraticTurnCount);
+        logSocraticTurnValidation('execution-mode', {
+            mode: 'socratic',
+            turnCount: curriculumState.socraticTurnCount
+        });
         const pedagogicalGuidance = {
             metaPrompt: isMustObey ? guidanceText : undefined,
             directive: !isMustObey ? guidanceText : undefined
@@ -653,7 +624,10 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             navigationContext || undefined
         );
     } else {
-        logger.info('Sensei:[SOCRATIC_V4] NOT using Socratic execution - using standard dynamic instruction');
+        logSocraticTurnValidation('execution-mode', {
+            mode: 'standard',
+            turnCount: curriculumState?.socraticTurnCount ?? 0
+        });
         dynamicContext = buildSenseiDynamicSystemInstruction(
             curriculumFocusInstruction,
             guidanceText,
@@ -702,15 +676,22 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         senseiResponseText = await streamMainSenseiResponse(mainSenseiChat!, dynamicContext, inputText, senseiMessageId);
         
         // Check for Socratic completion
-        if (curriculumState && curriculumState.currentPhase === 'Socratic') {
+       if (curriculumState && curriculumState.currentPhase === 'Socratic') {
             const completion = checkForSocraticCompletion(senseiResponseText);
-            logger.info('Sensei:[SOCRATIC_V4] Completion check result:', completion);
             
             if (completion.triggered) {
+                logSocraticTurnValidation('completion-check', {
+                    triggered: true,
+                    trigger: completion.trigger || null
+                });
                 // Store completion pending for processing after response display
                 curriculumState.socraticCompletionPending = completion;
                 // Use clean response without the flag
                 senseiResponseText = completion.cleanResponse;
+            } else {
+                logSocraticTurnValidation('completion-check', {
+                    triggered: false
+                });
             }
         }
         
@@ -734,14 +715,6 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         // Phase 2: Process mermaid blocks after display is stable
         await processMermaidBlocks(senseiMessageId);
         
-        if (curriculumState) {
-            logger.log(`After Sensei Response - Processing Chunk ${curriculumState.currentTeachingChunkIndex + 1} of ${curriculumState.teachingPlanForPhase.length || 1}.`);
-            if (curriculumState.teachingPlanForPhase && curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex]) {
-                 logger.log(`Content of current chunk (TeachingPoint objects):`, curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex]);
-            }
-            logger.log("Topics Covered in current chunk (text):", Array.from(curriculumState.coveredPointsInCurrentChunk));
-        }
-
         showLoading(false);
 
         // End overall timing was previously here but moved to function end
@@ -970,7 +943,7 @@ async function handlePhaseSelection(phaseName: string) {
  * Initialize Save/Load UI Controls
  */
 function initializeSaveLoadUI(): void {
-    logger.info('[SAVELOAD-UI] Initializing save/load buttons');
+    logSaveloadValidation('init-start', {});
     
     const saveButton = document.getElementById('save-button');
     const loadButton = document.getElementById('load-button');
@@ -983,7 +956,7 @@ function initializeSaveLoadUI(): void {
     
     saveButton.onclick = async () => {
         try {
-            logger.info('[SAVELOAD-UI] Save clicked');
+            logSaveloadValidation('save-clicked', {});
             await SaveLoadProgressManager.saveProgress();
         } catch (error) {
             logger.error('[SAVELOAD-UI] Save failed:', error);
@@ -995,7 +968,7 @@ function initializeSaveLoadUI(): void {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
             try {
-                logger.info('[SAVELOAD-UI] Loading file:', file.name);
+                logSaveloadValidation('load-started', { fileName: file.name });
                 await SaveLoadProgressManager.loadProgress(file);
             } catch (error) {
                 logger.error('[SAVELOAD-UI] Load failed:', error);
@@ -1017,7 +990,7 @@ function initializeSaveLoadUI(): void {
         }
     });
     
-    logger.info('[SAVELOAD-UI] Save/load buttons initialized in header');
+    logSaveloadValidation('init-complete', {});
 }
 
 async function loadCurriculumAndGreet() {
@@ -1112,7 +1085,7 @@ async function loadCurriculumAndGreet() {
         
         // Check for session restoration (as per save_load_implementation_plan.md line 1182)
         if (window.location.hash === '#restore' || sessionStorage.getItem('pendingRestore')) {
-            logger.info('[INIT] Restoration mode detected - waiting for save file');
+            logInitValidation('restoration-mode-detected', {});
             displayMessage('🔄 Ready to restore your saved session. Please use the Load button to select a save file.', 'system');
             // Skip normal initialization - user will load a save file
             return;
@@ -1253,7 +1226,9 @@ async function handleConceptNavigation(direction: 'prev' | 'next') {
             // Clear interaction history for fresh start
             userInputHistory = [];
             lastSenseiResponses = [];
-            logger.info('[CONCEPT_NAV] Cleared interaction history for fresh start');
+            logConceptNavValidation('interaction-history-cleared', {
+                conceptIndex: targetIndex
+            });
 
             // Generate initial response for new concept with special flag
             // to skip pedagogical intervention

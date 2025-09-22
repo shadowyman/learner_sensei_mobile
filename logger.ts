@@ -305,6 +305,18 @@ class Logger {
         return { count, avg, min, max, total };
     }
 
+    public getAllPerfStats(): Array<{ label: string; count: number; avg: number; min: number; max: number; total: number }> {
+        if (!DEBUG_FLAGS.performance_debug) return [];
+        const summaries: Array<{ label: string; count: number; avg: number; min: number; max: number; total: number }> = [];
+        for (const label of this.performanceMetrics.keys()) {
+            const stats = this.getPerfStats(label);
+            if (stats) {
+                summaries.push({ label, ...stats });
+            }
+        }
+        return summaries;
+    }
+
     /**
      * Log all performance statistics
      */
@@ -341,5 +353,3 @@ class Logger {
 
 export const logger = new Logger();
 export type { LogEntry, LogLevel };
-
-logger.log('Debug console log storage initialized');

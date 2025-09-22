@@ -37,6 +37,10 @@ export interface ConsolidationState {
  * @param teachingPlanForPhase - The full teaching plan for the current phase.
  * @returns A new ConsolidationState object, or null if no remediation is needed.
  */
+function logConsolidationValidator(event: string, payload: Record<string, unknown>): void {
+    logger.info('[CONSOLIDATION_VALIDATION]', { event, ...payload });
+}
+
 export function initiateConsolidation(
     learnerModel: LearnerModel,
     teachingPlanForPhase: TeachingPoint[][]
@@ -44,21 +48,12 @@ export function initiateConsolidation(
     const WEAKNESS_THRESHOLD = 0.7; // Points with scores below this are candidates for remediation.
     const MAX_POINTS_TO_REMEDIATE = 4;
 
-    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] === CONSOLIDATION INITIALIZATION ===`);
-    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Total chunks in phase: ${teachingPlanForPhase.length}`);
-    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Weakness threshold: ${WEAKNESS_THRESHOLD}`);
-
     const allPointsWithScores = teachingPlanForPhase
         .flatMap((chunk, chunkIndex) =>
             chunk.map(point => { // point here is TeachingPoint {text, kcValue}
                 const foundScore = learnerModel.contentPointsCoverage?.[point.text]?.understanding_score;
                 const isFound = foundScore !== undefined;
                 const finalScore = foundScore ?? WEAKNESS_THRESHOLD;
-
-                logger.info(`[CONSOLIDATION_MANAGER_DEBUG] Chunk ${chunkIndex + 1} Point: "${point.text.substring(0, 50)}..."`);
-                logger.info(`[CONSOLIDATION_MANAGER_DEBUG]   - Found in coverage: ${isFound}`);
-                logger.info(`[CONSOLIDATION_MANAGER_DEBUG]   - Score: ${isFound ? foundScore?.toFixed(2) : 'NOT FOUND (defaulting to ' + WEAKNESS_THRESHOLD + ')'}`);
-                logger.info(`[CONSOLIDATION_MANAGER_DEBUG]   - KC value: ${point.kcValue}`);
 
                 return {
                     ...point, // Spread text and kcValue
@@ -73,22 +68,14 @@ export function initiateConsolidation(
         .filter(point => point.score < WEAKNESS_THRESHOLD)
         .sort((a, b) => a.score - b.score) // Sort by score to get weakest first
         .slice(0, MAX_POINTS_TO_REMEDIATE);
-
-    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Points below threshold (${WEAKNESS_THRESHOLD}): ${weakPoints.length}`);
+    let selectionStrategy: 'threshold' | 'lowest-scores' = 'threshold';
 
     if (weakPoints.length === 0 && allPointsWithScores.length > 0) {
-        logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] No points below threshold, but KC < 0.65. Taking lowest scoring points...`);
-        // This can happen if all points are >= 0.7 but the cumulative score is still < 0.65.
-        // In this case, we take the up to 4 lowest-scoring points, regardless of threshold.
+        selectionStrategy = 'lowest-scores';
         const lowestScoringPoints = allPointsWithScores
             .sort((a, b) => a.score - b.score)
             .slice(0, MAX_POINTS_TO_REMEDIATE);
         weakPoints = lowestScoringPoints; // Assign directly
-
-        logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Selected ${weakPoints.length} lowest-scoring points for consolidation`);
-        weakPoints.forEach((wp, idx) => {
-            logger.warn(`[CONSOLIDATION_MANAGER_DEBUG]   ${idx + 1}. Score: ${wp.score.toFixed(2)}, Was found: ${wp.wasFound}, Text: "${wp.text.substring(0, 50)}..."`);
-        });
     }
     
     if (weakPoints.length === 0) return null; // No points to remediate.
@@ -112,17 +99,17 @@ export function initiateConsolidation(
         currentPlanStep: 0,
     };
 
-    // Centralized Log Point 1: Initiation
-    logger.warn(`[CONSOLIDATION] Initiated. Found ${weakPoints.length} weak points across ${plan.size} chunks.`, {
-        plan: Object.fromEntries(plan.entries())
+    logConsolidationValidator('session-started', {
+        totalChunksInPhase: teachingPlanForPhase.length,
+        weakPointCount: weakPoints.length,
+        selectionStrategy,
+        planChunks: planOrder.length,
+        weakPoints: weakPoints.map(wp => ({
+            chunkIndex: wp.chunkIndex,
+            score: Number(wp.score.toFixed(2)),
+            wasFound: wp.wasFound
+        }))
     });
-
-    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] === CONSOLIDATION PLAN CREATED ===`);
-    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] Weak points summary:`);
-    weakPoints.forEach((wp, idx) => {
-        logger.warn(`[CONSOLIDATION_MANAGER_DEBUG]   ${idx + 1}. Chunk ${wp.chunkIndex + 1}, Score: ${wp.score.toFixed(2)}, Text: "${wp.text.substring(0, 50)}..."`);
-    });
-    logger.warn(`[CONSOLIDATION_MANAGER_DEBUG] ================================`);
 
     return initialState;
 }
@@ -160,8 +147,10 @@ export function advanceConsolidationStage(
                     const KC_TOLERANCE = 0.001;
 
                     if (phaseKCMastery >= (PHASE_MASTERY_THRESHOLD - KC_TOLERANCE)) {
-                        // Mastery achieved! Exit consolidation
-                        logger.log(`[CONSOLIDATION] Mastery achieved for ${currentPhaseKCId}. KC: ${phaseKCMastery.toFixed(4)}. Exiting consolidation.`);
+                        logConsolidationValidator('mastery-achieved', {
+                            phaseKCId: currentPhaseKCId,
+                            mastery: Number(phaseKCMastery.toFixed(4))
+                        });
                         return true; // Signal to exit consolidation
                     }
                 }
@@ -172,8 +161,11 @@ export function advanceConsolidationStage(
             }
             break;
     }
-    // Centralized Log Point 2: Stage Transition
-    logger.log(`[CONSOLIDATION] Stage advanced: ${oldStage} -> ${state.stage}`);
+    logConsolidationValidator('stage-transition', {
+        from: oldStage,
+        to: state.stage,
+        currentPlanStep: state.currentPlanStep
+    });
     return false; // Continue consolidation
 }
 

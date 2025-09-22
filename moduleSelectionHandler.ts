@@ -47,6 +47,14 @@ interface ModuleSelectionState {
     ai: GoogleGenAI | null;
 }
 
+function logModuleSelectionValidation(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[MODULE_SELECTION_VALIDATION]', { event, ...payload });
+    } else {
+        logger.info('[MODULE_SELECTION_VALIDATION]', { event });
+    }
+}
+
 export class ModuleSelectionHandler {
     private state: ModuleSelectionState;
 
@@ -291,7 +299,9 @@ Where would you like to begin your learning journey?`;
         }
         
         this.state.currentActiveConceptIndex = this.state.curriculumState.currentConceptIndex;
-        logger.info('Active concept tracking initialized:', this.state.currentActiveConceptIndex);
+        logModuleSelectionValidation('active-concept-tracking-initialized', {
+            activeConceptIndex: this.state.currentActiveConceptIndex
+        });
         notepad.updateActiveConceptIndex(this.state.currentActiveConceptIndex);
         notepad.updateActiveModuleIndex(this.state.curriculumState.currentModuleIndex);
         
@@ -376,7 +386,6 @@ ${initialInstructionForSensei}
                         
                         const existingCursor = messageBubble.querySelector('.typing-cursor');
                         if (existingCursor) {
-                            logger.debug('[PHASE_CURSOR_CLEANUP] Removing cursor from phase intro message');
                             existingCursor.remove();
                         }
                         

@@ -21,6 +21,14 @@ import { notepad } from './notepad';
 // Declare hljs for TypeScript if it's loaded globally from a CDN
 declare var hljs: any;
 
+function logSelectionSenseiValidation(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[SELECTION_SENSEI_VALIDATION]', { event, ...payload });
+    } else {
+        logger.info('[SELECTION_SENSEI_VALIDATION]', { event });
+    }
+}
+
 
 const TOOLBAR_ACTIONS = [
     { label: 'Simpler', actionType: 'explainSimpler' },
@@ -321,7 +329,9 @@ class SelectionSensei {
     }
     
     private handleAddToNotepad(selectedText: string): void {
-        logger.info('Adding to notepad - text length:', selectedText.length);
+        logSelectionSenseiValidation('notepad-add-requested', {
+            textLength: selectedText.length
+        });
         
         // Get the selection for HTML capture
         const selection = window.getSelection();
@@ -339,7 +349,10 @@ class SelectionSensei {
             const div = document.createElement('div');
             div.appendChild(fragment);
             selectedHTML = div.innerHTML;
-            logger.info('Successfully captured HTML fragment');
+            logSelectionSenseiValidation('html-fragment-captured', {
+                textLength: selectedText.length,
+                htmlLength: selectedHTML.length
+            });
         } catch (error) {
             logger.error('Error capturing HTML fragment:', error);
         }
@@ -352,8 +365,6 @@ class SelectionSensei {
     }
 
     private showResponseModalWithLoading(): void {
-        logger.info("[SENSEI_SELECTION] showResponseModalWithLoading called");
-
         // Ensure DOM elements are still valid (important after save/load)
         this.ensureDOMElementsValid();
 
@@ -380,16 +391,13 @@ class SelectionSensei {
         this.responseModal.style.top = '50%';
         this.responseModal.style.transform = 'translate(-50%, -50%)';
         this.responseModal.style.display = 'flex';
-
-        logger.info("[SENSEI_SELECTION] Modal shown with loading state");
+        logSelectionSenseiValidation('modal-loading', {
+            spinnerVisible: true,
+            contentCleared: this.responseModalTextContent.innerHTML.length === 0
+        });
     }
 
     private async updateResponseModalContentAndTitle(title: string, htmlContent: string): Promise<void> {
-        logger.info("[SENSEI_SELECTION] updateResponseModalContentAndTitle called with:", {
-            titleLength: title?.length,
-            contentLength: htmlContent?.length
-        });
-
         // Ensure DOM elements are still valid (important after save/load)
         this.ensureDOMElementsValid();
 
@@ -402,6 +410,10 @@ class SelectionSensei {
             return;
         }
 
+
+        let highlightApplied = false;
+        let uiEnhancementsApplied = false;
+        let mermaidProcessed = false;
 
         try {
             // Trim the content to prevent accidental code block formatting
@@ -439,7 +451,7 @@ class SelectionSensei {
             this.responseModalTextContent.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block as HTMLElement);
             });
-            logger.info("[SENSEI_SELECTION] Code highlighting completed");
+            highlightApplied = true;
         } catch (highlightError) {
             logger.warn("[SENSEI_SELECTION] Error during code highlighting:", highlightError);
             // Continue without highlighting
@@ -448,7 +460,7 @@ class SelectionSensei {
         try {
             addLanguageDisplayToCodeBlocks(this.responseModalTextContent);
             addCopyButtonsToCodeBlocks(this.responseModalTextContent);
-            logger.info("[SENSEI_SELECTION] Added language displays and copy buttons");
+            uiEnhancementsApplied = true;
         } catch (uiError) {
             logger.warn("[SENSEI_SELECTION] Error adding UI elements:", uiError);
             // Continue without these UI enhancements
@@ -456,11 +468,17 @@ class SelectionSensei {
 
         try {
             await this.processMermaidDiagrams(this.responseModalTextContent);
-            logger.info("[SENSEI_SELECTION] Mermaid diagrams processed");
+            mermaidProcessed = true;
         } catch (mermaidError) {
             logger.warn("[SENSEI_SELECTION] Error processing Mermaid diagrams:", mermaidError);
             // Continue without Mermaid rendering
         }
+
+        logSelectionSenseiValidation('content-postprocess', {
+            highlightApplied,
+            uiEnhancementsApplied,
+            mermaidProcessed
+        });
     }
 
     private hideResponseModal(): void {
@@ -616,20 +634,18 @@ class SelectionSensei {
     }
 
     private async handleToolbarAction(selectedText: string, actionType: string, originalSenseiMessageText: string, actionLabel: string, userQuestion?: string): Promise<void> {
-        logger.info("[SENSEI_SELECTION] handleToolbarAction called with:", {
+        const aiAvailable = !!this.ai;
+        const modelsAvailable = this.ai ? !!this.ai.models : false;
+        logSelectionSenseiValidation('toolbar-action', {
             actionType,
-            selectedTextLength: selectedText?.length,
-            hasUserQuestion: !!userQuestion
+            selectedTextLength: selectedText?.length || 0,
+            hasUserQuestion: !!userQuestion,
+            aiAvailable,
+            modelsAvailable
         });
 
         this.showResponseModalWithLoading();
         this.hideSelectionToolbar();
-
-        // Check if AI instance is available
-        logger.info("[SENSEI_SELECTION] Checking AI instance:", {
-            aiExists: !!this.ai,
-            modelsExists: this.ai ? !!this.ai.models : false
-        });
 
         if (!this.ai || !this.ai.models) {
             logger.error("Selection Sensei: AI instance is not properly initialized", {
@@ -657,6 +673,13 @@ class SelectionSensei {
             userPrompt = SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(originalSenseiMessageText, selectedText, instructionText, actionLabel);
         }
 
+        let responseLength = 0;
+        let hadFence = false;
+        let parseStrategy: 'direct' | 'repaired' | 'regex' | 'failed' = 'failed';
+        let contentStrategy: 'pending' | 'parsed-full' | 'explanation-only' | 'raw-fallback' | 'error' = 'pending';
+        let hasTitle = false;
+        let hasExplanation = false;
+
         try {
             const response: GenerateContentResponse = await this.ai.models.generateContent({
                 model: SELECTION_SENSEI_CONFIG.modelName, 
@@ -668,17 +691,24 @@ class SelectionSensei {
             });
             
             let jsonText = response.text.trim();
+            responseLength = jsonText.length;
 
-            logger.info("[SENSEI_SELECTION] Raw response received:", {
-                length: jsonText.length,
-                first200: jsonText.substring(0, 200),
-                last200: jsonText.substring(Math.max(0, jsonText.length - 200))
+            const startsWithBrace = jsonText.startsWith('{');
+            const endsWithBrace = jsonText.endsWith('}');
+            logSelectionSenseiValidation('response-received', {
+                actionType,
+                length: responseLength,
+                startsWithBrace,
+                endsWithBrace
             });
 
             // Try to extract from code fence if present
             const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
             const match = jsonText.match(fenceRegex);
-            if (match && match[2]) jsonText = match[2].trim();
+            if (match && match[2]) {
+                jsonText = match[2].trim();
+                hadFence = true;
+            }
 
             let parsedResponse: { suggestedTitle?: string; explanation?: string } = {};
             let parseSuccess = false;
@@ -687,7 +717,7 @@ class SelectionSensei {
             try {
                 parsedResponse = JSON.parse(jsonText);
                 parseSuccess = true;
-                logger.info("[SENSEI_SELECTION] JSON parsed successfully on first attempt");
+                parseStrategy = 'direct';
             } catch (firstError) {
                 logger.warn("[SENSEI_SELECTION] Initial JSON parse failed, attempting repair:", firstError);
                 
@@ -696,7 +726,7 @@ class SelectionSensei {
                     const repairedJson = this.attemptJSONRepair(jsonText);
                     parsedResponse = JSON.parse(repairedJson);
                     parseSuccess = true;
-                    logger.info("[SENSEI_SELECTION] JSON parsed successfully after repair");
+                    parseStrategy = 'repaired';
                 } catch (secondError) {
                     logger.warn("[SENSEI_SELECTION] JSON repair failed, attempting regex extraction:", secondError);
 
@@ -704,39 +734,41 @@ class SelectionSensei {
                     parsedResponse = this.extractContentWithRegex(jsonText);
                     if (parsedResponse.suggestedTitle || parsedResponse.explanation) {
                         parseSuccess = true;
-                        logger.info("[SENSEI_SELECTION] Content extracted successfully with regex");
+                        parseStrategy = 'regex';
                     }
                 }
             }
 
             // Step 4: Display the response or fallback
             if (parseSuccess && parsedResponse.suggestedTitle && parsedResponse.explanation) {
-                logger.info("[SENSEI_SELECTION] Updating modal with parsed content");
+                hasTitle = true;
+                hasExplanation = true;
+                contentStrategy = 'parsed-full';
                 try {
                     await this.updateResponseModalContentAndTitle(
                         parsedResponse.suggestedTitle,
                         parsedResponse.explanation
                     );
-                    logger.info("[SENSEI_SELECTION] Modal updated successfully");
                 } catch (updateError) {
                     logger.error("[SENSEI_SELECTION] Error updating modal:", updateError);
                     throw updateError; // Re-throw to be caught by outer catch
                 }
             } else if (parseSuccess && parsedResponse.explanation) {
-                // We have explanation but no title
-                logger.info("[SENSEI_SELECTION] Updating modal with explanation only");
+                hasExplanation = true;
+                contentStrategy = 'explanation-only';
                 await this.updateResponseModalContentAndTitle(
                     "Sensei Explains...",
                     parsedResponse.explanation
                 );
             } else if (jsonText && jsonText.length > 0) {
-                // Last resort: show the raw response as content
+                contentStrategy = 'raw-fallback';
                 logger.warn("[SENSEI_SELECTION] Using raw response as fallback");
                 await this.updateResponseModalContentAndTitle(
                     "Sensei's Response",
                     jsonText
                 );
             } else {
+                contentStrategy = 'error';
                 logger.warn("[SENSEI_SELECTION] No valid content to display");
                 await this.updateResponseModalContentAndTitle(
                     "Error",
@@ -744,6 +776,9 @@ class SelectionSensei {
                 );
             }
         } catch (error) {
+            if (contentStrategy === 'pending') {
+                contentStrategy = 'error';
+            }
             // Improved error logging to capture the actual error details
             const errorMessage = error instanceof Error ? error.message : String(error);
             const errorStack = error instanceof Error ? error.stack : '';
@@ -770,6 +805,19 @@ class SelectionSensei {
             
             await this.updateResponseModalContentAndTitle("Error", userMessage);
         }
+
+        if (contentStrategy === 'pending') {
+            contentStrategy = 'error';
+        }
+        logSelectionSenseiValidation('response-handled', {
+            actionType,
+            parseStrategy,
+            contentStrategy,
+            responseLength,
+            hadFence,
+            hasTitle,
+            hasExplanation
+        });
     }
 
     private handleDragStart(e: MouseEvent): void {
@@ -831,7 +879,7 @@ export function reinitializeSelectionSensei(
 ): void {
     const messageArea = document.getElementById('message-area') as HTMLDivElement;
     if (messageArea) {
-        logger.info("[SENSEI_SELECTION] Re-initializing SelectionSensei after DOM change");
+        logSelectionSenseiValidation('reinitialized', { messageAreaFound: true });
         initializeSelectionSensei(ai, messageArea);
     }
 }

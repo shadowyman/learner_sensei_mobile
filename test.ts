@@ -1080,6 +1080,16 @@ export class TestSuite {
             return;
         }
 
+        const testsEnabled = TEST_SUITE_CONFIG.runConceptExtractionTest ||
+            TEST_SUITE_CONFIG.runArchetypeTest ||
+            TEST_SUITE_CONFIG.runSocraticPhaseInvestigation ||
+            TEST_SUITE_CONFIG.runStandardizedFormatTest;
+
+        if (!testsEnabled) {
+            logger.warn("⚠️  No tests enabled in TEST_SUITE_CONFIG");
+            return;
+        }
+
         logger.warn("🎬 ========== TEST SUITE EXECUTION STARTING ==========");
         
         try {
@@ -1109,13 +1119,6 @@ export class TestSuite {
                     const archetypeTest = new ArchetypeComparisonTest(apiKey);
                     await archetypeTest.runTest();
                 }
-            }
-
-            if (!TEST_SUITE_CONFIG.runConceptExtractionTest && 
-                !TEST_SUITE_CONFIG.runArchetypeTest && 
-                !TEST_SUITE_CONFIG.runSocraticPhaseInvestigation &&
-                !TEST_SUITE_CONFIG.runStandardizedFormatTest) {
-                logger.warn("⚠️  No tests enabled in TEST_SUITE_CONFIG");
             }
 
         } catch (error) {

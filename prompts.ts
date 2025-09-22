@@ -7,6 +7,10 @@ import { MISCONCEPTION_IDS, LearnerModel } from "./adaptiveEngine"; // For getCo
 import { CurriculumItem, CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; // For CURRICULUM_FOCUS_PROMPT_TEMPLATES
 import { logger } from "./logger"; // For Socratic v4 logging
 
+function logSocraticPromptValidation(event: string, payload: Record<string, unknown>): void {
+    logger.info('[SOCRATIC_PLAN_VALIDATION]', { event, ...payload });
+}
+
 export const MERMAID_GENERATION_GUIDELINES = `
 MUST_OBEY: IF using styling in mermaid, must use darkTheme (darker colors) for node background color for proper rendering by the system. Failure to do so is a critical system bug.
 
@@ -517,8 +521,17 @@ export function GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(
     moduleGoal: string,
     conceptsSummary: string
 ): string {
-    logger.info('Sensei:[SOCRATIC_V4] Created categorization prompt for module:', moduleTitle);
-    logger.info('Sensei:[SOCRATIC_V4] Socratic content length:', socraticSectionContent.length);
+    const conceptCount = conceptsSummary
+        .split(',')
+        .map(entry => entry.trim())
+        .filter(entry => entry.length > 0)
+        .length;
+    logSocraticPromptValidation('categorization-prompt-prepared', {
+        moduleTitle,
+        socraticContentLength: socraticSectionContent.length,
+        moduleGoalProvided: moduleGoal.trim().length > 0,
+        conceptCount
+    });
     
     return `You are a world-class Socratic Teaching Plan Architect. Your task is to analyze the given Socratic section and generate ONE comprehensive teaching plan that will guide multi-turn interactive dialogue.
 
@@ -644,8 +657,11 @@ Persona Statement: You are a warm, encouraging, and inquisitive LeetCode co-pilo
 - Do not conclude until code, tests, and explanation are finished and the learner can articulate the approach end to end.`;
     }
     
-    logger.info('Sensei:[SOCRATIC_V4] Building initial instruction for turns:', guidance.expectedTurns);
-    logger.info('Sensei:[SOCRATIC_V4] Completion triggers count:', guidance.completionTriggers.length);
+    logSocraticPromptValidation('initial-instruction-prepared', {
+        expectedTurns: guidance.expectedTurns ?? null,
+        completionTriggerCount: guidance.completionTriggers?.length ?? 0,
+        detectedCategory: detectedCategory || 'unknown'
+    });
     
     const baseInstruction = `You are now entering SOCRATIC DIALOGUE MODE. You will autonomously manage this entire teaching session.
 

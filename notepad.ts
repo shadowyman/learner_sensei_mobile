@@ -28,6 +28,14 @@ interface NotepadState {
     isOpen: boolean;
 }
 
+function logNotepadActivity(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[NOTEPAD_ACTIVITY]', { event, ...payload });
+    } else {
+        logger.info('[NOTEPAD_ACTIVITY]', { event });
+    }
+}
+
 export class Notepad {
     private state: NotepadState = {
         notes: [],
@@ -88,9 +96,12 @@ export class Notepad {
         };
         
         this.state.notes.push(note);
-        logger.info('Note added to concept:', concept.title);
-        logger.info('Total notes in notepad:', this.state.notes.length);
-        
+        logNotepadActivity('note-added', {
+            moduleTitle: module.title,
+            conceptTitle: concept.title,
+            totalNotes: this.state.notes.length
+        });
+
         if (this.state.isOpen) {
             this.renderNotes();
         }
@@ -158,7 +169,7 @@ export class Notepad {
         this.state.isOpen = true;
         this.modalElement.style.display = 'flex';
         this.renderNotes();
-        logger.info('Notepad opened');
+        logNotepadActivity('modal-opened', { totalNotes: this.state.notes.length });
     }
     
     private closeModal(): void {
@@ -166,7 +177,7 @@ export class Notepad {
         
         this.state.isOpen = false;
         this.modalElement.style.display = 'none';
-        logger.info('Notepad closed');
+        logNotepadActivity('modal-closed', { totalNotes: this.state.notes.length });
     }
     
     private renderNotes(): void {
@@ -375,7 +386,7 @@ export class Notepad {
         // Update plain text for search/export
         note.text = this.activeQuillEditor.getText();
         
-        logger.info('Note edited with Quill, ID:', noteId);
+        logNotepadActivity('note-edited', { noteId });
         
         // Clean up
         this.cancelQuillEdit(card);
@@ -407,14 +418,17 @@ export class Notepad {
         const index = this.state.notes.findIndex(n => n.id === noteId);
         if (index !== -1) {
             this.state.notes.splice(index, 1);
-            logger.info('Note deleted, ID:', noteId);
+            logNotepadActivity('note-deleted', {
+                noteId,
+                totalNotes: this.state.notes.length
+            });
             this.renderNotes();
         }
     }
     
     private exportToHTML(): void {
         try {
-            logger.info('Starting HTML export with', this.state.notes.length, 'notes');
+            logNotepadActivity('export-started', { totalNotes: this.state.notes.length });
             
             // Show loading state on button
             const exportButton = document.getElementById('notepad-export-button') as HTMLButtonElement;
@@ -426,7 +440,7 @@ export class Notepad {
             // Export to HTML
             this.exporter.exportToHTML(this.state.notes);
             
-            logger.info('HTML export completed successfully');
+            logNotepadActivity('export-completed', { totalNotes: this.state.notes.length });
         } catch (error) {
             logger.error('Failed to export HTML:', error);
             alert('Failed to export HTML. Please try again.');

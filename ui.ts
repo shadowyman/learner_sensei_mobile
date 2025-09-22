@@ -28,6 +28,22 @@ declare global {
     }
 }
 
+function logMeditationValidation(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[MEDITATION_VALIDATION]', { event, ...payload });
+    } else {
+        logger.info('[MEDITATION_VALIDATION]', { event });
+    }
+}
+
+function logCodeEditorValidation(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[CODE_EDITOR_VALIDATION]', { event, ...payload });
+    } else {
+        logger.info('[CODE_EDITOR_VALIDATION]', { event });
+    }
+}
+
 // --- START: Reload Functionality Types ---
 export type ReloadableMessageType = 'mainResponse' | 'moduleIntro';
 
@@ -460,9 +476,10 @@ export function updateSenseiMeditationOverlay(
         return;
     }
     
-    logger.info('[MEDITATION] Showing overlay with chunk:', {
+    logMeditationValidation('overlay-show', {
+        chunkIndex: curriculumState.currentTeachingChunkIndex,
         chunkLength: currentChunk.length,
-        chunkIndex: curriculumState.currentTeachingChunkIndex
+        totalChunks: curriculumState.teachingPlanForPhase.length
     });
 
     // Clear existing content
@@ -499,7 +516,9 @@ export function updateSenseiMeditationOverlay(
         progressButton.onclick = (e) => {
             e.stopPropagation();
             meditationHoverState.showAllChunks = !meditationHoverState.showAllChunks;
-            logger.info('[MEDITATION] Toggled view mode:', { showAllChunks: meditationHoverState.showAllChunks });
+            logMeditationValidation('view-mode-toggled', {
+                showAllChunks: meditationHoverState.showAllChunks
+            });
             updateSenseiMeditationOverlay(curriculumState, true);
         };
     }
@@ -670,7 +689,11 @@ function showMeditationOverlay(): void {
         return;
     }
 
-    logger.info('[MEDITATION] Setting overlay to visible');
+    const actionItemCount = meditationActionItems ? meditationActionItems.children.length : 0;
+    logMeditationValidation('overlay-visible', {
+        showAllChunks: meditationHoverState.showAllChunks,
+        actionItemCount
+    });
     meditationOverlay.style.display = 'block';
     meditationOverlay.style.pointerEvents = 'auto'; // CRITICAL: Enable pointer events!
 
@@ -678,7 +701,7 @@ function showMeditationOverlay(): void {
     // Remove any existing listeners first to avoid duplicates
     meditationOverlay.onmouseenter = () => {
         meditationHoverState.isOverOverlay = true;
-        logger.info('[MEDITATION-HOVER] Mouse entered overlay (direct)');
+        logMeditationValidation('hover-overlay-enter');
         // Clear any existing timeout
         if (meditationHoverState.hoverTimeout) {
             clearTimeout(meditationHoverState.hoverTimeout);
@@ -688,7 +711,7 @@ function showMeditationOverlay(): void {
 
     meditationOverlay.onmouseleave = () => {
         meditationHoverState.isOverOverlay = false;
-        logger.info('[MEDITATION-HOVER] Mouse left overlay (direct)');
+        logMeditationValidation('hover-overlay-leave');
         // Check if we should hide
         if (!meditationHoverState.isOverBrand && !meditationHoverState.isOverOverlay) {
             meditationHoverState.hoverTimeout = window.setTimeout(() => {
@@ -866,7 +889,10 @@ function addCopyButtonsToCodeBlocks_internal(containerElement: HTMLElement, cont
             openButton.addEventListener('click', () => {
                 const snippet = codeElement.textContent ?? '';
                 setCodeEditorContentAndOpen(snippet);
-                logger.info('[CODE_EDITOR_OPEN_BUTTON] Open-in-editor invoked', { messageId: effectiveMessageId, language: languageLabel });
+                logCodeEditorValidation('open-button-invoked', {
+                    messageId: effectiveMessageId,
+                    language: languageLabel || null
+                });
             });
             buttonContainer.appendChild(openButton);
         }
@@ -1860,7 +1886,7 @@ export function initializeUI() {
 
     if (codeEditorButton) {
         codeEditorButton.addEventListener('click', () => {
-            logger.info('[CODE_EDITOR] Launcher clicked');
+            logCodeEditorValidation('launcher-clicked');
             openCodeEditorModal();
         });
     }
@@ -1984,10 +2010,10 @@ function setupBrandHoverMeditationOverlay(): void {
 
         // Get current curriculum state from global scope if available
         const curriculumState = (window as any).curriculumState || null;
-        logger.info('[MEDITATION-HOVER] Mouse entered brand segment', {
+        logMeditationValidation('hover-brand-enter', {
             hasCurriculumState: !!curriculumState,
-            hasTeachingPlan: curriculumState?.teachingPlanForPhase ? true : false,
-            chunkIndex: curriculumState?.currentTeachingChunkIndex
+            hasTeachingPlan: !!curriculumState?.teachingPlanForPhase,
+            chunkIndex: curriculumState?.currentTeachingChunkIndex ?? null
         });
         updateSenseiMeditationOverlay(curriculumState, true);
     });

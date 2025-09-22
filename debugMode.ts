@@ -12,6 +12,18 @@ import JSZip from 'jszip';
 
 declare var hljs: any;
 
+function logDebugValidation(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[DEBUG_MODE_VALIDATION]', { event, ...payload });
+    } else {
+        logger.info('[DEBUG_MODE_VALIDATION]', { event });
+    }
+}
+
+function logDebugPerfSummary(payload: Record<string, unknown>): void {
+    logger.info('[DEBUG_PERF_SUMMARY]', payload);
+}
+
 let debugModalElement: HTMLDivElement | null = null;
 let debugCloseButtonElement: HTMLButtonElement | null = null;
 let debugFullscreenButtonElement: HTMLButtonElement | null = null;
@@ -1060,10 +1072,11 @@ export function initializeDebugMode(
     const perfSummaryButtonElement = document.getElementById('perf-summary-button') as HTMLButtonElement;
     if (perfSummaryButtonElement) {
         perfSummaryButtonElement.addEventListener('click', () => {
-            logger.logPerfSummary();
+            const summary = logger.getAllPerfStats();
+            logDebugPerfSummary({ metrics: summary });
             const exportStatusElement = document.getElementById('export-status') as HTMLSpanElement;
             if (exportStatusElement) {
-                exportStatusElement.textContent = 'Performance summary logged to console';
+                exportStatusElement.textContent = 'Performance summary captured';
                 setTimeout(() => {
                     exportStatusElement.textContent = '';
                 }, 3000);
@@ -1076,6 +1089,7 @@ export function initializeDebugMode(
     if (perfClearButtonElement) {
         perfClearButtonElement.addEventListener('click', () => {
             logger.clearPerfMetrics();
+            logDebugValidation('perf-metrics-cleared', {});
             const exportStatusElement = document.getElementById('export-status') as HTMLSpanElement;
             if (exportStatusElement) {
                 exportStatusElement.textContent = 'Performance metrics cleared';
@@ -1086,7 +1100,9 @@ export function initializeDebugMode(
         });
     }
 
-    logger.log("Debug Mode Initialized with AI instance and file paths.");
+    logDebugValidation('initialized', {
+        filePathCount: filePaths.length
+    });
 }
 
 export function toggleDebugModalVisibility(show: boolean) {

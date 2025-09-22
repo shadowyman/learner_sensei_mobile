@@ -279,11 +279,6 @@ export class PedagogicalProfiler {
       .replace('{active_flags}', activeFlags.join(', '))
       .replace('{action_items}', actionItemsForPrompt);
 
-    // --- LOGGING: PROMPT ---
-    if (DEBUG_FLAGS.prompt_debug) {
-        logger.log(`[PedagogicalProfiler] PROMPT SENT TO LLM:\n---\n${metaPrompt}\n---`);
-    }
-
     const directive = await generateDirectiveFromMetaPrompt(this.ai, metaPrompt);
 
     return directive;

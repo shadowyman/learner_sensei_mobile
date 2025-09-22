@@ -5,10 +5,18 @@
  * SPDX-License-Identifier: Apache-2.1
  */
 
-import { logger, DEBUG_FLAGS } from './logger';
+import { logger } from './logger';
 // Based on Section I-B: The Recursive Sensei's Adaptive Teaching Engine - Operational Mechanisms (Version 2.1)
 import { CurriculumState, PHASE_MASTERY_THRESHOLD, CurriculumItem } from "./curriculum"; 
 import type { TeachingPoint as CurriculumTeachingPoint } from "./curriculum"; // For clarity when dealing with teachingPlanForPhase
+
+function logAdaptiveValidation(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[ADAPTIVE_VALIDATION]', { event, ...payload });
+    } else {
+        logger.info('[ADAPTIVE_VALIDATION]', { event });
+    }
+}
 
 // --- INTERFACES ---
 
@@ -487,13 +495,25 @@ export function updateLearnerModel(
                 curriculumState.pointsToRevisitInCurrentChunk = new Set<string>();
             }
 
+            const kcAssessmentSummary = {
+                processed: 0,
+                fuzzyMatches: [] as Array<{ pointId: string; similarity: number }>,
+                awarded: [] as Array<{ pointId: string; delta: number }>,
+                coverage: {
+                    covered: [] as string[],
+                    revisit: [] as string[]
+                }
+            };
+
             analysis.key_content_point_assessment.forEach(assessment => { // assessment is KeyContentPointAssessment
                 const matchResult = findBestMatchingContentPoint(assessment.point_id, expectedContentPointTextsForCurrentChunk);
                 const verbatimPointText = matchResult.match;
+                kcAssessmentSummary.processed += 1;
 
                 if (verbatimPointText) { // verbatimPointText is string
                     if (matchResult.isFuzzy) {
-                        logger.info(`Used fuzzy matching (similarity: ${matchResult.similarity?.toFixed(3)}) for assessment point_id "${assessment.point_id}" -> matched to "${verbatimPointText}"`);
+                        const similarity = typeof matchResult.similarity === 'number' ? Number(matchResult.similarity.toFixed(3)) : 0;
+                        kcAssessmentSummary.fuzzyMatches.push({ pointId: assessment.point_id, similarity });
                     }
                     // *** HIGH-WATER MARK LOGIC START ***
                     const newAnalysisScore = (typeof assessment.understanding_score === 'number' && !isNaN(assessment.understanding_score))
@@ -512,9 +532,7 @@ export function updateLearnerModel(
                     if (teachingPointObject && teachingPointObject.kcValue > 0 && effectiveScore > previousScore) {
                         const awardedKc = (effectiveScore - previousScore) * teachingPointObject.kcValue;
                         updateKC(model, phaseKCId, awardedKc, true);
-                        if (DEBUG_FLAGS.learner_analysis_debug) {
-                            logger.warn(`Phase KC Update: Awarded ${awardedKc.toFixed(4)} for improving from ${previousScore.toFixed(2)} to ${effectiveScore.toFixed(2)} on "${verbatimPointText}". New '${phaseKCId}' mastery: ${model.KCs[phaseKCId].toFixed(4)}`);
-                        }
+                        kcAssessmentSummary.awarded.push({ pointId: assessment.point_id, delta: Number(awardedKc.toFixed(4)) });
                     } else {
                         // Update KC progress bar with new mastery level
                         const updatedKCMastery = model.KCs[phaseKCId];
@@ -528,9 +546,11 @@ export function updateLearnerModel(
                     if (effectiveScore >= 0.7) { // Use effective score for progression
                         curriculumState.coveredPointsInCurrentChunk.add(verbatimPointText); // verbatimPointText is string
                         curriculumState.pointsToRevisitInCurrentChunk!.delete(verbatimPointText); // verbatimPointText is string
+                        kcAssessmentSummary.coverage.covered.push(assessment.point_id);
                     } else {
                         curriculumState.coveredPointsInCurrentChunk.delete(verbatimPointText); // Ensure it's not marked as covered if below threshold
                         curriculumState.pointsToRevisitInCurrentChunk!.add(verbatimPointText); // verbatimPointText is string
+                        kcAssessmentSummary.coverage.revisit.push(assessment.point_id);
                     }
 
                     model.contentPointsCoverage![verbatimPointText] = { // verbatimPointText is string
@@ -544,6 +564,29 @@ export function updateLearnerModel(
                 }
             });
 
+            if (kcAssessmentSummary.processed > 0) {
+                const payload: Record<string, unknown> = {
+                    chunkIndex: curriculumState.currentTeachingChunkIndex,
+                    totalAssessments: kcAssessmentSummary.processed
+                };
+                if (kcAssessmentSummary.fuzzyMatches.length > 0) {
+                    payload.fuzzyMatches = kcAssessmentSummary.fuzzyMatches;
+                }
+                if (kcAssessmentSummary.awarded.length > 0) {
+                    payload.awarded = kcAssessmentSummary.awarded;
+                }
+                const coveragePayload: Record<string, string[]> = {};
+                if (kcAssessmentSummary.coverage.covered.length > 0) {
+                    coveragePayload.covered = Array.from(new Set(kcAssessmentSummary.coverage.covered));
+                }
+                if (kcAssessmentSummary.coverage.revisit.length > 0) {
+                    coveragePayload.revisit = Array.from(new Set(kcAssessmentSummary.coverage.revisit));
+                }
+                if (Object.keys(coveragePayload).length > 0) {
+                    payload.coverage = coveragePayload;
+                }
+                logAdaptiveValidation('kc-assessment-summary', payload);
+            }
 
         } else if (curriculumState && curriculumState.currentPhase === 'Socratic') {
         }
