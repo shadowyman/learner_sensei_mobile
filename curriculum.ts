@@ -217,10 +217,6 @@ function logTeachingPlanValidation(payload: Record<string, unknown>): void {
     logger.info('[TEACHING_PLAN_VALIDATION]', payload);
 }
 
-function logConceptNavValidation(event: string, payload: Record<string, unknown>): void {
-    logger.info('[CONCEPT_NAV_VALIDATION]', { event, ...payload });
-}
-
 function logAdvanceValidation(event: string, payload: Record<string, unknown>): void {
     logger.info('[ADVANCE_VALIDATION]', { event, ...payload });
 }
@@ -610,11 +606,7 @@ export async function navigateToConcept(
 
     const previousConceptIndex = state.currentConceptIndex;
 
-    // Check if already at target concept
     if (previousConceptIndex === targetConceptIndex) {
-        logConceptNavValidation('no-op', {
-            conceptIndex: targetConceptIndex
-        });
         return true;
     }
 
@@ -672,14 +664,6 @@ export async function navigateToConcept(
     const kcId = curriculumItem.curriculumPathId;
     learnerModel.KCs[kcId] = 0.0;
 
-    logConceptNavValidation('navigated', {
-        fromConceptIndex: previousConceptIndex,
-        toConceptIndex: targetConceptIndex,
-        kcId,
-        teachingPlanChunks: teachingPlan.length,
-        clearedCoverage,
-        awardedReset: true
-    });
     return true;
 }
 

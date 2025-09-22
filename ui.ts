@@ -28,22 +28,6 @@ declare global {
     }
 }
 
-function logMeditationValidation(event: string, payload?: Record<string, unknown>): void {
-    if (payload && Object.keys(payload).length > 0) {
-        logger.info('[MEDITATION_VALIDATION]', { event, ...payload });
-    } else {
-        logger.info('[MEDITATION_VALIDATION]', { event });
-    }
-}
-
-function logCodeEditorValidation(event: string, payload?: Record<string, unknown>): void {
-    if (payload && Object.keys(payload).length > 0) {
-        logger.info('[CODE_EDITOR_VALIDATION]', { event, ...payload });
-    } else {
-        logger.info('[CODE_EDITOR_VALIDATION]', { event });
-    }
-}
-
 // --- START: Reload Functionality Types ---
 export type ReloadableMessageType = 'mainResponse' | 'moduleIntro';
 
@@ -442,10 +426,6 @@ export function updateSenseiMeditationOverlay(
     }
     
     if (!meditationOverlay || !meditationActionItems) {
-        logger.warn('[MEDITATION] Missing DOM elements:', {
-            hasMeditationOverlay: !!meditationOverlay,
-            hasMeditationActionItems: !!meditationActionItems
-        });
         return;
     }
 
@@ -455,24 +435,12 @@ export function updateSenseiMeditationOverlay(
     }
 
     if (!curriculumState || !curriculumState.teachingPlanForPhase || curriculumState.currentTeachingChunkIndex === undefined) {
-        logger.info('[MEDITATION] Cannot show overlay - missing data:', {
-            hasCurriculumState: !!curriculumState,
-            hasTeachingPlan: curriculumState ? !!curriculumState.teachingPlanForPhase : false,
-            hasChunkIndex: curriculumState ? curriculumState.currentTeachingChunkIndex !== undefined : false,
-            currentChunkIndex: curriculumState?.currentTeachingChunkIndex
-        });
         return;
     }
 
     const learnerModel = (window as any).learnerModel as LearnerModel | undefined;
     const currentChunk = curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex];
     if (!currentChunk || !Array.isArray(currentChunk)) {
-        logger.warn('[MEDITATION] Invalid current chunk:', {
-            hasCurrentChunk: !!currentChunk,
-            isArray: Array.isArray(currentChunk),
-            chunkType: typeof currentChunk,
-            chunkValue: currentChunk
-        });
         return;
     }
     
@@ -685,7 +653,6 @@ export function updateSenseiMeditationOverlay(
 
 function showMeditationOverlay(): void {
     if (!meditationOverlay) {
-        logger.warn('[MEDITATION] Cannot show overlay - meditationOverlay element is null');
         return;
     }
 
@@ -889,10 +856,6 @@ function addCopyButtonsToCodeBlocks_internal(containerElement: HTMLElement, cont
             openButton.addEventListener('click', () => {
                 const snippet = codeElement.textContent ?? '';
                 setCodeEditorContentAndOpen(snippet);
-                logCodeEditorValidation('open-button-invoked', {
-                    messageId: effectiveMessageId,
-                    language: languageLabel || null
-                });
             });
             buttonContainer.appendChild(openButton);
         }
@@ -1886,7 +1849,6 @@ export function initializeUI() {
 
     if (codeEditorButton) {
         codeEditorButton.addEventListener('click', () => {
-            logCodeEditorValidation('launcher-clicked');
             openCodeEditorModal();
         });
     }

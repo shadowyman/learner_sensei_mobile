@@ -34,9 +34,6 @@ function logAdvanceValidator(event: string, payload: Record<string, unknown>): v
     logger.info('[ADVANCE_VALIDATION]', { event, ...payload });
 }
 
-function logConceptNavValidation(event: string, payload: Record<string, unknown>): void {
-    logger.info('[CONCEPT_NAV_VALIDATION]', { event, ...payload });
-}
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import {
     LearnerModel,
@@ -1226,9 +1223,6 @@ async function handleConceptNavigation(direction: 'prev' | 'next') {
             // Clear interaction history for fresh start
             userInputHistory = [];
             lastSenseiResponses = [];
-            logConceptNavValidation('interaction-history-cleared', {
-                conceptIndex: targetIndex
-            });
 
             // Generate initial response for new concept with special flag
             // to skip pedagogical intervention
