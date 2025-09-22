@@ -6,7 +6,7 @@
 import { logger } from './logger';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ComprehensiveAnalysisResultType, MISCONCEPTION_IDS } from "./adaptiveEngine";
-import { TeachingPoint, PHASE_KC_TOTAL } from "./curriculum";
+import { TeachingPoint, PHASE_KC_TOTAL, Phase } from "./curriculum";
 import {
     GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
     GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION,
@@ -44,27 +44,29 @@ export function parseGeminiJsonResponse(jsonString: string): ComprehensiveAnalys
     }
 }
 
-export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProcess: string, moduleTitle?: string, moduleGoal?: string, conceptsSummary?: string): Promise<TeachingPoint[][] | null> {
+export async function llmExtractAndPlanTeachingOrder(
+    ai: GoogleGenAI,
+    textToProcess: string,
+    phase: Phase,
+    moduleTitle?: string,
+    moduleGoal?: string,
+    conceptsSummary?: string
+): Promise<TeachingPoint[][] | null> {
     if (!ai) {
         logger.error("GoogleGenAI instance not provided to llmExtractAndPlanTeachingOrder.");
         return null;
     }
 
-    // Detect if this is Socratic content
-    const isSocraticContent = textToProcess.includes("Socratic Instructions for Module-Wide Phase 'Socratic'") || 
-                             textToProcess.includes("--- Socratic Section ---") ||
-                             textToProcess.includes("Socratic:");
-    
-    if (isSocraticContent) {
+    if (phase === 'Socratic') {
         logSocraticPlanValidation('phase-detected', {
             moduleTitleProvided: !!moduleTitle,
             moduleGoalProvided: !!moduleGoal,
             conceptsProvided: !!conceptsSummary
         });
     }
-    
+
     let prompt: string;
-    if (isSocraticContent) {
+    if (phase === 'Socratic') {
         // Extract module info from the combined text if not provided as parameters
         let extractedTitle = moduleTitle;
         let extractedGoal = moduleGoal;
@@ -110,7 +112,7 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         logTeachingPlanRequest('generation-complete', {
             durationMs: Number(durationMs.toFixed(2)),
             model: TEACHING_PLAN_GENERATION_CONFIG.modelName,
-            isSocraticContent,
+            isSocraticContent: phase === 'Socratic',
             promptLength: prompt.length
         });
         const jsonText = response.text;
@@ -124,7 +126,7 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         const parsed = JSON.parse(cleanedJsonString);
 
         // Handle Socratic response structure
-        if (isSocraticContent && parsed && parsed.detected_category && parsed.teaching_plan) {
+        if (phase === 'Socratic' && parsed && parsed.detected_category && parsed.teaching_plan) {
             // Extract the teaching plan with Socratic metadata
             const socraticPlan = parsed.teaching_plan;
             if (Array.isArray(socraticPlan) && socraticPlan.length > 0 && 
@@ -233,7 +235,7 @@ export async function llmExtractAndPlanTeachingOrder(ai: GoogleGenAI, textToProc
         logger.error("Parsed JSON for teaching_plan does not match expected structure (not an array or missing 'teaching_plan' key):", parsed);
         return null;
     } catch (error) {
-        if (isSocraticContent) {
+        if (phase === 'Socratic') {
             logger.error('Sensei:[SOCRATIC_V4] Failed to parse teaching plan:', error);
         }
         logger.error("Error getting or parsing teaching_plan from Gemini:", error);

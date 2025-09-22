@@ -396,11 +396,18 @@ function createLLMPlannerCallback(
     curriculum: Curriculum,
     curriculumState: CurriculumState,
     ai: GoogleGenAI
-): (text: string) => Promise<TeachingPoint[][]> {
-    return async (text: string) => {
+): (phase: Phase, text: string) => Promise<TeachingPoint[][]> {
+    return async (phase: Phase, text: string) => {
         const module = curriculum.modules[curriculumState.currentModuleIndex];
         const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-        const result = await llmExtractAndPlanTeachingOrder(ai, text, module.title, module.goal, conceptsSummary);
+        const result = await llmExtractAndPlanTeachingOrder(
+            ai,
+            text,
+            phase,
+            module.title,
+            module.goal,
+            conceptsSummary
+        );
         return result || [];
     };
 }

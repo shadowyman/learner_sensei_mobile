@@ -134,7 +134,7 @@ export function getLoadedCurriculum(): Curriculum | null {
     return _curriculum;
 }
 
-type LLMTeachingPlanGenerator = (text: string) => Promise<TeachingPoint[][] | null>;
+type LLMTeachingPlanGenerator = (phase: Phase, text: string) => Promise<TeachingPoint[][] | null>;
 
 
 function buildCombinedContentText(curriculum: Curriculum, item: CurriculumItem, phase: Phase): string {
@@ -284,7 +284,7 @@ export async function generateTeachingPlanForPhase(
         return [];
     }
 
-    const teachingPlan = await llmPlanner(combinedText);
+    const teachingPlan = await llmPlanner(phase, combinedText);
     return validateAndProcessTeachingPlan(teachingPlan, item, phase);
 }
 

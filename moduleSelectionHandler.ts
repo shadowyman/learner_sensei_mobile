@@ -273,10 +273,17 @@ Where would you like to begin your learning journey?`;
             this.state.curriculum, 
             this.state.pendingModuleSelection, 
             phase,
-            async (text) => {
+            async (phaseForPlan, text) => {
                 const module = this.state.curriculum!.modules[this.state.pendingModuleSelection!];
                 const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-                const result = await llmExtractAndPlanTeachingOrder(this.state.ai!, text, module.title, module.goal, conceptsSummary);
+                const result = await llmExtractAndPlanTeachingOrder(
+                    this.state.ai!,
+                    text,
+                    phaseForPlan,
+                    module.title,
+                    module.goal,
+                    conceptsSummary
+                );
                 return result || [];
             }
         );
