@@ -91,10 +91,50 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
         }
         thumbnail.replaceWith(figure);
         figure.appendChild(thumbnail);
-        let sibling = figure.nextSibling;
-        while (sibling && sibling.nodeType !== Node.ELEMENT_NODE) {
-            sibling = sibling.nextSibling;
-        }
+
+        const getNextElementSkippingArtifacts = (startNode) => {
+            let node = startNode;
+            while (node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const trimmed = node.textContent ? node.textContent.trim() : '';
+                    if (!trimmed) {
+                        node = node.nextSibling;
+                        continue;
+                    }
+                    if (trimmed === '```') {
+                        const next = node.nextSibling;
+                        node.parentNode?.removeChild(node);
+                        logMermaidValidation('stray-backticks-removed', { nodeType: 'text' });
+                        node = next;
+                        continue;
+                    }
+                    node = node.nextSibling;
+                    continue;
+                }
+
+                if (node instanceof HTMLElement) {
+                    const trimmed = node.textContent ? node.textContent.trim() : '';
+                    if (trimmed === '```' && node.tagName.toLowerCase() !== 'code') {
+                        const tag = node.tagName.toLowerCase();
+                        const next = node.nextSibling;
+                        node.remove();
+                        logMermaidValidation('stray-backticks-removed', { nodeType: tag });
+                        node = next;
+                        continue;
+                    }
+                    if (!trimmed && node.childElementCount === 0) {
+                        node = node.nextSibling;
+                        continue;
+                    }
+                    return node;
+                }
+
+                node = node.nextSibling;
+            }
+            return null;
+        };
+
+        let sibling = getNextElementSkippingArtifacts(figure.nextSibling);
         let annotationElement = null;
         if (sibling instanceof HTMLElement && sibling.tagName.toLowerCase() === 'p') {
             const firstChild = sibling.firstElementChild;
@@ -113,6 +153,8 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
                 logMermaidValidation('caption-aligned', { sentenceCount });
                 mermaidAnnotationSuccessLogged = true;
             }
+
+            getNextElementSkippingArtifacts(annotationElement.nextSibling);
         }
     }
 
