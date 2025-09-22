@@ -9,6 +9,7 @@ import { marked } from 'marked';
 import { sanitizeCodeFences, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks, setupTextareaAutosize } from './ui';
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { mermaidManager } from './mermaidManager.js';
+import { runMermaidRecovery } from './mermaidErrorRecovery.js';
 import { 
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
     SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION,
@@ -565,7 +566,7 @@ class SelectionSensei {
         const mermaidPromises = Array.from(mermaidBlocks).map(async (block) => {
             const preElement = block.parentElement as HTMLElement;
             const rawMermaidCode = block.textContent || '';
-            
+
             try {
                 const uniqueId = `selection-mermaid-${crypto.randomUUID()}`;
                 const { svg } = await mermaidManager.render(uniqueId, rawMermaidCode);
@@ -574,13 +575,40 @@ class SelectionSensei {
                 if (DEBUG_FLAGS.mermaid_debug) {
                     logger.error("Selection Sensei: Mermaid rendering failed:", error);
                 }
+
+                const fixingDiv = document.createElement('div');
+                fixingDiv.className = 'mermaid-error';
+                fixingDiv.style.color = '#f59e0b';
+                fixingDiv.innerHTML = `
+                    <span class="inline-spinner"></span> Attempting to fix diagram...
+                `;
+                preElement.replaceWith(fixingDiv);
+
+                try {
+                    const recoveryResult = await runMermaidRecovery({
+                        ai: this.ai || null,
+                        initialDiagram: rawMermaidCode,
+                        initialError: error?.message || 'Unknown error',
+                        renderAttempt: async (diagram: string) => {
+                            const uniqueId = `selection-mermaid-recovery-${crypto.randomUUID()}`;
+                            return mermaidManager.render(uniqueId, diagram);
+                        }
+                    });
+                    if (recoveryResult) {
+                        renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
+                        return;
+                    }
+                } catch (fixError) {
+                    logger.error('Selection Sensei: Mermaid recovery failed:', fixError);
+                }
+
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'mermaid-error';
                 errorDiv.innerHTML = `
-                    [Diagram could not be rendered]<br>
+                    [Diagram could not be rendered, and automatic fix failed]<br>
                     <pre><code>${rawMermaidCode}</code></pre>
                 `;
-                preElement.replaceWith(errorDiv);
+                fixingDiv.replaceWith(errorDiv);
             }
         });
         

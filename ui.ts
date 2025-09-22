@@ -7,7 +7,7 @@
 import { logger, DEBUG_FLAGS } from './logger';
 import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
 import { LearnerModel } from './adaptiveEngine';
-import { attemptMermaidFix, applyBacktickFix, applyUniversalQuoteFix } from './mermaidErrorRecovery.js';
+import { runMermaidRecovery } from './mermaidErrorRecovery.js';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { mermaidManager, DEFAULT_MERMAID_THEME } from './mermaidManager.js';
@@ -1154,81 +1154,41 @@ export async function displayMessage(message: Message) {
                 // Attempt recovery with our two-step approach
                 if (!block.getAttribute('data-recovery-attempted')) {
                     block.setAttribute('data-recovery-attempted', 'true');
-                    
-                    // Step 1: Try universal quote fix first
-                    logger.log('🔧 Step 1: Attempting universal quote fix...');
-                    const quotedDiagram = applyUniversalQuoteFix(rawMermaidCode);
-                    
-                    // If the diagram changed, try rendering it
-                    if (quotedDiagram !== rawMermaidCode) {
-                        try {
-                            const uniqueId = `mermaid-quoted-${message.id}-${Math.random().toString(36).substring(2)}`;
-                            const { svg } = await mermaidManager.render(uniqueId, quotedDiagram);
-                            
-                            // Success with quote fix!
-                            if (DEBUG_FLAGS.mermaid_debug) {
-                                logger.log('✅ Mermaid diagram fixed with universal quote fix');
+
+                    const fixingDiv = document.createElement('div');
+                    fixingDiv.className = 'mermaid-error';
+                    fixingDiv.style.color = '#f59e0b';
+                    fixingDiv.innerHTML = `
+                        <span class="inline-spinner"></span> Attempting to fix diagram...
+                    `;
+                    preElement.replaceWith(fixingDiv);
+
+                    try {
+                        const recoveryResult = await runMermaidRecovery({
+                            ai: window.ai || null,
+                            initialDiagram: rawMermaidCode,
+                            initialError: error.message || 'Unknown error',
+                            renderAttempt: async (diagram: string) => {
+                                const uniqueId = `mermaid-recovery-${message.id}-${Math.random().toString(36).substring(2)}`;
+                                return mermaidManager.render(uniqueId, diagram);
                             }
-                            renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), quotedDiagram);
-                            return; // Exit early on success
-                        } catch (quotedError) {
-                            logger.log('Quote fix applied but diagram still has errors, proceeding to Step 2...');
+                        });
+                        if (recoveryResult) {
+                            renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
+                            return;
                         }
+                    } catch (fixError) {
+                        logger.error('Error during Mermaid recovery:', fixError);
                     }
-                    
-                    // Step 2: If quote fix didn't work and AI is available, use LLM recovery
-                    if (window.ai) {
-                        // Show "attempting to fix" message
-                        const fixingDiv = document.createElement('div');
-                        fixingDiv.className = 'mermaid-error';
-                        fixingDiv.style.color = '#f59e0b'; // Orange color for "working" state
-                        fixingDiv.innerHTML = `
-                            <span class="inline-spinner"></span> Step 2: Using AI to fix diagram...
-                        `;
-                        preElement.replaceWith(fixingDiv);
-                        
-                        try {
-                            const fixResult = await attemptMermaidFix(
-                                window.ai,
-                                quotedDiagram, // Use the quoted version for LLM
-                                error.message || 'Unknown error'
-                            );
-                            
-                            if (fixResult.fixed && fixResult.diagram) {
-                                // Try rendering the fixed diagram
-                                try {
-                                    const uniqueId = `mermaid-fixed-${message.id}-${Math.random().toString(36).substring(2)}`;
-                                    const { svg } = await mermaidManager.render(uniqueId, fixResult.diagram);
-                                    
-                                    // Success! Show the fixed diagram
-                                    if (DEBUG_FLAGS.mermaid_debug) {
-                                        if (DEBUG_FLAGS.mermaid_debug) {
-                                    logger.log('✨ Mermaid diagram successfully fixed by AI and rendered');
-                                }
-                                    }
-                                    renderMermaidThumbnailWithTheme(fixingDiv, svg, mermaidManager.getCurrentTheme(), fixResult.diagram);
-                                    return; // Exit early on success
-                                } catch (retryError) {
-                                    logger.error('Fixed diagram still failed to render:', retryError);
-                                }
-                            }
-                        } catch (fixError) {
-                            if (DEBUG_FLAGS.mermaid_debug) {
-                                logger.error('Error during Mermaid fix attempt:', fixError);
-                            }
-                        }
-                        
-                        // If we get here, fix attempt failed
-                        const errorDiv = document.createElement('div');
-                        errorDiv.className = 'mermaid-error';
-                        errorDiv.innerHTML = `
-                            [Sensei's diagram could not be rendered, and automatic fix failed]<br>
-                            <pre><code>${rawMermaidCode}</code></pre>
-                        `;
-                        fixingDiv.replaceWith(errorDiv);
-                    }
+
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'mermaid-error';
+                    errorDiv.innerHTML = `
+                        [Sensei's diagram could not be rendered, and automatic fix failed]<br>
+                        <pre><code>${rawMermaidCode}</code></pre>
+                    `;
+                    fixingDiv.replaceWith(errorDiv);
                 } else {
-                    // Original error display (no AI available or already attempted)
                     const errorDiv = document.createElement('div');
                     errorDiv.className = 'mermaid-error';
                     errorDiv.innerHTML = `
@@ -1612,80 +1572,43 @@ export async function processMermaidBlocks(messageId: string) {
             if (DEBUG_FLAGS.mermaid_debug) {
                 logger.error("Mermaid rendering failed:", error);
             }
-            
-            // Attempt recovery with our three-step approach
             if (!block.getAttribute('data-recovery-attempted')) {
                 block.setAttribute('data-recovery-attempted', 'true');
-                
-                // Step 0: Try backtick fix first
-                const backtickFixedDiagram = applyBacktickFix(rawMermaidCode);
-                
-                // Step 1: Try universal quote fix
-                const quotedDiagram = applyUniversalQuoteFix(backtickFixedDiagram);
-                
-                // If the diagram changed after backtick + quote fixes, try rendering it
-                if (quotedDiagram !== rawMermaidCode) {
-                    try {
-                        const uniqueId = `mermaid-fixed-${messageId}-${Math.random().toString(36).substring(2)}`;
-                        const { svg } = await mermaidManager.render(uniqueId, quotedDiagram);
-                        
-                        // Success with preprocessing fixes!
-                        renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), quotedDiagram);
-                        continue; // Move to next block
-                    } catch (quotedError) {
-                        logger.log('Preprocessing fixes applied but diagram still has errors, proceeding to Step 2...');
-                    }
-                }
-                
-                // Step 2: If quote fix didn't work and AI is available, use LLM recovery
-                if (window.ai) {
-                    // Show "attempting to fix" message
-                    const fixingDiv = document.createElement('div');
-                    fixingDiv.className = 'mermaid-error';
-                    fixingDiv.style.color = '#f59e0b'; // Orange color for "working" state
-                    fixingDiv.innerHTML = `
-                        <span class="inline-spinner"></span> Step 2: Using AI to fix diagram...
-                    `;
-                    preElement.replaceWith(fixingDiv);
-                    
-                    try {
-                        const fixResult = await attemptMermaidFix(
-                            window.ai,
-                            quotedDiagram, // Use the quoted version for LLM
-                            error.message || 'Unknown error'
-                        );
-                        
-                        if (fixResult.fixed && fixResult.diagram) {
-                            // Try rendering the fixed diagram
-                            try {
-                                const uniqueId = `mermaid-fixed-${messageId}-${Math.random().toString(36).substring(2)}`;
-                                const { svg } = await mermaidManager.render(uniqueId, fixResult.diagram);
-                                
-                                // Success! Show the fixed diagram
-                                if (DEBUG_FLAGS.mermaid_debug) {
-                                    logger.log('✨ Mermaid diagram successfully fixed by AI and rendered');
-                                }
-                                renderMermaidThumbnailWithTheme(fixingDiv, svg, mermaidManager.getCurrentTheme(), fixResult.diagram);
-                                continue; // Move to next block
-                            } catch (retryError) {
-                                logger.error('Fixed diagram still failed to render:', retryError);
-                            }
+
+                const fixingDiv = document.createElement('div');
+                fixingDiv.className = 'mermaid-error';
+                fixingDiv.style.color = '#f59e0b';
+                fixingDiv.innerHTML = `
+                    <span class="inline-spinner"></span> Attempting to fix diagram...
+                `;
+                preElement.replaceWith(fixingDiv);
+
+                try {
+                    const recoveryResult = await runMermaidRecovery({
+                        ai: window.ai || null,
+                        initialDiagram: rawMermaidCode,
+                        initialError: error.message || 'Unknown error',
+                        renderAttempt: async (diagram: string) => {
+                            const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
+                            return mermaidManager.render(uniqueId, diagram);
                         }
-                    } catch (fixError) {
-                        logger.error('Error during Mermaid fix attempt:', fixError);
+                    });
+                    if (recoveryResult) {
+                        renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
+                        continue;
                     }
-                    
-                    // If we get here, fix attempt failed
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'mermaid-error';
-                    errorDiv.innerHTML = `
-                        [Sensei's diagram could not be rendered, and automatic fix failed]<br>
-                        <pre><code>${rawMermaidCode}</code></pre>
-                    `;
-                    fixingDiv.replaceWith(errorDiv);
+                } catch (fixError) {
+                    logger.error('Error during Mermaid recovery:', fixError);
                 }
+
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'mermaid-error';
+                errorDiv.innerHTML = `
+                    [Sensei's diagram could not be rendered, and automatic fix failed]<br>
+                    <pre><code>${rawMermaidCode}</code></pre>
+                `;
+                fixingDiv.replaceWith(errorDiv);
             } else {
-                // Original error display (no AI available or already attempted)
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'mermaid-error';
                 errorDiv.innerHTML = `

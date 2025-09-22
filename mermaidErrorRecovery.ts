@@ -374,3 +374,41 @@ export async function attemptMermaidFix(
         };
     }
 }
+
+interface MermaidRecoveryOptions {
+    ai: GoogleGenAI | null;
+    initialDiagram: string;
+    initialError: string;
+    renderAttempt: (diagram: string) => Promise<{ svg: string }>;
+    maxAttempts?: number;
+}
+
+export async function runMermaidRecovery(options: MermaidRecoveryOptions): Promise<{ svg: string; diagram: string } | null> {
+    const { ai, initialDiagram, initialError, renderAttempt, maxAttempts = 5 } = options;
+    let currentDiagram = applyUniversalQuoteFix(applyBacktickFix(initialDiagram));
+    let currentError = initialError;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const result = await renderAttempt(currentDiagram);
+            return { svg: result.svg, diagram: currentDiagram };
+        } catch (err: any) {
+            logger.error('[MERMAID_RECOVERY] Attempt', attempt, 'render failed:', err?.message || err);
+            currentError = err?.message || 'Unknown render error';
+            if (!ai) {
+                break;
+            }
+            try {
+                const fixResult = await attemptMermaidFix(ai, currentDiagram, currentError);
+                if (fixResult.diagram) {
+                    currentDiagram = fixResult.diagram;
+                }
+            } catch (fixError: any) {
+                logger.error('[MERMAID_RECOVERY] Attempt', attempt, 'fix invocation failed:', fixError?.message || fixError);
+            }
+        }
+    }
+
+    logger.error('[MERMAID_RECOVERY] Exhausted attempts without render');
+    return null;
+}
