@@ -444,12 +444,6 @@ export function updateSenseiMeditationOverlay(
         return;
     }
     
-    logMeditationValidation('overlay-show', {
-        chunkIndex: curriculumState.currentTeachingChunkIndex,
-        chunkLength: currentChunk.length,
-        totalChunks: curriculumState.teachingPlanForPhase.length
-    });
-
     // Clear existing content
     meditationActionItems.innerHTML = '';
     
@@ -484,9 +478,6 @@ export function updateSenseiMeditationOverlay(
         progressButton.onclick = (e) => {
             e.stopPropagation();
             meditationHoverState.showAllChunks = !meditationHoverState.showAllChunks;
-            logMeditationValidation('view-mode-toggled', {
-                showAllChunks: meditationHoverState.showAllChunks
-            });
             updateSenseiMeditationOverlay(curriculumState, true);
         };
     }
@@ -657,10 +648,6 @@ function showMeditationOverlay(): void {
     }
 
     const actionItemCount = meditationActionItems ? meditationActionItems.children.length : 0;
-    logMeditationValidation('overlay-visible', {
-        showAllChunks: meditationHoverState.showAllChunks,
-        actionItemCount
-    });
     meditationOverlay.style.display = 'block';
     meditationOverlay.style.pointerEvents = 'auto'; // CRITICAL: Enable pointer events!
 
@@ -668,7 +655,6 @@ function showMeditationOverlay(): void {
     // Remove any existing listeners first to avoid duplicates
     meditationOverlay.onmouseenter = () => {
         meditationHoverState.isOverOverlay = true;
-        logMeditationValidation('hover-overlay-enter');
         // Clear any existing timeout
         if (meditationHoverState.hoverTimeout) {
             clearTimeout(meditationHoverState.hoverTimeout);
@@ -678,7 +664,6 @@ function showMeditationOverlay(): void {
 
     meditationOverlay.onmouseleave = () => {
         meditationHoverState.isOverOverlay = false;
-        logMeditationValidation('hover-overlay-leave');
         // Check if we should hide
         if (!meditationHoverState.isOverBrand && !meditationHoverState.isOverOverlay) {
             meditationHoverState.hoverTimeout = window.setTimeout(() => {
@@ -1972,11 +1957,6 @@ function setupBrandHoverMeditationOverlay(): void {
 
         // Get current curriculum state from global scope if available
         const curriculumState = (window as any).curriculumState || null;
-        logMeditationValidation('hover-brand-enter', {
-            hasCurriculumState: !!curriculumState,
-            hasTeachingPlan: !!curriculumState?.teachingPlanForPhase,
-            chunkIndex: curriculumState?.currentTeachingChunkIndex ?? null
-        });
         updateSenseiMeditationOverlay(curriculumState, true);
     });
 
