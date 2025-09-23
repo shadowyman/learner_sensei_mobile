@@ -1083,6 +1083,16 @@ body::before {
     border-radius: 0;
 }
 
+.message-bubble[data-sender="sensei"] .markdown-content pre {
+    max-height: 450px;
+    overflow-y: auto;
+}
+
+#response-modal-text-content pre {
+    max-height: 450px;
+    overflow-y: auto;
+}
+
 .code-block-language-display {
     display: block;
     margin: -15px -15px 12px -15px;
