@@ -2,7 +2,9 @@
   "compilerOptions": {
     "module": "nodenext",
     "target": "esnext",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
@@ -14,6 +16,15 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-    "allowJs": true
-  }
+    "allowJs": true,
+    "typeRoots": [
+      "./types",
+      "./node_modules/@types"
+    ]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.d.ts"
+  ]
 }
