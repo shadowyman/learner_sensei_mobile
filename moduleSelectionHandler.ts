@@ -423,28 +423,27 @@ ${coreInstruction}
                     logger.error("Error generating phase intro:", error);
                     introResponseText = `Welcome to the **${phaseDisplayName}** phase of **${selectedModule.title}**! Let's begin exploring ${conceptTitle}.`;
                     this.updateResponseHistory(introResponseText, senseiIntroId);
-                } finally {
-                    const messageBubble = document.getElementById(senseiIntroId);
-                    if (messageBubble) {
-                        messageBubble.classList.remove('loading');
-                        messageBubble.removeAttribute('data-typing');
-                        
-                        const existingCursor = messageBubble.querySelector('.typing-cursor');
-                        if (existingCursor) {
-                            existingCursor.remove();
-                        }
-                        
-                        const messageTextEl = messageBubble.querySelector('.message-text');
-                        if (messageTextEl) {
-                            messageTextEl.classList.remove('streaming');
-                        }
-                        
-                        messageBubble.dataset.reloadable = 'true';
-                        messageBubble.dataset.reloadType = 'moduleIntro';
-                        messageBubble.dataset.reloadContext = JSON.stringify(reloadContext);
-                    }
-                    await processMermaidBlocks(senseiIntroId);
                 }
+
+                await displayMessage({
+                    id: senseiIntroId,
+                    sender: 'sensei',
+                    displayName: 'Recursive Sensei',
+                    text: introResponseText,
+                    timestamp: new Date(),
+                    isLoading: false,
+                    isReloadable: true,
+                    reloadContext: reloadContext,
+                    skipMermaid: true,
+                });
+                const messageBubble = document.getElementById(senseiIntroId);
+                if (messageBubble) {
+                    messageBubble.dataset.reloadable = 'true';
+                    messageBubble.dataset.reloadType = 'moduleIntro';
+                    messageBubble.dataset.reloadContext = JSON.stringify(reloadContext);
+                }
+                logger.info('[MODULE_INTRO_RELOAD] Intro bubble finalized', { messageId: senseiIntroId });
+                await processMermaidBlocks(senseiIntroId);
             }
             
             this.state.userInputHistory = [];
