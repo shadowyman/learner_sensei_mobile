@@ -202,7 +202,20 @@ ${allWeakPoints.map(p => `    - "${p}"`).join('\n')}
 
         case 'Executing':
             const currentChunkIndex = state.planOrder[state.currentPlanStep];
-            const pointsToRemediate = state.plan.get(currentChunkIndex)!; // pointsToRemediate is TeachingPoint[]
+            if (currentChunkIndex === undefined) {
+                logger.warn('[CONSOLIDATION_STATE] Missing plan index', {
+                    currentPlanStep: state.currentPlanStep,
+                    planOrderLength: state.planOrder.length
+                });
+                return `${CURRICULUM_FOCUS_HEADER_BASE}`;
+            }
+            const pointsToRemediate = state.plan.get(currentChunkIndex);
+            if (!pointsToRemediate) {
+                logger.warn('[CONSOLIDATION_STATE] Missing remediation points', {
+                    currentChunkIndex
+                });
+                return `${CURRICULUM_FOCUS_HEADER_BASE}`;
+            }
             primaryActionType = `Consolidation: Execute Reteaching (Chunk ${currentChunkIndex + 1})`;
             primaryActionInstruction = `You are executing step ${state.currentPlanStep + 1} of the reteaching plan you previously announced.
 1.  **State Your Focus:** Begin by saying you are now focusing on the points from Chunk ${currentChunkIndex + 1}.

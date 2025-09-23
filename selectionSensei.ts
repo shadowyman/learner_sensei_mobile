@@ -8,8 +8,8 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { marked } from 'marked';
 import { sanitizeCodeFences, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks, setupTextareaAutosize } from './ui';
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
-import { mermaidManager } from './mermaidManager.js';
-import { runMermaidRecovery } from './mermaidErrorRecovery.js';
+import { mermaidManager } from './mermaidManager';
+import { runMermaidRecovery } from './mermaidErrorRecovery';
 import { 
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
     SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION,
@@ -17,6 +17,8 @@ import {
 } from './prompts';
 import { SELECTION_SENSEI_CONFIG } from './model_usage';
 import { notepad } from './notepad';
+
+type ContentStrategy = 'parsed-full' | 'explanation-only' | 'raw-fallback' | 'error';
 
 // Declare hljs for TypeScript if it's loaded globally from a CDN
 declare var hljs: any;
@@ -165,12 +167,14 @@ class SelectionSensei {
             const selectedText = selection.toString().trim();
             if (selectedText.length > 0) {
                 const range = selection.getRangeAt(0);
-                let parentElement = range.commonAncestorContainer;
+                let parentElement: Node | null = range.commonAncestorContainer;
                 if (parentElement.nodeType === Node.TEXT_NODE) {
-                    parentElement = parentElement.parentElement;
+                    parentElement = parentElement.parentElement ?? parentElement;
                 }
 
-                const senseiMessageTextElement = (parentElement as HTMLElement)?.closest('.message-bubble[data-sender="sensei"] .message-text');
+                const senseiMessageTextElement = parentElement instanceof HTMLElement
+                    ? parentElement.closest('.message-bubble[data-sender="sensei"] .message-text')
+                    : null;
                 if (senseiMessageTextElement) {
                     const originalSenseiMessageText = senseiMessageTextElement.textContent || ""; 
                     
@@ -401,7 +405,7 @@ class SelectionSensei {
         // Ensure DOM elements are still valid (important after save/load)
         this.ensureDOMElementsValid();
 
-        if (!this.responseModalTextContent || !this.responseModalSpinner || !this.responseModalTitleElement) {
+        if (!this.responseModal || !this.responseModalTextContent || !this.responseModalSpinner || !this.responseModalTitleElement) {
             logger.error("Selection Sensei: Cannot update content - required elements missing", {
                 modalTextContent: !!this.responseModalTextContent,
                 modalSpinner: !!this.responseModalSpinner,
@@ -570,7 +574,14 @@ class SelectionSensei {
                 }
             }
             
-            return { suggestedTitle: title, explanation: explanation };
+            const result: { suggestedTitle?: string; explanation?: string } = {};
+            if (title !== undefined) {
+                result.suggestedTitle = title;
+            }
+            if (explanation !== undefined) {
+                result.explanation = explanation;
+            }
+            return result;
         } catch (error) {
             logger.warn("[SENSEI_SELECTION] Regex extraction failed:", error);
             return {};
@@ -676,7 +687,7 @@ class SelectionSensei {
         let responseLength = 0;
         let hadFence = false;
         let parseStrategy: 'direct' | 'repaired' | 'regex' | 'failed' = 'failed';
-        let contentStrategy: 'pending' | 'parsed-full' | 'explanation-only' | 'raw-fallback' | 'error' = 'pending';
+        let contentStrategy: ContentStrategy = 'error';
         let hasTitle = false;
         let hasExplanation = false;
 
@@ -776,9 +787,7 @@ class SelectionSensei {
                 );
             }
         } catch (error) {
-            if (contentStrategy === 'pending') {
-                contentStrategy = 'error';
-            }
+            contentStrategy = 'error';
             // Improved error logging to capture the actual error details
             const errorMessage = error instanceof Error ? error.message : String(error);
             const errorStack = error instanceof Error ? error.stack : '';
@@ -806,9 +815,6 @@ class SelectionSensei {
             await this.updateResponseModalContentAndTitle("Error", userMessage);
         }
 
-        if (contentStrategy === 'pending') {
-            contentStrategy = 'error';
-        }
         logSelectionSenseiValidation('response-handled', {
             actionType,
             parseStrategy,

@@ -84,6 +84,11 @@ export class Notepad {
         }
         
         const concept = module.concepts[this.currentActiveConceptIndex];
+        if (!concept) {
+            logger.warn('Cannot add note: target concept missing');
+            return;
+        }
+
         const note: Note = {
             id: crypto.randomUUID(),
             moduleTitle: module.title,
@@ -91,10 +96,12 @@ export class Notepad {
             conceptIndex: this.currentActiveConceptIndex,
             moduleIndex: this.currentModuleIndex,
             text: markdownText,
-            htmlContent: htmlContent,
             timestamp: new Date()
         };
-        
+        if (htmlContent !== undefined) {
+            note.htmlContent = htmlContent;
+        }
+
         this.state.notes.push(note);
         logNotepadActivity('note-added', {
             moduleTitle: module.title,
@@ -191,45 +198,50 @@ export class Notepad {
         
         // Group notes by module index first
         const notesByModule = new Map<number, Map<number, Note[]>>();
-        this.state.notes.forEach(note => {
+        for (const note of this.state.notes) {
+            const moduleNotes = notesByModule.get(note.moduleIndex) ?? new Map<number, Note[]>();
             if (!notesByModule.has(note.moduleIndex)) {
-                notesByModule.set(note.moduleIndex, new Map<number, Note[]>());
+                notesByModule.set(note.moduleIndex, moduleNotes);
             }
-            const moduleNotes = notesByModule.get(note.moduleIndex)!;
-            
+            const conceptNotes = moduleNotes.get(note.conceptIndex) ?? [];
             if (!moduleNotes.has(note.conceptIndex)) {
-                moduleNotes.set(note.conceptIndex, []);
+                moduleNotes.set(note.conceptIndex, conceptNotes);
             }
-            moduleNotes.get(note.conceptIndex)!.push(note);
-        });
-        
+            conceptNotes.push(note);
+        }
+
         let html = '';
-        notesByModule.forEach((conceptsMap, moduleIndex) => {
-            // Get module title from the first note
-            const firstNote = conceptsMap.values().next().value[0];
-            const moduleTitle = firstNote.moduleTitle;
-            
+        for (const [moduleIndex, conceptsMap] of notesByModule.entries()) {
+            const conceptIterator = conceptsMap.values().next();
+            if (conceptIterator.done || conceptIterator.value.length === 0) {
+                continue;
+            }
+            const moduleTitle = conceptIterator.value[0]?.moduleTitle ?? `Module ${moduleIndex + 1}`;
+
             html += `<div class="notepad-module-section">
                 <h2 class="notepad-module-header">Module: ${moduleTitle}</h2>`;
-            
-            conceptsMap.forEach((notes, conceptIndex) => {
-                const conceptTitle = notes[0].conceptTitle;
+
+            for (const notes of conceptsMap.values()) {
+                if (notes.length === 0) {
+                    continue;
+                }
+                const conceptTitle = notes[0]?.conceptTitle ?? 'Concept';
                 html += `<div class="notepad-concept-section">
                     <h3 class="notepad-concept-header">${conceptTitle}</h3>
                     <div class="notepad-notes-list">`;
-                
+
                 notes.forEach((note, index) => {
                     if (index > 0) {
                         html += '<hr class="notepad-note-separator">';
                     }
                     html += this.createNoteCard(note);
                 });
-                
+
                 html += '</div></div>';
-            });
-            
+            }
+
             html += '</div>';
-        });
+        }
         
         container.innerHTML = html;
         this.attachNoteEventListeners();
@@ -257,7 +269,9 @@ export class Notepad {
         if (!container) return;
         
         // Remove any existing listeners first
-        container.removeEventListener('click', this.handleNoteClick);
+        if (this.handleNoteClick) {
+            container.removeEventListener('click', this.handleNoteClick);
+        }
         
         // Create bound handler if not exists
         if (!this.handleNoteClick) {
@@ -284,7 +298,10 @@ export class Notepad {
         }
         
         // Attach single delegated event listener
-        container.addEventListener('click', this.handleNoteClick);
+        const handler = this.handleNoteClick;
+        if (handler) {
+            container.addEventListener('click', handler);
+        }
     }
     
     private toggleEditMode(card: HTMLElement): void {
@@ -306,7 +323,11 @@ export class Notepad {
         const note = this.state.notes.find(n => n.id === noteId);
         if (!note) return;
         
-        const editButton = card.querySelector('.notepad-note-edit') as HTMLButtonElement;
+        const editButton = card.querySelector('.notepad-note-edit') as HTMLButtonElement | null;
+        if (!editButton) {
+            logger.warn('Edit button not found for note card', { noteId });
+            return;
+        }
         editButton.style.display = 'none';
         
         // Add editing class

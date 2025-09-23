@@ -138,7 +138,7 @@ export class SaveLoadProgressManager {
             // Re-initialize SelectionSensei after DOM has been rebuilt
             // Add a small delay to ensure DOM is fully settled
             setTimeout(async () => {
-                const { reinitializeSelectionSensei } = await import('./selectionSensei');
+                const { reinitializeSelectionSensei } = await import('./selectionSensei.js');
                 const w = window as any;
                 if (w.ai) {
                     reinitializeSelectionSensei(w.ai);
@@ -304,7 +304,7 @@ export class SaveLoadProgressManager {
                         } else {
                             // Try another pattern - sometimes the user input is at the end after all directives
                             const lines = content.split('\n');
-                            const userStartIndex = lines.findLastIndex(line => line.trim().startsWith('User:'));
+                            const userStartIndex = lines.findLastIndex((line: string) => line.trim().startsWith('User:'));
                             if (userStartIndex !== -1) {
                                 content = lines.slice(userStartIndex).join('\n').replace(/^User:\s*/, '');
                             }
@@ -450,7 +450,7 @@ export class SaveLoadProgressManager {
         if (!displayMessage) {
             // Try importing directly as fallback
             try {
-                const uiModule = await import('./ui');
+                const uiModule = await import('./ui.js');
                 const displayMessageFunc = uiModule.displayMessage;
                 
                 // Preserve the meditation overlay before clearing

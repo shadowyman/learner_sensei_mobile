@@ -265,8 +265,9 @@ function updateSelectAllCheckboxState() {
 }
 
 function populateFileList() {
-    if (!debugFileListElement || !availableProjectFilePaths) return;
-    debugFileListElement.innerHTML = ''; 
+    const listElement = debugFileListElement;
+    if (!listElement || !availableProjectFilePaths) return;
+    listElement.innerHTML = ''; 
 
     const sortedFileNames = [...availableProjectFilePaths].sort();
 
@@ -291,7 +292,7 @@ function populateFileList() {
                 pill.click();
             }
         });
-        debugFileListElement.appendChild(pill);
+        listElement.appendChild(pill);
     });
     updateSelectAllCheckboxState();
 }
@@ -756,12 +757,13 @@ The codebase context for your analysis begins now.\n\n`;
 }
 
 async function handleExportContext() { // NOSONAR
-    if (!debugExportContextButtonElement) return;
+    const exportButton = debugExportContextButtonElement;
+    if (!exportButton) return;
 
     const originalButtonIcon = '📋';
-    debugExportContextButtonElement.disabled = true;
-    debugExportContextButtonElement.textContent = '...';
-    debugExportContextButtonElement.title = 'Generating and copying context...';
+    exportButton.disabled = true;
+    exportButton.textContent = '...';
+    exportButton.title = 'Generating and copying context...';
 
     const llmPrimingPrompt = `You are an expert-level AI programmer and software architect. Your task is to analyze the provided codebase context to understand its structure and assist with bug fixes, feature implementation, or architectural analysis.
 
@@ -784,7 +786,7 @@ Below is the full context of the relevant files selected for your current task. 
         // Create a promise that resolves with the final Blob.
         // This is the key to satisfying browser security: we pass the promise
         // to the clipboard API immediately, within the click event's synchronous context.
-        const finalBlobPromise = (async () => {
+    const finalBlobPromise = (async () => {
             // Concurrently fetch all files as Blobs to be memory efficient.
             const fileContentBlobPromises = selectedFiles.map(async (fileName) => {
                 try {
@@ -805,8 +807,12 @@ Below is the full context of the relevant files selected for your current task. 
             // Assemble an array of Blobs and strings. The Blob constructor can handle this.
             const allParts: (string | Blob)[] = [llmPrimingPrompt, '\n\n'];
             selectedFiles.forEach((fileName, index) => {
+                const fileBlob = fileBlobs[index];
+                if (!fileBlob) {
+                    throw new Error(`Missing blob content for ${fileName}`);
+                }
                 allParts.push(`--- File: ${fileName} ---\n`);
-                allParts.push(fileBlobs[index]);
+                allParts.push(fileBlob);
                 allParts.push('\n\n');
             });
 
@@ -816,22 +822,28 @@ Below is the full context of the relevant files selected for your current task. 
         // Pass the promise directly to the ClipboardItem.
         await navigator.clipboard.write([new ClipboardItem({ 'text/plain': finalBlobPromise })]);
 
-        debugExportContextButtonElement.textContent = 'Copied!';
-        debugExportContextButtonElement.title = 'Context copied!';
+        if (exportButton) {
+            exportButton.textContent = 'Copied!';
+            exportButton.title = 'Context copied!';
+        }
 
     } catch (error) {
         logger.error("Failed to generate and copy context:", error);
-        debugExportContextButtonElement.textContent = 'Error!';
-        debugExportContextButtonElement.title = 'Operation failed. See console.';
+        if (exportButton) {
+            exportButton.textContent = 'Error!';
+            exportButton.title = 'Operation failed. See console.';
+        }
         // For this specific error, log a helpful tip.
         if (error instanceof Error && error.name === 'NotAllowedError') {
              logger.warn("Clipboard write was not allowed. This can happen if the browser tab is not focused when you click the button, or if you are running in a restrictive environment like an iframe without clipboard permissions.");
         }
     } finally {
         setTimeout(() => {
-            debugExportContextButtonElement.innerHTML = originalButtonIcon;
-            debugExportContextButtonElement.title = 'Generate context for export';
-            debugExportContextButtonElement.disabled = false;
+            if (exportButton) {
+                exportButton.innerHTML = originalButtonIcon;
+                exportButton.title = 'Generate context for export';
+                exportButton.disabled = false;
+            }
         }, 2000);
     }
 }

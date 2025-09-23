@@ -27,9 +27,10 @@ const mockItem: CurriculumItem = {
         title: "Base Case",
         text: "The base case is the condition that stops the recursion"
     },
-    isModuleWidePhase: false,
-    methodologies: [],
-    curriculumPathId: "M1.C1.P1"
+    curriculumPathId: "M1.C1.P1",
+    isLastConceptInModule: false,
+    isLastPhaseForConcept: false,
+    isModuleWidePhase: false
 };
 
 const mockState: CurriculumState = {
@@ -43,10 +44,9 @@ const mockState: CurriculumState = {
             { text: "The base case is the simplest form of the problem", kcValue: 0.3 }
         ]
     ],
-    coveredPointsInCurrentChunk: new Set(),
-    phaseScores: {},
+    coveredPointsInCurrentChunk: new Set<string>(),
+    pointsToRevisitInCurrentChunk: new Set<string>(),
     isCompleted: false,
-    pointsToRevisitInCurrentChunk: null,
     activeConsolidationState: null
 };
 

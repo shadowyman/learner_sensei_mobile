@@ -7,7 +7,7 @@
 import { logger, DEBUG_FLAGS } from './logger';
 import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
 import { LearnerModel } from './adaptiveEngine';
-import { runMermaidRecovery } from './mermaidErrorRecovery.js';
+import { runMermaidRecovery } from './mermaidErrorRecovery';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { mermaidManager, DEFAULT_MERMAID_THEME } from './mermaidManager.js';
@@ -133,8 +133,6 @@ export function getPhaseDisplayName(phase: Phase): string {
         case 'IntroIllustrate': return "Teaching";
         case 'Socratic': return "Exploration";
         case 'Solidify': return "Wrap Up";
-        case 'Socratic_Module': return "Module Discussion";
-        case 'Solidify_Module': return "Module Wrap-up";
         default: return "Exploring...";
     }
 }
@@ -207,13 +205,13 @@ export function updateCurriculumDisplay(
     if (curriculumItem && currentPhase) {
         const moduleTitle = curriculumItem.moduleTitle;
         const phaseLabel = getPhaseDisplayName(currentPhase);
-        const conceptTitle = curriculumItem.concept?.title || null;
-        setStatusLines(moduleTitle, phaseLabel, {
-            conceptTitle: conceptTitle || undefined,
+        const conceptTitle = curriculumItem.concept?.title?.trim();
+        const options = {
             moduleTitleTooltip: moduleTitle,
             phaseTooltip: phaseLabel,
-            conceptTooltip: conceptTitle || undefined
-        });
+            ...(conceptTitle ? { conceptTitle, conceptTooltip: conceptTitle } : {})
+        };
+        setStatusLines(moduleTitle, phaseLabel, options);
 
         // Sync KC progress bar with current curriculum state
         if (learnerModel && curriculumItem) {
@@ -417,17 +415,18 @@ export function updateSenseiMeditationOverlay(
     curriculumState: CurriculumState | null,
     isVisible: boolean
 ): void {
-    // Get elements lazily to ensure DOM is ready
-    if (!meditationOverlay) {
-        meditationOverlay = document.getElementById('sensei-meditation-overlay') as HTMLDivElement;
-    }
-    if (!meditationActionItems) {
-        meditationActionItems = document.getElementById('meditation-action-items') as HTMLDivElement;
-    }
-    
-    if (!meditationOverlay || !meditationActionItems) {
+    const overlayElement = meditationOverlay ?? (document.getElementById('sensei-meditation-overlay') as HTMLDivElement | null);
+    const actionItemsElement = meditationActionItems ?? (document.getElementById('meditation-action-items') as HTMLDivElement | null);
+
+    if (!overlayElement || !actionItemsElement) {
         return;
     }
+
+    meditationOverlay = overlayElement;
+    meditationActionItems = actionItemsElement;
+
+    const overlay = overlayElement;
+    const actionItems = actionItemsElement;
 
     if (!isVisible) {
         hideMeditationOverlay();
@@ -445,18 +444,18 @@ export function updateSenseiMeditationOverlay(
     }
     
     // Clear existing content
-    meditationActionItems.innerHTML = '';
+    actionItems.innerHTML = '';
     
     // Update chunk progress indicator
     const totalChunks = curriculumState.teachingPlanForPhase.length;
     const currentChunkNumber = curriculumState.currentTeachingChunkIndex + 1; // Convert to 1-based indexing
     
     // Find or create the chunk progress element
-    let chunkProgress = meditationOverlay.querySelector('.meditation-chunk-progress') as HTMLElement;
+    let chunkProgress = overlay.querySelector('.meditation-chunk-progress') as HTMLElement;
     if (!chunkProgress) {
         chunkProgress = document.createElement('div');
         chunkProgress.className = 'meditation-chunk-progress';
-        const meditationHeader = meditationOverlay.querySelector('.meditation-header');
+        const meditationHeader = overlay.querySelector('.meditation-header');
         if (meditationHeader) {
             meditationHeader.appendChild(chunkProgress);
         }
@@ -485,7 +484,7 @@ export function updateSenseiMeditationOverlay(
     // Check if we should show all chunks or just current chunk
     if (meditationHoverState.showAllChunks) {
         // Show all chunks as cards
-        meditationActionItems.classList.add('all-chunks-view');
+        actionItems.classList.add('all-chunks-view');
 
         curriculumState.teachingPlanForPhase.forEach((chunk, chunkIndex) => {
             const chunkCard = document.createElement('div');
@@ -598,11 +597,11 @@ export function updateSenseiMeditationOverlay(
             });
 
             chunkCard.appendChild(chunkItems);
-            meditationActionItems.appendChild(chunkCard);
+            actionItems.appendChild(chunkCard);
         });
     } else {
         // Show single chunk (current behavior)
-        meditationActionItems.classList.remove('all-chunks-view');
+        actionItems.classList.remove('all-chunks-view');
 
         const coveredPoints = curriculumState.coveredPointsInCurrentChunk || new Set();
         const pointsToRevisit = curriculumState.pointsToRevisitInCurrentChunk || new Set();
@@ -635,7 +634,7 @@ export function updateSenseiMeditationOverlay(
                 <div class="action-item-text">${teachingPoint.text}</div>
             `;
 
-            meditationActionItems.appendChild(actionItemDiv);
+            actionItems.appendChild(actionItemDiv);
         });
     }
 
@@ -643,28 +642,25 @@ export function updateSenseiMeditationOverlay(
 }
 
 function showMeditationOverlay(): void {
-    if (!meditationOverlay) {
+    const overlayElement = meditationOverlay;
+    const actionItemsElement = meditationActionItems;
+    if (!overlayElement || !actionItemsElement) {
         return;
     }
 
-    const actionItemCount = meditationActionItems ? meditationActionItems.children.length : 0;
-    meditationOverlay.style.display = 'block';
-    meditationOverlay.style.pointerEvents = 'auto'; // CRITICAL: Enable pointer events!
+    overlayElement.style.display = 'block';
+    overlayElement.style.pointerEvents = 'auto';
 
-    // Set up hover listeners for the overlay NOW that it's visible
-    // Remove any existing listeners first to avoid duplicates
-    meditationOverlay.onmouseenter = () => {
+    overlayElement.onmouseenter = () => {
         meditationHoverState.isOverOverlay = true;
-        // Clear any existing timeout
         if (meditationHoverState.hoverTimeout) {
             clearTimeout(meditationHoverState.hoverTimeout);
             meditationHoverState.hoverTimeout = null;
         }
     };
 
-    meditationOverlay.onmouseleave = () => {
+    overlayElement.onmouseleave = () => {
         meditationHoverState.isOverOverlay = false;
-        // Check if we should hide
         if (!meditationHoverState.isOverBrand && !meditationHoverState.isOverOverlay) {
             meditationHoverState.hoverTimeout = window.setTimeout(() => {
                 updateSenseiMeditationOverlay(null, false);
@@ -673,67 +669,63 @@ function showMeditationOverlay(): void {
         }
     };
 
-    // Use Anime.js for entrance animation
     if (typeof anime !== 'undefined') {
-        // Container entrance
         anime({
-            targets: meditationOverlay,
+            targets: overlayElement,
             translateY: ['-20px', '0px'],
             scale: [0.9, 1],
             opacity: [0, 1],
             duration: 600,
             easing: 'easeOutExpo',
             complete: () => {
-                // Action items staggered reveal
                 anime({
                     targets: '.meditation-overlay .action-item',
                     translateY: ['15px', '0px'],
                     opacity: [0, 1],
                     scale: [0.8, 1],
                     duration: 500,
-                    delay: anime.stagger(80, {start: 200}),
+                    delay: anime.stagger(80, { start: 200 }),
                     easing: 'spring(1, 80, 10, 0)'
                 });
             }
         });
     } else {
-        // Fallback CSS animation
-        meditationOverlay.classList.add('visible');
+        overlayElement.classList.add('visible');
     }
 }
 
 function hideMeditationOverlay(): void {
-    if (!meditationOverlay) return;
+    const overlayElement = meditationOverlay;
+    if (!overlayElement) {
+        return;
+    }
 
-    // Clear any pending timeout when we're actually hiding
     if (meditationHoverState.hoverTimeout) {
         clearTimeout(meditationHoverState.hoverTimeout);
         meditationHoverState.hoverTimeout = null;
     }
 
-    // Reset to single chunk view for next time
     meditationHoverState.showAllChunks = false;
 
     if (typeof anime !== 'undefined') {
         anime({
-            targets: meditationOverlay,
+            targets: overlayElement,
             translateY: [0, '-15px'],
             scale: [1, 0.95],
             opacity: [1, 0],
             duration: 400,
             easing: 'easeInQuart',
             complete: () => {
-                meditationOverlay.style.display = 'none';
-                meditationOverlay.style.pointerEvents = 'none'; // Reset pointer events
-                meditationOverlay.classList.remove('visible');
+                overlayElement.style.display = 'none';
+                overlayElement.style.pointerEvents = 'none';
+                overlayElement.classList.remove('visible');
             }
         });
     } else {
-        // Fallback
-        meditationOverlay.classList.remove('visible');
+        overlayElement.classList.remove('visible');
         setTimeout(() => {
-            meditationOverlay.style.display = 'none';
-            meditationOverlay.style.pointerEvents = 'none'; // Reset pointer events
+            overlayElement.style.display = 'none';
+            overlayElement.style.pointerEvents = 'none';
         }, 400);
     }
 }
@@ -1051,7 +1043,7 @@ export async function displayMessage(message: Message) {
             
             let messageIndex = 0;
             const textSpan = document.createElement('span');
-            textSpan.textContent = loadingMessages[messageIndex];
+            textSpan.textContent = loadingMessages[messageIndex] ?? '';
             
             const dots = document.createElement('span');
             dots.classList.add('phase-loading-dots');
@@ -1077,13 +1069,12 @@ export async function displayMessage(message: Message) {
             // Cycle through messages
             const messageAnimation = setInterval(() => {
                 messageIndex = (messageIndex + 1) % loadingMessages.length;
-                const newMessage = loadingMessages[messageIndex];
-                
-                // Update the text content
+                const newMessage = loadingMessages[messageIndex] ?? '';
+
                 if ((loadingText as any).textSpan) {
                     (loadingText as any).textSpan.textContent = newMessage;
                 }
-            }, 5000); // Change message every 5 seconds
+            }, 5000);
             
             // Store animation intervals to clear later
             (bubble as any).dotAnimation = dotAnimation;
@@ -1283,7 +1274,12 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
             });
 
             addLanguageDisplayToCodeBlocks_internal(messageTextElement);
-            addCopyButtonsToCodeBlocks_internal(messageTextElement, { sender: messageBubble?.dataset.sender, messageId });
+            const enhancementContext: CodeBlockEnhancementContext = { messageId };
+            const bubbleSender = messageBubble?.dataset.sender;
+            if (bubbleSender) {
+                enhancementContext.sender = bubbleSender;
+            }
+            addCopyButtonsToCodeBlocks_internal(messageTextElement, enhancementContext);
 
             if (fullTextSoFar.length > 0) {
                 messageBubble.setAttribute('data-typing', 'true');
@@ -1413,7 +1409,7 @@ function setupHeaderEllipsisAnimation() {
         }
         let position = 0;
         intervalId = window.setInterval(() => {
-            const state = states[position];
+            const state = states[position] ?? '...';
             ellipsisDots.textContent = state;
             position += 1;
             if (position >= states.length) {
@@ -1601,7 +1597,7 @@ export async function cycleMermaidTheme() {
     const currentTheme = mermaidManager.getCurrentTheme();
     const currentIndex = themes.indexOf(currentTheme);
     const nextIndex = (currentIndex + 1) % themes.length;
-    const newTheme = themes[nextIndex];
+    const newTheme = themes[nextIndex] ?? currentTheme;
     
     await setMermaidTheme(newTheme);
     

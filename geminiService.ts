@@ -78,13 +78,23 @@ export async function llmExtractAndPlanTeachingOrder(
             const goalMatch = textToProcess.match(/Module Goal:\n(.+?)(?:\n\n|$)/s);
             const conceptsMatch = textToProcess.match(/All Module Concepts:\n([\s\S]+?)(?:\nSocratic Instructions|$)/);
             
-            if (titleMatch) extractedTitle = titleMatch[1].trim();
-            if (goalMatch) extractedGoal = goalMatch[1].trim();
-            if (conceptsMatch) {
+            const parsedTitle = titleMatch?.[1]?.trim();
+            if (parsedTitle) {
+                extractedTitle = parsedTitle;
+            }
+            const parsedGoal = goalMatch?.[1]?.trim();
+            if (parsedGoal) {
+                extractedGoal = parsedGoal;
+            }
+            const conceptsSection = conceptsMatch?.[1];
+            if (conceptsSection) {
                 // Extract concept titles from the concepts section
-                const conceptTitles = [...conceptsMatch[1].matchAll(/Concept \d+: (.+?)(?:\n|$)/g)]
-                    .map(match => match[1].trim());
-                extractedConcepts = conceptTitles.join(', ');
+                const conceptTitles = Array.from(conceptsSection.matchAll(/Concept \d+: (.+?)(?:\n|$)/g))
+                    .map(match => match[1]?.trim())
+                    .filter((title): title is string => Boolean(title && title.length > 0));
+                if (conceptTitles.length > 0) {
+                    extractedConcepts = conceptTitles.join(', ');
+                }
             }
             const goalPreview = extractedGoal ? extractedGoal.substring(0, 120) : '';
             const conceptCount = extractedConcepts ? extractedConcepts.split(',').filter(item => item.trim().length > 0).length : 0;
@@ -143,15 +153,20 @@ export async function llmExtractAndPlanTeachingOrder(
                 
                 // Transform Socratic plan to standard TeachingPoint format
                 // The plan already has kcValue from the prompt (0.65)
-                const detectedCategory = parsed.detected_category;
+                const detectedCategory = typeof parsed.detected_category === 'string' ? parsed.detected_category : undefined;
                 const transformedPlan: TeachingPoint[][] = socraticPlan.map((chunk: any[]) =>
-                    chunk.map((item: any) => ({
-                        text: item.text,
-                        kcValue: item.kcValue || 0.65,
-                        isSocraticIntent: item.isSocraticIntent,
-                        interactionGuidance: item.interactionGuidance,
-                        socraticMetadata: detectedCategory ? { detectedCategory } : undefined
-                    }))
+                    chunk.map((item: any) => {
+                        const point: TeachingPoint = {
+                            text: item.text,
+                            kcValue: item.kcValue || 0.65,
+                            isSocraticIntent: item.isSocraticIntent,
+                            interactionGuidance: item.interactionGuidance
+                        };
+                        if (detectedCategory) {
+                            point.socraticMetadata = { detectedCategory };
+                        }
+                        return point;
+                    })
                 );
                 
                 return transformedPlan;

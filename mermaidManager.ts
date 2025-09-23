@@ -283,10 +283,14 @@ class MermaidManager {
             }
 
             // Get the theme configuration
-            const theme = this.themes[this.currentTheme];
+            let theme = this.themes[this.currentTheme];
             if (!theme) {
                 logger.warn(`Theme "${this.currentTheme}" not found. Using ${DEFAULT_MERMAID_THEME} theme.`);
                 this.currentTheme = DEFAULT_MERMAID_THEME;
+                theme = this.themes[this.currentTheme];
+            }
+            if (!theme) {
+                throw new Error(`Mermaid theme configuration missing for ${this.currentTheme}`);
             }
 
             // Initialize mermaid with the theme configuration
@@ -296,7 +300,7 @@ class MermaidManager {
                 securityLevel: 'loose',
                 theme: 'base', // Use base theme for custom variables
                 themeVariables: {
-                    ...this.themes[this.currentTheme].config.themeVariables
+                    ...theme.config.themeVariables
                 },
                 flowchart: {
                     htmlLabels: true,

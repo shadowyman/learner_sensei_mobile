@@ -130,6 +130,7 @@ export interface LearningTrajectory {
     SessionProgress: string;
     InteractionCounter_On_Current_Topic: number; 
     LastMasteryCheckTimestamp: string;
+    totalInteractions?: number;
 }
 
 export interface CurrentTask {
@@ -281,7 +282,8 @@ function dynamicCategoricalUpdate<T extends string>(
     const roundedIndex = Math.round(resultNum);
     const clampedIndex = Math.max(0, Math.min(roundedIndex, numberToValueMap.length - 1));
     
-    return numberToValueMap[clampedIndex];
+    const candidate = numberToValueMap[clampedIndex];
+    return candidate === undefined ? newValue : candidate;
 }
 // --- UPDATE LOGIC ---
 
@@ -418,24 +420,33 @@ export function updateLearnerModel(
         }
 
         // 3. SRL Indicators (Stateful Update)
-        const newPlanningObserved = mapAnalysisValue(analysis.srl_indicators.planning_observed, model.SRL_Indicators.PlanningObserved);
-        model.SRL_Indicators.PlanningObserved = dynamicCategoricalUpdate(model.SRL_Indicators.PlanningObserved, newPlanningObserved, THREE_LEVEL_MAP, REVERSE_THREE_LEVEL_MAP);
+        const srlIndicators = analysis.srl_indicators;
+        if (srlIndicators) {
+            const newPlanningObserved = mapAnalysisValue(srlIndicators.planning_observed ?? 'Uncertain', model.SRL_Indicators.PlanningObserved);
+            model.SRL_Indicators.PlanningObserved = dynamicCategoricalUpdate(model.SRL_Indicators.PlanningObserved, newPlanningObserved, THREE_LEVEL_MAP, REVERSE_THREE_LEVEL_MAP);
 
-        const newMonitoringObserved = mapAnalysisValue(analysis.srl_indicators.monitoring_observed, model.SRL_Indicators.MonitoringObserved);
-        model.SRL_Indicators.MonitoringObserved = dynamicCategoricalUpdate(model.SRL_Indicators.MonitoringObserved, newMonitoringObserved, THREE_LEVEL_MAP, REVERSE_THREE_LEVEL_MAP);
+            const newMonitoringObserved = mapAnalysisValue(srlIndicators.monitoring_observed ?? 'Uncertain', model.SRL_Indicators.MonitoringObserved);
+            model.SRL_Indicators.MonitoringObserved = dynamicCategoricalUpdate(model.SRL_Indicators.MonitoringObserved, newMonitoringObserved, THREE_LEVEL_MAP, REVERSE_THREE_LEVEL_MAP);
 
-        const newHelpSeeking = mapAnalysisValue(analysis.srl_indicators.help_seeking_style as 'Low' | 'Medium' | 'High' | 'None', model.SRL_Indicators.HelpSeekingAppropriateness);
-        model.SRL_Indicators.HelpSeekingAppropriateness = dynamicCategoricalUpdate(model.SRL_Indicators.HelpSeekingAppropriateness, newHelpSeeking, HELP_SEEKING_MAP, REVERSE_HELP_SEEKING_MAP);
-        model.SRL_Indicators.StrategyUse = analysis.srl_indicators.strategy_hint.filter(s => s !== "None" && s !== "Uncertain") as SRLStrategy[];
+            const newHelpSeeking = mapAnalysisValue((srlIndicators.help_seeking_style as 'Low' | 'Medium' | 'High' | 'None' | 'Uncertain') ?? 'Uncertain', model.SRL_Indicators.HelpSeekingAppropriateness);
+            model.SRL_Indicators.HelpSeekingAppropriateness = dynamicCategoricalUpdate(model.SRL_Indicators.HelpSeekingAppropriateness, newHelpSeeking, HELP_SEEKING_MAP, REVERSE_HELP_SEEKING_MAP);
+            const strategyHints = srlIndicators.strategy_hint ?? [];
+            model.SRL_Indicators.StrategyUse = strategyHints.filter(s => s !== "None" && s !== "Uncertain") as SRLStrategy[];
+        }
 
 
         // 4. Misconceptions (standard update logic)
         analysis.misconception_hints.forEach(hint => {
             if (MISCONCEPTION_IDS.includes(hint.id)) { 
+                const existingMisconception = model.Misconceptions[hint.id];
+                if (existingMisconception === undefined) {
+                    logger.warn('[MISCONCEPTION_STATE] Missing misconception entry', { hintId: hint.id });
+                    return;
+                }
                 let change = 0;
                 if (hint.likelihood === 'High') change = 0.3;
                 else if (hint.likelihood === 'Medium') change = 0.15;
-                else if (hint.likelihood === 'Low' && model.Misconceptions[hint.id] > 0.05) change = -0.05;
+                else if (hint.likelihood === 'Low' && existingMisconception > 0.05) change = -0.05;
                 updateMisconception(model, hint.id, change);
 
                 if (hint.id === "Misconception_LoopingModel" && (hint.likelihood === 'High' || hint.likelihood === 'Medium')) {
@@ -523,9 +534,7 @@ export function updateLearnerModel(
                     const previousScore = model.contentPointsCoverage?.[verbatimPointText]?.understanding_score || 0.0;
                     const effectiveScore = Math.max(newAnalysisScore, previousScore);
 
-                    const currentChunkTeachingPoints: CurriculumTeachingPoint[] = (curriculumState.teachingPlanForPhase && curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex]) 
-                        ? curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex] 
-                        : [];
+                    const currentChunkTeachingPoints: CurriculumTeachingPoint[] = curriculumState.teachingPlanForPhase?.[curriculumState.currentTeachingChunkIndex] ?? [];
                     const teachingPointObject = currentChunkTeachingPoints.find(tp => tp.text === verbatimPointText);
 
 
@@ -653,6 +662,10 @@ export function overrideChunkUnderstanding(
         return { kcDelta: 0 };
     }
     const chunkPoints = curriculumState.teachingPlanForPhase[chunkIndex];
+    if (!chunkPoints) {
+        logger.warn('[CHUNK_CHECK] Missing chunk points for override', { chunkIndex });
+        return { kcDelta: 0 };
+    }
     if (!learnerModel.contentPointsCoverage) {
         learnerModel.contentPointsCoverage = {};
     }

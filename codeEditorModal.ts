@@ -119,7 +119,7 @@ function logCodeEditorValidator(event: string, payload?: Record<string, unknown>
     }
 }
 
-const updateListener = EditorView.updateListener.of(update => {
+const updateListener = EditorView.updateListener.of((update: any) => {
     if (update.docChanged) {
         codeCache = update.state.doc.toString();
     }
@@ -307,6 +307,7 @@ function handleKeydown(event: KeyboardEvent) {
         if (focusableElements.length === 0) return;
         const first = focusableElements[0];
         const last = focusableElements[focusableElements.length - 1];
+        if (!first || !last) return;
 
         if (event.shiftKey) {
             if (document.activeElement === first) {

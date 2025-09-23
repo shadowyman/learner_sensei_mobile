@@ -63,7 +63,11 @@ export function applyUniversalQuoteFix(diagram: string): string {
     const lines = fixedDiagram.split('\n');
     
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-        let line = lines[lineIdx];
+        const originalLine = lines[lineIdx];
+        if (originalLine === undefined) {
+            continue;
+        }
+        let line = originalLine;
         
         // Match node definitions: Letter followed by delimiter
         // IMPORTANT: Longer patterns must come first in alternation
@@ -75,6 +79,13 @@ export function applyUniversalQuoteFix(diagram: string): string {
         while ((match = nodePattern.exec(line)) !== null) {
             const nodeId = match[1];
             const openDelim = match[2];
+            if (!nodeId || !openDelim) {
+                logger.warn('[MERMAID_FIX] Skipping malformed node token.', {
+                    lineIndex: lineIdx,
+                    raw: match[0]
+                });
+                continue;
+            }
             const startPos = match.index + match[0].length;
             
             // Determine closing delimiter
@@ -108,6 +119,14 @@ export function applyUniversalQuoteFix(diagram: string): string {
                     searchOpenChar = '{';
                     searchCloseChar = '}';
                     break;
+            }
+
+            if (!closeDelim && openDelim !== '((' && openDelim !== '{{') {
+                logger.warn('[MERMAID_FIX] Unsupported delimiter encountered.', {
+                    openDelim,
+                    lineIndex: lineIdx
+                });
+                continue;
             }
             
             // Find the matching closing delimiter
@@ -146,7 +165,7 @@ export function applyUniversalQuoteFix(diagram: string): string {
                 endPos = findMatchingDelimiter(line, startPos, searchOpenChar, searchCloseChar);
             }
             
-            if (endPos !== -1) {
+            if (endPos !== -1 && endPos >= startPos) {
                 // Extract content between delimiters
                 const content = line.substring(startPos, endPos);
                 

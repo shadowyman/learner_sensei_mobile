@@ -87,6 +87,33 @@ const ALL_PHASES: Phase[] = [...CONCEPT_PEDAGOGICAL_PHASES, ...MODULE_PEDAGOGICA
 // NOTE: Updated for new section-based structure - Socratic/Solidify phases now use dedicated section fields
 
 
+export class TeachingPlanGenerationError extends Error {
+    details: Record<string, unknown>;
+
+    constructor(message: string, details: Record<string, unknown>) {
+        super(message);
+        this.name = 'TeachingPlanGenerationError';
+        this.details = details;
+    }
+}
+
+export class TeachingPlanValidationError extends TeachingPlanGenerationError {
+    constructor(message: string, details: Record<string, unknown>) {
+        super(message, details);
+        this.name = 'TeachingPlanValidationError';
+    }
+}
+
+export class CurriculumParsingError extends Error {
+    details: Record<string, unknown>;
+
+    constructor(message: string, details: Record<string, unknown>) {
+        super(message);
+        this.name = 'CurriculumParsingError';
+        this.details = details;
+    }
+}
+
 export interface CurriculumState {
     currentModuleIndex: number;
     currentConceptIndex: number; 
@@ -99,8 +126,8 @@ export interface CurriculumState {
     pointsToRevisitInCurrentChunk?: Set<string>; // Stores TEXT of points to revisit
     // Socratic v4 specific fields
     socraticTurnCount?: number;
-    socraticBaseInstruction?: string;
-    socraticCompletionPending?: SocraticCompletionResult;
+    socraticBaseInstruction?: string | null;
+    socraticCompletionPending?: SocraticCompletionResult | null;
 }
 
 export interface CurriculumItem {
@@ -225,51 +252,95 @@ function logSocraticCompletionValidation(event: string, payload: Record<string, 
     logger.info('[SOCRATIC_COMPLETION_VALIDATION]', { event, ...payload });
 }
 
-function validateAndProcessTeachingPlan(teachingPlan: TeachingPoint[][], item: CurriculumItem, phase: Phase): TeachingPoint[][] {
-    if (teachingPlan && teachingPlan.length > 0) {
+function validateAndProcessTeachingPlan(teachingPlan: TeachingPoint[][] | null, item: CurriculumItem, phase: Phase): TeachingPoint[][] {
+    const planDetails = {
+        curriculumPathId: item.curriculumPathId,
+        phase
+    };
 
-        const { totalActionItems, totalKcValue } = calculateTeachingPlanMetrics(teachingPlan);
-        const totalKcValueDisplay = typeof totalKcValue === 'number' && !isNaN(totalKcValue) ? totalKcValue.toFixed(4) : "NaN";
+    if (!Array.isArray(teachingPlan) || teachingPlan.length === 0) {
+        const message = 'Teaching plan is empty or missing.';
+        logger.error('[TEACHING_PLAN_INVALID]', { ...planDetails, reason: message });
+        throw new TeachingPlanValidationError(message, planDetails);
+    }
 
-        logTeachingPlanValidation({
-            curriculumPathId: item.curriculumPathId,
-            phase,
-            chunks: teachingPlan.length,
-            totalActionItems,
-            totalKcValue: totalKcValueDisplay
-        });
-
-        teachingPlan.forEach((chunk, chunkIndex) => {
-            if (!Array.isArray(chunk)) {
-                logger.warn(`[TEACHING_PLAN_WARNING] Chunk ${chunkIndex + 1} is not an array`, chunk);
-                return;
-            }
-
-            chunk.forEach((actionItem, itemIndex) => {
-                if (!(actionItem && typeof actionItem.text === 'string' && typeof actionItem.kcValue === 'number' && !isNaN(actionItem.kcValue))) {
-                    const itemText = (actionItem && typeof actionItem.text === 'string') ? actionItem.text : '<invalid-text>';
-                    const itemKcValueRaw = actionItem && 'kcValue' in actionItem ? actionItem.kcValue : 'missing';
-                    const itemKcValueType = actionItem ? typeof actionItem.kcValue : 'undefined';
-
-                    logger.warn(`[TEACHING_PLAN_WARNING] Invalid action item`, {
-                        chunkIndex: chunkIndex + 1,
-                        itemIndex: itemIndex + 1,
-                        text: itemText,
-                        kcValueRaw: itemKcValueRaw,
-                        kcValueType: itemKcValueType
-                    });
-                }
-            });
-        });
-
-        if (typeof totalKcValue !== 'number' || isNaN(totalKcValue) || totalKcValue < 0.60 || totalKcValue > 0.70) {
-             logger.warn(`LLM generated total KC value of ${totalKcValueDisplay}, which is outside the target sum range of ~0.65 for ${item.curriculumPathId}, Phase: ${phase}.`);
+    const sanitizedPlan: TeachingPoint[][] = teachingPlan.map((chunk, chunkIndex) => {
+        if (!Array.isArray(chunk) || chunk.length === 0) {
+            const message = `Chunk ${chunkIndex + 1} is empty or not an array.`;
+            logger.error('[TEACHING_PLAN_INVALID]', { ...planDetails, chunkIndex: chunkIndex + 1, reason: message });
+            throw new TeachingPlanValidationError(message, { ...planDetails, chunkIndex: chunkIndex + 1 });
         }
 
-        return teachingPlan;
+        return chunk.map((actionItem, itemIndex) => {
+            if (!actionItem) {
+                const message = `Action item ${itemIndex + 1} in chunk ${chunkIndex + 1} is missing.`;
+                logger.error('[TEACHING_PLAN_INVALID]', { ...planDetails, chunkIndex: chunkIndex + 1, itemIndex: itemIndex + 1, reason: message });
+                throw new TeachingPlanValidationError(message, { ...planDetails, chunkIndex: chunkIndex + 1, itemIndex: itemIndex + 1 });
+            }
+
+            const text = typeof actionItem.text === 'string' ? actionItem.text.trim() : '';
+            const kcValue = actionItem.kcValue;
+
+            if (!text) {
+                const message = `Action item ${itemIndex + 1} in chunk ${chunkIndex + 1} is missing text.`;
+                logger.error('[TEACHING_PLAN_INVALID]', { ...planDetails, chunkIndex: chunkIndex + 1, itemIndex: itemIndex + 1, reason: message });
+                throw new TeachingPlanValidationError(message, { ...planDetails, chunkIndex: chunkIndex + 1, itemIndex: itemIndex + 1 });
+            }
+
+            const isTitleItem = itemIndex === 0;
+            const invalidKcValue = typeof kcValue !== 'number' || Number.isNaN(kcValue) || kcValue < 0 || (!isTitleItem && kcValue === 0);
+            if (invalidKcValue) {
+                const message = `Action item ${itemIndex + 1} in chunk ${chunkIndex + 1} has invalid kcValue.`;
+                logger.error('[TEACHING_PLAN_INVALID]', {
+                    ...planDetails,
+                    chunkIndex: chunkIndex + 1,
+                    itemIndex: itemIndex + 1,
+                    kcValue,
+                    reason: message
+                });
+                throw new TeachingPlanValidationError(message, {
+                    ...planDetails,
+                    chunkIndex: chunkIndex + 1,
+                    itemIndex: itemIndex + 1,
+                    kcValue
+                });
+            }
+
+            const socraticMetadata = actionItem.socraticMetadata && typeof actionItem.socraticMetadata === 'object'
+                ? ('detectedCategory' in actionItem.socraticMetadata && actionItem.socraticMetadata.detectedCategory !== undefined
+                    ? { detectedCategory: actionItem.socraticMetadata.detectedCategory }
+                    : {})
+                : undefined;
+
+            const sanitizedItem: TeachingPoint = {
+                text,
+                kcValue,
+                ...(actionItem.isSocraticIntent !== undefined ? { isSocraticIntent: actionItem.isSocraticIntent } : {}),
+                ...(actionItem.interactionGuidance !== undefined ? { interactionGuidance: actionItem.interactionGuidance } : {}),
+                ...(socraticMetadata && Object.keys(socraticMetadata).length > 0 ? { socraticMetadata } : {})
+            };
+
+            return sanitizedItem;
+        });
+    });
+
+    const { totalActionItems, totalKcValue } = calculateTeachingPlanMetrics(sanitizedPlan);
+    const totalKcValueDisplay = Number.isFinite(totalKcValue) ? totalKcValue.toFixed(4) : 'NaN';
+
+    if (totalActionItems === 0 || !Number.isFinite(totalKcValue) || totalKcValue <= 0) {
+        const message = 'Teaching plan produced no actionable content or invalid KC totals.';
+        logger.error('[TEACHING_PLAN_INVALID]', { ...planDetails, totalActionItems, totalKcValue: totalKcValueDisplay, reason: message });
+        throw new TeachingPlanValidationError(message, { ...planDetails, totalActionItems, totalKcValue });
     }
-    
-    return [];
+
+    logTeachingPlanValidation({
+        ...planDetails,
+        chunks: sanitizedPlan.length,
+        totalActionItems,
+        totalKcValue: totalKcValueDisplay
+    });
+
+    return sanitizedPlan;
 }
 
 export async function generateTeachingPlanForPhase(
@@ -278,14 +349,39 @@ export async function generateTeachingPlanForPhase(
     phase: Phase,
     llmPlanner: LLMTeachingPlanGenerator
 ): Promise<TeachingPoint[][]> {
-    
     const combinedText = buildCombinedContentText(curriculum, item, phase);
-    if (combinedText.trim() === "") {
-        return [];
+    if (combinedText.trim() === '') {
+        const message = 'No source content available to generate teaching plan.';
+        logger.error('[TEACHING_PLAN_GENERATION_FAILED]', {
+            curriculumPathId: item.curriculumPathId,
+            phase,
+            reason: message
+        });
+        throw new TeachingPlanGenerationError(message, {
+            curriculumPathId: item.curriculumPathId,
+            phase
+        });
     }
 
-    const teachingPlan = await llmPlanner(phase, combinedText);
-    return validateAndProcessTeachingPlan(teachingPlan, item, phase);
+    let rawPlan: TeachingPoint[][] | null;
+    try {
+        rawPlan = await llmPlanner(phase, combinedText);
+    } catch (error) {
+        const message = 'LLM planner threw an exception while generating the teaching plan.';
+        logger.error('[TEACHING_PLAN_GENERATION_FAILED]', {
+            curriculumPathId: item.curriculumPathId,
+            phase,
+            reason: message,
+            error: error instanceof Error ? error.message : String(error)
+        });
+        throw new TeachingPlanGenerationError(message, {
+            curriculumPathId: item.curriculumPathId,
+            phase,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+
+    return validateAndProcessTeachingPlan(rawPlan, item, phase);
 }
 
 
@@ -316,49 +412,89 @@ function extractModuleSegments(txt: string): ModuleSegment[] {
     
     const segments: ModuleSegment[] = [];
     for (let i = 0; i < moduleHeaders.length; i++) {
-        const startIndex = moduleHeaders[i].index;
-        const endIndex = i < moduleHeaders.length - 1 ? moduleHeaders[i + 1].index : txt.length;
+        const header = moduleHeaders[i];
+        if (!header) {
+            continue;
+        }
+        const headerMatch = header.match;
+        if (!headerMatch || headerMatch[1] === undefined || headerMatch[2] === undefined) {
+            logger.warn('[CURRICULUM_PARSE] Skipping malformed module header.', { index: i, raw: headerMatch?.[0] });
+            continue;
+        }
+
+        const startIndex = header.index ?? 0;
+        const nextHeader = moduleHeaders[i + 1];
+        const endIndex = nextHeader && nextHeader.index !== undefined ? nextHeader.index : txt.length;
         const content = txt.substring(startIndex, endIndex);
-        const headerInfo = moduleHeaders[i].match;
-        
-        const moduleIdStr = headerInfo[1].replace('.', '_');
+
+        const moduleIdStr = headerMatch[1].replace('.', '_');
         const segment: ModuleSegment = {
             moduleId: `Module${moduleIdStr}`,
-            title: headerInfo[2].trim().replace(/\s*\(Version.*?\)/i, ''),
+            title: headerMatch[2].trim().replace(/\s*\(Version.*?\)/i, ''),
             content,
             startIndex,
             endIndex
         };
         segments.push(segment);
-        
+
     }
     
     return segments;
 }
 
-function parseModuleGoal(moduleContent: string): string {
-    const goalMatch = IMPROVED_REGEX_PATTERNS.goal.exec(moduleContent);
-    const goal = goalMatch ? goalMatch[1].trim() : '';
+function parseModuleGoal(moduleContent: string, moduleId: string): string {
+    const goal = IMPROVED_REGEX_PATTERNS.goal.exec(moduleContent)?.[1]?.trim();
+    if (!goal) {
+        const details = {
+            moduleId,
+            snippet: moduleContent.slice(0, 200)
+        };
+        logger.error('[CURRICULUM_PARSE] Missing module goal.', details);
+        throw new CurriculumParsingError('Missing module goal', details);
+    }
     return goal;
 }
 
-function parseModuleConcepts(moduleContent: string): Concept[] {
-    const concepts: Concept[] = [];
-    
+function parseModuleConcepts(moduleContent: string, moduleId: string): Concept[] {
     const conceptsSectionMatch = IMPROVED_REGEX_PATTERNS.conceptsSection.exec(moduleContent);
-    if (conceptsSectionMatch) {
-        const conceptsSection = conceptsSectionMatch[1];
-        
-        IMPROVED_REGEX_PATTERNS.individualConcept.lastIndex = 0;
-        let conceptMatch;
-        while ((conceptMatch = IMPROVED_REGEX_PATTERNS.individualConcept.exec(conceptsSection)) !== null) {
-            concepts.push({
-                title: conceptMatch[2].trim(),
-                text: conceptMatch[3].trim()
-            });
-        }
+    if (!conceptsSectionMatch || !conceptsSectionMatch[1]) {
+        const details = {
+            moduleId,
+            snippet: moduleContent.slice(0, 200)
+        };
+        logger.error('[CURRICULUM_PARSE] Missing concepts section.', details);
+        throw new CurriculumParsingError('Missing concepts section', details);
     }
-    
+
+    const concepts: Concept[] = [];
+    const matches = Array.from(conceptsSectionMatch[1].matchAll(IMPROVED_REGEX_PATTERNS.individualConcept));
+
+    if (matches.length === 0) {
+        const details = {
+            moduleId,
+            snippet: conceptsSectionMatch[1].slice(0, 200)
+        };
+        logger.error('[CURRICULUM_PARSE] No valid concepts found.', details);
+        throw new CurriculumParsingError('No valid concepts found', details);
+    }
+
+    for (const match of matches) {
+        const title = match[2]?.trim();
+        const text = match[3]?.trim();
+        if (!title || !text) {
+            const details = {
+                moduleId,
+                raw: match[0]
+            };
+            logger.error('[CURRICULUM_PARSE] Malformed concept entry.', details);
+            throw new CurriculumParsingError('Malformed concept entry', details);
+        }
+        concepts.push({
+            title,
+            text
+        });
+    }
+
     return concepts;
 }
 
@@ -373,9 +509,17 @@ function parseModuleMethodology(moduleContent: string): MethodologyStep[] {
         let stepCount = 0;
         methodologyStepRegex.lastIndex = 0;
         while((stepMatch = methodologyStepRegex.exec(methodologyText)) !== null) {
+            const title = stepMatch[1]?.trim();
+            const text = stepMatch[2]?.trim();
+            if (!title || !text) {
+                logger.warn('[CURRICULUM_PARSE] Skipping malformed methodology step.', {
+                    raw: stepMatch[0]
+                });
+                continue;
+            }
             methodology.push({
-                title: stepMatch[1].trim(),
-                text: stepMatch[2].trim()
+                title,
+                text
             });
             stepCount++;
             if (stepCount >= 2) break;
@@ -391,11 +535,11 @@ function parseSocraticAndSolidifyContent(moduleContent: string): {socratic: stri
     
     socraticRegex.lastIndex = 0;
     const socraticMatch = socraticRegex.exec(moduleContent);
-    const socratic = socraticMatch ? socraticMatch[1].trim() : '';
+    const socratic = socraticMatch && socraticMatch[1] ? socraticMatch[1].trim() : '';
     
     solidifyRegex.lastIndex = 0;
     const solidifyMatch = solidifyRegex.exec(moduleContent);
-    const solidify = solidifyMatch ? solidifyMatch[1].trim() : '';
+    const solidify = solidifyMatch && solidifyMatch[1] ? solidifyMatch[1].trim() : '';
     
     
     return { socratic, solidify };
@@ -428,8 +572,8 @@ export function parseModulesTxt(txt: string): Curriculum {
         const currentModule: Module = {
             id: segment.moduleId,
             title: segment.title,
-            goal: parseModuleGoal(segment.content),
-            concepts: parseModuleConcepts(segment.content),
+            goal: parseModuleGoal(segment.content, segment.moduleId),
+            concepts: parseModuleConcepts(segment.content, segment.moduleId),
             methodology: parseModuleMethodology(segment.content),
             ...parseSocraticAndSolidifyContent(segment.content)
         };
@@ -472,7 +616,15 @@ export async function initializeCurriculumState(
         return null;
     }
     const initialConcept = initialModule.concepts[0];
+    if (!initialConcept) {
+        logger.error("Selected module has no first concept:", initialModule.id);
+        return null;
+    }
     const initialPhase = CONCEPT_PEDAGOGICAL_PHASES[0];
+    if (!initialPhase) {
+        logger.error('[CURRICULUM_INIT_FAILURE] No concept phases configured.');
+        return null;
+    }
     const tempInitialItemId = `${initialModule.id}-${initialConcept.title.replace(/\s+/g, '_').replace(/\W/g, '')}-Phase_${initialPhase}`;
     const initialItemForPlan: CurriculumItem = {
         moduleTitle: initialModule.title,
@@ -484,7 +636,17 @@ export async function initializeCurriculumState(
         isModuleWidePhase: false,
     };
 
-    const teachingPlan = await generateTeachingPlanForPhase(curriculumData, initialItemForPlan, initialPhase, llmPlanner);
+    let teachingPlan: TeachingPoint[][];
+    try {
+        teachingPlan = await generateTeachingPlanForPhase(curriculumData, initialItemForPlan, initialPhase, llmPlanner);
+    } catch (error) {
+        logger.error('[CURRICULUM_INIT_FAILURE]', {
+            moduleId: initialModule.id,
+            phase: initialPhase,
+            reason: error instanceof Error ? error.message : String(error)
+        });
+        return null;
+    }
 
     return {
         currentModuleIndex: startModuleIndex,
@@ -539,24 +701,46 @@ export async function jumpToPhase(
     const curriculumItem: CurriculumItem = {
         moduleTitle: module.title,
         moduleGoal: module.goal,
-        concept: isModuleWidePhase ? null : module.concepts[conceptIndex],
+        concept: null,
         curriculumPathId: '', // Will be set below
         isLastConceptInModule: conceptIndex >= module.concepts.length - 1,
         isLastPhaseForConcept: false, // Will be updated based on phase
         isModuleWidePhase: isModuleWidePhase
     };
+
+    if (!isModuleWidePhase) {
+        const concept = module.concepts[conceptIndex];
+        if (!concept) {
+            logger.warn('[PHASE_JUMP_FAILURE] Concept index out of bounds during phase jump.', {
+                moduleId: module.id,
+                conceptIndex
+            });
+            return null;
+        }
+        curriculumItem.concept = concept;
+    }
     
     // Generate curriculum path ID
     if (isModuleWidePhase) {
         curriculumItem.curriculumPathId = `${module.id}-Phase_${targetPhase}`;
     } else {
-        const conceptTitleCleaned = module.concepts[conceptIndex].title.replace(/\s+/g, '_').replace(/\W/g, '');
+        const conceptTitleCleaned = curriculumItem.concept!.title.replace(/\s+/g, '_').replace(/\W/g, '');
         curriculumItem.curriculumPathId = `${module.id}-${conceptTitleCleaned}-Phase_${targetPhase}`;
     }
     
     // Generate teaching plan for the target phase
-    const teachingPlan = await generateTeachingPlanForPhase(curriculumData, curriculumItem, targetPhase, llmPlanner);
-    
+    let teachingPlan: TeachingPoint[][];
+    try {
+        teachingPlan = await generateTeachingPlanForPhase(curriculumData, curriculumItem, targetPhase, llmPlanner);
+    } catch (error) {
+        logger.error('[PHASE_JUMP_FAILURE]', {
+            moduleId: module.id,
+            phase: targetPhase,
+            reason: error instanceof Error ? error.message : String(error)
+        });
+        return null;
+    }
+
     const newState: CurriculumState = {
         currentModuleIndex: moduleIndex,
         currentConceptIndex: conceptIndex,
@@ -610,11 +794,14 @@ export async function navigateToConcept(
         return true;
     }
 
-    // Update concept index
-    state.currentConceptIndex = targetConceptIndex;
-
-    // Create curriculum item for the new concept
     const newConcept = module.concepts[targetConceptIndex];
+    if (!newConcept) {
+        logger.warn('[CONCEPT_NAV] Concept unavailable at target index.', {
+            targetConceptIndex,
+            moduleId: module.id
+        });
+        return false;
+    }
     const curriculumItem: CurriculumItem = {
         moduleTitle: module.title,
         moduleGoal: module.goal,
@@ -625,12 +812,25 @@ export async function navigateToConcept(
         isModuleWidePhase: false
     };
 
-    const teachingPlan = await generateTeachingPlanForPhase(
-        curriculumData,
-        curriculumItem,
-        'IntroIllustrate',
-        llmPlanner
-    );
+    let teachingPlan: TeachingPoint[][];
+    try {
+        teachingPlan = await generateTeachingPlanForPhase(
+            curriculumData,
+            curriculumItem,
+            'IntroIllustrate',
+            llmPlanner
+        );
+    } catch (error) {
+        logger.error('[CONCEPT_NAV] Teaching plan generation failed', {
+            moduleId: module.id,
+            targetConceptIndex,
+            reason: error instanceof Error ? error.message : String(error)
+        });
+        return false;
+    }
+
+    // Update concept index only after successful plan generation
+    state.currentConceptIndex = targetConceptIndex;
 
     // Reset state for new concept
     state.teachingPlanForPhase = teachingPlan;
@@ -668,11 +868,17 @@ export async function navigateToConcept(
 }
 
 export function getInitialCurriculumTopicId(curriculumData: Curriculum | null): string {
-    if (!curriculumData || curriculumData.modules.length === 0 || curriculumData.modules[0].concepts.length === 0) {
+    if (!curriculumData || curriculumData.modules.length === 0) {
         return "General_Introduction_To_Recursion";
     }
     const firstModule = curriculumData.modules[0];
+    if (!firstModule || !firstModule.concepts || firstModule.concepts.length === 0) {
+        return "General_Introduction_To_Recursion";
+    }
     const firstConcept = firstModule.concepts[0];
+    if (!firstConcept) {
+        return "General_Introduction_To_Recursion";
+    }
     const firstPhase = CONCEPT_PEDAGOGICAL_PHASES[0];
 
     const conceptTitleCleaned = firstConcept.title.replace(/\s+/g, '_').replace(/\W/g, '');
@@ -680,11 +886,17 @@ export function getInitialCurriculumTopicId(curriculumData: Curriculum | null): 
 }
 
 export function getCurrentCurriculumItem(curriculumData: Curriculum, state: CurriculumState): CurriculumItem | null {
-    if (state.isCompleted || !curriculumData.modules[state.currentModuleIndex]) {
+    if (state.isCompleted) {
         return null;
     }
 
     const module = curriculumData.modules[state.currentModuleIndex];
+    if (!module) {
+        logger.error('[CURRICULUM_STATE] Module missing for current index.', {
+            moduleIndex: state.currentModuleIndex
+        });
+        return null;
+    }
     const isModulePhase = MODULE_PEDAGOGICAL_PHASES.includes(state.currentPhase);
 
     let concept: Concept | null = null;
@@ -695,8 +907,8 @@ export function getCurrentCurriculumItem(curriculumData: Curriculum, state: Curr
     if (isModulePhase) {
         conceptTitleCleaned = 'ModuleOverall'; 
     } else {
-        if (!module || !module.concepts || state.currentConceptIndex >= module.concepts.length) {
-            logger.warn(`Current concept index ${state.currentConceptIndex} is out of bounds for module ${module?.title} which has ${module?.concepts?.length} concepts.`);
+        if (!module.concepts || state.currentConceptIndex >= module.concepts.length) {
+            logger.warn(`Current concept index ${state.currentConceptIndex} is out of bounds for module ${module.title} which has ${module.concepts.length} concepts.`);
             return null;
         }
         concept = module.concepts[state.currentConceptIndex] || null;
@@ -790,12 +1002,32 @@ async function handleSocraticPhase(
 
 function determinePhaseTransition(state: CurriculumState, curriculumData: Curriculum): void {
     const module = curriculumData.modules[state.currentModuleIndex];
+    if (!module) {
+        logger.error('[CURRICULUM_ADVANCE] Module missing during phase transition.', {
+            moduleIndex: state.currentModuleIndex
+        });
+        throw new CurriculumParsingError('Missing module for phase transition', {
+            moduleIndex: state.currentModuleIndex
+        });
+    }
+
+    const firstConceptPhase = CONCEPT_PEDAGOGICAL_PHASES[0];
+    const firstModulePhase = MODULE_PEDAGOGICAL_PHASES[0];
+    const secondModulePhase = MODULE_PEDAGOGICAL_PHASES[1];
+
+    if (!firstConceptPhase || !firstModulePhase || !secondModulePhase) {
+        logger.error('[CURRICULUM_ADVANCE] Phase configuration invalid.');
+        throw new CurriculumParsingError('Invalid phase configuration', {
+            conceptPhases: CONCEPT_PEDAGOGICAL_PHASES,
+            modulePhases: MODULE_PEDAGOGICAL_PHASES
+        });
+    }
 
     if (CONCEPT_PEDAGOGICAL_PHASES.includes(state.currentPhase)) {
         const previousConceptIndex = state.currentConceptIndex;
         if (state.currentConceptIndex < module.concepts.length - 1) {
             state.currentConceptIndex++;
-            state.currentPhase = CONCEPT_PEDAGOGICAL_PHASES[0];
+            state.currentPhase = firstConceptPhase;
             logAdvanceValidation('concept-advanced', {
                 moduleIndex: state.currentModuleIndex,
                 fromConceptIndex: previousConceptIndex,
@@ -803,7 +1035,7 @@ function determinePhaseTransition(state: CurriculumState, curriculumData: Curric
                 nextPhase: state.currentPhase
             });
         } else {
-            state.currentPhase = MODULE_PEDAGOGICAL_PHASES[0];
+            state.currentPhase = firstModulePhase;
             logAdvanceValidation('module-phase-transition', {
                 moduleIndex: state.currentModuleIndex,
                 completedConceptIndex: previousConceptIndex,
@@ -815,7 +1047,7 @@ function determinePhaseTransition(state: CurriculumState, curriculumData: Curric
         state.socraticTurnCount = 0;
         state.socraticBaseInstruction = null;
         state.socraticCompletionPending = null;
-        state.currentPhase = MODULE_PEDAGOGICAL_PHASES[1];
+        state.currentPhase = secondModulePhase;
         logAdvanceValidation('socratic-phase-transition', {
             moduleIndex: state.currentModuleIndex,
             conceptIndex: state.currentConceptIndex,
@@ -825,7 +1057,7 @@ function determinePhaseTransition(state: CurriculumState, curriculumData: Curric
         if (state.currentModuleIndex < curriculumData.modules.length - 1) {
             state.currentModuleIndex++;
             state.currentConceptIndex = 0;
-            state.currentPhase = CONCEPT_PEDAGOGICAL_PHASES[0];
+            state.currentPhase = firstConceptPhase;
             logAdvanceValidation('module-advanced', {
                 moduleIndex: state.currentModuleIndex,
                 nextPhase: state.currentPhase
@@ -846,20 +1078,31 @@ async function initializeNewPhaseState(
     learnerModel: LearnerModel,
     llmPlanner: LLMTeachingPlanGenerator
 ): Promise<boolean> {
-    // Reset for new phase
-    state.currentTeachingChunkIndex = 0;
     const newItem = getCurrentCurriculumItem(curriculumData, state);
     
     if (newItem) {
-        // Reset KC and tracking for new phase
+        // Generate new teaching plan
+        let teachingPlan: TeachingPoint[][];
+        try {
+            teachingPlan = await generateTeachingPlanForPhase(
+                curriculumData, newItem, state.currentPhase, llmPlanner
+            );
+        } catch (error) {
+            logger.error('[PHASE_INIT_FAILURE]', {
+                moduleId: curriculumData.modules[state.currentModuleIndex]?.id,
+                phase: state.currentPhase,
+                reason: error instanceof Error ? error.message : String(error)
+            });
+            return false;
+        }
+
+        // Reset KC and tracking for new phase only after plan success
         learnerModel.KCs[newItem.curriculumPathId] = 0;
         learnerModel.KCMasteryLastUpdated[newItem.curriculumPathId] = new Date().toISOString();
         learnerModel.awardedKcForPhasePoints = new Set<string>();
-        
-        // Generate new teaching plan
-        state.teachingPlanForPhase = await generateTeachingPlanForPhase(
-            curriculumData, newItem, state.currentPhase, llmPlanner
-        );
+
+        state.currentTeachingChunkIndex = 0;
+        state.teachingPlanForPhase = teachingPlan;
         state.coveredPointsInCurrentChunk = new Set<string>();
         state.pointsToRevisitInCurrentChunk = new Set<string>();
         logAdvanceValidation('phase-state-initialized', {
@@ -915,7 +1158,15 @@ async function handlePhaseCompletion(
         
         // Phase mastered - handle transitions
         cleanupCompletedPhase(state, learnerModel, currentItem);
-        determinePhaseTransition(state, curriculumData);
+        try {
+            determinePhaseTransition(state, curriculumData);
+        } catch (error) {
+            logger.error('[CURRICULUM_ADVANCE] Phase transition failed after mastery.', {
+                reason: error instanceof Error ? error.message : String(error)
+            });
+            state.isCompleted = true;
+            return true;
+        }
         
         if (state.isCompleted) {
             return true;
@@ -946,14 +1197,21 @@ async function handlePhaseCompletion(
 
                 // Phase mastered - handle transitions
                 cleanupCompletedPhase(state, learnerModel, currentItem);
-                determinePhaseTransition(state, curriculumData);
+                try {
+                    determinePhaseTransition(state, curriculumData);
+                } catch (error) {
+                    logger.error('[CURRICULUM_ADVANCE] Phase transition failed during consolidation.', {
+                        reason: error instanceof Error ? error.message : String(error)
+                    });
+                    state.isCompleted = true;
+                    return true;
+                }
                 await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
                 return true;
             }
         }
         return false;
     }
-}
 }
 
 export async function advanceCurriculumState(
@@ -990,17 +1248,16 @@ export async function advanceCurriculumState(
     }
     
     // Check chunk completion
-    const currentChunkTeachingPoints = (state.teachingPlanForPhase &&
-        state.teachingPlanForPhase[state.currentTeachingChunkIndex])
-        ? state.teachingPlanForPhase[state.currentTeachingChunkIndex] : [];
+    const currentChunkTeachingPoints = state.teachingPlanForPhase[state.currentTeachingChunkIndex] ?? [];
 
     let currentChunkLocallyCompleted = false;
     if (currentChunkTeachingPoints.length > 0) {
         const allPointsCovered = currentChunkTeachingPoints.every(
             tp => state.coveredPointsInCurrentChunk.has(tp.text)
         );
-        const noPointsToRevisit = !state.pointsToRevisitInCurrentChunk ||
-            currentChunkTeachingPoints.every(tp => !state.pointsToRevisitInCurrentChunk!.has(tp.text));
+        const pointsToRevisit = state.pointsToRevisitInCurrentChunk;
+        const noPointsToRevisit = !pointsToRevisit ||
+            currentChunkTeachingPoints.every(tp => !pointsToRevisit.has(tp.text));
         currentChunkLocallyCompleted = allPointsCovered && noPointsToRevisit;
     } else {
         currentChunkLocallyCompleted = true; // Empty chunk is considered completed
@@ -1201,27 +1458,26 @@ function getCurriculumFocusInstructionImpl(
 export function calculateFocusPoints(
     state: CurriculumState
 ): { focusPoints: string[], primaryActionType: string } {
-    const currentChunkTeachingPoints = (state.teachingPlanForPhase && state.teachingPlanForPhase[state.currentTeachingChunkIndex]) 
-        ? state.teachingPlanForPhase[state.currentTeachingChunkIndex] 
-        : [];
+    const currentChunkTeachingPoints = state.teachingPlanForPhase[state.currentTeachingChunkIndex] ?? [];
     const currentChunkItemTexts = currentChunkTeachingPoints.map(tp => tp.text);
     
     let focusPoints: string[] = [];
     let primaryActionType = "";
-    
+    const pointsToRevisit = state.pointsToRevisitInCurrentChunk;
+
     if (state.activeConsolidationState) {
         primaryActionType = "Consolidation";
         // During consolidation, focus on synthesis across all chunks
         focusPoints = []; // Consolidation doesn't use specific focus points
-    } else if (state.pointsToRevisitInCurrentChunk && state.pointsToRevisitInCurrentChunk.size > 0) {
+    } else if (pointsToRevisit && pointsToRevisit.size > 0) {
         // Priority 1: Points that need revisiting from current chunk
-        const revisitPointsTexts = currentChunkItemTexts.filter(text => state.pointsToRevisitInCurrentChunk!.has(text));
+        const revisitPointsTexts = currentChunkItemTexts.filter(text => pointsToRevisit.has(text));
         if (revisitPointsTexts.length > 0) {
             focusPoints = revisitPointsTexts;
             primaryActionType = "Revisit & Clarify (from current chunk)";
         } else {
             // Fallback: revisit points from other chunks
-            focusPoints = Array.from(state.pointsToRevisitInCurrentChunk);
+            focusPoints = Array.from(pointsToRevisit);
             primaryActionType = "Revisit & Clarify (general points for this phase)";
         }
     } else if (currentChunkItemTexts.length > 0) {
@@ -1260,8 +1516,8 @@ export function checkForSocraticCompletion(senseiResponse: string): SocraticComp
     // Check for completion flag using regex
     const completionRegex = /\[SOCRATIC_COMPLETION_TRIGGERED:\s*(.+?)\]/;
     const match = senseiResponse.match(completionRegex);
-    const triggered = Boolean(match);
-    const trigger = triggered ? match![1].trim() : undefined;
+    const trigger = match?.[1]?.trim();
+    const triggered = Boolean(trigger);
     const cleanResponse = triggered ? senseiResponse.replace(completionRegex, '').trim() : senseiResponse;
 
     logSocraticCompletionValidation('completion-flag-check', {
@@ -1270,10 +1526,10 @@ export function checkForSocraticCompletion(senseiResponse: string): SocraticComp
         cleanResponseLength: cleanResponse.length
     });
 
-    if (triggered) {
+    if (triggered && trigger) {
         return {
             triggered: true,
-            trigger: trigger!,
+            trigger,
             cleanResponse
         };
     }

@@ -181,7 +181,7 @@ export class ArchetypeComparisonTest {
             
             // Compare results
             const match = archetype1 === archetype2;
-            const discrepancy = match ? undefined : `Prompt1: ${archetype1}, Prompt2: ${archetype2}`;
+            const discrepancy = match ? null : `Prompt1: ${archetype1}, Prompt2: ${archetype2}`;
             
             // Store result
             const testResult: ConceptTestResult = {
@@ -190,7 +190,7 @@ export class ArchetypeComparisonTest {
                 prompt1Response: archetype1,
                 prompt2Response: archetype2,
                 match,
-                discrepancy
+                ...(discrepancy ? { discrepancy } : {})
             };
             
             this.testResults.push(testResult);
@@ -347,9 +347,22 @@ export class ConceptExtractionTest {
             
             let moduleMatch;
             while ((moduleMatch = moduleRegex.exec(modulesContent)) !== null) {
-                const displayModuleId = `M${moduleMatch[1].replace('_', '.')}`;
-                const moduleTitle = moduleMatch[2].trim();
-                const conceptsSection = moduleMatch[4];
+                const rawModuleId = moduleMatch[1];
+                const rawTitle = moduleMatch[2];
+                const rawConceptsSection = moduleMatch[4];
+
+                if (!rawModuleId || !rawTitle || !rawConceptsSection) {
+                    logger.warn('Skipping module due to incomplete regex capture.', {
+                        moduleId: rawModuleId,
+                        hasTitle: Boolean(rawTitle),
+                        hasConceptSection: Boolean(rawConceptsSection)
+                    });
+                    continue;
+                }
+
+                const displayModuleId = `M${rawModuleId.replace('_', '.')}`;
+                const moduleTitle = rawTitle.trim();
+                const conceptsSection = rawConceptsSection;
                 
                 logger.warn(`\n🔍 ===== RAW CONCEPTS SECTION FOR ${displayModuleId} =====`);
                 logger.warn(`Module: ${displayModuleId}: ${moduleTitle}`);
@@ -363,8 +376,17 @@ export class ConceptExtractionTest {
                 conceptRegex.lastIndex = 0; // Reset regex
                 let conceptMatch;
                 while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
+                    const conceptTitle = conceptMatch[2]?.trim();
+                    const conceptText = conceptMatch[3]?.trim();
+                    if (!conceptTitle || !conceptText) {
+                        logger.warn('Skipping malformed concept entry during raw dump.', {
+                            moduleId: displayModuleId,
+                            raw: conceptMatch[0]
+                        });
+                        continue;
+                    }
                     conceptCount++;
-                    logger.warn(`Found concept ${conceptCount}: "${conceptMatch[2]}" with text length ${conceptMatch[3].length}`);
+                    logger.warn(`Found concept ${conceptCount}: "${conceptTitle}" with text length ${conceptText.length}`);
                 }
                 logger.warn(`Total concepts found in ${displayModuleId}: ${conceptCount}\n`);
             }
@@ -590,7 +612,46 @@ export class SocraticPhaseInvestigation {
 /**
  * Expected character lengths for each module section based on analysis
  */
-const EXPECTED_SECTION_LENGTHS = {
+interface ModuleSectionExpectations {
+    goal: number;
+    concepts: number;
+    methodology: number;
+    socratic: number;
+    solidify: number;
+    conceptCount: number;
+}
+
+interface SectionDetail {
+    expected: number;
+    actual: number;
+    passed: boolean;
+}
+
+interface ConceptSectionDetail extends SectionDetail {
+    conceptCount: {
+        expected: number;
+        actual: number;
+        passed: boolean;
+    };
+}
+
+interface ModuleSections {
+    goal: SectionDetail;
+    concepts: ConceptSectionDetail;
+    methodology: SectionDetail;
+    socratic: SectionDetail;
+    solidify: SectionDetail;
+}
+
+interface StandardizedModuleTestResult {
+    moduleId: string;
+    moduleNumber: string;
+    title: string;
+    passed: boolean;
+    sections: ModuleSections;
+}
+
+const EXPECTED_SECTION_LENGTHS: Record<string, ModuleSectionExpectations> = {
     'Module1': { goal: 221, concepts: 3254, methodology: 798, socratic: 434, solidify: 337, conceptCount: 3 },
     'Module1.5': { goal: 1293, concepts: 7099, methodology: 5282, socratic: 1428, solidify: 2161, conceptCount: 6 },
     'Module2': { goal: 169, concepts: 3250, methodology: 655, socratic: 511, solidify: 247, conceptCount: 3 },
@@ -641,7 +702,7 @@ export class StandardizedFormatTest {
     private async testAllModules(content: string): Promise<void> {
         // Use curriculum function to parse all modules
         const curriculum = parseModulesTxt(content);
-        const testResults = [];
+        const testResults: StandardizedModuleTestResult[] = [];
         
         logger.warn(`📚 Found ${curriculum.modules.length} modules in standardized file\n`);
         
@@ -693,7 +754,7 @@ export class StandardizedFormatTest {
     /**
      * Generate detailed output for a single module
      */
-    private generateModuleOutput(module: Module, moduleNumber: string, testResult: any): string {
+    private generateModuleOutput(module: Module, moduleNumber: string, testResult: StandardizedModuleTestResult): string {
         let output = `${'='.repeat(80)}\n`;
         output += `MODULE ${moduleNumber}: ${module.title}\n`;
         output += `${'='.repeat(80)}\n\n`;
@@ -799,32 +860,40 @@ export class StandardizedFormatTest {
     /**
      * Test a single module's parsing results against expected values
      */
-    private async testSingleModule(module: Module, moduleId: string): Promise<any> {
-        const expected = EXPECTED_SECTION_LENGTHS[moduleId];
+    private async testSingleModule(module: Module, moduleId: string): Promise<StandardizedModuleTestResult> {
         const moduleNumber = module.id.replace('Module', '').replace('_', '.');
-        
+        const expected = EXPECTED_SECTION_LENGTHS[moduleId];
+        if (!expected) {
+            logger.warn(`No expectations defined for module ${moduleId}; skipping detailed validation.`);
+            const fallbackSections: ModuleSections = {
+                goal: { expected: 0, actual: module.goal.length, passed: false },
+                concepts: {
+                    expected: 0,
+                    actual: module.concepts.reduce((sum, concept) => sum + concept.title.length + concept.text.length, 0),
+                    passed: false,
+                    conceptCount: { expected: 0, actual: module.concepts.length, passed: false }
+                },
+                methodology: { expected: 0, actual: module.methodology.reduce((sum, step) => sum + step.title.length + step.text.length, 0), passed: false },
+                socratic: { expected: 0, actual: module.socratic.length, passed: false },
+                solidify: { expected: 0, actual: module.solidify.length, passed: false }
+            };
+            return {
+                moduleId,
+                moduleNumber,
+                title: module.title,
+                passed: false,
+                sections: fallbackSections
+            };
+        }
+
         logger.warn(`\n🔬 TESTING MODULE ${moduleNumber}: ${module.title}`);
         logger.warn(`============================================================`);
-        
-        const result = {
-            moduleId,
-            moduleNumber,
-            title: module.title,
-            passed: true,
-            sections: {}
-        };
-        
+
         // Test Goal section
         const goalLength = module.goal.length;
         const goalPassed = Math.abs(goalLength - expected.goal) < 10; // Allow small variance
-        result.sections['goal'] = { 
-            expected: expected.goal, 
-            actual: goalLength, 
-            passed: goalPassed 
-        };
         logger.warn(`📝 Goal: ${goalPassed ? '✅' : '❌'} Expected: ${expected.goal}, Actual: ${goalLength}`);
-        if (!goalPassed) result.passed = false;
-        
+    
         // Test Concepts section (calculate total length)
         let conceptsLength = 0;
         for (const concept of module.concepts) {
@@ -833,16 +902,9 @@ export class StandardizedFormatTest {
         }
         const conceptsPassed = Math.abs(conceptsLength - expected.concepts) < 100; // Allow more variance
         const conceptCountPassed = module.concepts.length === expected.conceptCount;
-        result.sections['concepts'] = { 
-            expected: expected.concepts, 
-            actual: conceptsLength, 
-            passed: conceptsPassed,
-            conceptCount: { expected: expected.conceptCount, actual: module.concepts.length, passed: conceptCountPassed }
-        };
         logger.warn(`📚 Concepts: ${conceptsPassed ? '✅' : '❌'} Expected: ${expected.concepts}, Actual: ${conceptsLength}`);
         logger.warn(`   Concept Count: ${conceptCountPassed ? '✅' : '❌'} Expected: ${expected.conceptCount}, Actual: ${module.concepts.length}`);
-        if (!conceptsPassed || !conceptCountPassed) result.passed = false;
-        
+    
         // Test Methodology section
         let methodologyLength = 0;
         for (const step of module.methodology) {
@@ -853,41 +915,42 @@ export class StandardizedFormatTest {
             methodologyLength = expected.methodology; // Assume it's there but not parsed into steps
         }
         const methodologyPassed = Math.abs(methodologyLength - expected.methodology) < 100;
-        result.sections['methodology'] = { 
-            expected: expected.methodology, 
-            actual: methodologyLength, 
-            passed: methodologyPassed 
-        };
         logger.warn(`📖 Methodology: ${methodologyPassed ? '✅' : '❌'} Expected: ${expected.methodology}, Actual: ${methodologyLength}`);
-        if (!methodologyPassed) result.passed = false;
-        
+    
         // Test Socratic section
         const socraticLength = module.socratic.length;
         const socraticPassed = Math.abs(socraticLength - expected.socratic) < 100;
-        result.sections['socratic'] = { 
-            expected: expected.socratic, 
-            actual: socraticLength, 
-            passed: socraticPassed 
-        };
         logger.warn(`❓ Socratic: ${socraticPassed ? '✅' : '❌'} Expected: ${expected.socratic}, Actual: ${socraticLength}`);
-        if (!socraticPassed) result.passed = false;
-        
+    
         // Test Solidify section
         const solidifyLength = module.solidify.length;
         const solidifyPassed = Math.abs(solidifyLength - expected.solidify) < 50;
-        result.sections['solidify'] = { 
-            expected: expected.solidify, 
-            actual: solidifyLength, 
-            passed: solidifyPassed 
-        };
         logger.warn(`🎯 Solidify: ${solidifyPassed ? '✅' : '❌'} Expected: ${expected.solidify}, Actual: ${solidifyLength}`);
-        if (!solidifyPassed) result.passed = false;
         
-        // Overall result
-        logger.warn(`\n📊 Module ${moduleNumber} Overall: ${result.passed ? '✅ PASSED' : '❌ FAILED'}`);
-        
-        // If failed, show details of what was extracted
-        if (!result.passed) {
+        const conceptsSectionDetail: ConceptSectionDetail = {
+            expected: expected.concepts,
+            actual: conceptsLength,
+            passed: conceptsPassed && conceptCountPassed,
+            conceptCount: {
+                expected: expected.conceptCount,
+                actual: module.concepts.length,
+                passed: conceptCountPassed
+            }
+        };
+
+        const sections: ModuleSections = {
+            goal: { expected: expected.goal, actual: goalLength, passed: goalPassed },
+            concepts: conceptsSectionDetail,
+            methodology: { expected: expected.methodology, actual: methodologyLength, passed: methodologyPassed },
+            socratic: { expected: expected.socratic, actual: socraticLength, passed: socraticPassed },
+            solidify: { expected: expected.solidify, actual: solidifyLength, passed: solidifyPassed }
+        };
+
+        const overallPassed = goalPassed && conceptsPassed && conceptCountPassed && methodologyPassed && socraticPassed && solidifyPassed;
+
+        logger.warn(`\n📊 Module ${moduleNumber} Overall: ${overallPassed ? '✅ PASSED' : '❌ FAILED'}`);
+
+        if (!overallPassed) {
             logger.warn(`\n⚠️  Module ${moduleNumber} extraction details:`);
             if (!goalPassed) {
                 logger.warn(`Goal content preview: "${module.goal.substring(0, 100)}..."`);
@@ -900,13 +963,19 @@ export class StandardizedFormatTest {
             }
         }
         
-        return result;
+        return {
+            moduleId,
+            moduleNumber,
+            title: module.title,
+            passed: overallPassed,
+            sections
+        };
     }
     
     /**
      * Generate test summary report
      */
-    private generateTestSummary(results: any[]): void {
+    private generateTestSummary(results: StandardizedModuleTestResult[]): void {
         logger.warn(`\n\n🎯 ========== TEST SUMMARY REPORT ==========`);
         
         const totalModules = results.length;
@@ -918,26 +987,28 @@ export class StandardizedFormatTest {
         logger.warn(`❌ Failed: ${failedModules}\n`);
         
         // Section-wise summary
-        const sectionStats = {
+        const sectionNames: Array<keyof ModuleSections> = ['goal', 'concepts', 'methodology', 'socratic', 'solidify'];
+        const sectionStats: Record<keyof ModuleSections, { passed: number; total: number }> = {
             goal: { passed: 0, total: 0 },
             concepts: { passed: 0, total: 0 },
             methodology: { passed: 0, total: 0 },
             socratic: { passed: 0, total: 0 },
             solidify: { passed: 0, total: 0 }
         };
-        
-        results.forEach(r => {
-            Object.keys(sectionStats).forEach(section => {
-                sectionStats[section].total++;
-                if (r.sections[section]?.passed) {
-                    sectionStats[section].passed++;
+
+        results.forEach(result => {
+            sectionNames.forEach(section => {
+                sectionStats[section].total += 1;
+                if (result.sections[section].passed) {
+                    sectionStats[section].passed += 1;
                 }
             });
         });
-        
+
         logger.warn(`📋 Section-wise Results:`);
-        Object.entries(sectionStats).forEach(([section, stats]) => {
-            const percentage = Math.round((stats.passed / stats.total) * 100);
+        sectionNames.forEach(section => {
+            const stats = sectionStats[section];
+            const percentage = stats.total > 0 ? Math.round((stats.passed / stats.total) * 100) : 0;
             logger.warn(`   ${section}: ${stats.passed}/${stats.total} (${percentage}%)`);
         });
         
@@ -946,7 +1017,8 @@ export class StandardizedFormatTest {
             logger.warn(`\n❌ Failed Modules:`);
             results.filter(r => !r.passed).forEach(r => {
                 logger.warn(`   Module ${r.moduleNumber}: ${r.title}`);
-                Object.entries(r.sections).forEach(([section, data]: [string, any]) => {
+                sectionNames.forEach(section => {
+                    const data = r.sections[section];
                     if (!data.passed) {
                         logger.warn(`      - ${section}: Expected ${data.expected}, Got ${data.actual}`);
                     }
@@ -983,10 +1055,11 @@ export class StandardizedFormatTest {
         const goalRegex = /\nGoal:\s*([\s\S]*?)(?=\nConcepts:|\nModule|$)/;
         const goalMatch = goalRegex.exec(content);
         
-        if (goalMatch) {
-            logger.warn(`\n📝 GOAL SECTION (${goalMatch[1].length} chars):`);
+        if (goalMatch && goalMatch[1]) {
+            const goalContent = goalMatch[1];
+            logger.warn(`\n📝 GOAL SECTION (${goalContent.length} chars):`);
             logger.warn("========== GOAL CONTENT ==========");
-            logger.warn(goalMatch[1]);
+            logger.warn(goalContent);
             logger.warn("========== END GOAL ==========\n");
         } else {
             logger.error("❌ Goal section not matched!");
@@ -996,18 +1069,16 @@ export class StandardizedFormatTest {
         const conceptsSectionRegex = /\nConcepts:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/;
         const conceptsMatch = conceptsSectionRegex.exec(content);
         
-        if (conceptsMatch) {
-            const conceptsSection = conceptsMatch[1];
-            logger.warn(`📚 CONCEPTS SECTION (${conceptsSection.length} chars):`);
-            logger.warn("========== RAW CONCEPTS CONTENT ==========");
-            logger.warn(conceptsSection);
-            logger.warn("========== END RAW CONCEPTS ==========\n");
-        } else {
+        if (!conceptsMatch || !conceptsMatch[1]) {
             logger.error("❌ Concepts section not matched!");
             return;
         }
-        
+
         const conceptsSection = conceptsMatch[1];
+        logger.warn(`📚 CONCEPTS SECTION (${conceptsSection.length} chars):`);
+        logger.warn("========== RAW CONCEPTS CONTENT ==========");
+        logger.warn(conceptsSection);
+        logger.warn("========== END RAW CONCEPTS ==========\n");
         
         // Now extract individual concepts - keeping the same concept regex
         logger.warn("🔍 Extracting individual concepts...");
@@ -1017,13 +1088,23 @@ export class StandardizedFormatTest {
         
         let conceptMatch;
         while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
+            const conceptNumber = conceptMatch[1];
+            const conceptTitle = conceptMatch[2];
+            const conceptContent = conceptMatch[3];
+            if (!conceptNumber || !conceptTitle || !conceptContent) {
+                logger.warn('Skipping malformed concept capture in legacy extractor.', {
+                    raw: conceptMatch[0]
+                });
+                continue;
+            }
+
             conceptCount++;
             logger.warn(`\n📌 CONCEPT ${conceptCount}:`);
-            logger.warn(`Number: ${conceptMatch[1]}`);
-            logger.warn(`Title: ${conceptMatch[2]}`);
-            logger.warn(`Content Length: ${conceptMatch[3].length} chars`);
+            logger.warn(`Number: ${conceptNumber}`);
+            logger.warn(`Title: ${conceptTitle}`);
+            logger.warn(`Content Length: ${conceptContent.length} chars`);
             logger.warn("---------- CONCEPT CONTENT ----------");
-            logger.warn(conceptMatch[3]);
+            logger.warn(conceptContent);
             logger.warn("---------- END CONCEPT ----------");
         }
         
@@ -1033,10 +1114,11 @@ export class StandardizedFormatTest {
         const methodologyRegex = /\nMethodology:\s*([\s\S]*?)(?=\nSocratic:|\nModule|$)/g;
         const methodologyMatch = methodologyRegex.exec(content);
         
-        if (methodologyMatch) {
-            logger.warn(`\n📖 METHODOLOGY SECTION (${methodologyMatch[1].length} chars):`);
+        if (methodologyMatch && methodologyMatch[1]) {
+            const methodologyContent = methodologyMatch[1];
+            logger.warn(`\n📖 METHODOLOGY SECTION (${methodologyContent.length} chars):`);
             logger.warn("========== METHODOLOGY CONTENT ==========");
-            logger.warn(methodologyMatch[1]);
+            logger.warn(methodologyContent);
             logger.warn("========== END METHODOLOGY ==========");
         }
         
@@ -1044,10 +1126,11 @@ export class StandardizedFormatTest {
         const socraticRegex = /\nSocratic:\s*([\s\S]*?)(?=\nSolidify & Prepare:|\nModule|$)/g;
         const socraticMatch = socraticRegex.exec(content);
         
-        if (socraticMatch) {
-            logger.warn(`\n❓ SOCRATIC SECTION (${socraticMatch[1].length} chars):`);
+        if (socraticMatch && socraticMatch[1]) {
+            const socraticContent = socraticMatch[1];
+            logger.warn(`\n❓ SOCRATIC SECTION (${socraticContent.length} chars):`);
             logger.warn("========== SOCRATIC CONTENT ==========");
-            logger.warn(socraticMatch[1]);
+            logger.warn(socraticContent);
             logger.warn("========== END SOCRATIC ==========");
         }
         
@@ -1055,10 +1138,11 @@ export class StandardizedFormatTest {
         const solidifyRegex = /\nSolidify & Prepare:\s*([\s\S]*?)(?=\nModule|$)/g;
         const solidifyMatch = solidifyRegex.exec(content);
         
-        if (solidifyMatch) {
-            logger.warn(`\n🎯 SOLIDIFY & PREPARE SECTION (${solidifyMatch[1].length} chars):`);
+        if (solidifyMatch && solidifyMatch[1]) {
+            const solidifyContent = solidifyMatch[1];
+            logger.warn(`\n🎯 SOLIDIFY & PREPARE SECTION (${solidifyContent.length} chars):`);
             logger.warn("========== SOLIDIFY CONTENT ==========");
-            logger.warn(solidifyMatch[1]);
+            logger.warn(solidifyContent);
             logger.warn("========== END SOLIDIFY ==========");
         }
     }

@@ -5,6 +5,7 @@ import {
     CurriculumState,
     Phase,
     TeachingPoint,
+    TeachingPlanGenerationError,
     jumpToPhase,
     getCurrentCurriculumItem,
     getCurriculumFocusInstruction,
@@ -97,6 +98,12 @@ export class ModuleSelectionHandler {
                 this.state.currentMessageId++;
                 const phaseSelectionId = `msg-${this.state.currentMessageId}`;
                 const selectedModule = this.state.curriculum.modules[selectedModuleIndex];
+                if (!selectedModule) {
+                    logger.error('[MODULE_SELECTION] Selected module index resolved to undefined module.', {
+                        selectedModuleIndex
+                    });
+                    return false;
+                }
                 
                 const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.
 
@@ -190,46 +197,55 @@ Where would you like to begin your learning journey?`;
         await new Promise(resolve => setTimeout(resolve, 50));
 
         if (!this.state.curriculum || this.state.pendingModuleSelection === null || !this.state.ai) {
+            logger.warn('[MODULE_SELECTION] Phase selection attempted before curriculum or AI ready.');
             return;
         }
-        
+
         const phase = phaseName as Phase;
         const validPhases: Phase[] = ['IntroIllustrate', 'Socratic', 'Solidify'];
-        
+
         if (!validPhases.includes(phase)) {
+            logger.warn('[MODULE_SELECTION] Invalid phase requested.', { phaseName });
             return;
         }
-        
-        const phaseMessages = document.querySelectorAll('.message-bubble:not(#response-modal-sensei-bubble)');
-        
-        let phaseMessageBubble: Element | null = null;
+
+        const curriculum = this.state.curriculum;
+        const moduleIndex = this.state.pendingModuleSelection;
+        const ai = this.state.ai;
+        const module = curriculum.modules[moduleIndex];
+        if (!module) {
+            logger.error('[MODULE_SELECTION] Selected module index out of bounds.', { moduleIndex });
+            return;
+        }
+
+        const phaseMessages = Array.from(document.querySelectorAll<HTMLElement>('.message-bubble:not(#response-modal-sensei-bubble)'));
+        let phaseMessageBubble: HTMLElement | null = null;
         let phaseMessageId: string | null = null;
-        
-        phaseMessages.forEach((bubble, index) => {
+
+        for (const bubble of phaseMessages) {
             const bubbleId = bubble.id || 'no-id';
-            const hasPhaseButtons = bubble.querySelector('.phase-buttons-container') !== null;
-            
-            if (hasPhaseButtons) {
+            if (bubble.querySelector('.phase-buttons-container')) {
                 phaseMessageBubble = bubble;
                 phaseMessageId = bubbleId;
+                break;
             }
-        });
+        }
         
         if (phaseMessageBubble) {
-            const messageText = phaseMessageBubble.querySelector('.message-text');
+            const messageText = phaseMessageBubble.querySelector<HTMLElement>('.message-text');
             if (messageText) {
                 messageText.innerHTML = '';
-                
+
                 const loadingContainer = document.createElement('div');
                 loadingContainer.classList.add('phase-loading-container');
-                
+
                 const spinner = document.createElement('div');
                 spinner.classList.add('phase-loading-spinner');
                 
                 const loadingText = document.createElement('div');
                 loadingText.classList.add('phase-loading-text');
                 
-                const loadingMessages = [
+                const loadingMessages: string[] = [
                     'Sensei is generating a teaching plan and will be back with you shortly',
                     'Analyzing your learning patterns to optimize the experience',
                     'Crafting personalized examples based on your progress',
@@ -240,7 +256,7 @@ Where would you like to begin your learning journey?`;
                 
                 let messageIndex = 0;
                 const textSpan = document.createElement('span');
-                textSpan.textContent = loadingMessages[messageIndex];
+                textSpan.textContent = loadingMessages[messageIndex] ?? '';
                 
                 const dots = document.createElement('span');
                 dots.classList.add('phase-loading-dots');
@@ -261,7 +277,7 @@ Where would you like to begin your learning journey?`;
                 
                 const messageAnimation = setInterval(() => {
                     messageIndex = (messageIndex + 1) % loadingMessages.length;
-                    textSpan.textContent = loadingMessages[messageIndex];
+                    textSpan.textContent = loadingMessages[messageIndex] ?? '';
                 }, 5000);
                 
                 (phaseMessageBubble as any).dotAnimation = dotAnimation;
@@ -270,21 +286,26 @@ Where would you like to begin your learning journey?`;
         }
         
         this.state.curriculumState = await jumpToPhase(
-            this.state.curriculum, 
-            this.state.pendingModuleSelection, 
+            curriculum,
+            moduleIndex,
             phase,
             async (phaseForPlan, text) => {
-                const module = this.state.curriculum!.modules[this.state.pendingModuleSelection!];
                 const conceptsSummary = module.concepts.map(c => c.title).join(', ');
                 const result = await llmExtractAndPlanTeachingOrder(
-                    this.state.ai!,
+                    ai,
                     text,
                     phaseForPlan,
                     module.title,
                     module.goal,
                     conceptsSummary
                 );
-                return result || [];
+                if (!result || result.length === 0) {
+                    throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
+                        moduleId: module.id,
+                        phase: phaseForPlan
+                    });
+                }
+                return result;
             }
         );
         
@@ -327,7 +348,7 @@ Where would you like to begin your learning journey?`;
             const currentPhaseKCMastery = this.state.learnerModel.KCs[currentItem.curriculumPathId] || 0;
             this.updateKCProgressBar(currentPhaseKCMastery);
             
-            const phaseMessagesToRemove = document.querySelectorAll('.message-bubble:not(#response-modal-sensei-bubble)');
+            const phaseMessagesToRemove = document.querySelectorAll<HTMLElement>('.message-bubble:not(#response-modal-sensei-bubble)');
             phaseMessagesToRemove.forEach(bubble => {
                 if (bubble.querySelector('.phase-buttons-container') || bubble.querySelector('.phase-loading-container')) {
                     const bubbleId = bubble.id || 'unknown';
@@ -343,7 +364,19 @@ Where would you like to begin your learning journey?`;
                 }
             });
             
-            const selectedModule = this.state.curriculum.modules[this.state.pendingModuleSelection];
+            const moduleIndex = this.state.pendingModuleSelection;
+            const curriculum = this.state.curriculum;
+            if (moduleIndex === null || !curriculum) {
+                logger.error('[MODULE_SELECTION] Pending module selection missing during phase intro.');
+                return;
+            }
+            const selectedModule = curriculum.modules[moduleIndex];
+            if (!selectedModule) {
+                logger.error('[MODULE_SELECTION] Pending module selection index invalid.', {
+                    moduleIndex
+                });
+                return;
+            }
             const phaseDisplayName = getPhaseDisplayName(this.state.curriculumState.currentPhase);
             const conceptTitle = currentItem.concept?.title || "the module concepts";
             
@@ -450,7 +483,7 @@ ${initialInstructionForSensei}
         });
         
         try {
-            const { streamMainSenseiResponse } = await import('./interactionHelpers');
+            const { streamMainSenseiResponse } = await import('./interactionHelpers.js');
             const response = await streamMainSenseiResponse(this.state.mainSenseiChat!, systemInstruction, "", messageId);
             
             this.updateResponseHistory(response, messageId);

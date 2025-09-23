@@ -249,6 +249,7 @@
             </step>
             <step number="10">
                 **Evidence-Based Validation & Cleanup**:
+                *   **Action**: Run `npx tsc --noEmit` and resolve any reported issues before continuing.
                 *   **Action**: Access `./logs/console_logs.log`.
                 *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
                 *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
@@ -258,6 +259,7 @@
                 **Feature Documentation Artifact**:
                 *   **Action**: When the implementation succeeds, you MUST update an existing relevant feature document in `./docs/features/` if one already covers the affected area; otherwise create a new markdown record named `feature_<descriptive_slug>_<YYYYMMDD_HHMMSS>.md` before yielding any response to the user. The slug must clearly reflect the change (e.g., `concept_prompt_improvement` instead of a generic label).
                 *   **Action**: Document the feature summary, rationale, key code changes with file:line references, behavioral impacts, and validation evidence. Include links to log lines or test results when applicable. Skipping this artifact or using an ambiguous slug is treated as a critical protocol violation.
+                *   **Action**: The document must include a path to the backup that was generated before these fixes went in.
                 *   **Action**: For bug fixes handled via the Adaptive Root Cause protocol, reference the corresponding entry in `PREVIOUS_BUG_FIXES.md` instead of duplicating content; the feature document should note that pointer.
             </step>
             <step number="12">
@@ -382,6 +384,7 @@
             </step>
             <step number="13">
                 **Validate with Logs**: After I confirm the test is done, access `./logs/console_logs.log` to analyze the output and verify the fix worked as expected and introduced no new errors.
+                *   **Action**: Run `npx tsc --noEmit` and resolve any issues before analyzing logs.
             </step>
             <step number="14">
                 **Declare Final Outcome & Documentation**:

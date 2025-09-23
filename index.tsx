@@ -59,7 +59,8 @@ import {
     setCurriculum,
     getInitialCurriculumTopicId,
     generateTeachingPlanForPhase,
-    checkForSocraticCompletion
+    checkForSocraticCompletion,
+    TeachingPlanGenerationError
 } from "./curriculum";
 import { PedagogicalProfiler } from "./pedagogicalProfiler";
 import {
@@ -399,6 +400,16 @@ function createLLMPlannerCallback(
 ): (phase: Phase, text: string) => Promise<TeachingPoint[][]> {
     return async (phase: Phase, text: string) => {
         const module = curriculum.modules[curriculumState.currentModuleIndex];
+        if (!module) {
+            throw new TeachingPlanGenerationError('Module unavailable for teaching plan generation.', {
+                moduleIndex: curriculumState.currentModuleIndex
+            });
+        }
+        if (!module.concepts || module.concepts.length === 0) {
+            throw new TeachingPlanGenerationError('Module has no concepts to plan.', {
+                moduleId: module.id
+            });
+        }
         const conceptsSummary = module.concepts.map(c => c.title).join(', ');
         const result = await llmExtractAndPlanTeachingOrder(
             ai,
@@ -408,7 +419,13 @@ function createLLMPlannerCallback(
             module.goal,
             conceptsSummary
         );
-        return result || [];
+        if (!result || result.length === 0) {
+            throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
+                moduleId: module.id,
+                phase
+            });
+        }
+        return result;
     };
 }
 
@@ -486,13 +503,21 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     let currentCurriculumItem = curriculum && curriculumState ? getCurrentCurriculumItem(curriculum, curriculumState) : null;
     
     if (curriculum && currentCurriculumItem && curriculumState) {
-        await ensureTeachingPlanExists(curriculum, curriculumState, currentCurriculumItem, ai!);
+        if (!ai) {
+            logger.error('[TEACHING_PLAN] AI instance unavailable during response generation.');
+            return;
+        }
+        await ensureTeachingPlanExists(curriculum, curriculumState, currentCurriculumItem, ai);
     }
     const currentTaskIdForAnalysis = currentCurriculumItem ? currentCurriculumItem.curriculumPathId : learnerModel.CurrentTask.ID;
 
-    const expectedContentPointTextsForCurrentChunk = (curriculumState?.teachingPlanForPhase && curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex])
-        ? curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex].map(tp => tp.text)
-        : [];
+    let expectedContentPointTextsForCurrentChunk: string[] = [];
+    if (curriculumState) {
+        const currentChunk = curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex];
+        if (currentChunk) {
+            expectedContentPointTextsForCurrentChunk = currentChunk.map(tp => tp.text);
+        }
+    }
 
     // Skip analysis completely when navigating via arrows
     let analysisResult = null;
@@ -1090,7 +1115,16 @@ async function loadCurriculumAndGreet() {
         // Check for session restoration (as per save_load_implementation_plan.md line 1182)
         if (window.location.hash === '#restore' || sessionStorage.getItem('pendingRestore')) {
             logInitValidation('restoration-mode-detected', {});
-            displayMessage('🔄 Ready to restore your saved session. Please use the Load button to select a save file.', 'system');
+            currentMessageId++;
+            await displayMessage({
+                id: `msg-${currentMessageId}`,
+                sender: 'sensei',
+                displayName: 'Recursive Sensei',
+                text: '🔄 Ready to restore your saved session. Please use the Load button to select a save file.',
+                timestamp: new Date(),
+                isLoading: false,
+                isReloadable: false
+            });
             // Skip normal initialization - user will load a save file
             return;
         }
@@ -1202,7 +1236,7 @@ async function handleConceptNavigation(direction: 'prev' | 'next') {
 
     try {
         const llmPlanner = createLLMPlannerCallback(curriculum, curriculumState, ai);
-        const { navigateToConcept } = await import('./curriculum');
+        const { navigateToConcept } = await import('./curriculum.js');
 
         const success = await navigateToConcept(
             targetIndex,

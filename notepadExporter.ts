@@ -400,7 +400,7 @@ export class NotepadExporter {
             "'": '&#39;'
         };
         
-        return text.replace(/[&<>"']/g, match => htmlEntities[match]);
+        return text.replace(/[&<>"']/g, match => htmlEntities[match] ?? match);
     }
     
     private convertToHTML(text: string): string {
