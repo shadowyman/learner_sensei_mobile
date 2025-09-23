@@ -71,6 +71,10 @@ export function buildSenseiDynamicSystemInstruction(
     // Step 1: Check for and strip the MUST_OBEY prefix.
     if (tempDirective.startsWith('MUST_OBEY ')) {
         isMustObey = true;
+        logSenseiPromptValidation('standard-guidance-evaluated', {
+            mustObey: true,
+            directive: tempDirective
+        });
         tempDirective = tempDirective.substring('MUST_OBEY '.length);
     }
 

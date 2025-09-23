@@ -31,6 +31,7 @@ import {
 import {
     streamModuleIntroduction,
     buildSocraticExecutionInstruction,
+    buildSenseiDynamicSystemInstruction,
 } from './interactionHelpers';
 import { Chat } from "@google/genai";
 import { notepad } from './notepad';
@@ -385,13 +386,17 @@ Where would you like to begin your learning journey?`;
             if (this.state.curriculumState.currentPhase === 'Socratic') {
                 await this.sendSystemSocraticMessage();
             } else {
-                const initialInstructionForSensei = getCurriculumFocusInstruction(this.state.curriculum, currentItem, this.state.curriculumState, false);
+                const curriculumFocusInstruction = getCurriculumFocusInstruction(this.state.curriculum, currentItem, this.state.curriculumState, false);
+                const coreInstruction = buildSenseiDynamicSystemInstruction(
+                    curriculumFocusInstruction,
+                    undefined
+                );
                 
                 this.state.currentMessageId++;
                 const senseiIntroId = `msg-${this.state.currentMessageId}`;
                 
                 const introContext = `${MODULE_INTRODUCTION_TASK_TEMPLATE(selectedModule.title, conceptTitle, phaseDisplayName, `Phase: ${phaseDisplayName}`)}
-${initialInstructionForSensei}
+${coreInstruction}
 `;
                 
                 const reloadContext: ReloadContext = {

@@ -1366,20 +1366,6 @@ function buildPrimaryActionInstruction(
     }
 }
 
-const INTRO_ILLUSTRATE_EXPANSION_DIRECTIVE = `Deliver two complementary passes: one that builds intuition and one that provides the mandated expansive technical drilldown described above. When you invoke the optional supplemental mode, tailor this second pass accordingly—use narrated C++ dry runs for the walkthrough option or scaffolded reasoning for the fill-in-the-blank option—otherwise remain entirely within the extended insight narrative.
-Include contrasting application scenarios (baseline versus high-pressure) and describe how the learner should adjust in each case.
-Offer an interview-oriented perspective so the learner can justify trade-offs out loud.
-Wrap up with a concise self-assessment checklist reinforcing the mastery signals covered.`;
-
-const INTRO_ILLUSTRATE_STRUCTURE = `## Structure of Teaching Format
-- Conceptual Narrative: restate the teaching point in plain language so the learner immediately grasps what it is. Highlight the pain it removes, the stakes if it’s neglected, and how it builds on previously mastered recursion tools so it feels like a natural upgrade. Offer a brief thought experiment that contrasts a success path with a failure path to seed intuition without overwhelming detail. Share a gentle readiness signal (for example, noting that once this idea feels natural, the upcoming mechanics will click) to boost confidence, then explicitly preview that the technical drilldown will walk through the execution step by step.
-- Technical Drilldown: deliver an exceptionally expansive explanation of the action item’s technical meaning (contract, inputs, outputs, guarantees) that also covers application areas, strengths, trade-offs, and pitfalls so the learner gains interview-ready depth. After completing this long-form insight, optionally choose exactly one of the following supplemental modes—or skip them entirely if they would overwhelm the learner this turn:
-  * Full C++ Walkthrough: only when prerequisites are satisfied, present a tightly scoped implementation with narrated dry run and line-by-line linkage back to the concept.
-  * Fill-in-the-Blank Reveal: provide a scaffolded snippet, invite the learner to reason about the missing pieces, then unveil the completed solution and discuss how it realizes the concept.
-- Present two contrasting application scenarios (baseline and high-pressure or edge-case) and explain how the concept adapts.
-- Provide an algorithmic and communication perspective so the learner can explain trade-offs to interviewers.
-- Wrap up with a self-assessment checklist that highlights the critical mastery signals.`;
-
 function buildSupportingContextBlock(
     item: CurriculumItem,
     state: CurriculumState
@@ -1429,15 +1415,6 @@ function buildContextualInstruction(
         `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
         primaryActionResult.instruction
     ].join('\n'));
-
-    if (state.currentPhase === 'IntroIllustrate') {
-        sections.push([
-            '## 🔍 INTRO/ILLUSTRATE EXPANSION DIRECTIVE',
-            INTRO_ILLUSTRATE_EXPANSION_DIRECTIVE
-        ].join('\n'));
-
-        sections.push(INTRO_ILLUSTRATE_STRUCTURE);
-    }
 
     sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
 

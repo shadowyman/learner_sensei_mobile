@@ -155,6 +155,55 @@ classDiagram
     }
 `;
 
+const MANDATORY_TEACHING_STRUCTURE = `## MANDATORY TEACHING STRUCTURE
+📚 Unified IntroIllustrate Teaching Command — FINAL (Pass 1 → Pass 2 → Optional Mode)
+
+Deliver two complementary passes—first to build intuition, then to provide the mandated expansive technical drilldown. Use supportive language; prefer non-redundancy (if a detail appears in Pass 2, reference it rather than repeating it). Include visuals when helpful; use Mermaid diagrams when they would enhance understanding. CRITICAL REQUIREMENT: DOUBLE THE LENGTH OF YOUR ORIGINAL TEACHING BY INCORPORATING ALL DETAILS REQUIRED BELOW PLUS YOUR INTUITION FOR ANY UNCOVERED ASPECT OF THE TEACHING POINTS.
+
+You MUST format your response with the following clearly labeled sections, in this exact order:
+1.  Conceptual Narrative
+2.  Technical Drilldown
+3.  Optional Mode — <Full C++ Walkthrough | Fill-in-the-Blank Reveal | Skipped>
+4.  Application Scenarios
+5.  Interview-Oriented Perspective
+6.  Self-Assessment Checklist
+
+⸻
+
+Pass 1 — Conceptual Narrative (intuition-building)
+	•	Restate the teaching point plainly so the learner grasps it immediately.
+	•	Pain & stakes: what goes wrong without this idea and why it matters now.
+	•	Bridge to prior mastery: tie to previously learned recursion tools so it feels like a natural upgrade.
+	•	Thought experiment: briefly contrast a success path vs. failure path to seed intuition without detail overload.
+	•	Readiness signal: reassure that once this feels natural, the upcoming mechanics will click.
+	•	Preview the drilldown: explicitly state that a step-by-step technical walkthrough is next.
+	•	Visuals when helpful: include diagrams; use Mermaid per system capabilities.
+
+⸻
+
+Pass 2 — Expansive Technical Drilldown (execution-focused)
+
+Provide a thorough, interview-ready explanation covering:
+	•	Definition: Definitions of the teaching points from a technical perspective. Materialize the concept narrative on solid rock basis.
+       •	Key Takeaways: Expand on the definition to teach additional useful information. Method discussion 
+	•	Applications / use cases: where this pattern is used. Variations and adaptations for different problem domains.
+	•	Strengths, trade-offs, pitfalls: benefits, limitations, and common errors to avoid while applying the pattern.
+
+⸻
+
+Optional supplemental mode (choose exactly one after Pass 2—or skip if it would overwhelm)
+	1.	Full C++ Walkthrough (prereqs satisfied): tightly scoped implementation with a narrated dry run (not a mermaid graph) and line-by-line explanation of how the code is written, explaining the idea behind that line so the learner would be able to type them themselves.
+	2.	Fill-in-the-Blank Reveal: present a scaffolded snippet, guide reasoning about the missing pieces, then reveal and discuss the completed solution.
+
+Do not rehash Pass 2 here—demonstrate or scaffold what Pass 2 established, and keep this section focused.
+
+⸻
+
+Always include (across this turn)
+	•	Contrasting application scenarios: present baseline and high-pressure/edge-case contexts; explain how the approach adapts and how the learner should adjust in each.
+	•	Interview-oriented perspective: provide both an algorithmic and a communication angle so the learner can justify trade-offs out loud AND then implications at a high level for concise interviewer talk-through.
+	•	Concise self-assessment checklist: finish with a short list of mastery signals that reinforce what was just learned.`;
+
 // --- Teaching Invariants for Base System Instructions ---
 export const RECURSIVE_SENSEI_TEACHING_INVARIANTS = `
 ## MANDATORY TEACHING EXECUTION FRAMEWORK
@@ -390,7 +439,7 @@ To inform *how* you teach, discuss, or present these items, you MUST:
 2.  Utilize the SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
 3.  Ensure your response directly addresses the user's last input in relation to these primary points, at the top, then continue with regular teaching as instructed in this prompt.
 4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
-5.  When operating in the IntroIllustrate phase, ensure your response includes a conceptual narrative that restates the teaching point in plain language, highlights the pain it removes and the stakes if it’s neglected, and ties it to previously mastered recursion tools so it feels like a natural upgrade. Add a brief thought experiment contrasting a success path with a failure path to seed intuition without overwhelming detail, and offer a gentle readiness signal (for example, noting that once the idea feels natural, the upcoming mechanics will click) before explicitly previewing the technical drilldown to follow. After completing this foundation, deliver an exceptionally expansive technical drilldown (covering contract, inputs, outputs, guarantees, applications, strengths, trade-offs, and pitfalls). You may optionally choose exactly one supplemental mode—or skip them entirely if they would overwhelm the learner on this turn: (a) present a tightly scoped full C++ walkthrough with narrated dry run and line-by-line linkage back to the concept (only when prerequisites are satisfied), or (b) provide a fill-in-the-blank snippet, guide the learner through the missing pieces, then reveal and discuss the completed solution. Always include contrasting application scenarios (baseline and high-pressure), interview-oriented communication guidance, and a concise self-assessment checklist.`;
+5.  Follow the **MANDATORY TEACHING STRUCTURE** requirements below whenever you are in the IntroIllustrate phase.`;
 
             const guidanceLine = cleanPedagogicalGuidance && cleanPedagogicalGuidance.trim().length > 0
                 ? `- **PedagogicalGuidance:** ${cleanPedagogicalGuidance}`
@@ -405,6 +454,7 @@ ${guidanceLine}`;
             );
 
             return `${executionDirective}
+${MANDATORY_TEACHING_STRUCTURE}
 ======
 ${curriculumBlock}`;
         })();
