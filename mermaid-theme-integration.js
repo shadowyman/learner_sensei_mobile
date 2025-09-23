@@ -136,11 +136,37 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
 
         let sibling = getNextElementSkippingArtifacts(figure.nextSibling);
         let annotationElement = null;
-        if (sibling instanceof HTMLElement && sibling.tagName.toLowerCase() === 'p') {
-            const firstChild = sibling.firstElementChild;
-            const trimmed = sibling.textContent ? sibling.textContent.trim() : '';
-            if (firstChild && firstChild.tagName.toLowerCase() === 'em' && sibling.childElementCount === 1 && trimmed.length > 0) {
-                annotationElement = sibling;
+        if (sibling instanceof HTMLElement) {
+            const tagName = sibling.tagName.toLowerCase();
+            if (tagName === 'p') {
+                const firstChild = sibling.firstElementChild;
+                const trimmed = sibling.textContent ? sibling.textContent.trim() : '';
+                if (firstChild && firstChild.tagName.toLowerCase() === 'em' && sibling.childElementCount === 1 && trimmed.length > 0) {
+                    annotationElement = sibling;
+                }
+            } else if (tagName === 'pre') {
+                const codeChild = sibling.firstElementChild;
+                const codeTag = codeChild && codeChild.tagName ? codeChild.tagName.toLowerCase() : '';
+                const rawCaption = codeChild && codeChild.textContent ? codeChild.textContent.trim() : '';
+                const newlineCount = rawCaption ? (rawCaption.match(/\n/g) || []).length : 0;
+                if (codeTag === 'code' && rawCaption && rawCaption.length <= 500 && newlineCount <= 1) {
+                    let cleaned = rawCaption.replace(/^```/, '').replace(/```$/, '').trim();
+                    let emphasizeText = cleaned;
+                    if (emphasizeText.startsWith('*') && emphasizeText.endsWith('*') && emphasizeText.length > 2) {
+                        emphasizeText = emphasizeText.slice(1, -1).trim();
+                    }
+                    const hasCodeIndicators = /[{};=<>]/.test(emphasizeText) || /\b(function|class|return)\b/i.test(emphasizeText);
+                    if (emphasizeText && !hasCodeIndicators) {
+                        const paragraph = document.createElement('p');
+                        const emphasis = document.createElement('em');
+                        emphasis.textContent = emphasizeText;
+                        paragraph.appendChild(emphasis);
+                        paragraph.classList.add('mermaid-annotation');
+                        sibling.remove();
+                        figure.appendChild(paragraph);
+                        annotationElement = paragraph;
+                    }
+                }
             }
         }
         if (annotationElement) {
@@ -148,7 +174,9 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
                 ? annotationElement.textContent.split(/[.!?]+/).map((segment) => segment.trim()).filter((segment) => segment.length > 0).length
                 : 0;
             annotationElement.classList.add('mermaid-annotation');
-            figure.appendChild(annotationElement);
+            if (!figure.contains(annotationElement)) {
+                figure.appendChild(annotationElement);
+            }
             if (!mermaidAnnotationSuccessLogged && sentenceCount > 0) {
                 logMermaidValidation('caption-aligned', { sentenceCount });
                 mermaidAnnotationSuccessLogged = true;

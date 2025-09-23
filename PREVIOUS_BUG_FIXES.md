@@ -56,3 +56,17 @@
 - `index.css:1735`
 
 **Keywords for Future Reference**: codemirror, modal, scrollbar, flex layout, initialization timing, overflow
+
+## Bug #5: Mermaid Caption Rendered as Code Block
+
+**Issue**: Diagram annotations occasionally appeared inside a styled code block rather than as italic text beneath the mermaid figure, confusing readers and breaking layout continuity.
+
+**Root Cause**: When the AI output placed the annotation immediately after the closing ```mermaid fence, `marked` wrapped the caption as `<pre><code>…</code></pre>`. Our post-processing in `renderMermaidThumbnailWithTheme` only relocates captions that arrive as `<p><em>…</em></p>`, so the fenced caption stayed untouched and rendered like code.
+
+**Fix Applied**: Expanded `renderMermaidThumbnailWithTheme` to detect caption-like `<pre><code>` siblings (single-line, non-code heuristics). These blocks are converted into italic paragraphs and appended to the `.mermaid-figure`, keeping captions styled consistently while ignoring real code samples.
+
+**Related Files**:
+- `mermaid-theme-integration.js:137`
+- `docs/mission_state_mermaid_annotation_bug_20250924_014731.md`
+
+**Keywords for Future Reference**: mermaid, caption, annotation, markdown fence, sanitize, thumbnail wrapper
