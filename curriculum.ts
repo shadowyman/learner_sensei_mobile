@@ -14,13 +14,6 @@ import {
     ConsolidationState
 } from "./consolidationManager";
 import {
-    CURRICULUM_FOCUS_HEADER_BASE,
-    CURRICULUM_FOCUS_PRIMARY_ACTION_HEADER_TEMPLATE,
-    CURRICULUM_FOCUS_SUPPORTING_CONTEXT_HEADER,
-    CURRICULUM_FOCUS_PHASE_SIGNAL_PREFIX,
-    CURRICULUM_FOCUS_PHASE_SIGNAL_SUFFIX,
-    CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_HEADER,
-    CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY,
     CURRICULUM_COMPLETED_FOCUS_INSTRUCTION,
     GENERAL_INTERACTION_FOCUS_INSTRUCTION,
     REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE,
@@ -28,11 +21,7 @@ import {
     TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE,
     REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE,
     GENERAL_ENGAGEMENT_PROMPT_TEMPLATE,
-    CURRICULUM_FOCUS_MODULE_GOAL_PREFIX,
-    CURRICULUM_FOCUS_CONCEPT_DETAILS_HEADER,
-    CURRICULUM_FOCUS_CONCEPT_TITLE_PREFIX,
-    CURRICULUM_FOCUS_CONCEPT_EXPLANATION_PREFIX,
-    CURRICULUM_FOCUS_MODULE_WIDE_FOCUS_MESSAGE_PREFIX
+    PEDAGOGICAL_GUIDANCE_PLACEHOLDER
 } from "./prompts";
 
 
@@ -1340,89 +1329,132 @@ function buildPrimaryActionInstruction(
     focusPointsStrings: string[],
     item: CurriculumItem,
     state: CurriculumState,
-    isMustObeyTurn: boolean
-): string {
-    
-    const shouldIncludeCheckUnderstanding = !isMustObeyTurn;
-    
+    includeCheckUnderstanding: boolean
+): { instruction: string; includeCheck: boolean } {
+
     switch (primaryActionType) {
         case "Revisit & Clarify (from current chunk)":
-            return REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding);
+            return {
+                instruction: REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE(focusPointsStrings),
+                includeCheck: includeCheckUnderstanding
+            };
         case "Revisit & Clarify (general points for this phase)":
-            return REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding);
-        case "Teach New Content (from current chunk)": {
-            const introExpansion = state.currentPhase === 'IntroIllustrate'
-                ? `### IntroIllustrate Dual-Pass Structure\n- Conceptual Narrative: restate the teaching point in plain language so the learner immediately grasps what it is. Highlight the pain it removes, the stakes if it’s neglected, and how it builds on previously mastered recursion tools so it feels like a natural upgrade. Offer a brief thought experiment that contrasts a success path with a failure path to seed intuition without overwhelming detail. Share a gentle readiness signal (for example, noting that once this idea feels natural, the upcoming mechanics will click) to boost confidence, then explicitly preview that the technical drilldown will walk through the execution step by step.\n- Technical Drilldown: deliver an exceptionally expansive explanation of the action item’s technical meaning (contract, inputs, outputs, guarantees) that also covers application areas, strengths, trade-offs, and pitfalls so the learner gains interview-ready depth. After completing this long-form insight, optionally choose exactly one of the following supplemental modes—or skip them entirely if they would overwhelm the learner this turn:\n  * Full C++ Walkthrough: only when prerequisites are satisfied, present a tightly scoped implementation with narrated dry run and line-by-line linkage back to the concept.\n  * Fill-in-the-Blank Reveal: provide a scaffolded snippet, invite the learner to reason about the missing pieces, then unveil the completed solution and discuss how it realizes the concept.\n- Present two contrasting application scenarios (baseline and high-pressure or edge-case) and explain how the concept adapts.\n- Provide an algorithmic and communication perspective so the learner can explain trade-offs to interviewers.\n- Wrap up with a self-assessment checklist that highlights the critical mastery signals.`
-                : undefined;
-            return TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings, shouldIncludeCheckUnderstanding, introExpansion);
-        }
+            return {
+                instruction: REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(focusPointsStrings),
+                includeCheck: includeCheckUnderstanding
+            };
+        case "Teach New Content (from current chunk)":
+            return {
+                instruction: TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings),
+                includeCheck: includeCheckUnderstanding
+            };
         case "Reinforce & Deepen (current chunk)":
-            return REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE(item, focusPointsStrings);
+            return {
+                instruction: REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE(item, focusPointsStrings),
+                includeCheck: includeCheckUnderstanding
+            };
         case "General Engagement":
-            return GENERAL_ENGAGEMENT_PROMPT_TEMPLATE(item, state);
+            return {
+                instruction: GENERAL_ENGAGEMENT_PROMPT_TEMPLATE(item, state),
+                includeCheck: includeCheckUnderstanding
+            };
         default:
-            return "";
+            return {
+                instruction: "",
+                includeCheck: includeCheckUnderstanding
+            };
     }
+}
+
+const INTRO_ILLUSTRATE_EXPANSION_DIRECTIVE = `Deliver two complementary passes: one that builds intuition and one that provides the mandated expansive technical drilldown described above. When you invoke the optional supplemental mode, tailor this second pass accordingly—use narrated C++ dry runs for the walkthrough option or scaffolded reasoning for the fill-in-the-blank option—otherwise remain entirely within the extended insight narrative.
+Include contrasting application scenarios (baseline versus high-pressure) and describe how the learner should adjust in each case.
+Offer an interview-oriented perspective so the learner can justify trade-offs out loud.
+Wrap up with a concise self-assessment checklist reinforcing the mastery signals covered.`;
+
+const INTRO_ILLUSTRATE_STRUCTURE = `## Structure of Teaching Format
+- Conceptual Narrative: restate the teaching point in plain language so the learner immediately grasps what it is. Highlight the pain it removes, the stakes if it’s neglected, and how it builds on previously mastered recursion tools so it feels like a natural upgrade. Offer a brief thought experiment that contrasts a success path with a failure path to seed intuition without overwhelming detail. Share a gentle readiness signal (for example, noting that once this idea feels natural, the upcoming mechanics will click) to boost confidence, then explicitly preview that the technical drilldown will walk through the execution step by step.
+- Technical Drilldown: deliver an exceptionally expansive explanation of the action item’s technical meaning (contract, inputs, outputs, guarantees) that also covers application areas, strengths, trade-offs, and pitfalls so the learner gains interview-ready depth. After completing this long-form insight, optionally choose exactly one of the following supplemental modes—or skip them entirely if they would overwhelm the learner this turn:
+  * Full C++ Walkthrough: only when prerequisites are satisfied, present a tightly scoped implementation with narrated dry run and line-by-line linkage back to the concept.
+  * Fill-in-the-Blank Reveal: provide a scaffolded snippet, invite the learner to reason about the missing pieces, then unveil the completed solution and discuss how it realizes the concept.
+- Present two contrasting application scenarios (baseline and high-pressure or edge-case) and explain how the concept adapts.
+- Provide an algorithmic and communication perspective so the learner can explain trade-offs to interviewers.
+- Wrap up with a self-assessment checklist that highlights the critical mastery signals.`;
+
+function buildSupportingContextBlock(
+    item: CurriculumItem,
+    state: CurriculumState
+): string {
+    const lines: string[] = [];
+    lines.push(`- Current Module Goal (Overall context for this module):`);
+    lines.push(`  "${item.moduleGoal}"`);
+
+    if (item.concept && !item.isModuleWidePhase) {
+        lines.push(`- Current Concept (Background for the primary action):`);
+        lines.push(`  - Title: "${item.concept.title}"`);
+        lines.push(`  - Core Explanation: "${item.concept.text}"`);
+    } else if (item.isModuleWidePhase) {
+        lines.push(`- Current Focus: This is a module-wide phase. Focus on the overall module goal and the nature of the current phase ('${state.currentPhase}').`);
+    }
+
+    lines.push(`- Current Phase Signal: You are in the "${state.currentPhase}". This signals the general style of interaction expected (e.g., 'IntroIllustrate' implies explanation and examples; 'Socratic' implies questioning and discussion; 'Solidify' implies review and connection).`);
+
+    return lines.join('\n');
 }
 
 function buildContextualInstruction(
     item: CurriculumItem,
     state: CurriculumState,
     primaryActionType: string,
-    primaryActionInstruction: string
+    primaryActionResult: { instruction: string; includeCheck: boolean }
 ): string {
-    const phase = state.currentPhase;
-    
-    // Base instruction
-    let instruction = `${CURRICULUM_FOCUS_HEADER_BASE}
-- Current Module: ${item.moduleTitle}
-- Current Pedagogical Phase: ${phase}`;
-    
-    // Concept/Module context
+    const sections: string[] = [];
+    const chunkProgress = `Chunk ${state.currentTeachingChunkIndex + 1} of ${state.teachingPlanForPhase.length || 1}`;
+    const phaseLineParts: string[] = [`Current Pedagogical Phase: ${state.currentPhase}`];
+
     if (!item.isModuleWidePhase && item.concept) {
-        instruction += ` (for Concept: ${item.concept.title})`;
+        phaseLineParts.push(`(for Concept: ${item.concept.title})`);
     } else if (item.isModuleWidePhase) {
-        instruction += ` (Module-Wide)`;
-    }
-    
-    // Chunk progress
-    instruction += ` (Chunk ${state.currentTeachingChunkIndex + 1} of ${state.teachingPlanForPhase.length || 1})
-
-${CURRICULUM_FOCUS_PRIMARY_ACTION_HEADER_TEMPLATE(primaryActionType)}
-${primaryActionInstruction}
-
-${CURRICULUM_FOCUS_SUPPORTING_CONTEXT_HEADER}
-${CURRICULUM_FOCUS_MODULE_GOAL_PREFIX}
-  "${item.moduleGoal}"`;
-
-    // Concept details
-    if (item.concept && !item.isModuleWidePhase) {
-        instruction += `
-${CURRICULUM_FOCUS_CONCEPT_DETAILS_HEADER}
-  ${CURRICULUM_FOCUS_CONCEPT_TITLE_PREFIX} "${item.concept.title}"
-  ${CURRICULUM_FOCUS_CONCEPT_EXPLANATION_PREFIX} "${item.concept.text}"`;
-    } else if (item.isModuleWidePhase) {
-        instruction += `
-${CURRICULUM_FOCUS_MODULE_WIDE_FOCUS_MESSAGE_PREFIX} ('${phase}').`;
-    }
-    
-    // Final directive
-    instruction += `
-${CURRICULUM_FOCUS_PHASE_SIGNAL_PREFIX} "${phase}". ${CURRICULUM_FOCUS_PHASE_SIGNAL_SUFFIX}
-
-${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_HEADER}
-${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY}`;
-
-    if (phase === 'IntroIllustrate') {
-        instruction += `
-== 🔍 INTRO/ILLUSTRATE EXPANSION DIRECTIVE ==
-Deliver two complementary passes: one that builds intuition and one that provides the mandated expansive technical drilldown described above. When you invoke the optional supplemental mode, tailor this second pass accordingly—use narrated C++ dry runs for the walkthrough option or scaffolded reasoning for the fill-in-the-blank option—otherwise remain entirely within the extended insight narrative.
-Include contrasting application scenarios (baseline versus high-pressure) and describe how the learner should adjust in each case.
-Offer an interview-oriented perspective so the learner can justify trade-offs out loud.
-Wrap up with a concise self-assessment checklist reinforcing the mastery signals covered.`;
+        phaseLineParts.push('(Module-Wide)');
     }
 
-    return instruction;
+    phaseLineParts.push(`(${chunkProgress})`);
+
+    sections.push([
+        '## Curriculum Focus',
+        `Current Module: ${item.moduleTitle}`,
+        phaseLineParts.join(' ')
+    ].join('\n'));
+
+    sections.push([
+        `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
+        primaryActionResult.instruction
+    ].join('\n'));
+
+    if (state.currentPhase === 'IntroIllustrate') {
+        sections.push([
+            '## 🔍 INTRO/ILLUSTRATE EXPANSION DIRECTIVE',
+            INTRO_ILLUSTRATE_EXPANSION_DIRECTIVE
+        ].join('\n'));
+
+        sections.push(INTRO_ILLUSTRATE_STRUCTURE);
+    }
+
+    sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
+
+    if (primaryActionResult.includeCheck) {
+        sections.push([
+            '## 🧠 Let\'s Check Your Understanding',
+            '(Here, you will ask 1-2 open-ended, Socratic questions that test the application of all concepts you just explained. The questions should require synthesis, not just recall. They must collectively cover the key topics from your main explanation.)'
+        ].join('\n'));
+    }
+
+    sections.push([
+        '## SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE',
+        buildSupportingContextBlock(item, state)
+    ].join('\n'));
+
+    const assembled = sections.join('\n\n======\n\n');
+    return `${assembled}\n\n======`;
 }
 
 function getCurriculumFocusInstructionImpl(
@@ -1440,11 +1472,15 @@ function getCurriculumFocusInstructionImpl(
     // Resolve focus points
     const { focusPoints, primaryActionType } = resolveFocusPoints(state, preCalculatedFocusPoints);
     
-    // Build primary action instruction
+    const includeCheckUnderstanding = !isMustObeyTurn;
     const primaryActionInstruction = buildPrimaryActionInstruction(
-        primaryActionType, focusPoints, item, state, isMustObeyTurn
+        primaryActionType,
+        focusPoints,
+        item,
+        state,
+        includeCheckUnderstanding
     );
-    
+
     // Build complete contextual instruction
     return buildContextualInstruction(item, state, primaryActionType, primaryActionInstruction);
 }

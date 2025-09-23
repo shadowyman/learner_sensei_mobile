@@ -376,21 +376,38 @@ Your SOLE TASK is to execute the following high-priority directive with immense 
 High-Priority Directive: ${cleanPedagogicalGuidance || "A critical situation was detected, but the specific directive is missing. Default to empathetic reassurance and ask how you can help."}
 (The standard curriculum focus, which you will ignore for this turn, is: ${curriculumFocusInstruction})
 ]`
-        : `
-[RecursiveSensei Task & Checklist for THIS TURN:
-Your task is to generate a response by following this prioritized checklist. You MUST evaluate and execute these steps in order.
+        : (() => {
+            const executionDirective = `## 🎯 EXECUTION DIRECTIVE
+Your paramount task is to execute the ⭐ PRIMARY ACTION ⭐ items listed below.
+Your response must demonstrate **immense depth and thoroughness** when addressing these primary action items. Do not gloss over details. Aim to preempt common learner questions and provide rich context.
+To inform *how* you teach, discuss, or present these items, you MUST:
+1.  Leverage your extensive internal knowledge base:
+    *   Core principles of recursion and recursive thinking.
+    *   Effective pedagogical strategies for computer science education.
+    *   Common analogies, examples (including from areas like LeetCode), and visualizations for recursion.
+    *   Details of C++ syntax and best practices relevant to recursion, when appropriate for the problem.
+    *   Your understanding of how to best embody the supportive and insightful Recursive Sensei persona.
+2.  Utilize the SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
+3.  Ensure your response directly addresses the user's last input in relation to these primary points, at the top, then continue with regular teaching as instructed in this prompt.
+4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
+5.  When operating in the IntroIllustrate phase, ensure your response includes a conceptual narrative that restates the teaching point in plain language, highlights the pain it removes and the stakes if it’s neglected, and ties it to previously mastered recursion tools so it feels like a natural upgrade. Add a brief thought experiment contrasting a success path with a failure path to seed intuition without overwhelming detail, and offer a gentle readiness signal (for example, noting that once the idea feels natural, the upcoming mechanics will click) before explicitly previewing the technical drilldown to follow. After completing this foundation, deliver an exceptionally expansive technical drilldown (covering contract, inputs, outputs, guarantees, applications, strengths, trade-offs, and pitfalls). You may optionally choose exactly one supplemental mode—or skip them entirely if they would overwhelm the learner on this turn: (a) present a tightly scoped full C++ walkthrough with narrated dry run and line-by-line linkage back to the concept (only when prerequisites are satisfied), or (b) provide a fill-in-the-blank snippet, guide the learner through the missing pieces, then reveal and discuss the completed solution. Always include contrasting application scenarios (baseline and high-pressure), interview-oriented communication guidance, and a concise self-assessment checklist.`;
 
-**Your Response Checklist:**
-1.  **Fulfill CurriculumFocus Structure:** Your response MUST include all structural components mandated by the \`CurriculumFocus\` (e.g., explanations, examples, and a "Check Your Understanding" section unless MUST_OBEY == true).
-2.  **Integrate Guidance Strategy:** You MUST use the methods, tone, and style from the \`PedagogicalGuidance\` to deliver the content required by the \`CurriculumFocus\`. For example, use the suggested analogy to explain the curriculum's teaching points.
+            const guidanceLine = cleanPedagogicalGuidance && cleanPedagogicalGuidance.trim().length > 0
+                ? `- **PedagogicalGuidance:** ${cleanPedagogicalGuidance}`
+                : `- **PedagogicalGuidance:** No specific guidance. Adhere to points 2 and 3 using your core persona.`;
 
----
-**Inputs for your checklist:**
+            const guidanceBlock = `**Inputs for your checklist:**
+${guidanceLine}`;
 
-- **PedagogicalGuidance:** ${cleanPedagogicalGuidance || "No specific guidance. Adhere to points 2 and 3 using your core persona."}
-- **CurriculumFocus:** ${curriculumFocusInstruction}
----
-]`;
+            const curriculumBlock = curriculumFocusInstruction.replace(
+                PEDAGOGICAL_GUIDANCE_PLACEHOLDER,
+                guidanceBlock
+            );
+
+            return `${executionDirective}
+======
+${curriculumBlock}`;
+        })();
 
     return coreTaskInstruction;
 }
@@ -846,35 +863,7 @@ FINAL INSTRUCTION: Based on your two-step analysis, generate the single, valid J
 
 // --- Prompts for curriculum.ts (getCurriculumFocusInstruction) ----
 
-export const CURRICULUM_FOCUS_HEADER_BASE = `[RecursiveSensei Curriculum Focus for this turn:`;
-
-export const CURRICULUM_FOCUS_PRIMARY_ACTION_HEADER_TEMPLATE = (primaryActionType: string) =>
-    `== ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐ ==`;
-
-export const CURRICULUM_FOCUS_SUPPORTING_CONTEXT_HEADER = `== 📚 SUPPORTING CONTEXT & GUIDANCE 📚 ==`;
-export const CURRICULUM_FOCUS_MODULE_GOAL_PREFIX = `- Current Module Goal (Overall context for this module):`;
-export const CURRICULUM_FOCUS_CONCEPT_DETAILS_HEADER = `- Current Concept (Background for the primary action):`;
-export const CURRICULUM_FOCUS_CONCEPT_TITLE_PREFIX = `  - Title:`;
-export const CURRICULUM_FOCUS_CONCEPT_EXPLANATION_PREFIX = `  - Core Explanation:`;
-export const CURRICULUM_FOCUS_MODULE_WIDE_FOCUS_MESSAGE_PREFIX = `- Current Focus: This is a module-wide phase. Focus on the overall module goal and the nature of the current phase`;
-export const CURRICULUM_FOCUS_PHASE_SIGNAL_PREFIX = `- Current Phase Signal: You are in the`;
-export const CURRICULUM_FOCUS_PHASE_SIGNAL_SUFFIX = `This signals the general style of interaction expected (e.g., 'IntroIllustrate' implies explanation and examples; 'Socratic' implies questioning and discussion; 'Solidify' implies review and connection).`;
-
-export const CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_HEADER = `== 🎯 EXECUTION DIRECTIVE 🎯 ==`;
-export const CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY = `Your paramount task is to execute the ⭐ PRIMARY ACTION ⭐ items listed above.
-Your response must demonstrate **immense depth and thoroughness** when addressing these primary action items. Do not gloss over details. Aim to preempt common learner questions and provide rich context.
-To inform *how* you teach, discuss, or present these items, you MUST:
-1.  Leverage your extensive internal knowledge base:
-    *   Core principles of recursion and recursive thinking.
-    *   Effective pedagogical strategies for computer science education.
-    *   Common analogies, examples (including from areas like LeetCode), and visualizations for recursion.
-    *   Details of C++ syntax and best practices relevant to recursion, when appropriate for the problem.
-    *   Your understanding of how to best embody the supportive and insightful Recursive Sensei persona.
-2.  Utilize the 📚 SUPPORTING CONTEXT & GUIDANCE 📚 provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
-3.  Ensure your response directly addresses the user's last input in relation to these primary points.
-4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
-5.  When operating in the IntroIllustrate phase, ensure your response includes a conceptual narrative that restates the teaching point in plain language, highlights the pain it removes and the stakes if it’s neglected, and ties it to previously mastered recursion tools so it feels like a natural upgrade. Add a brief thought experiment contrasting a success path with a failure path to seed intuition without overwhelming detail, and offer a gentle readiness signal (for example, noting that once the idea feels natural, the upcoming mechanics will click) before explicitly previewing the technical drilldown to follow. After completing this foundation, deliver an exceptionally expansive technical drilldown (covering contract, inputs, outputs, guarantees, applications, strengths, trade-offs, and pitfalls). You may optionally choose exactly one supplemental mode—or skip them entirely if they would overwhelm the learner on this turn: (a) present a tightly scoped full C++ walkthrough with narrated dry run and line-by-line linkage back to the concept (only when prerequisites are satisfied), or (b) provide a fill-in-the-blank snippet, guide the learner through the missing pieces, then reveal and discuss the completed solution. Always include contrasting application scenarios (baseline and high-pressure), interview-oriented communication guidance, and a concise self-assessment checklist.
-]`;
+export const PEDAGOGICAL_GUIDANCE_PLACEHOLDER = '__PEDAGOGICAL_GUIDANCE__';
 
 export const CURRICULUM_COMPLETED_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: Curriculum Completed! User may ask recap questions or general CS topics. Be supportive and congratulate them.]`;
 export const GENERAL_INTERACTION_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: General Interaction - Awaiting curriculum selection or processing general query.]`;
@@ -890,70 +879,41 @@ export const TARGETED_CONSOLIDATION_PROMPT_TEMPLATE = (item: CurriculumItem, sta
   3. Pose synthesizing questions that encourage the learner to explain connections between concepts covered throughout this phase. Your follow-up probing should also aim for depth.`;
 };
 
-export const REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[], includeCheck: boolean): string => {
-    let prompt = `For each of the following specific teaching point(s) from the current chunk, you MUST provide a detailed and comprehensive explanation to address the learner's confusion. This includes:
+export const REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[]): string => {
+    const prompt = `For each of the following specific teaching point(s) from the current chunk, you MUST provide a detailed and comprehensive explanation to address the learner's confusion. This includes:
       - Clearly defining the core idea of the point.
       - Providing at least one illustrative example or analogy, or walking through a relevant scenario.
       - Anticipating potential common points of confusion for a learner regarding this point and proactively addressing them.
       - Emphasizing the most important takeaway or 'why this matters' for the point.
       - If the teaching point itself suggests a specific example or analogy, elaborate on it fully.
-    Focus Points:
+    Teaching Points:
     ${focusPointsStrings.map(s => `  - "${s}"`).join("\n")}`;
 
-    if (includeCheck) {
-        prompt += `
----
-
-### 🧠 Let's Check Your Understanding
-
-(Here, you will ask 1-2 open-ended, Socratic questions that test the application of all concepts you just explained. The questions should require synthesis, not just recall. They must collectively cover the key topics from your main explanation.)`;
-    }
     return prompt;
 };
 
-export const REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE = (allRevisitPoints: string[], includeCheck: boolean): string => {
-    let prompt = `You MUST address learner confusion regarding the following teaching point(s) for this phase with immense depth and clarity. For each point:
+export const REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE = (allRevisitPoints: string[]): string => {
+    const prompt = `You MUST address learner confusion regarding the following teaching point(s) for this phase with immense depth and clarity. For each point:
       - Clearly define its core idea.
       - Provide illustrative examples or analogies.
       - Proactively address common confusions.
       - Emphasize its significance.
-    Focus Points:
+    Teaching Points:
     ${allRevisitPoints.map(s => `  - "${s}"`).join("\n")}`;
 
-    if (includeCheck) {
-        prompt += `
----
-
-### 🧠 Let's Check Your Understanding
-
-(Here, you will ask 1-2 open-ended, Socratic questions that test the application of all concepts you just explained. The questions should require synthesis, not just recall. They must collectively cover the key topics from your main explanation.)`;
-    }
     return prompt;
 };
 
-export const TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[], includeCheck: boolean, introExpansion?: string): string => {
+export const TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[]): string => {
     let prompt = `For each of the following specific teaching point(s), you MUST explain and/or illustrate them with immense depth and comprehensiveness. These points may already contain specific examples or analogies to use. Your explanation must include:
       - Clearly defining the core idea of each point.
       - Providing at least one illustrative example or analogy for each, or walking through a relevant scenario.
       - Anticipating potential common points of confusion for a learner regarding each point and proactively addressing them.
       - Emphasizing the most important takeaway or 'why this matters' for each point.
       - If a teaching point itself suggests a specific example or analogy, elaborate on it fully.
-    Focus Points:
+    Teaching Points:
     ${focusPointsStrings.map(s => `  - "${s}"`).join("\n")}`;
 
-    if (introExpansion) {
-        prompt += `
-${introExpansion}`;
-    }
-
-    if (includeCheck) {
-        prompt += `
----
-
-### 🧠 Let's Check Your Understanding
-
-(Here, you will ask 1-2 open-ended, Socratic questions that test the application of all concepts you just explained. The questions should require synthesis, not just recall. They must collectively cover the key topics from your main explanation.)`;
-    }
     return prompt;
 };
 

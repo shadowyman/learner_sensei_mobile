@@ -228,13 +228,6 @@ User: ${currentUserInput}`;
         dynamicContextLength: dynamicContext.length
     });
 
-    logSenseiPromptValidation('main-response-prompt', {
-        promptLength: messageWithContext.length,
-        dynamicContextLength: dynamicContext.length,
-        userInputLength: currentUserInput.length,
-        fullPrompt: messageWithContext
-    });
-
     // Start streaming from LLM
     const stream = await chat.sendMessageStream({ message: messageWithContext });
 

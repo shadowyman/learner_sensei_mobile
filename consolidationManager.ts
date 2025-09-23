@@ -6,13 +6,7 @@
 import { logger } from './logger';
 import { LearnerModel } from "./adaptiveEngine";
 import { TeachingPoint, CurriculumItem, CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; // Changed import for TeachingPoint
-import {
-    CURRICULUM_FOCUS_HEADER_BASE,
-    CURRICULUM_FOCUS_PRIMARY_ACTION_HEADER_TEMPLATE,
-    CURRICULUM_FOCUS_SUPPORTING_CONTEXT_HEADER,
-    CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_HEADER,
-    CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY
-} from "./prompts";
+import { PEDAGOGICAL_GUIDANCE_PLACEHOLDER } from "./prompts";
 
 /**
  * Defines the state of an active consolidation session.
@@ -207,14 +201,14 @@ ${allWeakPoints.map(p => `    - "${p}"`).join('\n')}
                     currentPlanStep: state.currentPlanStep,
                     planOrderLength: state.planOrder.length
                 });
-                return `${CURRICULUM_FOCUS_HEADER_BASE}`;
+                return `## Curriculum Focus\nInformation unavailable for consolidation stage.\n\n======`;
             }
             const pointsToRemediate = state.plan.get(currentChunkIndex);
             if (!pointsToRemediate) {
                 logger.warn('[CONSOLIDATION_STATE] Missing remediation points', {
                     currentChunkIndex
                 });
-                return `${CURRICULUM_FOCUS_HEADER_BASE}`;
+                return `## Curriculum Focus\nInformation unavailable for consolidation stage.\n\n======`;
             }
             primaryActionType = `Consolidation: Execute Reteaching (Chunk ${currentChunkIndex + 1})`;
             primaryActionInstruction = `You are executing step ${state.currentPlanStep + 1} of the reteaching plan you previously announced.
@@ -224,19 +218,29 @@ ${pointsToRemediate.map(p => `    - "${p.text}"`).join('\n')}`; // Access p.text
             break;
     }
 
-    // This constructs the full prompt structure, similar to the main getCurriculumFocusInstruction function.
-    return `${CURRICULUM_FOCUS_HEADER_BASE}
-- Current Module: ${item.moduleTitle}
-- Current Pedagogical Phase: ${item.isModuleWidePhase ? 'Module-Wide Consolidation' : 'Concept Consolidation'}
+    const sections: string[] = [];
+    sections.push([
+        '## Curriculum Focus',
+        `Current Module: ${item.moduleTitle}`,
+        `Current Pedagogical Phase: ${item.isModuleWidePhase ? 'Module-Wide Consolidation' : 'Concept Consolidation'}`
+    ].join('\n'));
 
-${CURRICULUM_FOCUS_PRIMARY_ACTION_HEADER_TEMPLATE(primaryActionType)}
-${primaryActionInstruction}
+    sections.push([
+        `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
+        primaryActionInstruction
+    ].join('\n'));
 
-${CURRICULUM_FOCUS_SUPPORTING_CONTEXT_HEADER}
-- Module Goal: "${item.moduleGoal}"
-${item.concept ? `- Concept: "${item.concept.title}"` : ''}
+    sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
 
-${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_HEADER}
-${CURRICULUM_FOCUS_EXECUTION_DIRECTIVE_BODY}
-]`;
+    const supportingLines: string[] = [`- Module Goal: "${item.moduleGoal}"`];
+    if (item.concept) {
+        supportingLines.push(`- Concept: "${item.concept.title}"`);
+    }
+
+    sections.push([
+        '## SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE',
+        supportingLines.join('\n')
+    ].join('\n'));
+
+    return `${sections.join('\n\n======\n\n')}\n\n======`;
 }
