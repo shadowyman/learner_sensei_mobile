@@ -160,10 +160,10 @@ const MANDATORY_TEACHING_STRUCTURE = `## MANDATORY TEACHING STRUCTURE
 
 Deliver two complementary passes—first to build intuition, then to provide the mandated expansive technical drilldown. Use supportive language; prefer non-redundancy (if a detail appears in Pass 2, reference it rather than repeating it). Include visuals when helpful; use Mermaid diagrams when they would enhance understanding. CRITICAL REQUIREMENT: DOUBLE THE LENGTH OF YOUR ORIGINAL TEACHING BY INCORPORATING ALL DETAILS REQUIRED BELOW PLUS YOUR INTUITION FOR ANY UNCOVERED ASPECT OF THE TEACHING POINTS.
 
-You MUST format your response with the following clearly labeled sections, in this exact order:
+You MUST format your response with clearly labeled sections, in exactly this order, and populate each with the information described below. The “Optional Mode” section appears only when it will deepen understanding without overwhelming the learner:
 1.  Conceptual Narrative
 2.  Technical Drilldown
-3.  Optional Mode — <Full C++ Walkthrough | Fill-in-the-Blank Reveal | Skipped>
+3.  Optional Mode — <Full C++ Walkthrough | Fill-in-the-Blank Reveal> (omit if you choose to skip it)
 4.  Application Scenarios
 5.  Interview-Oriented Perspective
 6.  Self-Assessment Checklist
