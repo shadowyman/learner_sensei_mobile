@@ -2626,6 +2626,28 @@ body::before {
     width: 100%;
     max-width: 100%;
 }
+.mermaid-lightbox__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    max-width: 95%;
+    max-height: 95%;
+    padding: 20px;
+    cursor: zoom-in;
+    transition: transform 0.3s ease;
+    transform-origin: center;
+    overflow: hidden;
+}
+.mermaid-lightbox__content--zoomed {
+    cursor: zoom-out;
+}
+.mermaid-lightbox__diagram {
+    max-width: 100%;
+    max-height: 100%;
+    transform-origin: center;
+}
 .mermaid-lightbox {
     position: fixed;
     top: 0;

@@ -187,101 +187,137 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
     }
 
     // Lightbox functionality
-    thumbnail.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const lightbox = document.createElement('div');
-        lightbox.className = 'mermaid-lightbox';
-        
-        // Check if we have the raw Mermaid code to potentially re-render
+    thumbnail.addEventListener('click', async (event) => {
+        event.stopPropagation();
         const mermaidCode = thumbnail.dataset.mermaidCode;
         const storedTheme = thumbnail.dataset.theme || themeName;
         const currentTheme = window.mermaidManager ? window.mermaidManager.getCurrentTheme() : storedTheme;
-        
-        // Apply current theme to lightbox using utility function if available
+        const lightbox = document.createElement('div');
+        lightbox.className = 'mermaid-lightbox';
         if (window.updateMermaidThemeClass) {
             window.updateMermaidThemeClass(lightbox, currentTheme);
         } else {
             lightbox.classList.add(`mermaid-theme-${currentTheme}`);
         }
-        
-        // Determine if re-rendering is needed
+        const content = document.createElement('div');
+        content.className = 'mermaid-lightbox__content';
+        content.tabIndex = 0;
+        lightbox.appendChild(content);
+        const attachDiagram = (diagram) => {
+            diagram.removeAttribute('width');
+            diagram.removeAttribute('height');
+            diagram.style.width = '';
+            diagram.style.height = '';
+            diagram.style.transform = '';
+            diagram.classList.add('mermaid-lightbox__diagram');
+            content.innerHTML = '';
+            content.appendChild(diagram);
+        };
         const needsRerender = mermaidCode && window.mermaidManager && storedTheme !== currentTheme;
-        
         if (needsRerender) {
             try {
                 logMermaidValidation('theme-rerender', {
                     fromTheme: storedTheme,
                     toTheme: currentTheme
                 });
-                
-                // Re-render the diagram with the current theme
                 const uniqueId = `lightbox-mermaid-${Date.now()}-${Math.random().toString(36).substring(2)}`;
                 const { svg: freshSvg } = await window.mermaidManager.render(uniqueId, mermaidCode);
-                
-                // Parse and display the fresh SVG
                 const parser = new DOMParser();
                 const svgDoc = parser.parseFromString(freshSvg, "image/svg+xml");
                 const svgElement = svgDoc.querySelector('svg');
-                
                 if (svgElement) {
-                    // Remove size constraints for better scaling in lightbox
-                    svgElement.removeAttribute('width');
-                    svgElement.removeAttribute('height');
-                    svgElement.style.width = '';
-                    svgElement.style.height = '';
-                    lightbox.appendChild(svgElement);
-                    
-                    // Update the stored theme to reflect the re-render
+                    attachDiagram(svgElement);
                     thumbnail.dataset.theme = currentTheme;
                 } else {
-                    // Fallback to cloning existing SVG
                     logger.warn('Re-render succeeded but no SVG element found, falling back to cloning');
                     const existingSvg = thumbnail.querySelector('svg');
                     if (existingSvg) {
                         const clonedSvg = existingSvg.cloneNode(true);
-                        clonedSvg.removeAttribute('width');
-                        clonedSvg.removeAttribute('height');
-                        clonedSvg.style.width = '';
-                        clonedSvg.style.height = '';
-                        lightbox.appendChild(clonedSvg);
+                        attachDiagram(clonedSvg);
                     } else {
-                        lightbox.innerHTML = thumbnail.innerHTML;
+                        content.innerHTML = thumbnail.innerHTML;
                     }
                 }
             } catch (error) {
                 logger.error('Failed to re-render Mermaid in lightbox:', error);
-                // Fallback: Clone the SVG from thumbnail
                 const svgElement = thumbnail.querySelector('svg');
                 if (svgElement) {
                     const clonedSvg = svgElement.cloneNode(true);
-                    clonedSvg.removeAttribute('width');
-                    clonedSvg.removeAttribute('height');
-                    clonedSvg.style.width = '';
-                    clonedSvg.style.height = '';
-                    lightbox.appendChild(clonedSvg);
+                    attachDiagram(clonedSvg);
                 } else {
-                    lightbox.innerHTML = thumbnail.innerHTML;
+                    content.innerHTML = thumbnail.innerHTML;
                 }
             }
         } else {
-            // Fast path: Clone existing SVG without re-rendering
             const svgElement = thumbnail.querySelector('svg');
             if (svgElement) {
                 const clonedSvg = svgElement.cloneNode(true);
-                clonedSvg.removeAttribute('width');
-                clonedSvg.removeAttribute('height');
-                clonedSvg.style.width = '';
-                clonedSvg.style.height = '';
-                lightbox.appendChild(clonedSvg);
+                attachDiagram(clonedSvg);
             } else {
-                lightbox.innerHTML = thumbnail.innerHTML;
+                content.innerHTML = thumbnail.innerHTML;
             }
         }
-        
+        const diagram = content.querySelector('.mermaid-lightbox__diagram');
+        const scale = 1.75;
+        const clamp = (value) => Math.min(Math.max(value, 0), 1);
+        const updateZoomTransform = (sourceEvent) => {
+            if (!diagram) {
+                return;
+            }
+            if (content.dataset.zoomed !== 'true') {
+                diagram.style.transform = '';
+                return;
+            }
+            const rect = content.getBoundingClientRect();
+            const width = rect.width || 1;
+            const height = rect.height || 1;
+            let xRatio = 0.5;
+            let yRatio = 0.5;
+            if (sourceEvent) {
+                xRatio = (sourceEvent.clientX - rect.left) / width;
+                yRatio = (sourceEvent.clientY - rect.top) / height;
+            }
+            xRatio = clamp(xRatio);
+            yRatio = clamp(yRatio);
+            const offsetX = (0.5 - xRatio) * (scale - 1) * width;
+            const offsetY = (0.5 - yRatio) * (scale - 1) * height;
+            diagram.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+        };
+        const setZoomState = (shouldZoom, sourceEvent) => {
+            if (shouldZoom) {
+                content.dataset.zoomed = 'true';
+                content.classList.add('mermaid-lightbox__content--zoomed');
+                updateZoomTransform(sourceEvent);
+            } else {
+                delete content.dataset.zoomed;
+                content.classList.remove('mermaid-lightbox__content--zoomed');
+                updateZoomTransform();
+            }
+        };
+        if (diagram) {
+            diagram.addEventListener('click', (diagramEvent) => {
+                diagramEvent.stopPropagation();
+                const nextZoom = content.dataset.zoomed === 'true' ? false : true;
+                setZoomState(nextZoom, diagramEvent);
+            });
+        }
+        content.addEventListener('click', (contentEvent) => {
+            if (contentEvent.target === content) {
+                document.body.removeChild(lightbox);
+            }
+        });
+        const handlePointerMove = (moveEvent) => {
+            if (content.dataset.zoomed === 'true') {
+                updateZoomTransform(moveEvent);
+            }
+        };
+        content.addEventListener('pointermove', handlePointerMove);
         document.body.appendChild(lightbox);
-        lightbox.addEventListener('click', () => {
-            document.body.removeChild(lightbox);
-        }, { once: true });
+        lightbox.addEventListener('click', (closeEvent) => {
+            if (closeEvent.target === lightbox) {
+                document.body.removeChild(lightbox);
+            }
+        });
     });
 }
 
