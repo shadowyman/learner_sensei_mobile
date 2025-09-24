@@ -29,6 +29,10 @@
         <rule>- All other misc files will be created under ./tmp</rule>
         <rule>- You MUST NOT create files in the root folder unless they are core project code files</rule>
     </project_file_structure>
+    <branch_discipline_policy>
+        <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase.</rule>
+        <rule>ABSOLUTE PROHIBITION: NEVER operate directly on `main`; abort any edit attempt until a feature branch is active.</rule>
+    </branch_discipline_policy>
     <backup_policy>
         <rule>Before modifying any project file, you MUST generate a timestamped manifest backup: create `backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
         <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
@@ -283,7 +287,7 @@
                 *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
                 *Verify All Requirements*: Re-read the original request to ensure full compliance.
                 *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
-                *Run Review Command*: After completing the self-check, run `npm run review -- --feature <feature_slug> --pr_request "<10+ sentence narrative>"` (reuse the same slug on subsequent runs; the narrative can be extended or omitted as desired). Record the emitted path `code_review/review_<final_slug>.html` so it can be included in your feature documentation.
+                *Run Review Command*: After completing the self-check, run git add for new files with elevated permissions, then run `npm run review -- --feature <feature_slug> --pr_request "<10+ sentence narrative>"` (reuse the same slug on subsequent runs; the narrative can be extended or omitted as desired). Record the emitted path `code_review/review_<final_slug>.html` so it can be included in your feature documentation.
                 *Review Handoff*: Once the command completes and the path is logged, await the reviewer’s feedback before proceeding to Step 9.
             </step>
             <step number="9">
@@ -305,10 +309,12 @@
                 *   **Action**: For bug fixes handled via the Adaptive Root Cause protocol, reference the corresponding entry in `PREVIOUS_BUG_FIXES.md` instead of duplicating content; the feature document should note that pointer.
             </step>
             <step number="12">
-                **Stage & Push Changes**:
-                *   **Action**: Stage all tracked file updates using `git add -u`; if new files must ship, stage them explicitly with `git add <path>`; run the staging command with elevated permissions.
-                *   **Action**: Commit the staged work using `git commit -m "<TYPE>: <SUMMARY>"`, where `<TYPE>` is a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`); execute the commit with elevated permissions.
-                *   **Action**: Push the commit to the `main` branch using `git push origin main` with elevated permissions.
+                **Merge Feature Branch → Main & Push**:
+                *   **Action**: Ensure work occurs on a dedicated feature branch (e.g., `<feature_slug>`). If not already on it, switch or create it using `git checkout <feature_slug>` or `git checkout -b <feature_slug>`.
+                *   **Action**: Stage all tracked updates with `git add -u`; stage new files explicitly with `git add <path>`; run staging with elevated permissions.
+                *   **Action**: Commit using `git commit -m "<TYPE>: <SUMMARY>"` with a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`); execute the commit with elevated permissions.
+                *   **Action**: Integrate into `main` locally by merging the feature branch: `git checkout main`, `git merge --no-ff <feature_slug>`, then `git push origin main`; execute all with elevated permissions.
+                *   **Action**: Optionally delete the local feature branch after merge: `git branch -d <feature_slug>`.
                 *   **Action**: Confirm all git commands in this step are executed with elevated permissions appropriate to the deployment environment.
             </step>
         </phase>
@@ -420,7 +426,7 @@
                 *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
                 *Verify All Requirements*: Re-read the original request to ensure full compliance.
                 *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
-                *Run Review Command*: After finishing the self-check, run `npm run review -- --feature <bug_slug> --pr_request "<10+ sentence narrative>"` (repeat with the same slug thereafter). Capture the resulting path `code_review/review_<final_slug>.html` so it can be cited in `PREVIOUS_BUG_FIXES.md`.
+                *Run Review Command*: After finishing the self-check, run git add for new files with elevated permissions, then run `npm run review -- --feature <bug_slug> --pr_request "<10+ sentence narrative>"` (repeat with the same slug thereafter). Capture the resulting path `code_review/review_<final_slug>.html` so it can be cited in `PREVIOUS_BUG_FIXES.md`.
                 *Review Handoff*: After the command runs and the path is recorded, await reviewer results before moving to Step 12.
             </step>
             <step number="12">
@@ -447,13 +453,14 @@
                 **Rationale**: This creates a searchable knowledge base for future debugging. When encountering new bugs, you MUST first check `PREVIOUS_BUG_FIXES.md` to see if similar issues have been encountered and resolved before.
             </step>
             <step number="15">
-                **Stage & Push Changes**:
-                *   **Action**: Stage all tracked file updates using `git add -u`, running the command with elevated permissions.
-                *   **Action**: Stage any required new files explicitly with `git add <path>` using elevated permissions.
-                *   **Action**: Commit using `git commit -m "<TYPE>: <SUMMARY>"` with a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`), and execute the commit with elevated permissions.
-                *   **Action**: Ensure the `<SUMMARY>` precisely names the feature or defect and calls out the most impactful change (e.g., key module touched or capability restored) so reviewers understand the commit at a glance.
+                **Merge Feature Branch → Main & Push**:
+                *   **Action**: Ensure work occurs on a dedicated feature branch (e.g., `<bug_slug>`). If not already on it, switch or create it using `git checkout <bug_slug>` or `git checkout -b <bug_slug>`.
+                *   **Action**: Stage all tracked updates with `git add -u`; stage new files explicitly with `git add <path>`; run staging with elevated permissions.
+                *   **Action**: Commit using `git commit -m "<TYPE>: <SUMMARY>"` with a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`); execute the commit with elevated permissions.
+                *   **Action**: Integrate into `main` locally by merging the feature branch: `git checkout main`, `git merge --no-ff <bug_slug>`, then `git push origin main`; execute all with elevated permissions.
+                *   **Action**: Optionally delete the local feature branch after merge: `git branch -d <bug_slug>`.
+                *   **Action**: Ensure the `<SUMMARY>` precisely names the feature or defect and calls out the most impactful change so reviewers understand the commit at a glance.
                 *   **Action**: When the work spans multiple concerns or carries notable implications, include a commit message body summarizing scope, critical details, and any follow-up requirements; expand the body as needed to capture essential context.
-                *   **Action**: Push the commit to the `main` branch using `git push origin main` with elevated permissions.
                 *   **Action**: Confirm the entire git command sequence is executed under elevated permissions mandated by mission control protocols.
             </step>
         </phase>
