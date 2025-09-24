@@ -156,11 +156,10 @@ classDiagram
 `;
 
 const MANDATORY_TEACHING_STRUCTURE = `## MANDATORY TEACHING STRUCTURE
-📚 Unified IntroIllustrate Teaching Command — FINAL (Pass 1 → Pass 2 → Optional Mode)
+Deliver two complementary passes—first to build intuition, then to provide the mandated expansive technical drilldown. Use supportive language; prefer non-redundancy (if a detail appears in Pass 2, reference it rather than repeating it). Include visuals when helpful; use Mermaid diagrams when they would enhance understanding. 
+CRITICAL REQUIREMENT: DOUBLE THE LENGTH OF YOUR ORIGINAL TEACHING BY INCORPORATING ALL DETAILS REQUIRED BELOW PLUS YOUR INTUITION FOR ANY UNCOVERED ASPECT OF THE TEACHING POINTS.
 
-Deliver two complementary passes—first to build intuition, then to provide the mandated expansive technical drilldown. Use supportive language; prefer non-redundancy (if a detail appears in Pass 2, reference it rather than repeating it). Include visuals when helpful; use Mermaid diagrams when they would enhance understanding. CRITICAL REQUIREMENT: DOUBLE THE LENGTH OF YOUR ORIGINAL TEACHING BY INCORPORATING ALL DETAILS REQUIRED BELOW PLUS YOUR INTUITION FOR ANY UNCOVERED ASPECT OF THE TEACHING POINTS.
-
-You MUST format your response with clearly labeled sections, in exactly this order, and populate each with the information described below. The “Optional Mode” section appears only when it will deepen understanding without overwhelming the learner:
+You MUST format your response with clearly labeled sections as shown below, in exactly this order, and populate each with the information described below. The “Optional Mode” section appears only when it will deepen understanding without overwhelming the learner:
 1.  Conceptual Narrative
 2.  Technical Drilldown
 3.  Optional Mode — <Full C++ Walkthrough | Fill-in-the-Blank Reveal> (omit if you choose to skip it)
@@ -170,7 +169,7 @@ You MUST format your response with clearly labeled sections, in exactly this ord
 
 ⸻
 
-Pass 1 — Conceptual Narrative (intuition-building)
+Conceptual Narrative (intuition-building)
 	•	Restate the teaching point plainly so the learner grasps it immediately.
 	•	Pain & stakes: what goes wrong without this idea and why it matters now.
 	•	Bridge to prior mastery: tie to previously learned recursion tools so it feels like a natural upgrade.
@@ -181,11 +180,10 @@ Pass 1 — Conceptual Narrative (intuition-building)
 
 ⸻
 
-Pass 2 — Expansive Technical Drilldown (execution-focused)
-
+Expansive Technical Drilldown (execution-focused)
 Provide a thorough, interview-ready explanation covering:
 	•	Definition: Definitions of the teaching points from a technical perspective. Materialize the concept narrative on solid rock basis.
-       •	Key Takeaways: Expand on the definition to teach additional useful information. Method discussion 
+    •	Key Takeaways: Expand on the definition to teach additional useful information. Method discussion 
 	•	Applications / use cases: where this pattern is used. Variations and adaptations for different problem domains.
 	•	Strengths, trade-offs, pitfalls: benefits, limitations, and common errors to avoid while applying the pattern.
 
@@ -713,6 +711,7 @@ Persona Statement: You are a warm, encouraging, and inquisitive LeetCode co-pilo
 - Treat this as a collaborative LeetCode session handled turn by turn from the problem statement to a fully verified solution.
 - Restate the exact task, inputs, outputs, and constraints, then confirm the learner understands the goal before progressing.
 - Drive the entire solution in C++: co-create the strategy, draft pseudocode, translate it into idiomatic C++, and ensure the final program compiles and solves the problem completely.
+- Utilize Function Contract, Recursive Goal, Processing Point Relativity Framework in addition to teaching plan socratic questions to guide the learner.
 - After every prompt or instruction, wait for the learner's response, probe their reasoning, and decide the next move based on their reply.
 - Remain on the current turn until the learner satisfies its core requirements; if they are stuck or drifting into pure discussion, add scaffolding and keep working that turn before advancing along the teaching plan.
 - Provide scaffolding worthy of a world-class tutor: analyze edge cases, trace sample executions, discuss time and space trade-offs, factor in test design, and tie each move back to the module's core concepts.
@@ -917,6 +916,26 @@ export const PEDAGOGICAL_GUIDANCE_PLACEHOLDER = '__PEDAGOGICAL_GUIDANCE__';
 
 export const CURRICULUM_COMPLETED_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: Curriculum Completed! User may ask recap questions or general CS topics. Be supportive and congratulate them.]`;
 export const GENERAL_INTERACTION_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: General Interaction - Awaiting curriculum selection or processing general query.]`;
+
+export function buildSenseiEnhancementPrompt(originalMarkdown: string): string {
+    return [
+        'You expand Recursive Sensei teaching messages by adding clarifying details.',
+        'Output strict JSON shaped exactly as {"enhancements":[{"key":"","value":"","insertType":"append|paragraph","ordering":number?}],"metadata":{}}.',
+        'Rules:',
+        '0. Refrain from enhancing welcome messages or simple acknowledgments. Focus on substantive teaching content.',
+        '1. key must match a sentence from the original message exactly (ignoring surrounding whitespace).',
+        '2. value provides additional explanation or context that augments the same idea.',
+        '3. insertType "append" adds sentences immediately after the key sentence; "paragraph" inserts a new paragraph after the paragraph containing key.',
+        '4. Do not delete or rewrite existing text; only add material that deepens understanding.',
+        '5. If no useful enhancements exist, return {"enhancements":[],"metadata":{}}.',
+        '6. Ignore Non-Narrative Blocks: Do not read, quote, or derive from code fences or mermaid diagrams; treat them as untouchable.',
+        '7. Local Coherence: Match the local voice, tense, and persona; reuse the same terminology and symbols as the surrounding sentence.',
+        '8. Avoid Redundancy: If the clarification is already implied or stated nearby, skip adding it.',
+        '9. Bridge Smoothly: For paragraph inserts, begin with a connective that clearly links back to the preceding paragraph’s idea; for appends, flow naturally from the key sentence.',
+        '10. Deepen via Related New Paragraphs: When a closely related concept would meaningfully deepen or ease understanding (e.g., a common pitfall, contrast, or micro‑pattern not yet mentioned), introduce it as a new paragraph after the paragraph containing the most relevant anchor sentence. It must stay strictly on‑topic, explicitly bridge to the prior idea, and must not shift scope, contradict, or restate existing content.',
+        `Original message:\n"""\n${originalMarkdown}\n"""`
+    ].join('\n');
+}
 
 // Templates for primaryActionInstruction in getCurriculumFocusInstruction
 export const TARGETED_CONSOLIDATION_PROMPT_TEMPLATE = (item: CurriculumItem, state: CurriculumState, learnerModel: LearnerModel, phaseKCMastery: number): string => {

@@ -10,13 +10,34 @@ import { TeachingPoint, PHASE_KC_TOTAL, Phase } from "./curriculum";
 import {
     GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
     GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION,
-    GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT
+    GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT,
+    buildSenseiEnhancementPrompt
 } from "./prompts";
-import { 
+import {
     TEACHING_PLAN_GENERATION_CONFIG,
     COMPREHENSIVE_ANALYSIS_CONFIG,
     PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG
 } from './model_usage';
+import * as ModelUsage from './model_usage';
+
+export type EnhancementInsertType = 'append' | 'paragraph';
+
+export interface EnhancementEntry {
+    key: string;
+    value: string;
+    insertType: EnhancementInsertType;
+    ordering?: number;
+}
+
+export interface EnhancementPayload {
+    enhancements: EnhancementEntry[];
+    metadata?: Record<string, unknown>;
+}
+
+export interface EnhancementRequest {
+    originalMarkdown: string;
+    wordCount: number;
+}
 
 function logTeachingPlanRequest(event: string, payload: Record<string, unknown>): void {
     logger.info('[TEACHING_PLAN_VALIDATION]', { event, ...payload });
@@ -314,5 +335,111 @@ export async function generateDirectiveFromMetaPrompt(ai: GoogleGenAI, metaPromp
         logger.error("Error generating directive from meta-prompt:", error);
         // Return a safe, generic fallback directive
         return "Gently guide the learner through the next logical step in the curriculum plan with a neutral, supportive tone.";
+    }
+}
+
+function stripJsonFence(text: string): string {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('```')) {
+        return trimmed;
+    }
+    const fenceMatch = trimmed.match(/^```(?:\w+)?\s*\n?([\s\S]*?)\n?```$/);
+    if (fenceMatch && fenceMatch[1]) {
+        return fenceMatch[1].trim();
+    }
+    return trimmed;
+}
+
+function normalizeEnhancementEntries(raw: any): EnhancementPayload {
+    const enhancements: EnhancementEntry[] = Array.isArray(raw?.enhancements) ? raw.enhancements : [];
+    const normalized: EnhancementEntry[] = [];
+    for (const entry of enhancements) {
+        if (!entry || typeof entry !== 'object') {
+            continue;
+        }
+        const key = typeof entry.key === 'string' ? entry.key.trim() : '';
+        const value = typeof entry.value === 'string' ? entry.value.trim() : '';
+        const insertType = entry.insertType === 'append' || entry.insertType === 'paragraph' ? entry.insertType : null;
+        const ordering = typeof entry.ordering === 'number' ? entry.ordering : undefined;
+        if (!key || !value || !insertType) {
+            continue;
+        }
+        if (ordering !== undefined) {
+            normalized.push({ key, value, insertType, ordering });
+        } else {
+            normalized.push({ key, value, insertType });
+        }
+    }
+    return {
+        enhancements: normalized,
+        metadata: raw && typeof raw.metadata === 'object' ? raw.metadata : undefined,
+    };
+}
+
+const DEFAULT_ENHANCEMENT_REQUEST_CONFIG = {
+    modelName: 'gemini-2.5-flash',
+    config: {
+        responseMimeType: "application/json",
+        temperature: 0.4,
+    },
+} as const;
+
+const ENHANCEMENT_REQUEST_CONFIG: typeof DEFAULT_ENHANCEMENT_REQUEST_CONFIG =
+    (ModelUsage as { ENHANCEMENT_REQUEST_CONFIG?: typeof DEFAULT_ENHANCEMENT_REQUEST_CONFIG }).ENHANCEMENT_REQUEST_CONFIG
+        ?? DEFAULT_ENHANCEMENT_REQUEST_CONFIG;
+
+export async function requestSenseiEnhancement(
+    ai: GoogleGenAI | null,
+    request: EnhancementRequest
+): Promise<EnhancementPayload | null> {
+    if (!ai) {
+        logger.error('[ENHANCE] Enhancement request aborted: AI not initialized');
+        return null;
+    }
+
+    const prompt = buildSenseiEnhancementPrompt(request.originalMarkdown);
+
+    logger.info('[ENHANCE] Enhancement request started', {
+        wordCount: request.wordCount
+    });
+
+    const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: ENHANCEMENT_REQUEST_CONFIG.modelName,
+            contents: [{ parts: [{ text: prompt }] }],
+            config: ENHANCEMENT_REQUEST_CONFIG.config
+        });
+
+        const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const latencyMs = Number((end - start).toFixed(2));
+        const cleaned = stripJsonFence(response.text ?? '');
+
+        let parsed: any;
+        try {
+            parsed = cleaned ? JSON.parse(cleaned) : { enhancements: [] };
+        } catch (error) {
+            logger.error('[ENHANCE] Enhancement response JSON parse failed', { error, raw: cleaned });
+            return null;
+        }
+
+        const payload = normalizeEnhancementEntries(parsed);
+
+        if (payload.enhancements.length === 0) {
+            logger.info('[ENHANCE] Enhancement request returned no additions', {
+                latencyMs
+            });
+        } else {
+            logger.info('[ENHANCE] Enhancement request succeeded', {
+                latencyMs,
+                additions: payload.enhancements.length
+            });
+        }
+
+        return payload;
+    } catch (error) {
+        logger.error('[ENHANCE] Enhancement request failed', { error });
+        return null;
     }
 }

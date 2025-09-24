@@ -6,6 +6,7 @@
   "consolidationManager.ts",
   "curriculum.ts",
   "debugMode.ts",
+  "enhancementManager.ts",
   "file-manifest.json",
   "geminiService.ts",
   "index.css",

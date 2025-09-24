@@ -5,6 +5,8 @@
  */
 
 import { logger, DEBUG_FLAGS } from './logger';
+import { resetEnhancementState } from './enhancementManager';
+import type { EnhancementHighlight } from './enhancementManager';
 import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
 import { LearnerModel } from './adaptiveEngine';
 import { runMermaidRecovery } from './mermaidErrorRecovery';
@@ -125,6 +127,7 @@ const ICONS: { [key: string]: string } = {
     font_increase: `Aa`,
     send: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.39 1.39L4.4 12l-2.4 7.4a1 1 0 0 0 1.4 1.4Z"/></svg>`,
     reload: `↻`,
+    enhance: `✨`,
 };
 
 
@@ -839,6 +842,241 @@ function addCopyButtonsToCodeBlocks_internal(containerElement: HTMLElement, cont
     });
 }
 
+function getEnhanceButton(messageId: string): HTMLButtonElement | null {
+    const bubble = document.getElementById(messageId);
+    if (!bubble) {
+        return null;
+    }
+    return bubble.querySelector<HTMLButtonElement>('.enhance-button');
+}
+
+export async function renderEnhancedMarkdown(messageId: string, markdown: string, highlights: EnhancementHighlight[] = []): Promise<void> {
+    const bubble = document.getElementById(messageId) as HTMLDivElement | null;
+    if (!bubble) {
+        logger.error('[ENHANCE] Bubble not found for render', { messageId });
+        return;
+    }
+    const messageText = bubble.querySelector('.message-text') as HTMLDivElement | null;
+    if (!messageText) {
+        logger.error('[ENHANCE] Message text container missing', { messageId });
+        return;
+    }
+    streamingMessagesRawText.set(messageId, markdown);
+    const sanitizedText = sanitizeCodeFences(markdown);
+    messageText.innerHTML = marked.parse(sanitizedText) as string;
+    renderIcons(messageText);
+    messageText.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
+        hljs.highlightElement(block as HTMLElement);
+    });
+    await processMermaidBlocks(messageId);
+    addLanguageDisplayToCodeBlocks_internal(messageText);
+    addCopyButtonsToCodeBlocks_internal(messageText, { sender: 'sensei', messageId });
+    if (highlights.length > 0) {
+        applyEnhancementHighlights(messageText, highlights);
+    }
+}
+
+export function setEnhanceLoadingState(messageId: string, isLoading: boolean): void {
+    const button = getEnhanceButton(messageId);
+    const bubble = document.getElementById(messageId) as HTMLDivElement | null;
+    if (!bubble) {
+        return;
+    }
+    bubble.dataset.enhanceLoading = isLoading ? 'true' : 'false';
+    if (!button) {
+        return;
+    }
+    button.disabled = isLoading;
+    button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    button.classList.toggle('is-loading', isLoading);
+}
+
+export function setEnhanceActiveState(messageId: string, isActive: boolean): void {
+    const button = getEnhanceButton(messageId);
+    const bubble = document.getElementById(messageId) as HTMLDivElement | null;
+    if (!bubble) {
+        return;
+    }
+    bubble.dataset.enhanced = isActive ? 'true' : 'false';
+    if (!button) {
+        return;
+    }
+    button.disabled = false;
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    button.classList.toggle('is-active', isActive);
+}
+
+function applyEnhancementHighlights(container: HTMLElement, highlights: EnhancementHighlight[]): void {
+    for (const highlight of highlights) {
+        if (highlight.insertType === 'append') {
+            highlightAppendAfterKey(container, highlight.key, highlight.value, highlight.occurrence);
+        } else {
+            highlightParagraphAfterKey(container, highlight.key, highlight.value, highlight.occurrence);
+        }
+    }
+}
+
+function createEnhancementTextWalker(root: HTMLElement): TreeWalker {
+    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            if (parent.closest('pre')) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+        }
+    });
+}
+
+function highlightAppendAfterKey(root: HTMLElement, key: string, value: string, occurrence: number): void {
+    const rangeInfo = locateEnhancementRange(root, key, value, occurrence);
+    if (!rangeInfo) {
+        return;
+    }
+    const success = surroundEnhancementRange(rangeInfo, 'enhance-highlight-inline');
+    if (!success) {
+        return;
+    }
+}
+
+function highlightParagraphAfterKey(root: HTMLElement, key: string, value: string, occurrence: number): void {
+    const rangeInfo = locateEnhancementRange(root, key, value, occurrence);
+    if (!rangeInfo) {
+        return;
+    }
+    const wrapped = surroundEnhancementRange(rangeInfo, 'enhance-highlight-paragraph-inline');
+    if (!wrapped) {
+        const block = rangeInfo.startInfo.node.parentElement?.closest('p, div, li, section, article') as HTMLElement | null;
+        if (block) {
+            block.classList.add('enhance-highlight-paragraph');
+        }
+    }
+}
+
+type TextNodeInfo = {
+    node: Text;
+    start: number;
+    end: number;
+};
+
+function stripMarkdownInline(text: string): string {
+    return text.replace(/[\*`_]/g, '');
+}
+
+function collectEnhancementTextNodes(root: HTMLElement): { nodes: TextNodeInfo[]; text: string } {
+    const nodes: TextNodeInfo[] = [];
+    let combined = '';
+    const walker = createEnhancementTextWalker(root);
+    let current = walker.nextNode() as Text | null;
+    while (current) {
+        const content = current.textContent ?? '';
+        nodes.push({ node: current, start: combined.length, end: combined.length + content.length });
+        combined += content;
+        current = walker.nextNode() as Text | null;
+    }
+    return { nodes, text: combined };
+}
+
+function findNthOccurrence(text: string, fragment: string, occurrence: number, fromIndex = 0): number {
+    if (!fragment) {
+        return -1;
+    }
+    let index = fromIndex;
+    let count = 0;
+    while (true) {
+        const found = text.indexOf(fragment, index);
+        if (found === -1) {
+            return -1;
+        }
+        if (count === occurrence) {
+            return found;
+        }
+        count += 1;
+        index = found + fragment.length;
+    }
+}
+
+function findNodeInfoAt(nodes: TextNodeInfo[], offset: number): TextNodeInfo | null {
+    for (const info of nodes) {
+        if (offset >= info.start && offset < info.end) {
+            return info;
+        }
+    }
+    const last = nodes.length > 0 ? nodes[nodes.length - 1] : null;
+    if (last && offset === last.end) {
+        return last;
+    }
+    return null;
+}
+
+type EnhancementRange = {
+    startInfo: TextNodeInfo;
+    endInfo: TextNodeInfo;
+    startOffset: number;
+    endOffset: number;
+};
+
+function locateEnhancementRange(root: HTMLElement, key: string, value: string, occurrence: number): EnhancementRange | null {
+    const sanitizedValue = stripMarkdownInline(value.trim());
+    if (!sanitizedValue) {
+        return null;
+    }
+    const { nodes, text } = collectEnhancementTextNodes(root);
+    if (!nodes.length) {
+        return null;
+    }
+    const sanitizedKey = stripMarkdownInline(key.trim());
+    let searchStart = 0;
+    if (sanitizedKey) {
+        const keyPos = findNthOccurrence(text, sanitizedKey, occurrence);
+        if (keyPos === -1) {
+            return null;
+        }
+        searchStart = keyPos + sanitizedKey.length;
+    }
+    const valuePos = text.indexOf(sanitizedValue, searchStart);
+    if (valuePos === -1) {
+        return null;
+    }
+    const valueEnd = valuePos + sanitizedValue.length;
+    const startInfo = findNodeInfoAt(nodes, valuePos);
+    const endInfo = findNodeInfoAt(nodes, valueEnd - 1 >= valuePos ? valueEnd - 1 : valuePos);
+    if (!startInfo || !endInfo) {
+        return null;
+    }
+    return {
+        startInfo,
+        endInfo,
+        startOffset: valuePos,
+        endOffset: valueEnd
+    };
+}
+
+function surroundEnhancementRange(rangeInfo: EnhancementRange, className: string): boolean {
+    const range = document.createRange();
+    range.setStart(rangeInfo.startInfo.node, rangeInfo.startOffset - rangeInfo.startInfo.start);
+    range.setEnd(rangeInfo.endInfo.node, rangeInfo.endOffset - rangeInfo.endInfo.start);
+    const span = document.createElement('span');
+    span.className = className;
+    try {
+        range.surroundContents(span);
+        return true;
+    } catch (error) {
+        try {
+            const fragment = range.extractContents();
+            span.appendChild(fragment);
+            range.insertNode(span);
+            return true;
+        } catch (innerError) {
+            logger.warn('[ENHANCE] Unable to apply multi-node highlight span', { error: innerError });
+            return false;
+        }
+    }
+}
+
 export async function displayMessage(message: Message) {
     // Skip processing the response modal
     if (message.id === 'response-modal-sensei-bubble') {
@@ -863,6 +1101,12 @@ export async function displayMessage(message: Message) {
     messageText.classList.add('message-text', 'markdown-content');
 
     bubble.dataset.animationState = "entering";
+
+    if (!message.isLoading && message.sender === 'sensei') {
+        bubble.dataset.enhanced = 'false';
+        bubble.dataset.enhanceLoading = 'false';
+        resetEnhancementState(message.id);
+    }
 
     if (message.isLoading) {
         bubble.classList.add('loading');
@@ -1173,7 +1417,7 @@ export async function displayMessage(message: Message) {
 
     if (message.sender === 'sensei' && !message.isLoading && message.isReloadable && message.reloadContext) {
         const existingReloadButton = bubble.querySelector('.reload-button');
-        if (existingReloadButton) existingReloadButton.remove(); // Remove if already exists from a previous render
+        if (existingReloadButton) existingReloadButton.remove();
 
         const reloadButton = document.createElement('button');
         reloadButton.className = 'reload-button';
@@ -1181,7 +1425,7 @@ export async function displayMessage(message: Message) {
         reloadButton.setAttribute('aria-label', 'Reload this response from Sensei');
         reloadButton.title = 'Reload this response';
         reloadButton.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent other bubble events
+            e.stopPropagation();
             if (typeof (window as any).handleReloadSenseiMessage === 'function') {
                 (window as any).handleReloadSenseiMessage(message.id, message.reloadContext);
             } else {
@@ -1190,6 +1434,36 @@ export async function displayMessage(message: Message) {
         });
         bubble.appendChild(reloadButton);
         renderIcons(reloadButton);
+
+        const existingEnhanceButton = bubble.querySelector('.enhance-button');
+        if (existingEnhanceButton) existingEnhanceButton.remove();
+
+        const enhanceButton = document.createElement('button');
+        enhanceButton.className = 'enhance-button';
+        enhanceButton.innerHTML = `<span class="icon-placeholder" data-icon="enhance"></span>`;
+        enhanceButton.setAttribute('aria-label', 'Enhance this response from Sensei');
+        const isActive = bubble.dataset.enhanced === 'true';
+        const isLoading = bubble.dataset.enhanceLoading === 'true';
+        enhanceButton.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        enhanceButton.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+        enhanceButton.disabled = isLoading;
+        if (isActive) {
+            enhanceButton.classList.add('is-active');
+        }
+        if (isLoading) {
+            enhanceButton.classList.add('is-loading');
+        }
+        enhanceButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const handler = (window as any).handleEnhanceSenseiMessage;
+            if (typeof handler === 'function') {
+                handler(message.id);
+            } else {
+                logger.error('handleEnhanceSenseiMessage is not defined on window.');
+            }
+        });
+        bubble.appendChild(enhanceButton);
+        renderIcons(enhanceButton);
     }
 
 

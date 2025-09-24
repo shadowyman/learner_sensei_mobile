@@ -107,6 +107,14 @@ export const MERMAID_ERROR_RECOVERY_CONFIG = {
   },
 };
 
+export const ENHANCEMENT_REQUEST_CONFIG = {
+  modelName: GEMINI_FLASH,
+  config: {
+    responseMimeType: "application/json",
+    temperature: 0.4,
+  },
+};
+
 /**
  * Configuration for the "Archetype Comparison Test" task.
  * Used in test.ts for testing consistency of archetype classification.

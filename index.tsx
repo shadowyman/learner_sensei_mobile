@@ -76,7 +76,10 @@ import {
     setupFullscreenToggle,
     setupTextareaAutosize,
     streamingMessagesRawText,
-    updateSenseiMeditationOverlay
+    updateSenseiMeditationOverlay,
+    renderEnhancedMarkdown,
+    setEnhanceLoadingState,
+    setEnhanceActiveState
 } from './ui';
 import { SaveLoadProgressManager } from './saveloadProgressManager';
 import { ChatWindowController } from './chatWindowController';
@@ -104,6 +107,7 @@ import { notepad } from './notepad';
 import { runTestSuite } from './test';
 import { ModuleSelectionHandler } from './moduleSelectionHandler';
 import { initializeCodeEditorModal } from './codeEditorModal';
+import { initializeEnhancementManager, toggleEnhancement } from './enhancementManager';
 
 // Auto-resize system configuration
 
@@ -147,6 +151,7 @@ declare global {
         switchToChunk?: (targetIndex: number) => Promise<void>;
         overrideChunkUnderstanding?: (payload: { chunkIndex: number; understood: boolean }) => Promise<void>;
         advanceConceptFromChunk?: () => Promise<void>;
+        handleEnhanceSenseiMessage?: (messageId: string) => void;
     }
 }
 
@@ -1034,6 +1039,13 @@ async function loadCurriculumAndGreet() {
             userInputElement.focus();
         }
     });
+    initializeEnhancementManager({
+        getAI: () => ai,
+        streamingMap: streamingMessagesRawText,
+        renderMarkdown: renderEnhancedMarkdown,
+        setLoadingState: setEnhanceLoadingState,
+        setActiveState: setEnhanceActiveState
+    });
     initializeSaveLoadUI(); // Add save/load buttons
     await loadProjectFileManifestAndPaths(); // Load manifest and paths
     await initializeGoogleAI(); // Initializes AI and then Debug Mode with paths
@@ -1062,6 +1074,12 @@ async function loadCurriculumAndGreet() {
     (window as any).handleReloadSenseiMessage = 
         (messageId: string, context: ReloadContext) => 
         handleReloadSenseiMessage(messageId, context);
+
+    (window as any).handleEnhanceSenseiMessage = (messageId: string) => {
+        toggleEnhancement(messageId).catch(error => {
+            logger.error('[ENHANCE] Toggle failed', { messageId, error });
+        });
+    };
     
     // Expose SaveLoadProgressManager for save/load functionality
     (window as any).SaveLoadManager = SaveLoadProgressManager;
