@@ -31,9 +31,11 @@
     </project_file_structure>
     <backup_policy>
         <rule>Before modifying any project file, you MUST generate a timestamped manifest backup: create `backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
+        <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
         <rule>If you add or remove a project file that should be tracked, you MUST update `file-manifest.json` in the same session before producing the backup.</rule>
         <rule>When both the manifest and project files change, update the manifest first, then regenerate the timestamped backup so it reflects the latest list.</rule>
         <rule>Codex MUST programmatically assemble `BACKUP_CONTEXT.md` (<=10 lines with timestamp, feature/fix name, and planned scope) immediately before zipping: write it temporarily to `backup/BACKUP_CONTEXT.md`, include it inside the archive being created, confirm the file is present in the zip, then automatically delete the workspace copy so no residue of `BACKUP_CONTEXT.md` exists outside the archive.</rule>
+        <rule>When in the midst of adding slight modifications, changes as part of a bigger implementation, no need to backup as long as initial backup was created for that feature or bug.</rule>
     </backup_policy>
     <charter>
         # The GEMINI Charter: A Constitution for AI Collaboration
@@ -82,8 +84,46 @@
                     *   Dependency and side-effect analysis findings
                     *   Key architectural insights discovered
                     *   Triggering protocol to be executed next
-                *   **Action**: Store this checkpoint in `./docs/mission_state_[timestamp].md` for future protocol recovery if needed.
+                *   **Action**: Store this checkpoint in `./docs/mission_state_<descriptive_title>_[timestamp].md` for future protocol recovery if needed.
+                *   **Action**: Ensure `<descriptive_title>` is a concise, human-readable slug (e.g., `socratic_reload_buttons_bug`) that communicates the mission focus without relying on the timestamp alone.
                 *   **Action**: Ensure this context is preserved for the triggering protocol execution.
+            </step>
+        </steps>
+    </protocol>
+    <protocol name="MANDATORY RCI REVIEW PROTOCOL">
+        # ====MANDATORY RCI REVIEW PROTOCOL (OBSOLETE)====
+        <objective>
+            **Objective:** Provide a consistent, evidence-based fresh-eyes review of every change set before proceeding with the parent protocol.
+        </objective>
+        <steps>
+            <step number="1">
+                **Align Review Scope**:
+                *   Select a meaningful base slug for the review (match the slug used for backup/documentation/commit, e.g., `feature_adaptive_focus`).
+                *   Note the parent protocol step you are pausing (e.g., Feature Implementation Step 8); you will explicitly resume it after RCI completes.
+            </step>
+            <step number="2">
+                **Generate Review Artifact**:
+                *   Run `npm run review -- --feature <base_slug>` (the script automatically appends version suffixes such as `_v2`, `_v3`, … on subsequent runs and preserves each artifact).
+                *   Before the first run, craft a “PR review request” narrative of at least **10 sentences** describing the change intent, user requirements or bug symptoms, acceptance criteria, and any risks or testing performed. Pass it via `--pr_request "<narrative>"` alongside the feature slug (e.g., `npm run review -- --feature <base_slug> --pr_request "<10+ sentences>"`).
+                *   On subsequent runs, the flag is optional; omitting it reuses the previous narrative, while providing it appends the new context to the existing list in the review artifact.
+                *   Capture the review checklist printed to stdout and note the emitted HTML path (e.g., `code_review/review_<base_slug>.html`, `code_review/review_<base_slug>_v2.html`).
+            </step>
+            <step number="3">
+                **Review Every Block**:
+                *   Follow the checklist top-to-bottom; open the matching artifact reported by the script (e.g., `code_review/review_<base_slug>.html` or the latest `_vN` file) or navigate via anchors.
+                *   For each hunk, add exactly one bullet in the "Review Notes" area starting with `[PASS]` or `[ISSUE-P0|P1|P2]` followed by a concise rationale (intent, edge cases, tests, or risks).
+                *   Treat `[ISSUE-*]` notes as blockers until resolved; `[PASS]` must still document what was validated.
+            </step>
+            <step number="4">
+                **Resolve & Re-run**:
+                *   Address every `[ISSUE-*]` immediately in the codebase.
+                *   Re-run `npm run review -- --feature <base_slug>` after each fix cycle; include `--pr_request "<additional narrative>"` only if you need to add new context. The script will reuse or extend the PR request history automatically while generating the next versioned artifact. Update notes until only `[PASS]` entries remain.
+            </step>
+            <step number="5">
+                **Close Out Review**:
+                *   Confirm the final artifact path for documentation (`code_review/review_<final_slug>.html`, where `<final_slug>` is the slug reported by the last script run).
+                *   Leave the final `[PASS]` notes in place; remove obsolete intermediate comments if needed.
+                *   Announce completion explicitly: “RCI Review protocol complete. Resuming <parent protocol step>.”
             </step>
         </steps>
     </protocol>
@@ -243,6 +283,8 @@
                 *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
                 *Verify All Requirements*: Re-read the original request to ensure full compliance.
                 *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
+                *Run Review Command*: After completing the self-check, run `npm run review -- --feature <feature_slug> --pr_request "<10+ sentence narrative>"` (reuse the same slug on subsequent runs; the narrative can be extended or omitted as desired). Record the emitted path `code_review/review_<final_slug>.html` so it can be included in your feature documentation.
+                *Review Handoff*: Once the command completes and the path is logged, await the reviewer’s feedback before proceeding to Step 9.
             </step>
             <step number="9">
                 **Prompt for User Test**: Once all quality gates are passed, prompt me to run the code to generate the logs, and to let you know when the test is complete.
@@ -259,7 +301,7 @@
                 **Feature Documentation Artifact**:
                 *   **Action**: When the implementation succeeds, you MUST update an existing relevant feature document in `./docs/features/` if one already covers the affected area; otherwise create a new markdown record named `feature_<descriptive_slug>_<YYYYMMDD_HHMMSS>.md` before yielding any response to the user. The slug must clearly reflect the change (e.g., `concept_prompt_improvement` instead of a generic label).
                 *   **Action**: Document the feature summary, rationale, key code changes with file:line references, behavioral impacts, and validation evidence. Include links to log lines or test results when applicable. Skipping this artifact or using an ambiguous slug is treated as a critical protocol violation.
-                *   **Action**: The document must include a path to the backup that was generated before these fixes went in.
+                *   **Action**: The document must list both the backup path generated for the work and the latest review artifact path (use the final slug, e.g., `backup/sensei_backup_<feature_slug>_<timestamp>.zip`, `code_review/review_<final_slug>.html`).
                 *   **Action**: For bug fixes handled via the Adaptive Root Cause protocol, reference the corresponding entry in `PREVIOUS_BUG_FIXES.md` instead of duplicating content; the feature document should note that pointer.
             </step>
             <step number="12">
@@ -274,11 +316,11 @@
     <protocol name="MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL">
         # ====MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL====
         <initial_action>
-            Upon receiving a bug report, your FIRST action is to use your `update_plan` tool to create a to-do list containing all steps of this protocol (Steps 1-15). You will then execute this list step-by-step, announcing each phase and step as you begin. This is non-negotiable.
+            Upon receiving a bug report, your FIRST action is to create temporary text file under /tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step. You will then execute this list step-by-step, announcing each phase and step as you begin. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
-            *   **Action:** Execute the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)**. Upon completion, proceed to Step 1 of this protocol.
+            *   **Action:** Execute the **MANDATORY CORE ANALYSIS PROTOCOL**. Upon completion, proceed to Step 1 of this protocol.
         </step>
         <phase name="Phase 1: Enhanced Root Cause Discovery (The "Why")">
             ### Phase 1: Enhanced Root Cause Discovery (The "Why")
@@ -333,11 +375,11 @@
                     *   Stop if one hypothesis reaches >90% confidence with strong supporting evidence
                     *   Stop if evidence gathering hits diminishing returns (3 cycles with no decisive evidence)
                     *   Continue if multiple viable hypotheses remain
-                *   **5g. Repeat**: Return to 5a with updated hypothesis set.
+                *   **5g. Repeat**: Return to 5a with updated hypothesis set. Loop again on next viable hypothesis from the list.
             </step>
             <step number="6">
                 **Declare Root Cause**: 
-                *   **Action**: Once the loop concludes, formally declare the confirmed root cause with final confidence score.
+                *   **Action**: Once the loop concludes, formally declare the confirmed root cause with final confidence score and display it to the user.
                 *   **Action**: Document which discovery cycle (Step 2) or analysis phase (Steps 3-4) revealed the winning hypothesis.
                 *   **Action**: State whether the root cause was in your initial hypothesis set or discovered through systematic expansion.
                 *   **Output**: "Root cause identified: [description] (Confidence: X%, Discovered in: [cycle/phase])"
@@ -378,6 +420,8 @@
                 *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
                 *Verify All Requirements*: Re-read the original request to ensure full compliance.
                 *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
+                *Run Review Command*: After finishing the self-check, run `npm run review -- --feature <bug_slug> --pr_request "<10+ sentence narrative>"` (repeat with the same slug thereafter). Capture the resulting path `code_review/review_<final_slug>.html` so it can be cited in `PREVIOUS_BUG_FIXES.md`.
+                *Review Handoff*: After the command runs and the path is recorded, await reviewer results before moving to Step 12.
             </step>
             <step number="12">
                 **Prompt for User Test**: Once RCI is complete, ask me to test the fix in the live environment.
@@ -392,6 +436,7 @@
                 *If Validation Fails*: Announce failure. Revert the fix. Return to **Step 1** of this protocol to diagnose the new, combined issue (the original bug + the failed fix).
                 **MANDATORY Bug Fix Documentation** (NON-NEGOTIABLE FINAL STEP - ONLY FOR SUCCESSFUL FIXES):
                 **Action**: After ANY SUCCESSFUL bug fix, you MUST append to the `PREVIOUS_BUG_FIXES.md` file. This is an ABSOLUTE REQUIREMENT and failure to do so is a critical protocol violation.
+                **Action**: The entry must explicitly include the fully qualified path to the backup generated for this fix as well as the latest review artifact (use the final slug, e.g., `backup/sensei_backup_<bug_slug>_<timestamp>.zip`, `code_review/review_<final_slug>.html`).
                 **Documentation Format**: Create a new numbered entry that includes:
                 - **Issue**: One-sentence description of the visible problem
                 - **Root Cause**: Technical explanation of why the bug occurred  
@@ -406,6 +451,8 @@
                 *   **Action**: Stage all tracked file updates using `git add -u`, running the command with elevated permissions.
                 *   **Action**: Stage any required new files explicitly with `git add <path>` using elevated permissions.
                 *   **Action**: Commit using `git commit -m "<TYPE>: <SUMMARY>"` with a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`), and execute the commit with elevated permissions.
+                *   **Action**: Ensure the `<SUMMARY>` precisely names the feature or defect and calls out the most impactful change (e.g., key module touched or capability restored) so reviewers understand the commit at a glance.
+                *   **Action**: When the work spans multiple concerns or carries notable implications, include a commit message body summarizing scope, critical details, and any follow-up requirements; expand the body as needed to capture essential context.
                 *   **Action**: Push the commit to the `main` branch using `git push origin main` with elevated permissions.
                 *   **Action**: Confirm the entire git command sequence is executed under elevated permissions mandated by mission control protocols.
             </step>
