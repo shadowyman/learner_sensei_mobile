@@ -486,27 +486,42 @@ ${coreInstruction}
             isReloadable: false
         });
         
+        let finalResponse = '';
+        const reloadContext: ReloadContext = {
+            type: 'mainResponse',
+            dynamicSystemInstruction: systemInstruction,
+            userInput: ''
+        };
+        
         try {
             const { streamMainSenseiResponse } = await import('./interactionHelpers.js');
-            const response = await streamMainSenseiResponse(this.state.mainSenseiChat!, systemInstruction, "", messageId);
-            
-            this.updateResponseHistory(response, messageId);
+            finalResponse = await streamMainSenseiResponse(this.state.mainSenseiChat!, systemInstruction, "", messageId);
+            this.updateResponseHistory(finalResponse, messageId);
         } catch (error) {
             logger.error('[SOCRATIC_FIX] Error in system message generation:', error);
-            
-            const fallbackMessage = "Welcome to the Socratic exploration phase! I'm ready to guide you through this learning journey.";
-            await displayMessage({
-                id: messageId,
-                sender: 'sensei',
-                displayName: 'Recursive Sensei',
-                text: fallbackMessage,
-                timestamp: new Date(),
-                isLoading: false,
-                isReloadable: false
-            });
-            this.updateResponseHistory(fallbackMessage, messageId);
+            finalResponse = "Welcome to the Socratic exploration phase! I'm ready to guide you through this learning journey.";
+            this.updateResponseHistory(finalResponse, messageId);
         }
         
+        await displayMessage({
+            id: messageId,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: finalResponse,
+            timestamp: new Date(),
+            isLoading: false,
+            isReloadable: true,
+            reloadContext,
+            skipMermaid: true
+        });
+        const bubble = document.getElementById(messageId);
+        if (bubble) {
+            bubble.dataset.reloadable = 'true';
+            bubble.dataset.reloadType = 'mainResponse';
+            bubble.dataset.reloadContext = JSON.stringify(reloadContext);
+        }
+        logger.info('[SOCFIX] Socratic intro finalized', { messageId, hasReloadContext: !!reloadContext });
+
         await processMermaidBlocks(messageId);
     }
 

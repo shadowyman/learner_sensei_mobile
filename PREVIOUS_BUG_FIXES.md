@@ -70,3 +70,17 @@
 - `docs/mission_state_mermaid_annotation_bug_20250924_014731.md`
 
 **Keywords for Future Reference**: mermaid, caption, annotation, markdown fence, sanitize, thumbnail wrapper
+
+## Bug #6: Socratic Intro Missing Reload/Enhance Controls
+
+**Issue**: When launching a module directly into the Socratic phase, the introductory Sensei message never showed the reload or enhance buttons, so users could not regenerate or expand that response.
+
+**Root Cause**: `sendSystemSocraticMessage` streamed the intro into a bubble created in loading mode but never made the follow-up `displayMessage` call with `isLoading: false` and a `reloadContext`. The bubble stayed flagged as loading and non-reloadable, which suppresses button rendering in `displayMessage`.
+
+**Fix Applied**: After streaming, capture the final text, build a `ReloadContext`, and rerun `displayMessage` with reload metadata so the bubble finalizes like other phases. Preserve dataset attributes for replays and rely on existing enhancement reset logic.
+
+**Related Files**:
+- `moduleSelectionHandler.ts:489`
+- `moduleSelectionHandler.ts:506`
+
+**Keywords for Future Reference**: socratic phase, reload button, enhance button, displayMessage, reloadContext, isLoading
