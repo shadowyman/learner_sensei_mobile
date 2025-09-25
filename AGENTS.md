@@ -29,10 +29,15 @@
         <rule>- All other misc files will be created under ./tmp</rule>
         <rule>- You MUST NOT create files in the root folder unless they are core project code files</rule>
     </project_file_structure>
-    <branch_discipline_policy>
-        <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase.</rule>
-        <rule>ABSOLUTE PROHIBITION: NEVER operate directly on `main`; abort any edit attempt until a feature branch is active.</rule>
-    </branch_discipline_policy>
+    <mandatory_implementation_git_policy>
+        # MANDATORY IMPLEMENTATION GIT POLICY
+        <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase; this branch MUST be used via a dedicated git worktree directory.</rule>
+        <rule>ABSOLUTE PROHIBITION: NEVER operate directly on `main`; abort any edit attempt until a worktree on a feature/bug branch is active.</rule>
+        <rule>MANDATORY: Use git worktrees for parallel work. Each active feature or bugfix branch MUST be checked out in its own isolated worktree directory; do not edit in the root working tree.</rule>
+        <rule>ISOLATION: Do not move or share uncommitted changes across worktrees. Commit or discard changes before switching worktrees to prevent cross-contamination.</rule>
+        <rule>SYNC: Keep branches current by regularly rebasing or merging from `origin/main` within each worktree.</rule>
+        <rule>CLEANUP: After ensuring all modified/new files are committed and merged into `main`, delete the worktree directory and delete the feature/bugfix branch (local and remote).</rule>
+    </mandatory_implementation_git_policy>
     <backup_policy>
         <rule>Before modifying any project file, you MUST generate a timestamped manifest backup: create `backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
         <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
@@ -95,39 +100,46 @@
         </steps>
     </protocol>
     <protocol name="MANDATORY RCI REVIEW PROTOCOL">
-        # ====MANDATORY RCI REVIEW PROTOCOL (OBSOLETE)====
+        # ====MANDATORY RCI REVIEW PROTOCOL====
         <objective>
-            **Objective:** Provide a consistent, evidence-based fresh-eyes review of every change set before proceeding with the parent protocol.
+            **Objective:** Provide a single, unified self-correction and review cycle used by both Feature Implementation (Step 8) and Adaptive Root Cause & Remediation (Step 11).
         </objective>
         <steps>
             <step number="1">
-                **Align Review Scope**:
-                *   Select a meaningful base slug for the review (match the slug used for backup/documentation/commit, e.g., `feature_adaptive_focus`).
-                *   Note the parent protocol step you are pausing (e.g., Feature Implementation Step 8); you will explicitly resume it after RCI completes.
+                **Align Scope & Slug**:
+                *   Identify the parent protocol and step invoking RCI (Feature Step 8 or Root Cause Step 11).
+                *   Set `<slug>` appropriately to `<feature_slug>` or `<bug_slug>` and use it consistently for artifacts and commands.
             </step>
             <step number="2">
-                **Generate Review Artifact**:
-                *   Run `npm run review -- --feature <base_slug>` (the script automatically appends version suffixes such as `_v2`, `_v3`, … on subsequent runs and preserves each artifact).
-                *   Before the first run, craft a “PR review request” narrative of at least **10 sentences** describing the change intent, user requirements or bug symptoms, acceptance criteria, and any risks or testing performed. Pass it via `--pr_request "<narrative>"` alongside the feature slug (e.g., `npm run review -- --feature <base_slug> --pr_request "<10+ sentences>"`).
-                *   On subsequent runs, the flag is optional; omitting it reuses the previous narrative, while providing it appends the new context to the existing list in the review artifact.
-                *   Capture the review checklist printed to stdout and note the emitted HTML path (e.g., `code_review/review_<base_slug>.html`, `code_review/review_<base_slug>_v2.html`).
+                **Skeptical Reviewer Pass**:
+                *   Adopt a skeptical reviewer persona and examine the change as if you did not author it.
+                *   Challenge robustness, edge cases, error handling, and alignment with the original requirements.
+                *   Verify every requirement from the parent step is met.
             </step>
             <step number="3">
-                **Review Every Block**:
-                *   Follow the checklist top-to-bottom; open the matching artifact reported by the script (e.g., `code_review/review_<base_slug>.html` or the latest `_vN` file) or navigate via anchors.
-                *   For each hunk, add exactly one bullet in the "Review Notes" area starting with `[PASS]` or `[ISSUE-P0|P1|P2]` followed by a concise rationale (intent, edge cases, tests, or risks).
-                *   Treat `[ISSUE-*]` notes as blockers until resolved; `[PASS]` must still document what was validated.
+                **Report & Remediate Loop**:
+                *   If issues are found, document them succinctly, remediate, and repeat Step 2 until the change passes review.
             </step>
             <step number="4">
-                **Resolve & Re-run**:
-                *   Address every `[ISSUE-*]` immediately in the codebase.
-                *   Re-run `npm run review -- --feature <base_slug>` after each fix cycle; include `--pr_request "<additional narrative>"` only if you need to add new context. The script will reuse or extend the PR request history automatically while generating the next versioned artifact. Update notes until only `[PASS]` entries remain.
+                **Stage & Commit**:
+                *   Stage new and updated files and commit using a conventional message appropriate to the context.
             </step>
             <step number="5">
-                **Close Out Review**:
-                *   Confirm the final artifact path for documentation (`code_review/review_<final_slug>.html`, where `<final_slug>` is the slug reported by the last script run).
-                *   Leave the final `[PASS]` notes in place; remove obsolete intermediate comments if needed.
-                *   Announce completion explicitly: “RCI Review protocol complete. Resuming <parent protocol step>.”
+                **Generate Review Artifact**:
+                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"`.
+                *   Reuse the same `<slug>` on subsequent runs; update the narrative to reflect only what changed in that run.
+            </step>
+            <step number="6">
+                **Record Artifact Path**:
+                *   Capture the emitted path `code_review/review_<final_slug>.html`.
+                *   Do not update documentation at this step. Store this path for later use in the respective protocol’s documentation step.
+                *   If invoked from Feature Implementation, retain the path to include in the Feature Documentation step.
+                *   If invoked from Root Cause & Remediation, retain the path to cite in `PREVIOUS_BUG_FIXES.md` during its documentation step.
+            </step>
+            <step number="7">
+                **Review Handoff & Pause**:
+                *   Await reviewer feedback before resuming the parent protocol’s next step.
+                *   Announce completion: “RCI Review protocol complete. Resuming <parent protocol step>.”
             </step>
         </steps>
     </protocol>
@@ -282,13 +294,8 @@
                 *   **Action**: You MUST implement the code **AND** the exact corresponding Validation Logs as defined in the approved plan from Step 5.
             </step>
             <step number="8">
-                **Perform RCI Self-Correction**: Execute the RCI task- RCI should validate correctness, not chase alternative approaches if not needed.
-                *Adopt a Skeptical Reviewer Persona*: Act as a different engineer reviewing the code you just wrote.
-                *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
-                *Verify All Requirements*: Re-read the original request to ensure full compliance.
-                *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
-                *Run Review Command*: After completing the self-check, run git add for new files with elevated permissions and commit your changes (or update your commit if files changed on subsequent runs), then run `npm run review -- --feature <feature_slug> --pr_request "<10+ sentence narrative>"` (reuse the same slug on subsequent runs; the narrative must be updated on subsequent runs to only reflect what's changed on that run-don't repeat). Record the emitted path `code_review/review_<final_slug>.html` so it can be included in your feature documentation.
-                *Review Handoff*: Once the command completes and the path is logged, await the reviewer’s feedback before proceeding to Step 9.
+                **Perform RCI Self-Correction**: Execute the `MANDATORY RCI REVIEW PROTOCOL` in feature context.
+                *   **Action**: Invoke the protocol now using `<slug>` = `<feature_slug>`. Follow all protocol steps and await reviewer feedback before proceeding to Step 9.
             </step>
             <step number="9">
                 **Prompt for User Test**: Once all quality gates are passed, prompt me to run the code to generate the logs, and to let you know when the test is complete.
@@ -421,13 +428,8 @@
                 **Execute Fix with Logging**: Do not add comments. Implement the fix according to the plan, adding descriptive debug logs `logger.[log|warn|error]` that will prove the fix works.  Logs must start with "[XXX]..." and must have a tag defining the bug for `XXX`.
             </step>
             <step number="11">
-                **Perform RCI Self-Correction**: Execute the RCI task- RCI should validate correctness, not chase alternative approaches if not needed.
-                *Adopt a Skeptical Reviewer Persona*: Act as a different engineer reviewing the code you just wrote.
-                *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
-                *Verify All Requirements*: Re-read the original request to ensure full compliance.
-                *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
-                *Run Review Command*: After completing the self-check, run git add for new files with elevated permissions and commit your changes (or update your commit if files changed on subsequent runs) then run `npm run review -- --feature <bug_slug> --pr_request "<10+ sentence narrative>"` (repeat with the same slug thereafter). Capture the resulting path `code_review/review_<final_slug>.html` so it can be cited in `PREVIOUS_BUG_FIXES.md`.
-                *Review Handoff*: After the command runs and the path is recorded, await reviewer results before moving to Step 12.
+                **Perform RCI Self-Correction**: Execute the `MANDATORY RCI REVIEW PROTOCOL` in bugfix context.
+                *   **Action**: Invoke the protocol now using `<slug>` = `<bug_slug>`. Follow all protocol steps and await reviewer feedback before proceeding to Step 12.
             </step>
             <step number="12">
                 **Prompt for User Test**: Once RCI is complete, ask me to test the fix in the live environment.
