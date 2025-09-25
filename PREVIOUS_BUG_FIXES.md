@@ -121,3 +121,23 @@
 **Review Artifact**: `code_review/review_bugfix_mermaid_recovery_hide_failed_code_v2.html`
 
 **Keywords for Future Reference**: mermaid, recovery, code leak, save normalization, streamingMessagesRawText, debug log, error box
+
+## Bug #9: Selection Sensei Modal Jumps On First Drag Move
+
+**Issue**: When dragging the Selection Sensei response modal, the window “snaps” to align under the cursor on the first mousemove, then drags smoothly afterward.
+
+**Root Cause**: The modal was initially centered using CSS transform. At drag start, code only cleared the transform conditionally and computed offsets against the current rect. On the first mousemove, the modal state changed (transform cleared, left/top applied) causing a mismatch between the mousedown rect and the move computation, producing a visual snap under the cursor.
+
+**Discovery Method**: Enhanced Root Cause Discovery — Step 6 (Root cause articulation) following evidence‑arbitrated investigation; hypotheses H1/H3 confirmed (transform‑to‑absolute conversion and initial offset mismatch).
+
+**Fix Applied**: Always ground the modal at drag start by clearing transform and seeding `left`/`top` from `getBoundingClientRect()`. Compute `offsetX/offsetY` immediately after grounding, and clamp position within the viewport during drag. This mirrors the proven debug modal behavior and prevents the jump.
+
+**Related Files**:
+- `selectionSensei.ts:827` (handleDragStart)
+- `selectionSensei.ts:843` (handleDragMove)
+
+**Backup**: `backup/sensei_backup_bugfix_selection_sensei_drag_offset_20250926_011733.zip`
+
+**Review Artifact**: `code_review/review_bugfix_selection_sensei_drag_offset_v3.html`
+
+**Keywords for Future Reference**: modal drag, transform, offset, snap, clamp, viewport, Selection Sensei

@@ -826,21 +826,17 @@ class SelectionSensei {
 
     private handleDragStart(e: MouseEvent): void {
         if (!this.responseModal || (e.target as HTMLElement).closest('#response-modal-close-button')) return;
-        
+
         this.isDragging = true;
         const modalRect = this.responseModal.getBoundingClientRect();
-        
-        // Convert from centered transform to absolute positioning (like main window)
-        if (this.responseModal.style.transform.includes('translate')) {
-            this.responseModal.style.transform = 'none';
-            this.responseModal.style.left = modalRect.left + 'px';
-            this.responseModal.style.top = modalRect.top + 'px';
-        }
-        
-        // Simple offset calculation from absolute position
+
+        this.responseModal.style.transform = 'none';
+        this.responseModal.style.left = modalRect.left + 'px';
+        this.responseModal.style.top = modalRect.top + 'px';
+
         this.offsetX = e.clientX - modalRect.left;
         this.offsetY = e.clientY - modalRect.top;
-        
+
         this.responseModal.style.userSelect = 'none';
     }
 
@@ -848,6 +844,12 @@ class SelectionSensei {
         if (!this.isDragging || !this.responseModal) return;
         let newX = e.clientX - this.offsetX;
         let newY = e.clientY - this.offsetY;
+
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        newX = Math.max(0, Math.min(newX, viewportWidth - this.responseModal.offsetWidth));
+        newY = Math.max(0, Math.min(newY, viewportHeight - this.responseModal.offsetHeight));
 
         this.responseModal.style.transform = 'none';
         this.responseModal.style.left = `${newX}px`;
