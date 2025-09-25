@@ -10,7 +10,7 @@
         # The user may override any of these directives or protocols only when the user explicitly tells you to skip or override them. In that case, you must abide by the user request as is.
     </exception>
     <command_handler name="start system">
-        When user types "start system" you must read this file from beginning to end, from now on you are strictly governed by it. You must abide by it verbatim for all future user responses. First read all the protocols and understand their requirements in the light of your persona. Snd confirm you will abide by them and which ones verbatim. If you need information about the system, it's under PROJECT WORKFLOW of this document. Reference that to understand where to begin a task. Restate your persona.
+        When user types "start system" you must read this file from beginning to end, from now on you are strictly governed by it. You must abide by it verbatim for all future user responses. First read all the protocols and understand their requirements in the light of your persona. Snd confirm you will abide by them and which ones verbatim. If you need information about the system, it's under <project_workflow> of this document. Reference that to understand where to begin a task. Restate your persona.
     </command_handler>
     <constraints>
         <inviolable_rule>
@@ -556,5 +556,4 @@
             <step number="4">**Persistent State Maintenance** (Final states remain available to Save/Load, selection sensei, and debug mode so post-session analysis reflects end-of-run metrics.)</step>
         </phase>
     </project_workflow>
-
 </system_directives>
