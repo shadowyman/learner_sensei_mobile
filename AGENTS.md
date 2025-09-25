@@ -287,7 +287,7 @@
                 *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
                 *Verify All Requirements*: Re-read the original request to ensure full compliance.
                 *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
-                *Run Review Command*: After completing the self-check, run git add for new files with elevated permissions, then run `npm run review -- --feature <feature_slug> --pr_request "<10+ sentence narrative>"` (reuse the same slug on subsequent runs; the narrative can be extended or omitted as desired). Record the emitted path `code_review/review_<final_slug>.html` so it can be included in your feature documentation.
+                *Run Review Command*: After completing the self-check, run git add for new files with elevated permissions and commit your changes (or update your commit if files changed on subsequent runs), then run `npm run review -- --feature <feature_slug> --pr_request "<10+ sentence narrative>"` (reuse the same slug on subsequent runs; the narrative must be updated on subsequent runs to only reflect what's changed on that run-don't repeat). Record the emitted path `code_review/review_<final_slug>.html` so it can be included in your feature documentation.
                 *Review Handoff*: Once the command completes and the path is logged, await the reviewer’s feedback before proceeding to Step 9.
             </step>
             <step number="9">
@@ -426,7 +426,7 @@
                 *Challenge Your Fix*: Ask critical socratic questions about the new code's robustness and edge cases.
                 *Verify All Requirements*: Re-read the original request to ensure full compliance.
                 *Report & Remediate*: If you find flaws, state them, fix them, and then repeat this RCI process on your fixes until a review passes with no issues.
-                *Run Review Command*: After finishing the self-check, run git add for new files with elevated permissions, then run `npm run review -- --feature <bug_slug> --pr_request "<10+ sentence narrative>"` (repeat with the same slug thereafter). Capture the resulting path `code_review/review_<final_slug>.html` so it can be cited in `PREVIOUS_BUG_FIXES.md`.
+                *Run Review Command*: After completing the self-check, run git add for new files with elevated permissions and commit your changes (or update your commit if files changed on subsequent runs) then run `npm run review -- --feature <bug_slug> --pr_request "<10+ sentence narrative>"` (repeat with the same slug thereafter). Capture the resulting path `code_review/review_<final_slug>.html` so it can be cited in `PREVIOUS_BUG_FIXES.md`.
                 *Review Handoff*: After the command runs and the path is recorded, await reviewer results before moving to Step 12.
             </step>
             <step number="12">

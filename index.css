@@ -506,6 +506,14 @@ body::before {
     font-weight: 600;
 }
 
+.status-phase-line .status-chunk {
+    color: #d9f99d;
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+    white-space: nowrap;
+}
+
 .controls-content {
     display: flex;
     gap: 8px;
