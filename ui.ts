@@ -1423,19 +1423,17 @@ export async function displayMessage(message: Message) {
                     }
 
                     const errorDiv = document.createElement('div');
+                    logger.debug('[MERMAID_FAILOVER] Exhausted recovery in initial render path', { messageId: message.id });
+                    logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                     errorDiv.className = 'mermaid-error';
-                    errorDiv.innerHTML = `
-                        [Sensei's diagram could not be rendered, and automatic fix failed]<br>
-                        <pre><code>${rawMermaidCode}</code></pre>
-                    `;
+                    errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                     fixingDiv.replaceWith(errorDiv);
                 } else {
                     const errorDiv = document.createElement('div');
+                    logger.debug('[MERMAID_FAILOVER] Second-fallback path engaged in initial render', { messageId: message.id });
+                    logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                     errorDiv.className = 'mermaid-error';
-                    errorDiv.innerHTML = `
-                        [Sensei's diagram could not be rendered]<br>
-                        <pre><code>${rawMermaidCode}</code></pre>
-                    `;
+                    errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                     preElement.replaceWith(errorDiv);
                 }
             }
@@ -1878,19 +1876,17 @@ export async function processMermaidBlocks(messageId: string) {
                 }
 
                 const errorDiv = document.createElement('div');
+                logger.debug('[MERMAID_FAILOVER] Exhausted recovery in phase-2 path', { messageId });
+                logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                 errorDiv.className = 'mermaid-error';
-                errorDiv.innerHTML = `
-                    [Sensei's diagram could not be rendered, and automatic fix failed]<br>
-                    <pre><code>${rawMermaidCode}</code></pre>
-                `;
+                errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                 fixingDiv.replaceWith(errorDiv);
             } else {
                 const errorDiv = document.createElement('div');
+                logger.debug('[MERMAID_FAILOVER] Second-fallback path engaged in phase-2 path', { messageId });
+                logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                 errorDiv.className = 'mermaid-error';
-                errorDiv.innerHTML = `
-                    [Sensei's diagram could not be rendered]<br>
-                    <pre><code>${rawMermaidCode}</code></pre>
-                `;
+                errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                 preElement.replaceWith(errorDiv);
             }
         }

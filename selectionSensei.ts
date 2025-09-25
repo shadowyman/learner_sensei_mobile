@@ -632,11 +632,10 @@ class SelectionSensei {
                 }
 
                 const errorDiv = document.createElement('div');
+                logger.debug('[MERMAID_FAILOVER] Exhausted recovery in SelectionSensei', { context: 'selection' });
+                logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                 errorDiv.className = 'mermaid-error';
-                errorDiv.innerHTML = `
-                    [Diagram could not be rendered, and automatic fix failed]<br>
-                    <pre><code>${rawMermaidCode}</code></pre>
-                `;
+                errorDiv.textContent = "[Diagram could not be rendered, and automatic fix failed]";
                 fixingDiv.replaceWith(errorDiv);
             }
         });
