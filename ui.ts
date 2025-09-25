@@ -158,6 +158,7 @@ export function updateCurriculumDisplay(
             moduleTitleTooltip?: string;
             phaseTooltip?: string;
             conceptTooltip?: string;
+            chunkLabel?: string;
         }
     ) => {
         if (!curriculumStatusTopic) {
@@ -171,6 +172,7 @@ export function updateCurriculumDisplay(
             moduleSpan.title = options.moduleTitleTooltip;
         }
         const conceptTitle = options?.conceptTitle;
+        const chunkLabel = options?.chunkLabel ?? null;
         if (conceptTitle) {
             const phaseLine = document.createElement('span');
             phaseLine.className = 'status-phase-line';
@@ -192,6 +194,12 @@ export function updateCurriculumDisplay(
             phaseLine.appendChild(phaseSpan);
             phaseLine.appendChild(separatorSpan);
             phaseLine.appendChild(conceptSpan);
+            if (chunkLabel) {
+                const chunkSpan = document.createElement('span');
+                chunkSpan.className = 'status-chunk';
+                chunkSpan.textContent = chunkLabel;
+                phaseLine.appendChild(chunkSpan);
+            }
             curriculumStatusTopic.appendChild(moduleSpan);
             curriculumStatusTopic.appendChild(phaseLine);
         } else {
@@ -201,6 +209,9 @@ export function updateCurriculumDisplay(
             if (options?.phaseTooltip) {
                 phaseSpan.title = options.phaseTooltip;
             }
+            if (chunkLabel) {
+                phaseSpan.textContent = `${phaseLabel} · ${chunkLabel}`;
+            }
             curriculumStatusTopic.appendChild(moduleSpan);
             curriculumStatusTopic.appendChild(phaseSpan);
         }
@@ -209,10 +220,31 @@ export function updateCurriculumDisplay(
         const moduleTitle = curriculumItem.moduleTitle;
         const phaseLabel = getPhaseDisplayName(currentPhase);
         const conceptTitle = curriculumItem.concept?.title?.trim();
+        const chunkInfo = (() => {
+            if (!appCurriculumState || appCurriculumState.isCompleted) {
+                return null;
+            }
+            if (!Array.isArray(appCurriculumState.teachingPlanForPhase)) {
+                return null;
+            }
+            const index = appCurriculumState.currentTeachingChunkIndex;
+            if (typeof index !== 'number') {
+                return null;
+            }
+            const total = appCurriculumState.teachingPlanForPhase.length;
+            if (total <= 0) {
+                return null;
+            }
+            if (index < 0 || index >= total) {
+                return null;
+            }
+            return { current: index + 1, total };
+        })();
         const options = {
             moduleTitleTooltip: moduleTitle,
             phaseTooltip: phaseLabel,
-            ...(conceptTitle ? { conceptTitle, conceptTooltip: conceptTitle } : {})
+            ...(conceptTitle ? { conceptTitle, conceptTooltip: conceptTitle } : {}),
+            ...(chunkInfo ? { chunkLabel: `Chunk ${chunkInfo.current}/${chunkInfo.total}` } : {})
         };
         setStatusLines(moduleTitle, phaseLabel, options);
 
