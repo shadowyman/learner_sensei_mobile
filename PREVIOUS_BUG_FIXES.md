@@ -100,3 +100,24 @@
 - `index.tsx:714-724` – Completion flag detection path that sets `socraticCompletionPending` (unchanged for fix context).
 
 **Keywords for Future Reference**: socratic completion, phase transition, chunk gating, immediate advance, KCMasteryLastUpdated, determinePhaseTransition, initializeNewPhaseState
+
+## Bug #8: Mermaid Recovery Leaked Raw Diagram; Save Didn’t Persist Outcome
+
+**Issue**: After five failed Mermaid recovery attempts, Sensei’s message showed the raw Mermaid codeblock to the user. Additionally, when recovery succeeded or failed, the saved transcript did not reflect the on‑screen outcome (it kept the original faulty fence).
+
+**Root Cause**: Failure branches in the UI injected `<pre><code>` with the original diagram into the DOM, and the save system persisted `streamingMessagesRawText` (the original LLM output) without normalization after recovery.
+
+**Fix Applied**: Removed raw code exposure and standardized the red error box content. Added a debug log that records the full failed diagram code. Implemented save normalization: on recovery success, replace the original Mermaid fence in the in‑memory raw text with the corrected diagram; on recovery exhaustion, replace the fence with a single bracketed error line so saves/restores match the UI.
+
+**Related Files**:
+- `ui.ts:1415` – Persist corrected diagram to raw text on recovery success (initial render path)
+- `ui.ts:1433-1440` – Hide code; log full failed diagram; persist single‑line error on failure (initial render path)
+- `ui.ts:1873` – Persist corrected diagram on recovery success (phase‑2 path)
+- `ui.ts:1890-1897` – Hide code; log full failed diagram; persist single‑line error on failure (phase‑2 path)
+- `selectionSensei.ts:638` – Hide code and log full failed diagram in SelectionSensei (no save persistence)
+
+**Backup**: `backup/sensei_backup_bugfix_mermaid_recovery_hide_failed_code_20250925_230504.zip`
+
+**Review Artifact**: `code_review/review_bugfix_mermaid_recovery_hide_failed_code_v2.html`
+
+**Keywords for Future Reference**: mermaid, recovery, code leak, save normalization, streamingMessagesRawText, debug log, error box
