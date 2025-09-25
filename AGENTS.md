@@ -41,7 +41,7 @@
         <rule>CLEANUP: After ensuring all modified/new files are committed and merged into `main`, delete the worktree directory and delete the feature/bugfix branch (local and remote).</rule>
     </mandatory_implementation_git_policy>
     <backup_policy>
-        <rule>Before modifying any project file, you MUST generate a timestamped manifest backup: create `backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
+        <rule>Before modifying any project file, you MUST generate a timestamped manifest backup in **root backup folder**: create `root/backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
         <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
         <rule>If you add or remove a project file that should be tracked, you MUST update `file-manifest.json` in the same session before producing the backup.</rule>
         <rule>When both the manifest and project files change, update the manifest first, then regenerate the timestamped backup so it reflects the latest list.</rule>
@@ -128,9 +128,8 @@
             </step>
             <step number="5">
                 **Generate Review Artifact**:
-                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"`.
+                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` FROM ROOT FOLDER, NOT WORKTREE FOLDER!!!.
                 *   Reuse the same `<slug>` on subsequent runs; update the narrative to reflect only what changed in that run.
-                *   CRITICAL: Move the generated code_review document to root /code_review directory.
             </step>
             <step number="6">
                 **Record Artifact Path**:
