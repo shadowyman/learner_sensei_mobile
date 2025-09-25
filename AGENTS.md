@@ -32,6 +32,7 @@
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
         <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase; this branch MUST be used via a dedicated git worktree directory.</rule>
+        <rule>Worktrees must be created under ./tmp/worktrees</rule>
         <rule>ABSOLUTE PROHIBITION: NEVER operate directly on `main`; abort any edit attempt until a worktree on a feature/bug branch is active.</rule>
         <rule>MANDATORY: Use git worktrees for parallel work. Each active feature or bugfix branch MUST be checked out in its own isolated worktree directory; do not edit in the root working tree.</rule>
         <rule>ISOLATION: Do not move or share uncommitted changes across worktrees. Commit or discard changes before switching worktrees to prevent cross-contamination.</rule>
