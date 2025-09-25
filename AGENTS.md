@@ -137,8 +137,7 @@
                 *   If invoked from Root Cause & Remediation, retain the path to cite in `PREVIOUS_BUG_FIXES.md` during its documentation step.
             </step>
             <step number="7">
-                **Review Handoff & Pause**:
-                *   Await reviewer feedback before resuming the parent protocol’s next step.
+                **Review Handoff & Proceed**:
                 *   Announce completion: “RCI Review protocol complete. Resuming <parent protocol step>.”
             </step>
         </steps>
