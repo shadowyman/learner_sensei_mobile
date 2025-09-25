@@ -76,6 +76,23 @@ function escapeHtml(text: string): string {
         .replace(/'/g, '&#39;');
 }
 
+function replaceMermaidFenceInRaw(messageId: string, originalCode: string, replacement: string): void {
+    const current = streamingMessagesRawText.get(messageId) || '';
+    if (!current) return;
+    const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const exact = new RegExp("```\\s*mermaid\\s*\\n\\s*" + escapeRe(originalCode) + "\\s*\\n```", 's');
+    if (exact.test(current)) {
+        const updated = current.replace(exact, replacement);
+        streamingMessagesRawText.set(messageId, updated);
+        return;
+    }
+    const generic = /```\s*mermaid[\s\S]*?```/;
+    if (generic.test(current)) {
+        const updated = current.replace(generic, replacement);
+        streamingMessagesRawText.set(messageId, updated);
+    }
+}
+
 function renderUserMessageHtml(rawText: string): { html: string; segments: number; codeBlockCount: number } {
     const parts = rawText.split(/(```[\s\S]*?```)/g);
     let html = '';
@@ -1415,6 +1432,8 @@ export async function displayMessage(message: Message) {
                             }
                         });
                         if (recoveryResult) {
+                            const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
+                            replaceMermaidFenceInRaw(message.id, rawMermaidCode, replacement);
                             renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
                             return;
                         }
@@ -1423,19 +1442,17 @@ export async function displayMessage(message: Message) {
                     }
 
                     const errorDiv = document.createElement('div');
+                    logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
+                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                     errorDiv.className = 'mermaid-error';
-                    errorDiv.innerHTML = `
-                        [Sensei's diagram could not be rendered, and automatic fix failed]<br>
-                        <pre><code>${rawMermaidCode}</code></pre>
-                    `;
+                    errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                     fixingDiv.replaceWith(errorDiv);
                 } else {
                     const errorDiv = document.createElement('div');
+                    logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
+                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                     errorDiv.className = 'mermaid-error';
-                    errorDiv.innerHTML = `
-                        [Sensei's diagram could not be rendered]<br>
-                        <pre><code>${rawMermaidCode}</code></pre>
-                    `;
+                    errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                     preElement.replaceWith(errorDiv);
                 }
             }
@@ -1870,6 +1887,8 @@ export async function processMermaidBlocks(messageId: string) {
                         }
                     });
                     if (recoveryResult) {
+                        const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
+                        replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
                         renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
                         continue;
                     }
@@ -1878,19 +1897,17 @@ export async function processMermaidBlocks(messageId: string) {
                 }
 
                 const errorDiv = document.createElement('div');
+                logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
+                replaceMermaidFenceInRaw(messageId, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                 errorDiv.className = 'mermaid-error';
-                errorDiv.innerHTML = `
-                    [Sensei's diagram could not be rendered, and automatic fix failed]<br>
-                    <pre><code>${rawMermaidCode}</code></pre>
-                `;
+                errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                 fixingDiv.replaceWith(errorDiv);
             } else {
                 const errorDiv = document.createElement('div');
+                logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
+                replaceMermaidFenceInRaw(messageId, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                 errorDiv.className = 'mermaid-error';
-                errorDiv.innerHTML = `
-                    [Sensei's diagram could not be rendered]<br>
-                    <pre><code>${rawMermaidCode}</code></pre>
-                `;
+                errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                 preElement.replaceWith(errorDiv);
             }
         }
