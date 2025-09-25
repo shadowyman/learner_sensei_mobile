@@ -348,7 +348,32 @@ Socratic:
 				"What does the function return up if it finds the value?" (The TreeNode*)
 				"What does it return up if it reaches a nullptr (base case)?" (nullptr)
 				"How does the caller use this returned nullptr or TreeNode*?" (It becomes the result of the search).
-		b. LC 129: Sum Root to Leaf Numbers (Medium)
+		b. LC 110: Balanced Binary Tree (Easy)
+			- AI Guidance: Solve collaboratively. Use general questions above.
+			- Problem-Specific Socratic Questions:
+				"Is the primary goal Computational or Generative?" (Computational: return a single boolean.)
+				"What local information does a parent need back from each child to decide balance at the parent?" (The child’s subtree height, and whether that subtree is balanced.)
+				"What should our helper return so the parent can compute its own state?" (Common trick: an int height, using -1 as a sentinel for “unbalanced”; or a pair<bool,int>.)
+				"Which traversal order is natural here?" (Post-order: compute children first, then decide about the current node.)
+				"What is the base case for nullptr, and what should it return?" (Height 0 and implicitly “balanced”. Return 0, not -1.)
+				"How do we short-circuit when a subtree is already unbalanced?" (If left == -1 or right == -1, return -1 immediately.)
+			"Where exactly do we check the balance condition?" (After both children: if abs(leftHeight - rightHeight) > 1 → return -1.)
+			"How does the top-level function convert the helper’s signal to the final answer?" (Return helper(root) != -1.)
+			"Is an accumulator appropriate here?" (No. Information flows up via returns; no shared accumulator is needed.)
+		c. LC 98: Validate Binary Search Tree (Medium)
+			- AI Guidance: Solve collaboratively. Use general questions above.
+			- Problem-Specific Socratic Questions:
+				"Is the primary goal Computational or Generative?" (Computational: return a single boolean.)
+				"What invariant must hold at every node in a valid BST?" (All keys in the left subtree < node->val < all keys in the right subtree—strict inequalities.)
+				"What information needs to be passed down to enforce that invariant?" (A valid range (low, high) for each node’s value; start with (-∞, +∞).)
+				"What should the function return up, and how does the caller use it?" (A boolean; the top-level caller returns that boolean.)
+				"Which traversal order matches the range-passing strategy?" (Pre-order check at the node, then recurse into children with tightened bounds.)
+				"What are the correct base cases and return values?" (nullptr → true; leaf nodes follow the same rule as any node.)
+				"How do we handle duplicates?" (Use strict bounds: node->val must be strictly greater than low and strictly less than high.)
+				"What types should we use for bounds to avoid overflow issues?" (Use long long or sentinels like LLONG_MIN/LLONG_MAX.)
+				"Is there a viable alternative pattern, and what data flows there?" (Yes: in-order traversal with a ‘prev’ pointer/reference accumulator; ensure current > prev.)
+				"When would you prefer range-passing vs. in-order + prev?" (Range-passing makes the contract explicit and purely top-down; in-order is concise but relies on global/reference state.)
+		d. LC 129: Sum Root to Leaf Numbers (Medium)
 			- AI Guidance: Solve collaboratively. Use general questions above.
 			- Problem-Specific Socratic Questions:
 				"What state do we need to maintain as we go down the path?" (The numerical value formed so far).
@@ -357,34 +382,34 @@ Socratic:
 				"What happens at the leaf node base case? What value should it contribute?" (It returns the currentSum it received).
 				"What should non-leaf nodes return up? Is it the sum from their children?" (No, typically just the sum. The combination sum_left + sum_right happens in the caller).
 				"Is this primarily Pre-order, In-order, or Post-order processing of the currentSum update? Why?" (Pre-order: update sum before calling children).
-	3. LC 102: Binary Tree Level Order Traversal (Medium)
-		- AI Guidance: Solve collaboratively. Likely needs a helper function. Use general questions.
-		- Problem-Specific Socratic Questions:
-			"Since we need to group nodes by level, what information needs to be passed down with each recursive call?" (The current node, and the current level or depth).
-			"Where will we store the final result (the list of lists)? How should this be passed into the recursive calls?" (An accumulator, vector<vector<int>>& results, passed by reference).
-			"When we visit a node at a certain level, how do we add it to our results accumulator?" (Check if results.size() <= level, resize if needed, then results[level].push_back(node->val)).
-			"Why is passing the results vector by reference crucial here?" (So all recursive calls modify the same result structure).
-			"What's the base case?" (nullptr node - just return).
-			"Does the order of visiting left/right children matter for the correctness of the levels?" (No, but typically left then right).
-	4. LC 230: Kth Smallest Element in a BST (Medium)
-		- AI Guidance: Solve collaboratively. Explore different ways to manage 'k' and the result. Use general questions.
-		- Problem-Specific Socratic Questions:
-			"What traversal order naturally visits BST nodes in ascending order?" (In-order).
-			"As we traverse in-order, how can we keep track of how many nodes we've visited to find the Kth one?" (A counter).
-			"Should this counter be passed down? If so, by value or reference? Why?" (Reference usually easiest, so updates persist across calls).
-			"Alternatively, could the recursive function return up information about 'k' or the found element?" (Yes, maybe a pair/struct, or a sentinel value). Let's explore the reference counter approach first.
-			"When do we decrement the counter k?" (After visiting the left subtree, before processing the current node).
-			"What happens when k becomes 0?" (We've found the element! How do we store/return this result?).
-			"How do we stop the recursion once the Kth element is found?" (Can check k or a 'found' flag before making further calls).
-	5. LC 687: Longest Univalue Path (Hard)
-		- AI Guidance: Solve collaboratively. Emphasize the Dual Information aspect. Use general questions.
-		- Problem-Specific Socratic Questions:
-			"Let's define the return value of our helper function first. What local information does a parent node need back from its child to calculate the univalue path potentially passing through the parent?" (The length of the univalue path starting at the child and going down, only if the child has the same value as the parent).
-			"Now, consider the overall goal: the longest univalue path anywhere in the tree. Can we get this just from the return values defined above?" (No, a path might be entirely within a left or right subtree).
-			"This is the Dual Information Challenge! How can we track this overall maximum while our function focuses on returning the local path length?" (Commonly: use a member variable or pass a global max variable by reference, updated within the helper function).
-			"When is the best time to update the global maximum? Before or after processing children?" (Post-order: after getting results from left and right children, calculate the path through the current node, and update the global max).
-			"What should the base case (nullptr) return?" (Usually 0, representing a path of length 0).
-			"How does the main function initialize the process and retrieve the final global maximum?"
+		e. LC 102: Binary Tree Level Order Traversal (Medium)
+			- AI Guidance: Solve collaboratively. Likely needs a helper function. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"Since we need to group nodes by level, what information needs to be passed down with each recursive call?" (The current node, and the current level or depth).
+				"Where will we store the final result (the list of lists)? How should this be passed into the recursive calls?" (An accumulator, vector<vector<int>>& results, passed by reference).
+				"When we visit a node at a certain level, how do we add it to our results accumulator?" (Check if results.size() <= level, resize if needed, then results[level].push_back(node->val)).
+				"Why is passing the results vector by reference crucial here?" (So all recursive calls modify the same result structure).
+				"What's the base case?" (nullptr node - just return).
+				"Does the order of visiting left/right children matter for the correctness of the levels?" (No, but typically left then right).
+		f. LC 230: Kth Smallest Element in a BST (Medium)
+			- AI Guidance: Solve collaboratively. Explore different ways to manage 'k' and the result. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"What traversal order naturally visits BST nodes in ascending order?" (In-order).
+				"As we traverse in-order, how can we keep track of how many nodes we've visited to find the Kth one?" (A counter).
+				"Should this counter be passed down? If so, by value or reference? Why?" (Reference usually easiest, so updates persist across calls).
+				"Alternatively, could the recursive function return up information about 'k' or the found element?" (Yes, maybe a pair/struct, or a sentinel value). Let's explore the reference counter approach first.
+				"When do we decrement the counter k?" (After visiting the left subtree, before processing the current node).
+				"What happens when k becomes 0?" (We've found the element! How do we store/return this result?).
+				"How do we stop the recursion once the Kth element is found?" (Can check k or a 'found' flag before making further calls).
+		g. LC 687: Longest Univalue Path (Hard)
+			- AI Guidance: Solve collaboratively. Emphasize the Dual Information aspect. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"Let's define the return value of our helper function first. What local information does a parent node need back from its child to calculate the univalue path potentially passing through the parent?" (The length of the univalue path starting at the child and going down, only if the child has the same value as the parent).
+				"Now, consider the overall goal: the longest univalue path anywhere in the tree. Can we get this just from the return values defined above?" (No, a path might be entirely within a left or right subtree).
+				"This is the Dual Information Challenge! How can we track this overall maximum while our function focuses on returning the local path length?" (Commonly: use a member variable or pass a global max variable by reference, updated within the helper function).
+				"When is the best time to update the global maximum? Before or after processing children?" (Post-order: after getting results from left and right children, calculate the path through the current node, and update the global max).
+				"What should the base case (nullptr) return?" (Usually 0, representing a path of length 0).
+				"How does the main function initialize the process and retrieve the final global maximum?"
 Solidify & Prepare:
 	Check understanding ("Explain when you might prefer using an accumulator parameter over a return value, considering the goal. Give an example.", NEW:"Describe a situation where a simple return value from a recursive call might not be enough to solve the entire problem."). Conclude by emphasizing that understanding goal->data flow dynamics is key for designing effective recursive architectures (Module 4), including handling complex information needs.
 
