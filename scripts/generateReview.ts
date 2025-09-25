@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, unlink
 import { resolve } from 'path';
 import { spawnSync } from 'child_process';
 
-type DiffMode = 'staged' | 'working';
+type DiffMode = 'staged' | 'working' | 'branch';
 
 type DiffHunk = {
   header: string;
@@ -246,6 +246,14 @@ function fileDiff(path: string, mode: DiffMode): string {
   return runGit(args);
 }
 
+function listChangedFilesAgainstBase(base: string, branch: string): string[] {
+  return runGit(['diff', '--name-only', `${base}..${branch}`]).split('\n').map(line => line.trim()).filter(Boolean);
+}
+
+function fileDiffAgainstBase(path: string, base: string, branch: string): string {
+  return runGit(['diff', `${base}..${branch}`, '--', path]);
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -360,11 +368,11 @@ function buildFileSection(section: FileSection): string {
 }
 
 function buildNoDiffDocument(featureSlug: string, generatedAt: string, path: string, prMarkup: { html: string; script: string }, branchName: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Code Review - ${escapeHtml(featureSlug)} - ${generatedAt}</title><style>body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#1f2933;background:#f8fafc;}h1{margin-bottom:16px;}p{margin-bottom:12px;}section.pr-request{margin-top:20px;padding:16px;background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);}section.pr-request h2{margin-top:0;margin-bottom:12px;}</style></head><body><h1>Code Review: ${escapeHtml(featureSlug)}</h1><p>Date Created: ${escapeHtml(generatedAt)}</p><p>Git Branch With Changes: ${escapeHtml(branchName)}</p><p>Diff Command: git diff main..${escapeHtml(branchName)}</p>${prMarkup.html}<p>No staged or working tree changes were detected. Nothing to review.</p><p>Output: ${escapeHtml(path)}</p>${prMarkup.script}</body></html>`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Code Review - ${escapeHtml(featureSlug)} - ${generatedAt}</title><style>body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#1f2933;background:#f8fafc;}h1{margin-bottom:16px;}p{margin-bottom:12px;}section.pr-request{margin-top:20px;padding:16px;background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);}section.pr-request h2{margin-top:0;margin-bottom:12px;}</style></head><body><h1>Code Review: ${escapeHtml(featureSlug)}</h1><p>Date Created: ${escapeHtml(generatedAt)}</p><p>Git Branch With Changes: ${escapeHtml(branchName)}</p><p>Diff Command: git diff main..${escapeHtml(branchName)}</p>${prMarkup.html}<p>No differences detected against main or working tree. Nothing to review.</p><p>Output: ${escapeHtml(path)}</p>${prMarkup.script}</body></html>`;
 }
 
 function buildDocument(featureSlug: string, generatedAt: string, mode: DiffMode, sections: FileSection[], checklistHtml: string, prMarkup: { html: string; script: string }, branchName: string): string {
-  const diffSource = mode === 'staged' ? 'Staged changes (git diff --cached)' : 'Working tree changes (git diff)';
+  const diffSource = mode === 'staged' ? 'Staged changes (git diff --cached)' : mode === 'working' ? 'Working tree changes (git diff)' : `Branch comparison (git diff main..${branchName})`;
   const totalAdditions = sections.reduce((acc, section) => acc + section.additions, 0);
   const totalDeletions = sections.reduce((acc, section) => acc + section.deletions, 0);
   const sectionHtml = sections.map(buildFileSection).join('');
@@ -390,7 +398,14 @@ function generateReview(): void {
   const generated = timestamp();
   const outputDir = resolve(process.cwd(), 'code_review');
   ensureDirectory(outputDir);
-  const { files, mode } = listChangedFiles();
+  const branchName = readCurrentBranch();
+  let files = listChangedFilesAgainstBase('main', branchName);
+  let mode: DiffMode = 'branch';
+  if (files.length === 0) {
+    const fallback = listChangedFiles();
+    files = fallback.files;
+    mode = fallback.mode;
+  }
   const { filename, finalSlug, previousFilename, priorArtifacts } = computeTargetFilename(outputDir, slug);
   const targetPath = resolve(outputDir, filename);
   const previousEntries = loadPreviousPrRequests(outputDir, previousFilename);
@@ -425,8 +440,6 @@ function generateReview(): void {
   }
 
   const prMarkup = buildPrRequestMarkup(prEntries);
-
-  const branchName = readCurrentBranch();
   const artifactsToRemove = priorArtifacts.filter(name => name !== filename);
   removeArtifacts(outputDir, artifactsToRemove);
 
@@ -441,7 +454,7 @@ function generateReview(): void {
   const registry = new Map<string, number>();
 
   for (const path of files) {
-    const diff = fileDiff(path, mode);
+    const diff = mode === 'branch' ? fileDiffAgainstBase(path, 'main', branchName) : fileDiff(path, mode);
     if (!diff.trim()) {
       continue;
     }
