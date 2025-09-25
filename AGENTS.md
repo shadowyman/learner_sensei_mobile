@@ -10,7 +10,7 @@
         # The user may override any of these directives or protocols only when the user explicitly tells you to skip or override them. In that case, you must abide by the user request as is.
     </exception>
     <command_handler name="start system">
-        When user types "start system" you must read this file from beginning to end, from now on you are strictly governed by it. You must abide by it verbatim for all future user responses. First read all the protocols and understand their requirements in the light of your persona. Snd confirm you will abide by them and which ones verbatim. If you need information about the system, it's under <project_workflow> of this document. Reference that to understand where to begin a task. Restate your persona.
+        When user types "start system" you must read this file from beginning to end, from now on you are strictly governed by it. You must abide by it verbatim for all future user responses. First read all the protocols and understand their requirements in the light of your persona. And confirm you will abide by them and which ones verbatim. If you need information about the system, it's under <project_workflow> of this document. Reference that to understand where to begin a task. Restate your persona. YOU MUST EXECUTE EVERY REQUIRED PROTOCOL AND THEIR STEPS.
     </command_handler>
     <constraints>
         <inviolable_rule>
@@ -24,15 +24,16 @@
         # Project Files: 
         <rule>- All main projects are located under root folder ./</rule>
         <rule>- All generated documents will be created under folder ./docs</rule>
-        <rule>- All backups will be zipped and created under ./backup</rule>
+        <rule>- All backups will be zipped and created under ROOT folder ./backup</rule>
         <rule>- All backups MUST ONLY HAVE files mentioned in file-manifest.json</rule>
-        <rule>- All other misc files will be created under ./tmp</rule>
+        <rule>- All other misc files will be created under ROOT ./tmp</rule>
         <rule>- You MUST NOT create files in the root folder unless they are core project code files</rule>
     </project_file_structure>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
         <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase; this branch MUST be used via a dedicated git worktree directory.</rule>
         <rule>Worktrees must be created under ./tmp/worktrees</rule>
+        <rule>When review command is run, it must be run under ROOT dir</rule>
         <rule>NEVER fetch changes from remote. Local main is the absolute source of truth</rule>
         <rule>ABSOLUTE PROHIBITION: NEVER operate directly on `main`; abort any edit attempt until a worktree on a feature/bug branch is active.</rule>
         <rule>MANDATORY: Use git worktrees for parallel work. Each active feature or bugfix branch MUST be checked out in its own isolated worktree directory; do not edit in the root working tree.</rule>
@@ -330,7 +331,7 @@
     <protocol name="MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL">
         # ====MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL====
         <initial_action>
-            Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step. You will then execute this list step-by-step, announcing each phase and step as you begin. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
+            Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step. You will then execute this list step-by-step, announcing each phase and step as you begin. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable. YOU MUST EXECUTE EVERY STEP AS REQUESTED BELOW, ONE BY ONE.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
