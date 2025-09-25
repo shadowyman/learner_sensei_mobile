@@ -84,3 +84,19 @@
 - `moduleSelectionHandler.ts:506`
 
 **Keywords for Future Reference**: socratic phase, reload button, enhance button, displayMessage, reloadContext, isLoading
+
+## Bug #7: Socratic Completion Didn’t Advance Phase
+
+**Issue**: After Sensei emitted the Socratic completion trigger (e.g., `[SOCRATIC_COMPLETION_TRIGGERED: …]`), the system sometimes stayed in the Socratic phase instead of advancing to the next pedagogical phase. Users remained stuck despite seeing a completion acknowledgement.
+
+**Root Cause**: The completion path set `socraticCompletionPending` and awarded mastery but returned control to normal advancement, which relies on chunk-completion gating. Socratic phases do not mark chunk coverage, so `advanceCurriculumState` never reached `handlePhaseCompletion`. Additionally, the Socratic completion handler returned `false` and did not call `determinePhaseTransition` or initialize the next phase, leaving the state unchanged.
+
+**Fix Applied**: Centralized completion handling in `processSocraticPendingCompletion(...)` to immediately finish the phase. The function now awards phase KC, logs completion, clears Socratic state, calls `cleanupCompletedPhase(...)`, performs `determinePhaseTransition(...)`, and initializes the next phase via `initializeNewPhaseState(...)`, returning `true` to signal advancement in the same turn. Also updated KC telemetry to timestamp the mastery award.
+
+**Related Files**:
+- `curriculum.ts:932` – `awardSocraticPhaseKC(...)` now updates `KCMasteryLastUpdated` for the phase KC ID.
+- `curriculum.ts:945` – `processSocraticPendingCompletion(...)` reworked to advance and initialize next phase immediately.
+- `curriculum.ts:989` – `handleSocraticPhase(...)` awaits the completion handler and passes `llmPlanner` so the next-phase plan is generated.
+- `index.tsx:714-724` – Completion flag detection path that sets `socraticCompletionPending` (unchanged for fix context).
+
+**Keywords for Future Reference**: socratic completion, phase transition, chunk gating, immediate advance, KCMasteryLastUpdated, determinePhaseTransition, initializeNewPhaseState
