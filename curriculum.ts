@@ -933,6 +933,7 @@ function awardSocraticPhaseKC(learnerModel: LearnerModel, currentItem: Curriculu
     const phaseKCId = currentItem.curriculumPathId;
     if (!learnerModel.KCs[phaseKCId]) learnerModel.KCs[phaseKCId] = 0;
     learnerModel.KCs[phaseKCId] = PHASE_MASTERY_THRESHOLD;
+    learnerModel.KCMasteryLastUpdated[phaseKCId] = new Date().toISOString();
 }
 
 function clearSocraticState(state: CurriculumState): void {
@@ -941,27 +942,37 @@ function clearSocraticState(state: CurriculumState): void {
     state.socraticBaseInstruction = null;
 }
 
-function processSocraticPendingCompletion(
+async function processSocraticPendingCompletion(
     curriculumData: Curriculum,
     state: CurriculumState,
-    learnerModel: LearnerModel
-): boolean {
-    
+    learnerModel: LearnerModel,
+    llmPlanner: LLMTeachingPlanGenerator
+): Promise<boolean> {
     const currentItem = getCurrentCurriculumItem(curriculumData, state);
     if (currentItem && state.currentPhase === 'Socratic') {
         awardSocraticPhaseKC(learnerModel, currentItem);
         const expectedTurns = state.teachingPlanForPhase?.[0]?.[0]?.interactionGuidance?.expectedTurns || 'unknown';
-
         logSocraticCompletionValidation('completed', {
             curriculumPathId: currentItem.curriculumPathId,
             turnsTaken: state.socraticTurnCount,
             expectedTurns
         });
-
         clearSocraticState(state);
-
-        // Let normal advancement handle the rest
-        return false;
+        cleanupCompletedPhase(state, learnerModel, currentItem);
+        try {
+            determinePhaseTransition(state, curriculumData);
+        } catch (error) {
+            logger.error('[CURRICULUM_ADVANCE] Phase transition failed after Socratic completion.', {
+                reason: error instanceof Error ? error.message : String(error)
+            });
+            state.isCompleted = true;
+            return true;
+        }
+        if (state.isCompleted) {
+            return true;
+        }
+        const initialized = await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
+        return initialized;
     }
     return false;
 }
@@ -984,7 +995,7 @@ async function handleSocraticPhase(
     
     // Handle pending Socratic completion
     if (state.socraticCompletionPending?.triggered) {
-        return processSocraticPendingCompletion(curriculumData, state, learnerModel);
+        return await processSocraticPendingCompletion(curriculumData, state, learnerModel, llmPlanner);
     }
     return await processSocraticFallbackCompletion(curriculumData, state, learnerModel, llmPlanner);
 }
