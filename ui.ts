@@ -1432,7 +1432,6 @@ export async function displayMessage(message: Message) {
                             }
                         });
                         if (recoveryResult) {
-                            logger.debug('[MERMAID_FAILOVER] Recovered diagram in initial render path', { messageId: message.id });
                             const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
                             replaceMermaidFenceInRaw(message.id, rawMermaidCode, replacement);
                             renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
@@ -1443,7 +1442,6 @@ export async function displayMessage(message: Message) {
                     }
 
                     const errorDiv = document.createElement('div');
-                    logger.debug('[MERMAID_FAILOVER] Exhausted recovery in initial render path', { messageId: message.id });
                     logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                     replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                     errorDiv.className = 'mermaid-error';
@@ -1451,7 +1449,6 @@ export async function displayMessage(message: Message) {
                     fixingDiv.replaceWith(errorDiv);
                 } else {
                     const errorDiv = document.createElement('div');
-                    logger.debug('[MERMAID_FAILOVER] Second-fallback path engaged in initial render', { messageId: message.id });
                     logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                     replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                     errorDiv.className = 'mermaid-error';
@@ -1890,7 +1887,6 @@ export async function processMermaidBlocks(messageId: string) {
                         }
                     });
                     if (recoveryResult) {
-                        logger.debug('[MERMAID_FAILOVER] Recovered diagram in phase-2 path', { messageId });
                         const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
                         replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
                         renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
@@ -1901,7 +1897,6 @@ export async function processMermaidBlocks(messageId: string) {
                 }
 
                 const errorDiv = document.createElement('div');
-                logger.debug('[MERMAID_FAILOVER] Exhausted recovery in phase-2 path', { messageId });
                 logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                 replaceMermaidFenceInRaw(messageId, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                 errorDiv.className = 'mermaid-error';
@@ -1909,7 +1904,6 @@ export async function processMermaidBlocks(messageId: string) {
                 fixingDiv.replaceWith(errorDiv);
             } else {
                 const errorDiv = document.createElement('div');
-                logger.debug('[MERMAID_FAILOVER] Second-fallback path engaged in phase-2 path', { messageId });
                 logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                 replaceMermaidFenceInRaw(messageId, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
                 errorDiv.className = 'mermaid-error';

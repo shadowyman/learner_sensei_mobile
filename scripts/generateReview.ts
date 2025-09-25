@@ -399,9 +399,12 @@ function generateReview(): void {
   const outputDir = resolve(process.cwd(), 'code_review');
   ensureDirectory(outputDir);
   const branchName = readCurrentBranch();
-  let files = listChangedFilesAgainstBase('main', branchName);
+  let files: string[] = [];
   let mode: DiffMode = 'branch';
-  if (files.length === 0) {
+  if (branchName !== 'unknown-branch') {
+    files = listChangedFilesAgainstBase('main', branchName);
+  }
+  if (branchName === 'unknown-branch' || files.length === 0) {
     const fallback = listChangedFiles();
     files = fallback.files;
     mode = fallback.mode;
