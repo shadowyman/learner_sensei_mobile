@@ -104,7 +104,7 @@
     <protocol name="MANDATORY RCI REVIEW PROTOCOL">
         # ====MANDATORY RCI REVIEW PROTOCOL====
         <objective>
-            **Objective:** Provide a single, unified self-correction and review cycle used by both Feature Implementation (Step 8) and Adaptive Root Cause & Remediation (Step 11).
+            **Objective:** Provide a single, unified self-correction and review cycle used by both Feature Implementation (Step 8) and Adaptive Root Cause & Remediation (Step 11). Execute below steps in order using your `update_plan` tool.
         </objective>
         <steps>
             <step number="1">
@@ -124,7 +124,7 @@
             </step>
             <step number="4">
                 **Stage & Commit**:
-                *   Stage new and updated files and commit using a conventional message appropriate to the context.
+                *   Stage new and updated files AND commit using a conventional message appropriate to the context. YOU MUST RUN THIS WITH ELEVATED PERMISSIONS.
             </step>
             <step number="5">
                 **Generate Review Artifact**:
