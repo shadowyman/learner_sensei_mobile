@@ -141,3 +141,25 @@
 **Review Artifact**: `code_review/review_bugfix_selection_sensei_drag_offset_v3.html`
 
 **Keywords for Future Reference**: modal drag, transform, offset, snap, clamp, viewport, Selection Sensei
+
+## Bug #10: Enhancement Toggle Blocked by Mermaid Recovery
+
+**Issue**: Enhancing a Sensei message with a previously failed Mermaid diagram left the toggle in a loading state while the UI displayed the "Attempting to fix diagram…" spinner until recovery finished.
+
+**Root Cause**: `renderEnhancedMarkdown` always awaited `processMermaidBlocks`, and that routine immediately invoked the multi-attempt `runMermaidRecovery` whenever a render failed. Because `applyEnhancements` awaited the injected renderer promise, the enhancement toggle could not resolve until the recovery loop exhausted its attempts.
+
+**Discovery Method**: Adaptive Root Cause Analysis — Cycle 2 (Direct Dependencies) identified unconditional Mermaid recovery as the blocking dependency.
+
+**Fix Applied**: Threaded an optional `skipMermaidProcessing` flag through the enhancement render dependency so both enhancement apply and removal call `renderEnhancedMarkdown(..., { skipMermaidProcessing: true })`. The renderer now passes `{ skipRecovery: true }` to `processMermaidBlocks`, which renders once and, on failure, swaps in the existing error block without starting recovery, allowing the enhancement toggle to finish promptly.
+
+**Related Files**:
+- `enhancementManager.ts:194`
+- `enhancementManager.ts:231`
+- `ui.ts:902`
+- `ui.ts:1843`
+
+**Backup**: `backup/sensei_backup_mermaid_enhance_decouple_20250926_065230.zip`
+
+**Review Artifact**: `code_review/review_mermaid_enhance_decouple.html`
+
+**Keywords for Future Reference**: enhancement toggle, mermaid recovery, skipMermaidProcessing, processMermaidBlocks, runMermaidRecovery

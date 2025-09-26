@@ -6,7 +6,7 @@
 
 import { logger, DEBUG_FLAGS } from './logger';
 import { resetEnhancementState } from './enhancementManager';
-import type { EnhancementHighlight } from './enhancementManager';
+import type { EnhancementHighlight, RenderMarkdownOptions } from './enhancementManager';
 import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
 import { LearnerModel } from './adaptiveEngine';
 import { runMermaidRecovery } from './mermaidErrorRecovery';
@@ -899,7 +899,7 @@ function getEnhanceButton(messageId: string): HTMLButtonElement | null {
     return bubble.querySelector<HTMLButtonElement>('.enhance-button');
 }
 
-export async function renderEnhancedMarkdown(messageId: string, markdown: string, highlights: EnhancementHighlight[] = []): Promise<void> {
+export async function renderEnhancedMarkdown(messageId: string, markdown: string, highlights: EnhancementHighlight[] = [], options?: RenderMarkdownOptions): Promise<void> {
     const bubble = document.getElementById(messageId) as HTMLDivElement | null;
     if (!bubble) {
         logger.error('[ENHANCE] Bubble not found for render', { messageId });
@@ -917,7 +917,11 @@ export async function renderEnhancedMarkdown(messageId: string, markdown: string
     messageText.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
         hljs.highlightElement(block as HTMLElement);
     });
-    await processMermaidBlocks(messageId);
+    if (options?.skipMermaidProcessing) {
+        await processMermaidBlocks(messageId, { skipRecovery: true });
+    } else {
+        await processMermaidBlocks(messageId);
+    }
     addLanguageDisplayToCodeBlocks_internal(messageText);
     addCopyButtonsToCodeBlocks_internal(messageText, { sender: 'sensei', messageId });
     if (highlights.length > 0) {
@@ -1836,7 +1840,7 @@ export function updateMermaidThemeClass(element: Element, themeName: string) {
  * Processes mermaid blocks in a message after it has been displayed.
  * This is the second phase of the two-phase rendering approach.
  */
-export async function processMermaidBlocks(messageId: string) {
+export async function processMermaidBlocks(messageId: string, options?: { skipRecovery?: boolean }) {
     // Skip processing the response modal
     if (messageId === 'response-modal-sensei-bubble') {
         logger.warn('[MERMAID] Skipping response modal - should not be processed as a message');
@@ -1848,6 +1852,7 @@ export async function processMermaidBlocks(messageId: string) {
 
     const messageText = messageBubble.querySelector('.message-text');
     if (!messageText) return;
+    const skipRecovery = options?.skipRecovery === true;
     
     const mermaidBlocks = messageText.querySelectorAll('pre code.language-mermaid');
     for (const block of mermaidBlocks) {
@@ -1864,6 +1869,15 @@ export async function processMermaidBlocks(messageId: string) {
         } catch (error: any) {
             if (DEBUG_FLAGS.mermaid_debug) {
                 logger.error("Mermaid rendering failed:", error);
+            }
+            if (skipRecovery) {
+                const errorDiv = document.createElement('div');
+                logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
+                replaceMermaidFenceInRaw(messageId, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
+                errorDiv.className = 'mermaid-error';
+                errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
+                preElement.replaceWith(errorDiv);
+                continue;
             }
             if (!block.getAttribute('data-recovery-attempted')) {
                 block.setAttribute('data-recovery-attempted', 'true');
