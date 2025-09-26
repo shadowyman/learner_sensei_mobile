@@ -8,7 +8,11 @@
     "snyk-test": "snyk test",
     "snyk-monitor": "snyk monitor",
     "sonar": "./sonar",
-    "review": "ts-node scripts/generateReview.ts"
+    "review": "ts-node scripts/generateReview.ts",
+    "analysis:run": "ts-node scripts/analyze.ts",
+    "analysis:dom": "npm run analysis:run -- --preset domsuite",
+    "analysis:ui": "npm run analysis:run -- --preset ui",
+    "analysis:notepad": "npm run analysis:run -- --preset notepad"
   },
   "keywords": [
     "education",

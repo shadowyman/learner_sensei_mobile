@@ -1,0 +1,207 @@
+[
+  {
+    "slug": "domsuite",
+    "description": "DOM selector, handler, and template analysis",
+    "seedFunctions": ["ui.ts::displayMessage"],
+    "seedFiles": ["ui.ts", "index.tsx", "selectionSensei.ts"],
+    "defaultEntry": "ui.ts::displayMessage",
+    "defaultMaxDepth": 4,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "ui",
+    "description": "Core UI interaction loop and Sensei responses",
+    "seedFunctions": ["index.tsx::handleUserInput"],
+    "seedFiles": ["index.tsx", "ui.ts", "interactionHelpers.ts"],
+    "defaultEntry": "index.tsx::handleUserInput",
+    "defaultMaxDepth": 5
+  },
+  {
+    "slug": "notepad",
+    "description": "Notepad modal lifecycle and note CRUD",
+    "seedFunctions": ["notepad.ts::Notepad.createModal"],
+    "seedFiles": ["notepad.ts", "notepadExporter.ts", "index.tsx"],
+    "defaultEntry": "notepad.ts::Notepad.createModal",
+    "defaultMaxDepth": 4,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "selection-sensei",
+    "description": "Selection Sensei toolbar and modal flows",
+    "seedFunctions": ["selectionSensei.ts::initializeSelectionSensei"],
+    "seedFiles": ["selectionSensei.ts", "ui.ts", "index.tsx"],
+    "defaultEntry": "selectionSensei.ts::initializeSelectionSensei",
+    "defaultMaxDepth": 6,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "curriculum",
+    "description": "Curriculum parsing, advancement, and focus planning",
+    "seedFunctions": ["curriculum.ts::advanceCurriculumState"],
+    "seedFiles": ["curriculum.ts", "index.tsx", "pedagogicalProfiler.ts"],
+    "defaultEntry": "curriculum.ts::advanceCurriculumState",
+    "defaultMaxDepth": 6
+  },
+  {
+    "slug": "adaptive-engine",
+    "description": "Learner model updates and adaptive planning",
+    "seedFunctions": ["adaptiveEngine.ts::updateLearnerModel"],
+    "seedFiles": ["adaptiveEngine.ts", "index.tsx", "curriculum.ts"],
+    "defaultEntry": "adaptiveEngine.ts::updateLearnerModel",
+    "defaultMaxDepth": 5
+  },
+  {
+    "slug": "pedagogy",
+    "description": "Pedagogical profiler directives and flags",
+    "seedFunctions": ["pedagogicalProfiler.ts::PedagogicalProfiler.getDirective"],
+    "seedFiles": ["pedagogicalProfiler.ts", "prompts.ts", "index.tsx"],
+    "defaultEntry": "pedagogicalProfiler.ts::PedagogicalProfiler.getDirective",
+    "defaultMaxDepth": 4
+  },
+  {
+    "slug": "prompts",
+    "description": "Prompt templating and Sensei instruction assembly",
+    "seedFunctions": ["prompts.ts::buildSenseiEnhancementPrompt"],
+    "seedFiles": ["prompts.ts", "pedagogicalProfiler.ts", "curriculum.ts", "index.tsx"],
+    "defaultEntry": "prompts.ts::buildSenseiEnhancementPrompt",
+    "defaultMaxDepth": 4
+  },
+  {
+    "slug": "mermaid",
+    "description": "Mermaid rendering pipeline and theme integration",
+    "seedFunctions": ["mermaidManager.ts::MermaidManager.render"],
+    "seedFiles": ["mermaidManager.ts", "ui.ts", "index.tsx"],
+    "defaultEntry": "mermaidManager.ts::MermaidManager.render",
+    "defaultMaxDepth": 4,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "mermaid-recovery",
+    "description": "Mermaid error recovery and healing operations",
+    "seedFunctions": ["mermaidErrorRecovery.ts::runMermaidRecovery"],
+    "seedFiles": ["mermaidErrorRecovery.ts", "mermaidManager.ts", "index.tsx"],
+    "defaultEntry": "mermaidErrorRecovery.ts::runMermaidRecovery",
+    "defaultMaxDepth": 5,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "mermaid-ui",
+    "description": "Mermaid UI controls and theme toggles",
+    "seedFunctions": ["ui.ts::setupMermaidThemeControls"],
+    "seedFiles": ["ui.ts", "mermaidManager.ts", "mermaid-theme-integration.js"],
+    "defaultEntry": "ui.ts::setupMermaidThemeControls",
+    "defaultMaxDepth": 4,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "debug-mode",
+    "description": "Debug modal, log export, and tooling hooks",
+    "seedFunctions": ["debugMode.ts::initializeDebugMode"],
+    "seedFiles": ["debugMode.ts", "logger.ts", "scripts/generateReview.ts"],
+    "defaultEntry": "debugMode.ts::initializeDebugMode",
+    "defaultMaxDepth": 5,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "chat-window",
+    "description": "Chat window controller, drag/resize, and viewport handling",
+    "seedFunctions": ["chatWindowController.ts::ChatWindowController.initialize"],
+    "seedFiles": ["chatWindowController.ts", "ui.ts", "index.tsx"],
+    "defaultEntry": "chatWindowController.ts::ChatWindowController.initialize",
+    "defaultMaxDepth": 4,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "module-selection",
+    "description": "Module and phase selection workflows",
+    "seedFunctions": ["moduleSelectionHandler.ts::ModuleSelectionHandler.handleClickedModuleSelection"],
+    "seedFiles": ["moduleSelectionHandler.ts", "curriculum.ts", "index.tsx"],
+    "defaultEntry": "moduleSelectionHandler.ts::ModuleSelectionHandler.handleClickedModuleSelection",
+    "defaultMaxDepth": 5
+  },
+  {
+    "slug": "notepad-export",
+    "description": "Notepad HTML export flow",
+    "seedFunctions": ["notepadExporter.ts::NotepadExporter.exportToHTML"],
+    "seedFiles": ["notepadExporter.ts", "notepad.ts", "index.tsx"],
+    "defaultEntry": "notepadExporter.ts::NotepadExporter.exportToHTML",
+    "defaultMaxDepth": 3,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "selection-toolbar",
+    "description": "Selection Sensei toolbar actions and handlers",
+    "seedFunctions": ["selectionSensei.ts::SelectionSensei.handleToolbarAction"],
+    "seedFiles": ["selectionSensei.ts", "ui.ts", "interactionHelpers.ts"],
+    "defaultEntry": "selectionSensei.ts::SelectionSensei.handleToolbarAction",
+    "defaultMaxDepth": 5,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "ui-rendering",
+    "description": "Sensei chat rendering and footer updates",
+    "seedFunctions": ["ui.ts::displayMessage"],
+    "seedFiles": ["ui.ts", "index.tsx", "interactionHelpers.ts"],
+    "defaultEntry": "ui.ts::displayMessage",
+    "defaultMaxDepth": 5,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "enhancement",
+    "description": "Enhancement manager operations and highlighting",
+    "seedFunctions": ["enhancementManager.ts::applyEnhancements"],
+    "seedFiles": ["enhancementManager.ts", "ui.ts", "index.tsx"],
+    "defaultEntry": "enhancementManager.ts::applyEnhancements",
+    "defaultMaxDepth": 4,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "consolidation",
+    "description": "Consolidation flows and stage advancement",
+    "seedFunctions": ["consolidationManager.ts::initiateConsolidation"],
+    "seedFiles": ["consolidationManager.ts", "curriculum.ts", "index.tsx"],
+    "defaultEntry": "consolidationManager.ts::initiateConsolidation",
+    "defaultMaxDepth": 4
+  },
+  {
+    "slug": "gemini",
+    "description": "Gemini service calls and streaming orchestration",
+    "seedFunctions": ["geminiService.ts::getAnalysisFromGemini"],
+    "seedFiles": ["geminiService.ts", "interactionHelpers.ts", "index.tsx"],
+    "defaultEntry": "geminiService.ts::getAnalysisFromGemini",
+    "defaultMaxDepth": 5
+  },
+  {
+    "slug": "save-load",
+    "description": "Save/load pipelines and serialization",
+    "seedFunctions": ["saveloadProgressManager.ts::SaveLoadProgressManager.saveProgress"],
+    "seedFiles": ["saveloadProgressManager.ts", "saveloadSerialization.ts", "index.tsx"],
+    "defaultEntry": "saveloadProgressManager.ts::SaveLoadProgressManager.saveProgress",
+    "defaultMaxDepth": 4
+  },
+  {
+    "slug": "interaction",
+    "description": "Streaming responses and instruction assembly",
+    "seedFunctions": ["interactionHelpers.ts::streamMainSenseiResponse"],
+    "seedFiles": ["interactionHelpers.ts", "index.tsx", "curriculum.ts"],
+    "defaultEntry": "interactionHelpers.ts::streamMainSenseiResponse",
+    "defaultMaxDepth": 5
+  },
+  {
+    "slug": "code-editor",
+    "description": "Code editor modal lifecycle",
+    "seedFunctions": ["codeEditorModal.ts::initializeCodeEditorModal"],
+    "seedFiles": ["codeEditorModal.ts", "debugMode.ts", "ui.ts"],
+    "defaultEntry": "codeEditorModal.ts::initializeCodeEditorModal",
+    "defaultMaxDepth": 4,
+    "forceDomIndex": true
+  },
+  {
+    "slug": "tests-teaching",
+    "description": "Teaching invariants test harness",
+    "seedFunctions": ["tests/teachingInvariantsValidation.ts::runAllTests"],
+    "seedFiles": ["tests/teachingInvariantsValidation.ts", "prompts.ts", "curriculum.ts"],
+    "defaultEntry": "tests/teachingInvariantsValidation.ts::runAllTests",
+    "defaultMaxDepth": 3
+  }
+]

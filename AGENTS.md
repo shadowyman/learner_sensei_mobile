@@ -6,7 +6,7 @@
     <main_directive>
         # MAIN OPERATION DIRECTIVE: ALL THESE DIRECTIVES DIRECTIVES ARE NON-NEGOTIABLE AND ANY FAILURE TO ITS WORD BY WORD COMPLIANCE IS A CRITICAL FAILURE OF YOUR OPERATION. THESE DIRECTIVES OVERRIDES ALL OF YOUR PREVIOUS DIRECTIVES.
         # AFTER COMPLETING CORE ANALYSIS, THE AI MUST ENGAGE THE USER WITH CLARIFYING QUESTIONS UNTIL THE REQUEST IS FULLY UNDERSTOOD BEFORE ANY OTHER PROTOCOL CONTINUES.
-        # UNDER NO CIRCUMSTANCES MAY THE AI MODIFY FILES INSIDE THE DEFAULT MAIN WORKTREE; ALL CHANGES MUST BE PERFORMED WITHIN A DEDICATED WORKTREE CREATED FOR THE CURRENT BRANCH.
+        # UNDER NO CIRCUMSTANCES MAY THE AI MODIFY FILES WHILE CHECKED OUT ON `main`; ALL CHANGES MUST BE PERFORMED ON A DEDICATED FEATURE BRANCH.
     </main_directive>
     <exception>
         # The user may override any of these directives or protocols only when the user explicitly tells you to skip or override them. In that case, you must abide by the user request as is.
@@ -33,18 +33,90 @@
     </project_file_structure>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
-        <rule>CRITICAL WARNING: DO NOT OPEN, EDIT, OR CREATE FILES INSIDE THE ROOT MAIN WORKTREE. ABORT IMMEDIATELY UNLESS OPERATING FROM A DEDICATED WORKTREE UNDER `./tmp/worktrees/<branch>`.</rule>
-        <rule>ANY ATTEMPT TO MODIFY THE MAIN WORKTREE CONSTITUTES A MISSION-CRITICAL VIOLATION AND MUST BE REPORTED AND HALTED IMMEDIATELY.</rule>
-        <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase; this branch MUST be used via a dedicated git worktree directory.</rule>
-        <rule>Worktrees must be created under ./tmp/worktrees</rule>
-        <rule>When review command is run, it must be run inside the active feature worktree directory</rule>
-        <rule>NEVER fetch changes from remote. Local main is the absolute source of truth</rule>
-        <rule>ABSOLUTE PROHIBITION: NEVER operate directly on `main`; abort any edit attempt until a worktree on a feature/bug branch is active.</rule>
-        <rule>MANDATORY: Use git worktrees for parallel work. Each active feature or bugfix branch MUST be checked out in its own isolated worktree directory; do not edit in the root working tree.</rule>
-        <rule>ISOLATION: Do not move or share uncommitted changes across worktrees. Commit or discard changes before switching worktrees to prevent cross-contamination.</rule>
-        <rule>SYNC: Keep branches current by regularly rebasing or merging from `origin/main` within each worktree.</rule>
-        <rule>CLEANUP: After ensuring all modified/new files are committed and merged into `main`, delete the worktree directory and delete the feature/bugfix branch (local and remote).</rule>
+        <rule>Never modify files while on `main`; switch to a dedicated feature branch before making changes.</rule>
+        <rule>Name each feature branch after its mission objective (e.g., `feat/new-module`) and keep all tooling, including reviews, on that branch.</rule>
+        <rule>Keep work isolated by committing or discarding changes before switching branches, and stay synced with `origin/main` to avoid drift.</rule>
+        <rule>After merging into `main`, remove the feature branch locally and remotely when it is no longer needed.</rule>
     </mandatory_implementation_git_policy>
+    <planning_discipline>
+        # PLANNING DISCIPLINE DIRECTIVE
+        <rule>Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish.</rule>
+    </planning_discipline>
+    <analysis_tooling>
+        # ANALYZER TOOL (scripts/analyze.ts)
+        <purpose>
+            Provides a fast, static index of the codebase to support Core Analysis Steps 1–3:
+            import graph + fan-in/out, function catalog with side-effects, call edges, and an assumptions ledger.
+        </purpose>
+        <artifacts>
+            * `tmp/analysis/summary.txt` — Entry candidates; Top fan-in/out modules
+            * `tmp/analysis/imports.json` — File → imported files
+            * `tmp/analysis/fan_in.json`, `fan_out.json` — Module fan maps
+            * `tmp/analysis/functions.json` — Per-function: calls[], sideEffects[], async/export flags
+            * `tmp/analysis/calls.json` — Call edges (from → to, via)
+            * `tmp/analysis/assumptions.json` — Unresolved external calls (seed for Unknowns register)
+            * `tmp/analysis/function_crosswalk.json` — Stable `file::name#Lline` anchors paired with legacy IDs for diff-friendly comparisons
+            * Optional focused outputs (when using flags below):
+              - `tmp/analysis/focused_trace.txt`, `focused_calls.json`, `focused_functions.json`
+              - `tmp/analysis/domsuite_index.json`, `domsuite_templates.json`, `domsuite_handlers.json` (emitted when `--dom-index` flag is set)
+        </artifacts>
+        <usage>
+            * Full snapshot: `npm run analysis:run`
+            * Preset shortcuts: `npm run analysis:dom`, `npm run analysis:ui`, `npm run analysis:notepad`
+            * Narrow scope: `npm run analysis:run -- --include index.tsx,interactionHelpers.ts`
+            * Focused scenario trace: `npm run analysis:run -- --entry index.tsx::handleUserInput --maxDepth 4`
+            * Combined: `npm run analysis:run -- --include index.tsx,interactionHelpers.ts --entry index.tsx::handleUserInput --maxDepth 4`
+            * DOM suite (selector index, template catalog, handler matrix): `npm run analysis:run -- --dom-index`
+                - Emits three artifacts with the `domsuite_` prefix for easy discovery.
+                - `domsuite_index.json` lists each selector alongside its defining templates and all discovery sites (querySelector, getElementById, delegated handlers). A `delegated` flag under `usages` highlights event delegation chains.
+                - `domsuite_templates.json` captures static HTML/template literals, their file locations, and extracted selectors.
+                - `domsuite_handlers.json` details event listeners, the bound event, resolved receiver selector (when found), and any child selectors inferred from `.matches()`/`.closest()` checks.
+            * Preset-aware CLI: `--preset domsuite`, `--preset ui`, `--preset notepad`, and `--preset selection-sensei` can be stacked; the analyzer prints which presets were applied.
+            * Preset catalog (additive; combine as needed):
+                - `--preset curriculum` — curriculum parsing / advancement (`curriculum.ts`, `index.tsx`, `pedagogicalProfiler.ts`).
+                - `--preset adaptive-engine` — learner model updates (`adaptiveEngine.ts`, `index.tsx`).
+                - `--preset pedagogy` — pedagogical profiler directives (`pedagogicalProfiler.ts`, `prompts.ts`).
+                - `--preset prompts` — system/user prompt generation (`prompts.ts`, `curriculum.ts`).
+                - `--preset mermaid` — rendering pipeline (`mermaidManager.ts`, `ui.ts`).
+                - `--preset mermaid-recovery` — auto-fix routines (`mermaidErrorRecovery.ts`).
+                - `--preset mermaid-ui` — theme controls (`ui.ts`, `mermaid theme` glue).
+                - `--preset debug-mode` — debug modal + log export (`debugMode.ts`, `logger.ts`).
+                - `--preset chat-window` — window controller + auto-resize (`chatWindowController.ts`, `ui.ts`).
+                - `--preset module-selection` — module/phase transitions (`moduleSelectionHandler.ts`, `curriculum.ts`).
+                - `--preset notepad-export` — HTML export surface (`notepadExporter.ts`, `notepad.ts`).
+                - `--preset selection-toolbar` — Selection Sensei toolbar actions (`selectionSensei.ts`).
+                - `--preset ui-rendering` — core UI updates (`ui.ts`, `interactionHelpers.ts`).
+                - `--preset enhancement` — enhancement manager + highlights (`enhancementManager.ts`, `ui.ts`).
+                - `--preset consolidation` — consolidation flows (`consolidationManager.ts`, `curriculum.ts`).
+                - `--preset gemini` — Gemini service calls + streaming orchestrators (`geminiService.ts`, `interactionHelpers.ts`).
+                - `--preset save-load` — persistence pipelines (`saveloadProgressManager.ts`, `saveloadSerialization.ts`).
+                - `--preset interaction` — streaming + instruction assembly (`interactionHelpers.ts`, `index.tsx`).
+                - `--preset code-editor` — code editor modal (`codeEditorModal.ts`, `debugMode.ts`).
+                - `--preset tests-teaching` — teaching invariants test harness (`tests/teachingInvariantsValidation.ts`).
+            * Preset manifests regenerate automatically when the analyzer detects graph changes; seeds live in `config/preset-seeds.json`, with generated output in `config/presets.generated.json`.
+            * Handy `jq` queries:
+                - `jq 'map(select(.sideEffects|length>0))' tmp/analysis/functions.json` — list functions with side effects.
+                - `jq 'map(select(.from|test("index.tsx")))' tmp/analysis/calls.json` — show edges originating in `index.tsx`.
+                - `jq -r '.[].id' tmp/analysis/focused_functions.json` — emit the coverage checklist.
+                - `jq '.[] | select(.impact=="High")' tmp/analysis/assumptions.json` — highlight high-impact unknowns.
+                - `jq '.functions[] | {id, stableId}' tmp/analysis/function_crosswalk.json` — confirm stable anchors for regression diffs.
+                - `jq '.selectors[] | select(any(.usages[]?; .delegated)) | {selector, usages: .usages}' tmp/analysis/domsuite_index.json` — surface selectors touched by delegated handlers.
+                - `jq '.handlers[] | select(.delegated) | {file, event, handler, delegatedSelectors}' tmp/analysis/domsuite_handlers.json` — inspect event delegation hot spots.
+                - `jq '.templates[] | {file, line: .loc.start.line, selectors: [.selectors[].selector]}' tmp/analysis/domsuite_templates.json` — map static HTML definitions to selectors.
+        </usage>
+        <notes>
+            * The analyzer resolves identifier calls and instance-method calls on variables created via `new Class()` or later reassignments.
+            * It emits edges for callbacks passed as identifier arguments, and for element-access calls (computed property calls are labeled `[computed]`).
+            * DOM suite mode reuses the same AST walk; default analyzer runs stay light because the extra JSON files only appear when `--dom-index` is present.
+            * Delegated-handler detection inspects listener bodies for `.matches()` / `.closest()` checks against event-target parameters; inferred selectors flow into both `domsuite_index.json` and `domsuite_handlers.json`.
+            * Preset seeds live in `config/preset-seeds.json`; adjust those definitions to tune coverage instead of editing the analyzer directly.
+            * Stable IDs (`file::name#Lline`) now accompany every function and call edge, simplifying comparisons between analyzer runs.
+            * It is static: always validate dynamic behavior during the protocol steps.
+        </notes>
+        <when_to_rerun>
+            * Re-run after changing investigation scope, switching scenarios, or modifying code that could affect imports/calls.
+        </when_to_rerun>
+    </analysis_tooling>
     <backup_policy>
         <rule>Before modifying any project file, you MUST generate a timestamped manifest backup in **root backup folder**: create `root/backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
         <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
@@ -63,6 +135,9 @@
     </charter>
     <protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)">
         # ====MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)====
+        <usage>
+            **Usage:** Try to utilize analysis tool as much as possible instead of manual lookups. You may use manual lookups to close the gap where analysis tool may be lacking.
+        </usage>
         <objective>
             **Objective:** To establish a rigorous, code-grounded understanding of the relevant system components *before* any planning, design, or diagnosis begins. This protocol is the mandatory first step for all other major protocols.
         </objective>
@@ -70,23 +145,41 @@
             **Action:** Upon triggering any major protocol, perform a five-pass comprehensive core analysis—executing the required scopes sequentially (entry-point survey, execution trace reconstruction, dependency mapping, side-effect inventory, context checkpointing) to deliver the same breadth of insight as five parallel task agents.
         </trigger>
         <steps>
+            <step number="0.5">
+                **Run Analyzer Snapshot:**
+                *   Execute `npm run analysis:run` to refresh `tmp/analysis/*.json|.txt` artifacts. Re-run whenever the investigation scope changes.
+                *   If analyzing a specific scenario (e.g., "user sends a message"), produce a focused trace: `npm run analysis:run -- --entry <file::func> --maxDepth <N>` and optionally constrain files with `--include <csv>`.
+            </step>
             <step number="1">
                 **Identify Entry Point & Scope:**
                 *   Based on the user's request, identify the initial entry point of the feature or the location of the bug (e.g., a specific function call in `index.tsx`, a UI element).
-                *   List all the files and functions that are likely to be involved in the execution flow, creating a preliminary "scope of analysis."
+                *   Consult `tmp/analysis/summary.txt` to seed the scope with the reported `entryCandidates` and high fan-in/fan-out modules. Extend or prune the list by reviewing `imports.json` for upstream/downstream links.
+                *   Confirm the final scope list so it captures all files and functions that are likely to be involved in the execution flow.
+                *   Derive a "Hot Modules" list from Top fan-in/out to prioritize review and testing.
             </step>
             <step number="2">
                 **Static Execution Trace:**
                 *   Read the contents of every file within the "scope of analysis."
-                *   Create a **Static Execution Trace** that maps the function calls from the entry point to their conclusions. This trace should be a simple, ordered list of function calls (e.g., `handleUserInput` -> `getAnalysisFromGemini` -> `updateLearnerModel`).
+                *   Use `tmp/analysis/functions.json` and `tmp/analysis/calls.json` to extract the ordered call sequence beginning at the chosen entry function(s). Document this sequence in the Static Execution Trace artifact, then validate it against the source to capture conditional or dynamic behavior.
+                *   If a focused trace was generated, attach `focused_trace.txt` and use it as the baseline for downstream validation and test coverage.
             </step>
             <step number="3">
                 **Dependency and Side-Effect Analysis:**
                 *   For each function in the trace, create a **Dependency and Side-Effect (DSE) Table**. This table MUST include:
                     *   **Function Name:** The name of the function.
-                    *   **Dependencies:** Any other functions it calls or major data structures it reads (e.g., `LearnerModel`, `curriculumState`).
+                    *   **Dependencies:** Any other functions it calls or major data structures it reads (e.g., `LearnerModel`, `curriculumState`). Use `fan_in.json`, `fan_out.json`, and `imports.json` to qualify impact.
                     *   **Side Effects:** Any "High-Cost" or "State-Changing" operations it performs (e.g., "Makes LLM call," "Modifies `curriculumState`," "Renders to DOM").
-                *   Action Item: Build dependency and side-effect analysis table for all functions identified in the static execution trace.
+                    *   **Side-Effect Risk Ranking:** Tag each side effect with cost, blast radius, and concurrency risk; explicitly flag external I/O and state writes. Leverage the analyzer's `sideEffects` output in `functions.json` as the baseline and adjust after code review.
+                *   **Unknowns & Assumptions Register**: Seed the ledger with items from `assumptions.json`. Capture every assumption and unknown discovered so far with fields:
+                    *   Statement and rationale
+                    *   Impact risk (Low/Medium/High)
+                    *   Verification plan (specific test/measure/log to confirm or refute)
+                    *   Owner and target time
+                *   **Gate**: Do not proceed to Step 4 until all High‑impact items have an explicit verification plan.
+                *   Action Item: Build the dependency and side-effect table for all functions identified in the static execution trace.
+                *   Deliverables for downstream protocols:
+                    - **Risk Register**: extract all High-cost/High-blast side effects with owning function and file.
+                    - **Coverage Checklist**: the list of function IDs from the (focused) Static Execution Trace to be validated by logs/tests during Implementation Step 10.
             </step>
             <step number="4">
                 **Declare Initial Understanding:**
@@ -98,6 +191,8 @@
                     *   Current analysis scope and entry points identified
                     *   Static execution trace mapping
                     *   Dependency and side-effect analysis findings
+                    *   Risk Register (from DSE) and Coverage Checklist (from the trace)
+                    *   Assumptions & unknowns register with impact ratings and verification plans
                     *   Key architectural insights discovered
                     *   Triggering protocol to be executed next
                 *   **Action**: Store this checkpoint in `./docs/mission_state_<descriptive_title>_[timestamp].md` for future protocol recovery if needed.
@@ -127,6 +222,7 @@
                 **Skeptical Reviewer Pass**:
                 *   Adopt a skeptical reviewer persona and examine the change as if you did not author it.
                 *   Challenge robustness, edge cases, error handling, and alignment with the original requirements.
+                *   Reopen the latest Core Analysis artifacts (static execution trace, DSE table, assumptions) and verify the change preserves their correctness or updates them appropriately.
                 *   Verify every requirement from the parent step is met.
             </step>
             <step number="3">
@@ -139,7 +235,7 @@
             </step>
             <step number="5">
                 **Generate Review Artifact**:
-                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` from the active feature worktree directory.
+                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on the active feature branch.
                 *   Reuse the same `<slug>` on subsequent runs; update the narrative to reflect only what changed in that run.
             </step>
             <step number="6">
@@ -207,16 +303,17 @@
     <protocol name="MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL">
         # ====MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL====
         <initial_action>
-            Upon triggering this protocol, your FIRST action is to use your `update_plan` tool to create a to-do list containing all steps of this protocol (Steps 1-7). You will then execute the list step-by-step, announcing each step as you begin. This is non-negotiable.
+            Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol and announce each step as you begin.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
-            *   **Action:** Execute the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)**. Upon completion, proceed to Step 1 of this protocol.
+            *   **Action:** Complete the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)** before advancing to Step 1.
         </step>
         <phase name="Phase 1: System-Wide Understanding & Synthesis">
             ### Phase 1: System-Wide Understanding & Synthesis
             <step number="1">
                 **Architectural Context Mapping**: Go beyond a "deep scan" of immediately affected files. Analyze the `PROJECT WORKFLOW` document and sample key files from each major phase to build a mental model of the project's architectural patterns. State your findings clearly (e.g., "The system follows a Component-Based architecture where state is managed centrally in `index.tsx`.").
+                *   Reference the latest Core Analysis artifacts (`tmp/analysis/summary.txt`, `functions.json`, `calls.json`) to corroborate fan-in hotspots, call chains, and side-effect boundaries while describing the architecture.
             </step>
             <step number="2">
                 **Principle Declaration**: Explicitly declare the core software engineering principles (e.g., SOLID, DRY, KISS) that will guide your implementation. Justify why they are relevant to this specific request.
@@ -247,18 +344,20 @@
     <protocol name="MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL">
         # ====MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL====
         <initial_action>
-            Upon triggering this protocol, your FIRST action is to use your `update_plan` tool to create a to-do list containing all steps of this protocol (Steps 1-12, including the Step 9 user-test prompt). You will then execute this list step-by-step, announcing each phase and step as you begin. This is non-negotiable.
-            Do not run this protocol from the default main worktree; operate only within the dedicated worktree for the active branch.
+            Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol (including the Step 9 user-test prompt) and announce each phase as you begin.
+            Comply with the Main Directive branch restrictions before proceeding.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
-            *   **Action:** Execute the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)**. Upon completion, proceed to Step 1 of this protocol.
+            *   **Action:** Complete the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)** before advancing to Step 1.
         </step>
         <phase name="Phase 1: Design, Planning, & Risk Assessment (The "Blueprint")">
             ### Phase 1: Design, Planning, & Risk Assessment (The "Blueprint")
             <step number="1">
                 **Define Goals & Requirements**:
                 *   **Action**: Clearly list the primary **Functional Requirements** (what the feature must do) and **Non-Functional Requirements (NFRs)** (e.g., performance, security).
+                *   **Action**: Ground these requirements in the latest Core Analysis mission-state artifacts (scope list, static execution trace, DSE table) to ensure the planned work covers every mapped entry point and dependency.
+                *   **Action**: Immediately execute the **COMPREHENSIVE IMPACT ANALYSIS PROTOCOL** using this goal statement before proceeding to architectural choices.
             </step>
             <step number="2">
                 **Architectural Checkpoint**:
@@ -279,6 +378,7 @@
             <step number="4">
                 **Proactive Risk & Mitigation Analysis**:
                 *   **Action**: For the recommended approach, identify 2-3 potential risks or negative side effects.
+                *   **Action**: Use the Core Analysis DSE table and side-effect risk rankings as primary input; each high-cost or high-blast item must have an explicit mitigation strategy.
                 *   **Action**: For each risk, define a specific mitigation strategy that will be included in the implementation.
             </step>
             <step number="5">
@@ -293,6 +393,7 @@
                     *   ☐ **Task 2**: Implement the UI rendering component.
                         *   *Validation Log*: `logger.debug('[XXX] Rendering component with props:', props)`
                         *   *Implementation Details*: Provide detailed implementation details.
+                *   **Action**: Cross-check the plan against the Core Analysis Static Execution Trace; ensure every function in the traced path has either a modification task or a validation/logging step.
             </step>
             <step number="6">
                 **Stop and Await My Final Approval**: Present the full plan, including the trade-off matrix, risk analysis, and the detailed to-do list with its defined Validation Logs. **STOP** and do not proceed until you receive my final go-ahead.
@@ -318,6 +419,7 @@
                 *   **Action**: Run `npx tsc --noEmit` from root and resolve any reported issues before continuing.
                 *   **Action**: Access `./logs/console_logs.log`.
                 *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
+                *   **Action**: Confirm that execution evidence covers every function listed in the Core Analysis Static Execution Trace; document any trace segment not exercised and address it before proceeding.
                 *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
                 *   *If Validation Fails*: Announce that the evidence in the logs does not match the expected outcome. Revert the changes. Return to the `Adaptive Root Cause Analysis & Remediation Protocol` to diagnose the failure.  
             </step>
@@ -343,7 +445,7 @@
         # ====MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL====
         <initial_action>
             Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step in your tmp file, except to-do plan, display that. You will then execute this list step-by-step, announcing each phase and step in your tmp file as you continue. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
-            Do not initiate or continue this protocol from the default main worktree; only proceed inside the dedicated worktree for the active branch.
+            Comply with the Main Directive branch restrictions before proceeding.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
@@ -356,6 +458,7 @@
                 *   **Action**: Collect ALL observable symptoms without any explanation attempts. Document exactly what you see, not what you think it means.
                 *   **Action**: For each symptom, ask: "What are 5 completely different technical mechanisms that could cause this exact symptom?"
                 *   **Action**: Document any evidence patterns that seem contradictory, unexpected, or don't fit obvious explanations.
+                *   **Action**: Revisit the latest Core Analysis scope (entry list, static trace, DSE table) and mark which traced modules/functions align with the observed symptom to focus hypothesis work.
                 *   **Output**: Present a clean symptom list with multiple potential mechanisms for each.
             </step>
             <step number="2">
@@ -367,7 +470,12 @@
                 *   **Cycle 4 - External Factors**: Environment, timing, concurrency, user input variations. What if it's context-dependent?
                 *   **Cycle 5 - Historical/Temporal**: Recent changes, deployment issues, state corruption over time. What if it's a temporal issue?
                 *   **Cycle 6 - Meta-System**: Build process, configuration, deployment pipeline, infrastructure. What if the problem is outside the code entirely?
-                *   **Action**: For EACH cycle, systematically examine that scope and generate hypotheses WITHOUT filtering for likelihood.
+                *   **Action**: For EACH cycle, systematically examine that scope and generate hypotheses WITHOUT filtering for likelihood, seeding the review with the Core Analysis DSE table and call graph edges relevant to the scope.
+                *   **Action**: For every hypothesis captured in this step, append an entry to the hypothesis ledger containing:
+                    *   The observed symptom the hypothesis explains
+                    *   The decisive confirming observation (what would prove it)
+                    *   The decisive falsifying observation (what would disprove it)
+                *   **Gate**: Do not advance any hypothesis into evidence gathering until all three ledger fields are populated.
                 *   **Output**: Present hypothesis set organized by discovery cycle (should have 12+ hypotheses total).
             </step>
             <step number="3">
@@ -389,20 +497,20 @@
             </step>
             <step number="5">
                 **Evidence-Arbitrated Investigation Loop**:
-                Now begin systematic evidence gathering for your expanded hypothesis set:
-                *   **5a. Hypothesis Prioritization**: Rank all hypotheses by "evidence accessibility" (how quickly can you gather decisive evidence), not by intuitive likelihood.
-                *   **5b. Evidence Collection**: For the top-ranked hypothesis, define the single most decisive piece of evidence that would prove or disprove it.
-                *   **5c. Evidence Gathering**: Execute the minimal action needed to gather this evidence.
-                *   **5d. Evidence Scoring**: Score the evidence as:
-                    *   Supporting Evidence Strength (0-10)
-                    *   Contradictory Evidence Strength (0-10)
-                    *   Evidence Quality/Reliability (0-10)
-                *   **5e. Hypothesis Set Update**: Update probability scores for ALL hypotheses based on new evidence. Remove definitively disproven hypotheses.
-                *   **5f. Stopping Condition Check**: 
-                    *   Stop if one hypothesis reaches >90% confidence with strong supporting evidence
-                    *   Stop if evidence gathering hits diminishing returns (3 cycles with no decisive evidence)
-                    *   Continue if multiple viable hypotheses remain
-                *   **5g. Repeat**: Return to 5a with updated hypothesis set. Loop again on next viable hypothesis from the list.
+                Repeat the following substeps until a stopping condition is met.
+                *   **5a. Hypothesis Prioritization** — Rank every hypothesis by evidence accessibility (how quickly code paths, logs, or data can confirm or refute it), ignoring intuitive likelihood.
+                *   **5b. Define Decisive Evidence** — Consult the hypothesis ledger entry for the top-ranked hypothesis, then select the next confirming or falsifying observation to test.
+                *   **5c. Gather Evidence** — Re-check the relevant code, tests, runtime artefacts, and Core Analysis call paths tied to that confirming or falsifying observation, capturing concrete proof that supports or contradicts the hypothesized bug mechanism.
+                *   **5d. Score Evidence** — Record three ratings (0–10 each):
+                    *   Supporting Evidence Strength
+                    *   Contradictory Evidence Strength
+                    *   Evidence Quality/Reliability
+                *   **5e. Update Hypothesis Table** — Adjust confidence levels for all hypotheses using the new scores, removing any that fail their falsifying observation or cannot explain the observed symptom.
+                *   **5f. Check Stopping Rules** — Exit the loop if:
+                    *   One hypothesis exceeds 90% confidence with strong supporting evidence, **OR**
+                    *   Three consecutive cycles produce no decisive evidence, **OR**
+                    *   No viable hypotheses remain.
+                *   **5g. Iterate** — If continuing, return to 5a with the revised hypothesis list and repeat the cycle.
             </step>
             <step number="6">
                 **Declare Root Cause**: 
@@ -481,10 +589,6 @@
             </step>
         </phase>
     </protocol>
-    <knowledge_base type="bug_lessons">
-        # KEY LESSONS FROM BUGS WE FIXED:
-        <lesson>## When using regex with the `g` flag in JavaScript:`lastIndex` property must be `reset` between uses, otherwise the regex continues from where it left off in previous matches.</lesson>
-    </knowledge_base>
     <project_workflow>
         # PROJECT WORKFLOW:
         ## CURRENT END-TO-END EXECUTION MAP (2025-09)

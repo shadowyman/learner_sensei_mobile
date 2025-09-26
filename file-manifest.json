@@ -1,5 +1,6 @@
 [
   "Modules.txt",
+  "AGENTS.md",
   "adaptiveEngine.ts",
   "chatWindowController.ts",
   "codeEditorModal.ts",
@@ -19,6 +20,8 @@
   "mermaidManager.ts",
   "metadata-1.json",
   "metadata.json",
+  "config/preset-seeds.json",
+  "config/presets.generated.json",
   "model_usage.ts",
   "moduleSelectionHandler.ts",
   "notepad.ts",
@@ -27,6 +30,7 @@
   "prompts.ts",
   "saveloadProgressManager.ts",
   "saveloadSerialization.ts",
+  "scripts/analyze.ts",
   "selectionSensei.ts",
   "test.ts",
   "testPrompt1.txt",
