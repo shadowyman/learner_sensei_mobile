@@ -1,13 +1,14 @@
 {
-  "generatedAt": "2025-09-26T10:02:34.455Z",
-  "graphHash": "2a3bf938ae5d763ffb729ba31618b503a921731192aa2c57edb890c4db63b073",
+  "generatedAt": "2025-09-26T14:16:45.274Z",
+  "graphHash": "cedfc801d5e995065c1684fefedfe829e24fa04c12024de016925d7ea959259b",
   "presets": {
     "adaptive-engine": {
       "slug": "adaptive-engine",
       "includeFiles": [
         "adaptiveEngine.ts",
         "curriculum.ts",
-        "index.tsx"
+        "index.tsx",
+        "logger.ts"
       ],
       "maxDepth": 5,
       "entry": "adaptiveEngine.ts::updateLearnerModel",
@@ -30,6 +31,7 @@
       "includeFiles": [
         "codeEditorModal.ts",
         "debugMode.ts",
+        "logger.ts",
         "ui.ts"
       ],
       "maxDepth": 4,
@@ -42,7 +44,8 @@
       "includeFiles": [
         "consolidationManager.ts",
         "curriculum.ts",
-        "index.tsx"
+        "index.tsx",
+        "logger.ts"
       ],
       "maxDepth": 4,
       "entry": "consolidationManager.ts::initiateConsolidation",
@@ -54,6 +57,7 @@
         "consolidationManager.ts",
         "curriculum.ts",
         "index.tsx",
+        "logger.ts",
         "pedagogicalProfiler.ts"
       ],
       "maxDepth": 6,
@@ -80,7 +84,9 @@
         "curriculum.ts",
         "enhancementManager.ts",
         "index.tsx",
+        "logger.ts",
         "mermaidErrorRecovery.ts",
+        "mermaidManager.ts",
         "selectionSensei.ts",
         "ui.ts"
       ],
@@ -94,6 +100,7 @@
       "includeFiles": [
         "enhancementManager.ts",
         "index.tsx",
+        "logger.ts",
         "ui.ts"
       ],
       "maxDepth": 4,
@@ -107,6 +114,7 @@
         "geminiService.ts",
         "index.tsx",
         "interactionHelpers.ts",
+        "logger.ts",
         "prompts.ts"
       ],
       "maxDepth": 5,
@@ -120,6 +128,7 @@
         "curriculum.ts",
         "index.tsx",
         "interactionHelpers.ts",
+        "logger.ts",
         "ui.ts"
       ],
       "maxDepth": 5,
@@ -130,6 +139,7 @@
       "slug": "mermaid",
       "includeFiles": [
         "index.tsx",
+        "logger.ts",
         "mermaidManager.ts",
         "ui.ts"
       ],
@@ -142,6 +152,7 @@
       "slug": "mermaid-recovery",
       "includeFiles": [
         "index.tsx",
+        "logger.ts",
         "mermaidErrorRecovery.ts",
         "mermaidManager.ts"
       ],
@@ -153,6 +164,7 @@
     "mermaid-ui": {
       "slug": "mermaid-ui",
       "includeFiles": [
+        "logger.ts",
         "mermaid-theme-integration.js",
         "mermaidManager.ts",
         "ui.ts"
@@ -169,7 +181,9 @@
         "curriculum.ts",
         "enhancementManager.ts",
         "index.tsx",
+        "logger.ts",
         "mermaidErrorRecovery.ts",
+        "mermaidManager.ts",
         "moduleSelectionHandler.ts",
         "ui.ts"
       ],
@@ -193,6 +207,7 @@
       "slug": "notepad-export",
       "includeFiles": [
         "index.tsx",
+        "logger.ts",
         "notepad.ts",
         "notepadExporter.ts"
       ],
@@ -206,6 +221,7 @@
       "includeFiles": [
         "geminiService.ts",
         "index.tsx",
+        "logger.ts",
         "pedagogicalProfiler.ts",
         "prompts.ts"
       ],
@@ -240,6 +256,7 @@
       "slug": "selection-sensei",
       "includeFiles": [
         "index.tsx",
+        "logger.ts",
         "selectionSensei.ts",
         "ui.ts"
       ],
@@ -252,7 +269,9 @@
       "slug": "selection-toolbar",
       "includeFiles": [
         "interactionHelpers.ts",
+        "logger.ts",
         "mermaidErrorRecovery.ts",
+        "mermaidManager.ts",
         "prompts.ts",
         "selectionSensei.ts",
         "ui.ts"
@@ -266,6 +285,7 @@
       "slug": "tests-teaching",
       "includeFiles": [
         "curriculum.ts",
+        "logger.ts",
         "prompts.ts",
         "tests/teachingInvariantsValidation.ts"
       ],
@@ -284,7 +304,11 @@
         "geminiService.ts",
         "index.tsx",
         "interactionHelpers.ts",
+        "logger.ts",
         "mermaidErrorRecovery.ts",
+        "mermaidManager.ts",
+        "moduleSelectionHandler.ts",
+        "notepad.ts",
         "pedagogicalProfiler.ts",
         "prompts.ts",
         "ui.ts"
@@ -301,7 +325,9 @@
         "enhancementManager.ts",
         "index.tsx",
         "interactionHelpers.ts",
+        "logger.ts",
         "mermaidErrorRecovery.ts",
+        "mermaidManager.ts",
         "ui.ts"
       ],
       "maxDepth": 5,

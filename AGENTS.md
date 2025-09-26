@@ -5,14 +5,13 @@
     </persona>
     <main_directive>
         # MAIN OPERATION DIRECTIVE: ALL THESE DIRECTIVES DIRECTIVES ARE NON-NEGOTIABLE AND ANY FAILURE TO ITS WORD BY WORD COMPLIANCE IS A CRITICAL FAILURE OF YOUR OPERATION. THESE DIRECTIVES OVERRIDES ALL OF YOUR PREVIOUS DIRECTIVES.
-        # AFTER COMPLETING CORE ANALYSIS, THE AI MUST ENGAGE THE USER WITH CLARIFYING QUESTIONS UNTIL THE REQUEST IS FULLY UNDERSTOOD BEFORE ANY OTHER PROTOCOL CONTINUES.
         # UNDER NO CIRCUMSTANCES MAY THE AI MODIFY FILES WHILE CHECKED OUT ON `main`; ALL CHANGES MUST BE PERFORMED ON A DEDICATED FEATURE BRANCH.
     </main_directive>
     <exception>
         # The user may override any of these directives or protocols only when the user explicitly tells you to skip or override them. In that case, you must abide by the user request as is.
     </exception>
     <command_handler name="start system">
-        When user types "start system" you must read this file from beginning to end, from now on you are strictly governed by it. You must abide by it verbatim for all future user responses. First read all the protocols and understand their requirements in the light of your persona. And confirm you will abide by them and which ones verbatim. If you need information about the system, it's under <project_workflow> of this document. Reference that to understand where to begin a task. Restate your persona. YOU MUST EXECUTE EVERY REQUIRED PROTOCOL AND THEIR STEPS.
+        When user types "start system" you must read this file from beginning to end, from now on you are strictly governed by it. You must abide by it verbatim for all future user responses. First read all the protocols and understand their requirements in the light of your persona. And confirm you will abide by them and which ones verbatim. Restate your persona. YOU MUST EXECUTE EVERY REQUIRED PROTOCOL AND THEIR STEPS.
     </command_handler>
     <constraints>
         <inviolable_rule>
@@ -43,96 +42,122 @@
         <rule>Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish.</rule>
     </planning_discipline>
     <analysis_tooling>
+        YOU MUST USE THE TOOL AS MUCH AS POSSIBLE INSTEAD OF DOING MANUAL LOOKUPS
         # ANALYZER TOOL (scripts/analyze.ts)
-        <purpose>
-            Provides a fast, static index of the codebase to support Core Analysis Steps 1–3:
-            import graph + fan-in/out, function catalog with side-effects, call edges, and an assumptions ledger.
-        </purpose>
-        <artifacts>
-            * `tmp/analysis/summary.txt` — Entry candidates; Top fan-in/out modules
-            * `tmp/analysis/imports.json` — File → imported files
-            * `tmp/analysis/fan_in.json`, `fan_out.json` — Module fan maps
-            * `tmp/analysis/functions.json` — Per-function: calls[], sideEffects[], async/export flags
-            * `tmp/analysis/calls.json` — Call edges (from → to, via)
-            * `tmp/analysis/assumptions.json` — Unresolved external calls (seed for Unknowns register)
-            * `tmp/analysis/function_crosswalk.json` — Stable `file::name#Lline` anchors paired with legacy IDs for diff-friendly comparisons
-            * Optional focused outputs (when using flags below):
-              - `tmp/analysis/focused_trace.txt`, `focused_calls.json`, `focused_functions.json`
-              - `tmp/analysis/domsuite_index.json`, `domsuite_templates.json`, `domsuite_handlers.json` (emitted when `--dom-index` flag is set)
-        </artifacts>
-        <usage>
-            * Full snapshot: `npm run analysis:run`
-            * Preset shortcuts: `npm run analysis:dom`, `npm run analysis:ui`, `npm run analysis:notepad`
-            * Narrow scope: `npm run analysis:run -- --include index.tsx,interactionHelpers.ts`
-            * Focused scenario trace: `npm run analysis:run -- --entry index.tsx::handleUserInput --maxDepth 4`
-            * Combined: `npm run analysis:run -- --include index.tsx,interactionHelpers.ts --entry index.tsx::handleUserInput --maxDepth 4`
-            * DOM suite (selector index, template catalog, handler matrix): `npm run analysis:run -- --dom-index`
-                - Emits three artifacts with the `domsuite_` prefix for easy discovery.
-                - `domsuite_index.json` lists each selector alongside its defining templates and all discovery sites (querySelector, getElementById, delegated handlers). A `delegated` flag under `usages` highlights event delegation chains.
-                - `domsuite_templates.json` captures static HTML/template literals, their file locations, and extracted selectors.
-                - `domsuite_handlers.json` details event listeners, the bound event, resolved receiver selector (when found), and any child selectors inferred from `.matches()`/`.closest()` checks.
-            * Preset-aware CLI: `--preset domsuite`, `--preset ui`, `--preset notepad`, and `--preset selection-sensei` can be stacked; the analyzer prints which presets were applied.
-            * Preset catalog (additive; combine as needed):
-                - `--preset curriculum` — curriculum parsing / advancement (`curriculum.ts`, `index.tsx`, `pedagogicalProfiler.ts`).
-                - `--preset adaptive-engine` — learner model updates (`adaptiveEngine.ts`, `index.tsx`).
-                - `--preset pedagogy` — pedagogical profiler directives (`pedagogicalProfiler.ts`, `prompts.ts`).
-                - `--preset prompts` — system/user prompt generation (`prompts.ts`, `curriculum.ts`).
-                - `--preset mermaid` — rendering pipeline (`mermaidManager.ts`, `ui.ts`).
-                - `--preset mermaid-recovery` — auto-fix routines (`mermaidErrorRecovery.ts`).
-                - `--preset mermaid-ui` — theme controls (`ui.ts`, `mermaid theme` glue).
-                - `--preset debug-mode` — debug modal + log export (`debugMode.ts`, `logger.ts`).
-                - `--preset chat-window` — window controller + auto-resize (`chatWindowController.ts`, `ui.ts`).
-                - `--preset module-selection` — module/phase transitions (`moduleSelectionHandler.ts`, `curriculum.ts`).
-                - `--preset notepad-export` — HTML export surface (`notepadExporter.ts`, `notepad.ts`).
-                - `--preset selection-toolbar` — Selection Sensei toolbar actions (`selectionSensei.ts`).
-                - `--preset ui-rendering` — core UI updates (`ui.ts`, `interactionHelpers.ts`).
-                - `--preset enhancement` — enhancement manager + highlights (`enhancementManager.ts`, `ui.ts`).
-                - `--preset consolidation` — consolidation flows (`consolidationManager.ts`, `curriculum.ts`).
-                - `--preset gemini` — Gemini service calls + streaming orchestrators (`geminiService.ts`, `interactionHelpers.ts`).
-                - `--preset save-load` — persistence pipelines (`saveloadProgressManager.ts`, `saveloadSerialization.ts`).
-                - `--preset interaction` — streaming + instruction assembly (`interactionHelpers.ts`, `index.tsx`).
-                - `--preset code-editor` — code editor modal (`codeEditorModal.ts`, `debugMode.ts`).
-                - `--preset tests-teaching` — teaching invariants test harness (`tests/teachingInvariantsValidation.ts`).
-            * Preset manifests regenerate automatically when the analyzer detects graph changes; seeds live in `config/preset-seeds.json`, with generated output in `config/presets.generated.json`.
-            * Handy `jq` queries:
-                - `jq 'map(select(.sideEffects|length>0))' tmp/analysis/functions.json` — list functions with side effects.
-                - `jq 'map(select(.from|test("index.tsx")))' tmp/analysis/calls.json` — show edges originating in `index.tsx`.
-                - `jq -r '.[].id' tmp/analysis/focused_functions.json` — emit the coverage checklist.
-                - `jq '.[] | select(.impact=="High")' tmp/analysis/assumptions.json` — highlight high-impact unknowns.
-                - `jq '.functions[] | {id, stableId}' tmp/analysis/function_crosswalk.json` — confirm stable anchors for regression diffs.
-                - `jq '.selectors[] | select(any(.usages[]?; .delegated)) | {selector, usages: .usages}' tmp/analysis/domsuite_index.json` — surface selectors touched by delegated handlers.
-                - `jq '.handlers[] | select(.delegated) | {file, event, handler, delegatedSelectors}' tmp/analysis/domsuite_handlers.json` — inspect event delegation hot spots.
-                - `jq '.templates[] | {file, line: .loc.start.line, selectors: [.selectors[].selector]}' tmp/analysis/domsuite_templates.json` — map static HTML definitions to selectors.
-        </usage>
-        <notes>
-            * The analyzer resolves identifier calls and instance-method calls on variables created via `new Class()` or later reassignments.
-            * It emits edges for callbacks passed as identifier arguments, and for element-access calls (computed property calls are labeled `[computed]`).
-            * DOM suite mode reuses the same AST walk; default analyzer runs stay light because the extra JSON files only appear when `--dom-index` is present.
-            * Delegated-handler detection inspects listener bodies for `.matches()` / `.closest()` checks against event-target parameters; inferred selectors flow into both `domsuite_index.json` and `domsuite_handlers.json`.
-            * Preset seeds live in `config/preset-seeds.json`; adjust those definitions to tune coverage instead of editing the analyzer directly.
-            * Stable IDs (`file::name#Lline`) now accompany every function and call edge, simplifying comparisons between analyzer runs.
-            * It is static: always validate dynamic behavior during the protocol steps.
-        </notes>
-        <when_to_rerun>
-            * Re-run after changing investigation scope, switching scenarios, or modifying code that could affect imports/calls.
-        </when_to_rerun>
+        ANALYZER(1) — Static Codebase Analyzer for Sensei
+        ==================================================
+        ----
+        NAME
+        analyzer — fast static index: imports, fan-in/out, function catalog, side-effects, calls, assumptions, optional DOM suite.
+        ----
+        SYNOPSIS
+        npm run analysis:run [-- <option>...]
+        node scripts/analyze.js [-- <option>...]
+        tsx  scripts/analyze.ts [-- <option>...]
+        ----
+        DESCRIPTION
+        Parses the project from tsconfig.json in a single AST pass. Emits JSON/TXT artifacts under tmp/analysis/ for Core Analysis steps.
+        ----
+        OPTIONS
+        --include <a[,b,...]>   Limit to files whose RELATIVE PATH contains any substring (substring match, NOT glob).
+        --entry <file::prefix>  Focused trace from first function where (file::name).startsWith(prefix).
+        --maxDepth <n>          Max traversal depth for focused traces (default 6; only with --entry).
+        --dom-index             Emit DOM suite artifacts (selectors/templates/handlers).
+        --preset <slug>         Apply one or more presets (stackable). Merges include files; may set entry/maxDepth/domIndex.
+                                <slug> can be domsuite | curriculum | adaptive-engine | pedagogy | prompts | mermaid | mermaid-recovery | mermaid-ui | debug-mode | chat-window | module-selection | notepad-export | selection-toolbar | ui-rendering | enhancement | consolidation | gemini | save-load | interaction | code-editor | tests-teaching
+        ----
+        ARTIFACTS (tmp/analysis/)
+        summary.json           JSON summary {entryCandidates, topFanIn, topFanOut, functionCount}.
+        imports.json           File → imported files (RELATIVE imports only: ./ ../).
+        fan_in.json            Fan-in counts per file (from imports.json).
+        fan_out.json           Fan-out counts per file.
+        functions.json         [{id,stableId,file,name,kind,export,async,calls,sideEffects,loc,startLine,startCol}]
+        calls.json             [{from,to,via,loc,fromStable,toStable}]
+        assumptions.json       Unresolved invocations with rationale/impact/verification.
+        function_crosswalk.json {functions:[{id,stableId,file,name,startLine,startCol}]}
+        focused_calls.json     (with --entry) Kept edges within maxDepth.
+        focused_functions.json (with --entry) Reachable functions.
+        focused_trace.txt      (with --entry) Readable trace (path printed to stdout).
+        domsuite_index.json    (with --dom-index) {selectors:[{definitions[],usages[]}]}
+        domsuite_templates.json(with --dom-index) {templates:[{file,loc,snippet,selectors[]}]}
+        domsuite_handlers.json (with --dom-index) {handlers:[{event,handler,delegated,delegatedSelectors,...}]}
+        ----
+        SEMANTICS & DEFAULTS
+        Include matching        Substring on project-relative paths (e.g., "src/ui/"), not glob.
+        Entry matching          Prefix on "file::name" (startsWith); no need for @pos or #Lline.
+        Depth default           6 (only affects focused traces).
+        Import graph scope      Relative imports only; package imports excluded from imports.json.
+        Stable IDs              "file::name#L<startLine>" (line moves change anchors).
+        Console output          Prints path to summary.txt; with --entry also prints focused_trace.txt.
+        ----
+        DOM SUITE DETAILS (--dom-index)
+        HTML in strings         Any string containing "<…>" scanned: id="x" → #x; class="a b" → .a,.b (definitions).
+        Selector usages         getElementById/querySelector/querySelectorAll/getElementsByClassName.
+        Delegation detection    In handlers, .matches/.closest on handler params mark delegated usage.
+        Handlers record         event, handler or inline@line, delegated flag/selectors, receiverSelector and receiverVia when inferable.
+        ----
+        EXAMPLES (commands that work with the code)
+        1) Full snapshot
+            npm run analysis:run && cat tmp/analysis/summary.txt
+        2) Scope to UI shell
+            npm run analysis:run -- --include index.tsx,ui.ts
+        3) Focused trace from a handler (depth 4)
+            npm run analysis:run -- --entry index.tsx::handleUserInput --maxDepth 4
+        4) Combine scope + focused trace
+            npm run analysis:run -- --include index.tsx,interactionHelpers.ts --entry index.tsx::handleUserInput --maxDepth 4
+        5) DOM suite only
+            npm run analysis:run -- --dom-index
+        6) DOM suite + scope (emits domsuite_* for just these files)
+            npm run analysis:run -- --include ui.ts,selectionSensei.ts --dom-index
+        7) Stack presets (union files; may set entry/maxDepth/domIndex)
+            npm run analysis:run -- --preset gemini --preset ui-rendering
+        8) Preset + focused trace override
+            npm run analysis:run -- --preset curriculum --entry curriculum.ts::advanceCurriculumState --maxDepth 3
+        ----
+        JQ RECIPES (examples)
+        # Top fan-in files (10)
+        jq 'to_entries|sort_by(-.value)|.[:10]' tmp/analysis/fan_in.json
+        # Top fan-out files (10)
+        jq 'to_entries|sort_by(-.value)|.[:10]' tmp/analysis/fan_out.json
+        # All functions with side effects
+        jq 'map(select(.sideEffects|length>0))' tmp/analysis/functions.json
+        # Count side-effects by kind
+        jq '[.[]|.sideEffects[]?.kind]|group_by(.)|map({kind:.[0],count:length})' tmp/analysis/functions.json
+        # Functions with network effects
+        jq 'map(select(any(.sideEffects[]?; .kind=="network")))|map({stableId,file,name})' tmp/analysis/functions.json
+        # Async exported functions
+        jq 'map(select(.export and .async))|map({stableId,file,name})' tmp/analysis/functions.json
+        # Calls originating in index.tsx
+        jq 'map(select(.from|test("^.+index\\.tsx::")))' tmp/analysis/calls.json
+        # Cross-file calls (fromStable file != toStable file)
+        jq 'map(select(.fromStable and .toStable) | select((.fromStable|split("::")[0]) != (.toStable|split("::")[0])))' tmp/analysis/calls.json
+        # Most frequent call pairs (collapse)
+        jq -r 'group_by(.fromStable+"->"+(.toStable//.to))|map({k:(.[0].fromStable+"->"+(.[0].toStable//.[0].to)),n:length})|sort_by(-.n)|.[:15]' tmp/analysis/calls.json
+        # Assumptions with High impact
+        jq 'map(select(.impact=="High"))' tmp/analysis/assumptions.json
+        # Entry candidates list
+        jq '.entryCandidates' tmp/analysis/summary.json
+        # Function ID ↔ stableId crosswalk
+        jq '.functions|map({id,stableId})' tmp/analysis/function_crosswalk.json
+        # Focused functions (IDs)
+        jq -r '.[].id' tmp/analysis/focused_functions.json
+        # Callback edges created from inline functions
+        jq 'map(select(.via=="cb:inline"))' tmp/analysis/calls.json
+        # DOM: delegated handlers
+        jq '.handlers[]|select(.delegated)' tmp/analysis/domsuite_handlers.json
+        # DOM: selectors used but never defined
+        jq '.selectors[]|select((.definitions|length)==0 and (.usages|length)>0)|{selector,usages}' tmp/analysis/domsuite_index.json
+        # DOM: templates with extracted selectors (file + line + selectors)
+        jq '.templates[]|{file,line:.loc.start.line,selectors:[.selectors[].selector]}' tmp/analysis/domsuite_templates.json
     </analysis_tooling>
     <backup_policy>
-        <rule>Before modifying any project file, you MUST generate a timestamped manifest backup in **root backup folder**: create `root/backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
+        <rule>Before modifying any project file (excluding docs), you MUST generate a timestamped manifest backup in **root backup folder**: create `root/backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
         <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
         <rule>If you add or remove a project file that should be tracked, you MUST update `file-manifest.json` in the same session before producing the backup.</rule>
         <rule>When both the manifest and project files change, update the manifest first, then regenerate the timestamped backup so it reflects the latest list.</rule>
         <rule>Codex MUST programmatically assemble `BACKUP_CONTEXT.md` (<=10 lines with timestamp, feature/fix name, and planned scope) immediately before zipping: write it temporarily to `backup/BACKUP_CONTEXT.md`, include it inside the archive being created, confirm the file is present in the zip, then automatically delete the workspace copy so no residue of `BACKUP_CONTEXT.md` exists outside the archive.</rule>
         <rule>When in the midst of adding slight modifications, changes as part of a bigger implementation, no need to backup as long as initial backup was created for that feature or bug.</rule>
     </backup_policy>
-    <charter>
-        # The GEMINI Charter: A Constitution for AI Collaboration
-        You are an expert-level AI Software Engineer. Your mission is to assist the user in implementing and debugging software with the highest standards of quality, security, and efficiency.
-        <mission_statement>
-            ## IDENTITY AND MISSION STATEMENT
-            Your primary goal is not just to write code, but to deliver impactful, correct, and maintainable solutions. You will achieve this by thinking systematically, communicating clearly, and relentlessly seeking to avoid unnecessary work. 
-        </mission_statement>
-    </charter>
     <protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)">
         # ====MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)====
         <usage>
@@ -589,89 +614,4 @@
             </step>
         </phase>
     </protocol>
-    <project_workflow>
-        # PROJECT WORKFLOW:
-        ## CURRENT END-TO-END EXECUTION MAP (2025-09)
-        <phase name="Phase 0: Application Bootstrap & Instrumentation">
-            ### Phase 0: Application Bootstrap & Instrumentation
-            <step number="1">**Static Shell Load** (`index.html` primes header controls, notepad modal, selection-sensei surfaces, chat container, and keyboard-accessible buttons.)</step>
-            <step number="2">**Entry Bundle Execution** (`index.tsx` acquires `input-area`, `user-input`, and `debug-mode-button`, registering submit/Enter handlers and debug toggles before any AI work begins.)</step>
-            <step number="3">**Global Surface Exposure** (`Object.defineProperties(window, {...})` surfaces `curriculum`, `curriculumState`, `learnerModel`, `mainSenseiChat`, notepad, and helper functions so Save/Load, debug mode, and restoration flows can interrogate live state.)</step>
-            <step number="4">**Navigation Utility Registration** (`window.switchToChunk`, `window.overrideChunkUnderstanding`, `window.advanceConceptFromChunk`, and `updateKCProgressBar` enable concept navigation controls, overlay refresh, and KC progress sync outside the main turn loop.)</step>
-        </phase>
-        <phase name="Phase 1: Service Bring-Up & Curriculum Loading">
-            ### Phase 1: Service Bring-Up & Curriculum Loading
-            <step number="1">**Master Orchestrator** (`loadCurriculumAndGreet()` kicks off the asynchronous initialization pipeline after the bundle loads.)</step>
-            <step number="2">**UI Scaffolding** (`initializeUI()` sets up message rendering, markdown/mermaid pipelines, textarea autosize, footer badges, and ensures the chat surface is ready for streaming turns.)</step>
-            <step number="3">**Persistence Controls** (`initializeSaveLoadUI()` wires the header Save/Load buttons, file input, and the Cmd/Ctrl+S shortcut to `SaveLoadProgressManager` handlers.)</step>
-            <step number="4">**Project Manifest Discovery** (`loadProjectFileManifestAndPaths()` fetches `file-manifest.json`, caches it inside `projectFileContents`, and seeds `availableProjectFilePaths` (with a fallback list if parsing fails) for debug tooling.)</step>
-            <step number="5">**Google AI Bring-Up** (`initializeGoogleAI()` validates the API key, instantiates `GoogleGenAI`, creates the persistent `mainSenseiChat`, exposes the SDK on `window`, spawns `PedagogicalProfiler`, and calls `initializeDebugMode(...)` with manifest-fed file paths.)</step>
-            <step number="6">**Self-Test** (`runTestSuite(API_KEY)` executes optional smoke checks when the API key is present, logging any failures without blocking startup.)</step>
-            <step number="7">**Window Hooks Established** (`handleModuleClick`, `handlePhaseSelection`, `handleReloadSenseiMessage`, and Save/Load helpers are published onto `window` so the UI can invoke internal pipelines.)</step>
-            <step number="8">**UI Enhancements** (`setupFullscreenToggle` enables main chat fullscreening, the toggle is auto-triggered on load, and `initializeSelectionSensei(ai, messageArea)` activates the contextual selection assistant.)</step>
-            <step number="9">**Curriculum & Notepad Initialization** (`fetch('Modules.txt')` → `parseModulesTxt()` populates `curriculum`, `setCurriculum(...)` shares it globally, and `notepad.initialize(curriculum)` seeds module/concept metadata for note taking.)</step>
-            <step number="10">**Module Selection Handler Ready** (`ModuleSelectionHandler` is constructed with the live state (AI chat, learner model, histories) so both click and text selection paths share one controller.)</step>
-            <step number="11">**Restore Gate** (If `window.location.hash === '#restore'` or `sessionStorage` flags a pending restore, the system halts normal greeting and prompts for a save file before continuing.)</step>
-            <step number="12">**Greeting Broadcast** (`displayMessage(...)` publishes the module roster, `updateCurriculumDisplay(...)` shows readiness, and `updateFooter(learnerModel)` syncs affective metrics.)</step>
-            <step number="13">**Chat Window Controller Activation** (`ChatWindowController.getInstance().initialize()` is deferred slightly to allow DOM stabilization, enabling drag/resize and autosize preferences.)</step>
-        </phase>
-        <phase name="Phase 2: Module Selection & Phase Confirmation">
-            ### Phase 2: Module Selection & Phase Confirmation
-            <step number="1">**User Input Entry Point** (`handleUserInput` delegates to `handleInitialModuleSelectionInternal` when no `curriculumState` exists, while button clicks route through `handleClickedModuleSelection`.)</step>
-            <step number="2">**Text-Based Matching** (`ModuleSelectionHandler.handleInitialModuleSelectionInternal` normalizes numeric IDs and fuzzy title matches, sets `pendingModuleSelection`, and sends a phase-selection bubble with contextual instructions.)</step>
-            <step number="3">**Nudge Handling** (If input does not map to a known module, the handler emits a friendly reminder message and records it in `lastSenseiResponses`.)</step>
-            <step number="4">**Click Path Integration** (`handleClickedModuleSelection` mirrors the typed flow, echoes the user action into the transcript, clears UI inputs, and forwards to the shared internal selector.)</step>
-            <step number="5">**Phase Decision Pipeline** (`ModuleSelectionHandler.handlePhaseSelection` decorates the phase bubble with live loading UI, calls `jumpToPhase(...)`, and provides an LLM teaching order via `llmExtractAndPlanTeachingOrder` to seed `CurriculumState.teachingPlanForPhase`.)</step>
-            <step number="6">**Error Containment** (Any failure in `jumpToPhase` yields a recovery message and leaves the selector idle so the learner can try again.)</step>
-        </phase>
-        <phase name="Phase 3: Module Launch & Teaching Plan Priming">
-            ### Phase 3: Module Launch & Teaching Plan Priming
-            <step number="1">**Curriculum State Finalization** (`CurriculumState` from `jumpToPhase` resets `socraticTurnCount`, records `currentModuleIndex/currentConceptIndex`, and updates notepad tracking plus learner model `CurrentTask` metadata.)</step>
-            <step number="2">**UI Synchronization** (`updateCurriculumDisplay` updates status text, seeds global curriculum state for overlays, and `updateKCProgressBar` aligns mastery with the newly selected concept.)</step>
-            <step number="3">**Phase-Specific Introduction** (Socratic starts trigger `sendSystemSocraticMessage`; other phases build an intro context via `MODULE_INTRODUCTION_TASK_TEMPLATE` + `getCurriculumFocusInstruction` and stream it through `streamModuleIntroduction`, persisting a `ReloadContext`.)</step>
-            <step number="4">**Transcript & Cleanup** (`processMermaidBlocks` post-processes the streamed intro, the phase bubble animations are torn down, reload metadata is attached, and `updateResponseHistory` logs the welcome turn.)</step>
-            <step number="5">**Navigation Enablement** (`updateCurriculumDisplay` cascades to concept navigation arrow visibility, the input placeholder invites open-ended dialogue, and the learner can immediately continue the session.)</step>
-        </phase>
-        <phase name="Phase 4: Main Learning Loop">
-            ### Phase 4: Main Learning Loop
-            <sub_phase name="Turn Intake & Analysis">
-                <step number="1">**User Message Processing** (`handleUserInput` records history, renders the user bubble, honors the `mskip` command (awarding KC credit via `advanceCurriculumState`), and invokes `generateNextSenseiResponse`.)</step>
-                <step number="2">**State Preparation** (`generateNextSenseiResponse` refreshes `ModuleSelectionHandler` state, ensures a `curriculumState` exists, and calls `ensureTeachingPlanExists` to keep `teachingPlanForPhase` populated.)</step>
-                <step number="3">**Learner Diagnostics** (`getAnalysisFromGemini` evaluates the turn using expected teaching points; results feed `updateLearnerModel`, `updateFooter`, and other adaptive cues.)</step>
-                <step number="4">**Focus Strategy** (`calculateFocusPoints` + `calculateFocusStrategy` summarize coverage and upcoming goals, while `PedagogicalProfiler.getDirective` returns adaptive guidance and must-obey directives.)</step>
-                <step number="5">**Socratic Tracking** (`curriculumState.socraticTurnCount` increments inside Socratic phases and `checkForSocraticCompletion` flags completion markers embedded in Sensei responses.)</step>
-            </sub_phase>
-            <sub_phase name="Response Orchestration">
-                <step number="1">**Instruction Assembly** (`buildSenseiDynamicSystemInstruction` fuses curriculum focus data, profiler guidance, and learner analysis; Socratic branches also call `buildSocraticExecutionInstruction`.)</step>
-                <step number="2">**Streaming Delivery** (`streamMainSenseiResponse` drives the live assistant bubble, updates `streamingMessagesRawText`, and captures the final text in `updateResponseHistory`.)</step>
-                <step number="3">**UI Post-Processing** (`displayMessage` finalizes the bubble and `processMermaidBlocks` enables diagrams and formatting.)</step>
-                <step number="4">**Chunk Coverage Accounting** (`curriculumState.coveredPointsInCurrentChunk`, `pointsToRevisitInCurrentChunk`, and KC mastery updates keep per-chunk metrics aligned with the streamed response.)</step>
-            </sub_phase>
-            <sub_phase name="Curriculum Advancement & Refresh">
-                <step number="1">**Adaptive Advancement** (`advanceCurriculumState` (with an LLM planner from `createLLMPlannerCallback`) decides phase/concept transitions and resets `learnerModel.awardedKcForPhasePoints` when needed.)</step>
-                <step number="2">**Concept Context Refresh** (After advancement, `getCurrentCurriculumItem`, `updateCurriculumDisplay`, notepad `updateActiveConceptIndex`, and `updateKCProgressBar` synchronize the UI and tracking structures.)</step>
-                <step number="3">**Teaching Plan Regeneration** (`ensureTeachingPlanExists` regenerates chunk plans for the new concept/phase and resets chunk coverage sets.)</step>
-                <step number="4">**Completion Handling** (When `curriculumState.isCompleted` becomes true, status panels announce completion and further turns short-circuit advancement logic.)</step>
-            </sub_phase>
-            <sub_phase name="Reload & Recovery">
-                <step number="1">**Message Reloads** (`handleReloadSenseiMessage` replays module intros or main responses using the stored `ReloadContext`, re-streams via `streamModuleIntroduction`/`streamMainSenseiResponse`, and reprocesses mermaid content.)</step>
-                <step number="2">**Error Paths** (Any failure in analysis, streaming, or reloads emits user-facing apologies, logs diagnostics with `logger`, and maintains transcript continuity.)</step>
-            </sub_phase>
-        </phase>
-        <phase name="Phase 5: Support Systems & Persistence">
-            ### Phase 5: Support Systems & Persistence
-            <step number="1">**Save/Load Operations** (`SaveLoadProgressManager.saveProgress()` serializes learner, curriculum, notepad, and UI state; `loadProgress()` restores them and rehydrates DOM hooks.)</step>
-            <step number="2">**Selection Sensei Companion** (`initializeSelectionSensei` attaches toolbar events, uses `SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION` prompts against `ai`, renders modal responses, and can push crafted snippets into the notepad.)</step>
-            <step number="3">**Notepad Workspace** (`notepad` manages module/concept scoped notes, exports via `NotepadExporter`, and updates active indices whenever concepts change.)</step>
-            <step number="4">**Debug & File Explorer** (`initializeDebugMode` provides manifest-driven source viewing and LLM-assisted diagnostics using the cached `projectFileContents` map.)</step>
-            <step number="5">**Chat Window Governance** (`ChatWindowController` maintains draggable panels, auto-resize preferences, and exposes toggles that other modules reference during restore flows.)</step>
-        </phase>
-        <phase name="Phase 6: Module & Curriculum Completion">
-            ### Phase 6: Module & Curriculum Completion
-            <step number="1">**Phase Wrap-Up Checks** (`checkForSocraticCompletion` and chunk coverage heuristics decide when to advance from Socratic to Solidify or on to consolidation.)</step>
-            <step number="2">**Module Completion Flow** (`advanceCurriculumState` marks `curriculumState.isCompleted` when all phases finish; `updateCurriculumDisplay` and celebratory footer text signal completion to the learner.)</step>
-            <step number="3">**Next Module Availability** (If remaining modules exist, the system prompts for the next selection; otherwise the curriculum summary remains in the footer awaiting user choice.)</step>
-            <step number="4">**Persistent State Maintenance** (Final states remain available to Save/Load, selection sensei, and debug mode so post-session analysis reflects end-of-run metrics.)</step>
-        </phase>
-    </project_workflow>
 </system_directives>
