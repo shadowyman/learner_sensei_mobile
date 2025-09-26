@@ -13,9 +13,13 @@ type EnhancementManagerState = {
 type EnhancementManagerDeps = {
     getAI: () => GoogleGenAI | null;
     streamingMap: Map<string, string>;
-    renderMarkdown: (messageId: string, markdown: string, highlights?: EnhancementHighlight[]) => Promise<void>;
+    renderMarkdown: (messageId: string, markdown: string, highlights?: EnhancementHighlight[], options?: RenderMarkdownOptions) => Promise<void>;
     setLoadingState: (messageId: string, isLoading: boolean) => void;
     setActiveState: (messageId: string, isActive: boolean) => void;
+};
+
+export type RenderMarkdownOptions = {
+    skipMermaidProcessing?: boolean;
 };
 
 export type EnhancementHighlight = {
@@ -187,7 +191,7 @@ async function applyEnhancements(messageId: string, originalMarkdown: string, pa
     state.enhancedMarkdown = applied.markdown;
     stateByMessage.set(messageId, state);
     try {
-        await renderMarkdown(messageId, applied.markdown, applied.highlights);
+        await renderMarkdown(messageId, applied.markdown, applied.highlights, { skipMermaidProcessing: true });
     } catch (error) {
         state.status = 'idle';
         delete state.enhancedMarkdown;
@@ -224,7 +228,7 @@ async function removeEnhancements(messageId: string): Promise<void> {
         return;
     }
     try {
-        await renderMarkdown(messageId, state.originalMarkdown);
+        await renderMarkdown(messageId, state.originalMarkdown, undefined, { skipMermaidProcessing: true });
     } catch (error) {
         state.status = 'idle';
         setActiveState(messageId, false);
