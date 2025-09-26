@@ -2,6 +2,7 @@ import * as ts from 'typescript'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as crypto from 'crypto'
+import * as parse5 from 'parse5'
 
 type ImportGraph = Record<string, string[]>
 type FanMap = Record<string, number>
@@ -111,6 +112,27 @@ type NodeInfo = {
   className?: string
 }
 
+type ImportResolver = (fromFile: string, spec: string) => string | null
+
+type P5Node = any
+
+function createTsResolver(program: ts.Program, repoRoot: string): ImportResolver {
+  const opts = program.getCompilerOptions()
+  const cache = ts.createModuleResolutionCache(repoRoot, s => s, opts)
+  const normalize = (p: string) => path.relative(repoRoot, p).split(path.sep).join('/')
+  return (fromFile, spec) => {
+    const cached = (program as any).getResolvedModuleWithFailedLookupLocationsFromCache?.(spec, fromFile)
+    const resolvedModule = cached?.resolvedModule ?? ts.resolveModuleName(spec, fromFile, opts, ts.sys, cache).resolvedModule
+    if (!resolvedModule) return null
+    const f = resolvedModule.resolvedFileName
+    const isNodeModules = f.includes(`${path.sep}node_modules${path.sep}`)
+    const ext = path.extname(f)
+    const isSourceExt = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'].includes(ext)
+    if (isNodeModules || !isSourceExt) return null
+    return normalize(f)
+  }
+}
+
 const repoRoot = process.cwd()
 const outDir = path.join(repoRoot, 'tmp', 'analysis')
 const functionNodeById = new Map<string, { sf: ts.SourceFile; node: ts.FunctionLikeDeclaration | ts.MethodDeclaration | ts.ArrowFunction | ts.FunctionExpression; file: string }>()
@@ -121,7 +143,7 @@ const templateRecords: TemplateRecord[] = []
 const handlerRecords: HandlerRecord[] = []
 let enableDomIndex = false
 let useTypeChecker = true
-let checker: ts.TypeChecker
+let checker: ts.TypeChecker = undefined as any
 const functionIdByNode = new WeakMap<ts.Node, string>()
 const functionIdByDeclNode = new WeakMap<ts.Node, string>()
 const PURE_GLOBAL_IDENTIFIERS = new Set([
@@ -132,6 +154,7 @@ const PURE_GLOBAL_NAMESPACES = new Set(['Math','JSON'])
 
 function unaliasSymbol(sym: ts.Symbol | undefined): ts.Symbol | undefined {
   if (!sym) return sym
+  if (!useTypeChecker || !checker) return sym
   let s = sym
   while ((s.flags & ts.SymbolFlags.Alias) !== 0) {
     const a = checker.getAliasedSymbol(s)
@@ -252,22 +275,6 @@ function getLoc(sf: ts.SourceFile, node: ts.Node): Location {
   }
 }
 
-function resolveImport(fromFile: string, spec: string): string | null {
-  if (!spec.startsWith('.') && !spec.startsWith('/')) return null
-  const base = path.dirname(fromFile)
-  const full = path.resolve(base, spec)
-  const candidates = [full, path.join(full, 'index')]
-  for (const c of candidates) if (fs.existsSync(c)) return rel(c)
-  const exts = ['.ts', '.tsx', '.d.ts', '.js', '.jsx']
-  for (const c of candidates) {
-    for (const ext of exts) {
-      const file = c + ext
-      if (fs.existsSync(file)) return rel(file)
-    }
-  }
-  return null
-}
-
 function snippet(text: string) {
   return text.length > 200 ? text.slice(0, 197) + '...' : text
 }
@@ -309,20 +316,32 @@ function unwrap(e: ts.Expression): ts.Expression {
 
 function selectorsFromHtml(html: string) {
   const result: { selector: string; kind: SelectorKind }[] = []
-  const idRegex = /id\s*=\s*"([^"]+)"/g
-  const classRegex = /class\s*=\s*"([^"]+)"/g
-  let match: RegExpExecArray | null
-  while ((match = idRegex.exec(html))) {
-    const value = match[1]
-    if (value) result.push({ selector: `#${value}`, kind: 'id' })
-  }
-  while ((match = classRegex.exec(html))) {
-    const value = match[1]
-    if (value) {
-      const classes = value.split(/\s+/).filter(Boolean)
-      for (const c of classes) result.push({ selector: `.${c}`, kind: 'class' })
+  const fragment = parse5.parseFragment(html, { sourceCodeLocationInfo: false }) as P5Node
+
+  const visit = (node: P5Node) => {
+    if (node && typeof node === 'object') {
+      if (Array.isArray(node.attrs)) {
+        for (const attr of node.attrs) {
+          if (!attr || typeof attr !== 'object') continue
+          if (attr.name === 'id' && attr.value) {
+            result.push({ selector: `#${attr.value}`, kind: 'id' })
+          }
+          if (attr.name === 'class' && attr.value) {
+            const classes = attr.value.split(/\s+/).filter(Boolean)
+            for (const c of classes) result.push({ selector: `.${c}`, kind: 'class' })
+          }
+        }
+      }
+      if (Array.isArray(node.childNodes)) {
+        node.childNodes.forEach(visit)
+      }
     }
   }
+
+  if (fragment && Array.isArray(fragment.childNodes)) {
+    fragment.childNodes.forEach(visit)
+  }
+
   return result
 }
 
@@ -410,6 +429,27 @@ function mergeInclude(opts: CliOptions, additions: string[]) {
   const set = new Set(opts.include || [])
   additions.forEach(item => set.add(item))
   opts.include = Array.from(set)
+}
+
+function ensureSyntheticFunction(funcs: FunctionInfo[], id: string, label?: string) {
+  if (funcs.some(f => f.id === id)) return
+  const fakeLoc: Location = { file: '<synthetic>', start: { line: 1, col: 1 }, end: { line: 1, col: 1 } }
+  const info: FunctionInfo = {
+    id,
+    file: '<synthetic>',
+    name: label ?? id,
+    kind: 'function',
+    export: false,
+    async: false,
+    sideEffects: [],
+    calls: [],
+    loc: fakeLoc,
+    stableId: id,
+    startLine: 1,
+    startCol: 1
+  }
+  functionStableIdById.set(id, id)
+  funcs.push(info)
 }
 const presetSeedPath = path.join(repoRoot, 'config', 'preset-seeds.json')
 const presetManifestPath = path.join(repoRoot, 'config', 'presets.generated.json')
@@ -575,21 +615,20 @@ function applyPresets(opts: CliOptions, manifest: PresetManifest) {
   return applied
 }
 
-function collectImportGraph(program: ts.Program, include?: string[]) {
+function collectImportGraph(program: ts.Program, include: string[] | undefined, resolveImport: ImportResolver) {
   const graph: ImportGraph = {}
+  const inScope = (file: string) => !include || include.length === 0 || include.some(p => file.includes(p))
+
   for (const sf of program.getSourceFiles()) {
     if (!isProjectSource(sf)) continue
     const file = rel(sf.fileName)
-    if (include && include.length && !include.some(p => file.includes(p))) {
-      graph[file] = []
-      continue
-    }
+    if (!inScope(file)) continue
     const deps = new Set<string>()
     sf.forEachChild(node => {
       if (ts.isImportDeclaration(node)) {
         const text = node.moduleSpecifier.getText(sf).slice(1, -1)
         const resolved = resolveImport(sf.fileName, text)
-        if (resolved) deps.add(resolved)
+        if (resolved && inScope(resolved)) deps.add(resolved)
       }
     })
     graph[file] = Array.from(deps)
@@ -625,7 +664,7 @@ function mkSideEffect(kind: string, detail: string, loc?: Location): SideEffect 
 
 type ImportAlias = { local: string; source: string; export: string }
 
-function collectAliases(sf: ts.SourceFile): ImportAlias[] {
+function collectAliases(sf: ts.SourceFile, resolveImport: ImportResolver): ImportAlias[] {
   const aliases: ImportAlias[] = []
   sf.forEachChild(node => {
     if (ts.isImportDeclaration(node) && node.importClause) {
@@ -668,11 +707,6 @@ function collectAliases(sf: ts.SourceFile): ImportAlias[] {
   return aliases
 }
 
-function stripNonNull(expr: ts.Expression): ts.Expression {
-  if (ts.isNonNullExpression(expr)) return stripNonNull(expr.expression)
-  return expr
-}
-
 function isThisExpression(expr: ts.Expression): boolean {
   return expr.kind === ts.SyntaxKind.ThisKeyword
 }
@@ -685,12 +719,12 @@ type FileData = {
   instanceTypes: Map<string, { source: string; className: string }>
 }
 
-function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>): FileData {
+function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resolveImport: ImportResolver): FileData {
   const file = rel(sf.fileName)
   const locals = new Map<string, string>()
   const nodes: NodeInfo[] = []
   const instanceTypes = new Map<string, { source: string; className: string }>()
-  const aliases = collectAliases(sf)
+  const aliases = collectAliases(sf, resolveImport)
   const classNames = new Set<string>()
   sf.forEachChild(node => {
     if (ts.isClassDeclaration(node) && node.name) {
@@ -730,7 +764,7 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>): File
         if (ts.isArrowFunction(decl.initializer) || ts.isFunctionExpression(decl.initializer)) {
           addFunc(decl.name.getText(sf), decl.initializer, 'arrow', exported, undefined, true, decl)
         } else if (ts.isNewExpression(decl.initializer)) {
-          const classExpr = stripNonNull(decl.initializer.expression)
+  const classExpr = unwrap(decl.initializer.expression as ts.Expression)
           if (classExpr && ts.isIdentifier(classExpr)) {
             const classToken = classExpr.getText(sf)
             const alias = aliases.find(a => a.local === classToken)
@@ -758,7 +792,7 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>): File
   return { sf, file, nodes, locals, instanceTypes }
 }
 
-function collectFunctions(program: ts.Program, include?: string[]) {
+function collectFunctions(program: ts.Program, resolveImport: ImportResolver, include?: string[]) {
   const functionIndex = new Map<string, string>()
   const fileData: FileData[] = []
 
@@ -768,7 +802,7 @@ function collectFunctions(program: ts.Program, include?: string[]) {
     if (include && include.length && !include.some(p => file.includes(p))) {
       continue
     }
-    fileData.push(gatherFile(sf, functionIndex))
+    fileData.push(gatherFile(sf, functionIndex, resolveImport))
   }
 
   const funcs: FunctionInfo[] = []
@@ -776,10 +810,11 @@ function collectFunctions(program: ts.Program, include?: string[]) {
   const assumptions: Assumption[] = []
 
   for (const data of fileData) {
-    analyzeFile(data, functionIndex, funcs, edges, assumptions)
+    analyzeFile(data, functionIndex, funcs, edges, assumptions, resolveImport)
   }
 
-  scanGlobalExposures(program, edges, functionIndex)
+  scanGlobalExposures(program, edges, functionIndex, resolveImport, useTypeChecker)
+  ensureSyntheticFunction(funcs, 'global::exposed', 'global::exposed')
 
   for (const edge of edges) {
     if (!edge.fromStable) {
@@ -795,9 +830,16 @@ function collectFunctions(program: ts.Program, include?: string[]) {
   return { funcs, edges, assumptions }
 }
 
-function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: FunctionInfo[], edges: CallEdge[], assumptions: Assumption[]) {
+function analyzeFile(
+  data: FileData,
+  functionIndex: Map<string, string>,
+  funcs: FunctionInfo[],
+  edges: CallEdge[],
+  assumptions: Assumption[],
+  resolveImport: ImportResolver
+) {
   const { sf, file, nodes, locals, instanceTypes } = data
-  const aliases = collectAliases(sf)
+  const aliases = collectAliases(sf, resolveImport)
   const nsImports = new Map<string, string>()
   sf.forEachChild(n => {
     if (!ts.isVariableStatement(n)) return
@@ -810,6 +852,16 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
       if (!arg || !ts.isStringLiteral(arg)) continue
       const source = resolveImport(sf.fileName, arg.text)
       if (source) nsImports.set(decl.name.text, source)
+    }
+  })
+  sf.forEachChild(n => {
+    if (!ts.isImportDeclaration(n) || !n.importClause) return
+    const nb = n.importClause.namedBindings
+    if (nb && ts.isNamespaceImport(nb)) {
+      const spec = n.moduleSpecifier
+      if (!ts.isStringLiteral(spec)) return
+      const source = resolveImport(sf.fileName, spec.text)
+      if (source) nsImports.set(nb.name.getText(sf), source)
     }
   })
   const classFieldInstances = new Map<string, Map<string, { source: string; className: string }>>()
@@ -845,6 +897,9 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
   let currentCallsRef: string[] = []
 
   function recordEdgeLocal(to: string, via: string, loc: Location, se?: SideEffect[], seKind?: 'network' | 'timer') {
+    if (to.startsWith('global::') && !functionStableIdById.has(to)) {
+      functionStableIdById.set(to, to)
+    }
     const toStable = functionStableIdById.get(to)
     const edgeRecord: CallEdge = { from: currentIdTemp, to, via, loc, fromStable: currentStableIdTemp }
     if (toStable) edgeRecord.toStable = toStable
@@ -867,6 +922,7 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
     const selfLoc = getLoc(sf, fn.node)
     const currentStableId = `${file}::${fn.name}#L${selfLoc.start.line}`
     functionStableIdById.set(currentId, currentStableId)
+    functionStableIdById.set(`${file}::${fn.name}`, currentStableId)
 
     currentIdTemp = currentId
     currentStableIdTemp = currentStableId
@@ -905,62 +961,104 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
       addAnon: (node: ts.ArrowFunction | ts.FunctionExpression | ts.MethodDeclaration) => string,
       rec: (to: string, via: string, loc: Location) => void
     ): boolean => {
-      if (ts.isArrowFunction(init) || ts.isFunctionExpression(init) || ts.isMethodDeclaration?.(init as any)) {
+      if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) {
         const anonId = addAnon(init as any)
         rec(anonId, `${viaPrefix}${propName}:cb:inline`, getLoc(sfLocal, init))
         return true
       }
       if (ts.isIdentifier(init)) {
-        const base = unaliasSymbol(checker.getSymbolAtLocation(init))
-        if (base) {
-          const decls = base.getDeclarations() || []
-          for (const d of decls) {
-            const sfDecl = d.getSourceFile()
-            if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-              const toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any) || null
-              if (toId) {
-                rec(toId, `${viaPrefix}${propName}:id`, getLoc(sfLocal, init))
+        const locInit = getLoc(sfLocal, init)
+        const initText = init.getText(sfLocal)
+        if (useTypeChecker && checker) {
+          const base = unaliasSymbol(checker.getSymbolAtLocation(init))
+          if (base) {
+            const decls = base.getDeclarations() || []
+            for (const d of decls) {
+              const sfDecl = d.getSourceFile()
+              if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
+                const toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any) || null
+                if (toId) {
+                  rec(toId, `${viaPrefix}${propName}:id`, locInit)
+                  return true
+                }
+              }
+            }
+            if (decls.length && !decls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
+              if (pseudoLinkExternal(initText, locInit, sideEffects)) {
+                rec(`global::${initText}`, `${viaPrefix}${propName}:external`, locInit)
                 return true
               }
             }
           }
-          if (decls.length && !decls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
-            if (pseudoLinkExternal(init.getText(sfLocal), getLoc(sfLocal, init), sideEffects)) {
-              rec(`global::${init.getText(sfLocal)}`, `${viaPrefix}${propName}:external`, getLoc(sfLocal, init))
-              return true
-            }
-          }
         }
+        const resolvedFallback = resolveIdentifier(initText)
+        if (resolvedFallback) {
+          rec(resolvedFallback, `${viaPrefix}${propName}:id`, locInit)
+          return true
+        }
+        if (pseudoLinkExternal(initText, locInit, sideEffects)) {
+          rec(`global::${initText}`, `${viaPrefix}${propName}:external`, locInit)
+          return true
+        }
+        return false
       }
       if (ts.isPropertyAccessExpression(init)) {
         const methodName = init.name.getText(sfLocal)
-        let propSym = unaliasSymbol(checker.getSymbolAtLocation(init.name))
-        if (!propSym) {
-          const recvType = checker.getTypeAtLocation(init.expression)
-          const types: ts.Type[] = isUnionType(recvType) && (recvType as ts.UnionType).types ? (recvType as ts.UnionType).types : [recvType]
-          for (const t of types) {
-            const s = unaliasSymbol(checker.getApparentType(t).getProperty(methodName))
-            if (s) { propSym = s; break }
+        if (useTypeChecker && checker) {
+          let propSym = unaliasSymbol(checker.getSymbolAtLocation(init.name))
+          if (!propSym) {
+            const recvType = checker.getTypeAtLocation(init.expression)
+            const types: ts.Type[] = isUnionType(recvType) && (recvType as ts.UnionType).types ? (recvType as ts.UnionType).types : [recvType]
+            for (const t of types) {
+              const apparent = checker.getApparentType(t)
+              const s = unaliasSymbol(apparent.getProperty(methodName))
+              if (s) { propSym = s; break }
+            }
           }
-        }
-        if (propSym) {
-          const decls = propSym.getDeclarations() || []
-          for (const d of decls) {
-            const sfDecl = d.getSourceFile()
-            if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-              const toId = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
-              if (toId) {
-                rec(toId, `${viaPrefix}${propName}:prop`, getLoc(sfLocal, init))
+          if (propSym) {
+            const decls = propSym.getDeclarations() || []
+            for (const d of decls) {
+              const sfDecl = d.getSourceFile()
+              if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
+                const toId = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+                if (toId) {
+                  rec(toId, `${viaPrefix}${propName}:prop`, getLoc(sfLocal, init))
+                  return true
+                }
+              }
+            }
+            if (decls.length && !decls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
+              if (pseudoLinkExternal(init.getText(sfLocal), getLoc(sfLocal, init), sideEffects)) {
+                rec(`global::${init.getText(sfLocal)}`, `${viaPrefix}${propName}:external`, getLoc(sfLocal, init))
                 return true
               }
             }
           }
-          if (decls.length && !decls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
-            if (pseudoLinkExternal(init.getText(sfLocal), getLoc(sfLocal, init), sideEffects)) {
-              rec(`global::${init.getText(sfLocal)}`, `${viaPrefix}${propName}:external`, getLoc(sfLocal, init))
+        }
+
+        const recvExpr = init.expression
+        const locInit = getLoc(sfLocal, init)
+        if (ts.isIdentifier(recvExpr)) {
+          const nsSource = nsImports.get(recvExpr.text)
+          if (nsSource) {
+            const target = functionIndex.get(`${nsSource}::${methodName}`)
+            if (target) {
+              rec(target, `${viaPrefix}${propName}:prop`, locInit)
               return true
             }
           }
+          const alias = aliases.find(a => a.local === recvExpr.text)
+          if (alias) {
+            const target = functionIndex.get(`${alias.source}::${methodName}`)
+            if (target) {
+              rec(target, `${viaPrefix}${propName}:prop`, locInit)
+              return true
+            }
+          }
+        }
+        if (pseudoLinkExternal(init.getText(sfLocal), locInit, sideEffects)) {
+          rec(`global::${init.getText(sfLocal)}`, `${viaPrefix}${propName}:external`, locInit)
+          return true
         }
       }
       return false
@@ -978,18 +1076,25 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
           recordEdgeForInitializer(prop.initializer, name, 'arg.obj.', sfLocal, prop, addAnon, rec)
         } else if (ts.isShorthandPropertyAssignment(prop)) {
           const id = prop.name
-          const base = unaliasSymbol(checker.getSymbolAtLocation(id))
-          if (base) {
-            const decls = base.getDeclarations() || []
-            for (const d of decls) {
-              const sfDecl = d.getSourceFile()
-              if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-                const toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
-                if (toId) {
-                  rec(toId, `arg.obj.${id.text}:shorthand`, getLoc(sfLocal, prop))
-                  break
+          if (useTypeChecker && checker) {
+            const base = unaliasSymbol(checker.getSymbolAtLocation(id))
+            if (base) {
+              const decls = base.getDeclarations() || []
+              for (const d of decls) {
+                const sfDecl = d.getSourceFile()
+                if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
+                  const toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
+                  if (toId) {
+                    rec(toId, `arg.obj.${id.text}:shorthand`, getLoc(sfLocal, prop))
+                    break
+                  }
                 }
               }
+            }
+          } else {
+            const fallback = resolveIdentifier(id.text)
+            if (fallback) {
+              rec(fallback, `arg.obj.${id.text}:shorthand`, getLoc(sfLocal, prop))
             }
           }
         } else if (ts.isMethodDeclaration?.(prop as any)) {
@@ -1020,8 +1125,13 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
         }
       }
       if (ts.isCallExpression(node)) {
+        let calleeLinked = false
+        const linkCallee = (toId: string, via: string) => {
+          recordEdge(toId, via, getLoc(sf, node))
+          calleeLinked = true
+        }
         const expr = node.expression
-        if (useTypeChecker) {
+        if (useTypeChecker && checker) {
           if (ts.isIdentifier(expr)) {
             const base = unaliasSymbol(checker.getSymbolAtLocation(expr))
             if (base) {
@@ -1031,28 +1141,28 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
                 if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
                   const toIdDirect = functionIdByDeclNode.get(d)
                   if (toIdDirect) {
-                    recordEdge(toIdDirect, expr.getText(sf), getLoc(sf, node))
-                    return
+                    linkCallee(toIdDirect, expr.getText(sf))
+                    break
                   }
                   if (ts.isVariableDeclaration(d) && d.initializer) {
                     const init = d.initializer
                     const byInit = functionIdByNode.get(init)
                     if (byInit) {
-                      recordEdge(byInit, expr.getText(sf), getLoc(sf, node))
-                      return
+                      linkCallee(byInit, expr.getText(sf))
+                      break
                     }
                     if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) {
                       const byDecl = functionIdByDeclNode.get(d)
                       if (byInit || byDecl) {
                         const id = byInit ?? byDecl!
-                        recordEdge(id, expr.getText(sf), getLoc(sf, node))
-                        return
+                        linkCallee(id, expr.getText(sf))
+                        break
                       }
                       const preferred = ts.isIdentifier(d.name) ? d.name.text : undefined
                       const id = addAnonFunc(init, preferred)
                       functionIdByDeclNode.set(d, id)
-                      recordEdge(id, expr.getText(sf), getLoc(sf, node))
-                      return
+                      linkCallee(id, expr.getText(sf))
+                      break
                     }
                     if (ts.isPropertyAccessExpression(init)) {
                       const propSym0 = checker.getSymbolAtLocation(init.name)
@@ -1064,11 +1174,12 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
                           if (isProjectSource(psf) && !psf.isDeclarationFile) {
                             const mapped = functionIdByDeclNode.get(pd) || functionIdByNode.get(pd as any)
                             if (mapped) {
-                              recordEdge(mapped, expr.getText(sf), getLoc(sf, node))
-                              return
+                              linkCallee(mapped, expr.getText(sf))
+                              break
                             }
                           }
                         }
+                        if (calleeLinked) break
                       } else {
                         const method = init.name.getText(d.getSourceFile())
                         let candidate: string | null = null
@@ -1081,18 +1192,17 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
                           }
                         }
                         if (count === 1 && candidate) {
-                          recordEdge(candidate, expr.getText(sf), getLoc(sf, node))
-                          return
+                          linkCallee(candidate, expr.getText(sf))
+                          break
                         }
                       }
                     }
                   }
                 }
               }
-              if (decls.length && !decls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
+              if (!calleeLinked && decls.length && !decls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
                 const name = expr.getText(sf)
-                if (isPureGlobalIdentifier(name)) return
-                if (pseudoLinkExternal(name, getLoc(sf, node), sideEffects)) return
+                if (!isPureGlobalIdentifier(name)) calleeLinked = pseudoLinkExternal(name, getLoc(sf, node), sideEffects)
               }
             }
           } else if (ts.isPropertyAccessExpression(expr)) {
@@ -1117,30 +1227,61 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
                 if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
                   const toIdDirect = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
                   if (toIdDirect) {
-                    recordEdge(toIdDirect, expr.getText(sf), getLoc(sf, node))
-                    return
+                    linkCallee(toIdDirect, expr.getText(sf))
+                    break
                   }
                 }
               }
               const recvTxt = expr.expression.getText(sf)
               const baseSym = checker.getSymbolAtLocation(expr.expression)
-              if (baseSym) {
+              if (!calleeLinked && baseSym) {
                 const bdecls = baseSym.getDeclarations() || []
                 if (bdecls.length && !bdecls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
-                  if (isPureGlobalNamespace(recvTxt)) return
+                  if (isPureGlobalNamespace(recvTxt)) calleeLinked = true
                 }
               }
-              if (recvTxt === 'console') {
-                recordEdge(`global::console.${methodName}`, expr.getText(sf), getLoc(sf, node))
-                return
+              if (!calleeLinked && recvTxt === 'console') {
+                linkCallee(`global::console.${methodName}`, expr.getText(sf))
               }
             }
           }
         }
-        if (ts.isIdentifier(expr)) {
+        if (!calleeLinked && ts.isPropertyAccessExpression(expr)) {
+          const recv = expr.expression
+          const methodName = expr.name.getText(sf)
+          if (ts.isIdentifier(recv)) {
+            const nsSource = nsImports.get(recv.text)
+            if (nsSource) {
+              const target = functionIndex.get(`${nsSource}::${methodName}`)
+              if (target) {
+                linkCallee(target, expr.getText(sf))
+                calleeLinked = true
+              }
+            }
+            if (!calleeLinked) {
+              const alias = aliases.find(a => a.local === recv.text)
+              if (alias) {
+                const target = functionIndex.get(`${alias.source}::${methodName}`)
+                if (target) {
+                  linkCallee(target, expr.getText(sf))
+                  calleeLinked = true
+                }
+              }
+            }
+            if (!calleeLinked && recv.text === 'console') {
+              linkCallee(`global::console.${methodName}`, expr.getText(sf))
+            }
+          }
+          if (!calleeLinked) {
+            const locExpr = getLoc(sf, node)
+            if (pseudoLinkExternal(expr.getText(sf), locExpr, sideEffects)) calleeLinked = true
+          }
+        }
+
+        if (!calleeLinked && ts.isIdentifier(expr)) {
           const target = resolveIdentifier(expr.getText(sf))
           if (target) {
-            recordEdge(target, expr.getText(sf), getLoc(sf, node))
+            linkCallee(target, expr.getText(sf))
           } else {
             const stmt = `Invocation of global or external function '${expr.getText(sf)}' in ${file}`
             assumptions.push({
@@ -1231,7 +1372,7 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
           }
         }
         if (ts.isPropertyAccessExpression(expr)) {
-          const rawRecv = stripNonNull(expr.expression)
+          const rawRecv = unwrap(expr.expression as ts.Expression)
           const prop = expr.name.getText(sf)
           const recvText = rawRecv.getText(sf)
 
@@ -1270,7 +1411,7 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
           }
         }
         if (ts.isElementAccessExpression(expr)) {
-          const rawRecv = stripNonNull(expr.expression)
+          const rawRecv = unwrap(expr.expression as ts.Expression)
           const arg = expr.argumentExpression
           const prop = arg && ts.isStringLiteral(arg) ? arg.text : '[computed]'
           const recvText = rawRecv.getText(sf)
@@ -1290,9 +1431,9 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
         }
 
         node.arguments.forEach(arg => {
-          const stripped = stripNonNull(arg as ts.Expression)
+          const stripped = unwrap(arg as ts.Expression)
           if (ts.isIdentifier(stripped)) {
-          const cbTarget = resolveIdentifier(stripped.getText(sf))
+            const cbTarget = resolveIdentifier(stripped.getText(sf))
             if (cbTarget) {
               recordEdge(cbTarget, `arg:${stripped.getText(sf)}`, getLoc(sf, stripped))
             }
@@ -1308,7 +1449,7 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
       if (ts.isBinaryExpression(node) && ['=', '+=', '-=', '*=', '/=', '%='].includes(ts.tokenToString(node.operatorToken.kind) || '')) {
         const left = node.left
         if (ts.isIdentifier(left) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isNewExpression(node.right)) {
-          const classExpr = stripNonNull(node.right.expression)
+          const classExpr = unwrap(node.right.expression as ts.Expression)
           if (ts.isIdentifier(classExpr)) {
             const classToken = classExpr.getText(sf)
             const alias = aliases.find(a => a.local === classToken)
@@ -1320,7 +1461,7 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
         }
         if (ts.isPropertyAccessExpression(left) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isNewExpression(node.right) && className && isThisExpression(left.expression as ts.Expression)) {
           const field = left.name.getText(sf)
-          const classExpr = stripNonNull(node.right.expression)
+          const classExpr = unwrap(node.right.expression as ts.Expression)
           if (ts.isIdentifier(classExpr)) {
             const classToken = classExpr.getText(sf)
             const alias = aliases.find(a => a.local === classToken)
@@ -1362,7 +1503,13 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
   }
 }
 
-function scanGlobalExposures(program: ts.Program, edges: CallEdge[], functionIndex: Map<string, string>) {
+function scanGlobalExposures(
+  program: ts.Program,
+  edges: CallEdge[],
+  functionIndex: Map<string, string>,
+  resolveImport: ImportResolver,
+  useTypeCheckerFlag: boolean
+) {
   const globals = new Set(['window', 'globalThis', 'self'])
 
   const tryBuildPath = (lhs: ts.Expression, sf: ts.SourceFile, aliases: Set<string>) => {
@@ -1405,6 +1552,20 @@ function scanGlobalExposures(program: ts.Program, edges: CallEdge[], functionInd
     nsImports: Map<string, string>
   ): string | null => {
     rhs = unwrap(rhs)
+    if (!useTypeCheckerFlag || !checker) {
+      if (ts.isIdentifier(rhs)) {
+        const byLocal = functionIndex.get(`${file}::${rhs.text}`)
+        if (byLocal) return byLocal
+        const alias = aliasByLocal.get(rhs.text)
+        if (alias) return functionIndex.get(`${alias.source}::${alias.export}`) ?? null
+        return null
+      }
+      if (ts.isPropertyAccessExpression(rhs) && ts.isIdentifier(rhs.expression)) {
+        const ns = nsImports.get(rhs.expression.text)
+        if (ns) return functionIndex.get(`${ns}::${rhs.name.getText(sf)}`) ?? null
+      }
+      return null
+    }
     if (ts.isCallExpression(rhs) && ts.isPropertyAccessExpression(rhs.expression) && rhs.expression.name.getText(sf) === 'bind') {
       return resolveTarget(rhs.expression.expression as ts.Expression, sf, file, aliasByLocal, nsImports)
     }
@@ -1413,12 +1574,14 @@ function scanGlobalExposures(program: ts.Program, edges: CallEdge[], functionInd
       if (byLocal) return byLocal
       const alias = aliasByLocal.get(rhs.text)
       if (alias) return functionIndex.get(`${alias.source}::${alias.export}`) ?? null
-      const sym = unaliasSymbol(checker.getSymbolAtLocation(rhs))
-      if (sym) {
-        const decls = sym.getDeclarations() || []
-        for (const d of decls) {
-          const to = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
-          if (to) return to
+      if (useTypeCheckerFlag && checker) {
+        const sym = unaliasSymbol(checker.getSymbolAtLocation(rhs))
+        if (sym) {
+          const decls = sym.getDeclarations() || []
+          for (const d of decls) {
+            const to = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
+            if (to) return to
+          }
         }
       }
       return null
@@ -1429,13 +1592,15 @@ function scanGlobalExposures(program: ts.Program, edges: CallEdge[], functionInd
         const src = nsImports.get(rhs.expression.text)
         if (src) return functionIndex.get(`${src}::${name}`) ?? null
       }
-      const propSym0 = checker.getSymbolAtLocation(rhs.name)
-      const propSym = propSym0 && (propSym0.flags & ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(propSym0) : propSym0
-      if (propSym) {
-        const decls = propSym.getDeclarations() || []
-        for (const d of decls) {
-          const to = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
-          if (to) return to
+      if (useTypeCheckerFlag && checker) {
+        const propSym0 = checker.getSymbolAtLocation(rhs.name)
+        const propSym = propSym0 && (propSym0.flags & ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(propSym0) : propSym0
+        if (propSym) {
+          const decls = propSym.getDeclarations() || []
+          for (const d of decls) {
+            const to = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+            if (to) return to
+          }
         }
       }
       return null
@@ -1446,7 +1611,7 @@ function scanGlobalExposures(program: ts.Program, edges: CallEdge[], functionInd
   for (const sf of program.getSourceFiles()) {
     if (!isProjectSource(sf)) continue
     const file = rel(sf.fileName)
-    const importAliases = collectAliases(sf)
+    const importAliases = collectAliases(sf, resolveImport)
     const aliasByLocal = new Map(importAliases.map(a => [a.local, a]))
 
     const windowAliases = new Set<string>(globals)
@@ -1471,6 +1636,16 @@ function scanGlobalExposures(program: ts.Program, edges: CallEdge[], functionInd
         if (!arg || !ts.isStringLiteral(arg)) continue
         const source = resolveImport(sf.fileName, arg.text)
         if (source) nsImports.set(decl.name.text, source)
+      }
+    })
+    sf.forEachChild(n => {
+      if (!ts.isImportDeclaration(n) || !n.importClause) return
+      const nb = n.importClause.namedBindings
+      if (nb && ts.isNamespaceImport(nb)) {
+        const spec = n.moduleSpecifier
+        if (!ts.isStringLiteral(spec)) return
+        const source = resolveImport(sf.fileName, spec.text)
+        if (source) nsImports.set(nb.name.getText(sf), source)
       }
     })
 
@@ -1657,11 +1832,13 @@ function main() {
   enableDomIndex = false
 
   const program = loadProgram()
+  const resolveImport = createTsResolver(program, repoRoot)
   useTypeChecker = !opts.noTypechecker
-  checker = program.getTypeChecker()
+  checker = useTypeChecker ? program.getTypeChecker() : (undefined as any)
   if (useTypeChecker) console.log('[RESOLUTION] TypeChecker enabled')
-  const fullImportGraph = collectImportGraph(program, undefined)
-  const { funcs: fullFuncs, edges: fullEdges, assumptions: fullAssumptions } = collectFunctions(program, undefined)
+  const fullImportGraph = collectImportGraph(program, undefined, resolveImport)
+  const { funcs: fullFuncs, edges: fullEdges, assumptions: fullAssumptions } = collectFunctions(program, resolveImport)
+  const fullStableCache = new Map(functionStableIdById)
 
   const { manifest, regenerated } = ensurePresetManifest(seeds, fullFuncs, fullEdges)
   if (regenerated) {
@@ -1683,14 +1860,27 @@ function main() {
   enableDomIndex = opts.domIndex === true
 
   const includeHasFiles = Boolean(opts.include && opts.include.length)
-  const importGraph = includeHasFiles ? collectImportGraph(program, opts.include) : fullImportGraph
+  const importGraph = includeHasFiles ? collectImportGraph(program, opts.include, resolveImport) : fullImportGraph
   const needsFullRecollect = enableDomIndex && !includeHasFiles
   const { fanIn, fanOut } = computeFanMaps(importGraph)
   const { funcs, edges, assumptions } = includeHasFiles
-    ? collectFunctions(program, opts.include)
+    ? collectFunctions(program, resolveImport, opts.include)
     : needsFullRecollect
-      ? collectFunctions(program)
+      ? collectFunctions(program, resolveImport)
       : { funcs: fullFuncs, edges: fullEdges, assumptions: fullAssumptions }
+  for (const [key, value] of fullStableCache) {
+    if (!functionStableIdById.has(key)) functionStableIdById.set(key, value)
+  }
+  for (const edge of edges) {
+    if (!edge.fromStable) {
+      const mapped = functionStableIdById.get(edge.from)
+      if (mapped) edge.fromStable = mapped
+    }
+    if (!edge.toStable) {
+      const mapped = functionStableIdById.get(edge.to)
+      if (mapped) edge.toStable = mapped
+    }
+  }
   const entryCandidates = selectEntryCandidates(importGraph, fanIn)
 
   const summary = {

@@ -12,7 +12,8 @@
     "analysis:run": "ts-node scripts/analyze.ts",
     "analysis:dom": "npm run analysis:run -- --preset domsuite",
     "analysis:ui": "npm run analysis:run -- --preset ui",
-    "analysis:notepad": "npm run analysis:run -- --preset notepad"
+    "analysis:notepad": "npm run analysis:run -- --preset notepad",
+    "test:analyzer": "ts-node tests/analyzer.integration.ts"
   },
   "keywords": [
     "education",
@@ -29,6 +30,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "parse5": "^8.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   }
