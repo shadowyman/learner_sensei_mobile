@@ -342,7 +342,7 @@
     <protocol name="MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL">
         # ====MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL====
         <initial_action>
-            Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step. You will then execute this list step-by-step, announcing each phase and step as you begin. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
+            Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step in your tmp file, except to-do plan, display that. You will then execute this list step-by-step, announcing each phase and step in your tmp file as you continue. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
             Do not initiate or continue this protocol from the default main worktree; only proceed inside the dedicated worktree for the active branch.
         </initial_action>
         <step number="0">
