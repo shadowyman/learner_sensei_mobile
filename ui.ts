@@ -346,72 +346,78 @@ function updateConceptNavigationArrowsUI(state: CurriculumState | null, curricul
     }
 }
 
-function showChunkResetConfirmation(chunkIndex: number): Promise<boolean> {
+interface ModalPromptOptions {
+    title: string;
+    body: string;
+    confirmLabel: string;
+    cancelLabel?: string;
+}
+
+function showModalPrompt(options: ModalPromptOptions): Promise<boolean> {
     return new Promise(resolve => {
         const backdrop = document.createElement('div');
         backdrop.className = 'chunk-reset-modal-backdrop';
-
         const modal = document.createElement('div');
         modal.className = 'chunk-reset-modal';
-        modal.innerHTML = `
-            <h3>Reset chunk understanding?</h3>
-            <p>This will clear understanding scores and KC awards for chunk ${chunkIndex + 1}. Continue?</p>
-            <div class="chunk-reset-actions">
-                <button class="chunk-reset-cancel">Cancel</button>
-                <button class="chunk-reset-confirm">Reset Chunk</button>
-            </div>
-        `;
-
+        const title = document.createElement('h3');
+        title.textContent = options.title;
+        const body = document.createElement('p');
+        body.innerHTML = options.body;
+        const actions = document.createElement('div');
+        actions.className = 'chunk-reset-actions';
         const cleanup = (result: boolean) => {
             resolve(result);
             document.body.removeChild(backdrop);
         };
-
-        modal.querySelector('.chunk-reset-cancel')?.addEventListener('click', () => cleanup(false));
-        modal.querySelector('.chunk-reset-confirm')?.addEventListener('click', () => cleanup(true));
+        if (options.cancelLabel) {
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'chunk-reset-cancel';
+            cancelButton.textContent = options.cancelLabel;
+            cancelButton.addEventListener('click', () => cleanup(false));
+            actions.appendChild(cancelButton);
+        }
+        const confirmButton = document.createElement('button');
+        confirmButton.className = 'chunk-reset-confirm';
+        confirmButton.textContent = options.confirmLabel;
+        confirmButton.addEventListener('click', () => cleanup(true));
+        actions.appendChild(confirmButton);
+        modal.appendChild(title);
+        modal.appendChild(body);
+        modal.appendChild(actions);
         backdrop.addEventListener('click', event => {
             if (event.target === backdrop) {
                 cleanup(false);
             }
         });
-
         backdrop.appendChild(modal);
         document.body.appendChild(backdrop);
     });
 }
 
-function showConceptAdvanceConfirmation(conceptTitle: string | null, chunkIndex: number): Promise<boolean> {
-    return new Promise(resolve => {
-        const backdrop = document.createElement('div');
-        backdrop.className = 'chunk-reset-modal-backdrop';
-
-        const modal = document.createElement('div');
-        modal.className = 'chunk-reset-modal';
-        modal.innerHTML = `
-            <h3>Advance to next concept?</h3>
-            <p>All chunks for <strong>${conceptTitle || 'this concept'}</strong> are understood. Move on to the next concept?</p>
-            <div class="chunk-reset-actions">
-                <button class="chunk-reset-cancel">Stay Here</button>
-                <button class="chunk-reset-confirm">Advance</button>
-            </div>
-        `;
-
-        const cleanup = (result: boolean) => {
-            resolve(result);
-            document.body.removeChild(backdrop);
-        };
-
-        modal.querySelector('.chunk-reset-cancel')?.addEventListener('click', () => cleanup(false));
-        modal.querySelector('.chunk-reset-confirm')?.addEventListener('click', () => cleanup(true));
-        backdrop.addEventListener('click', event => {
-            if (event.target === backdrop) {
-                cleanup(false);
-            }
-        });
-
-        backdrop.appendChild(modal);
-        document.body.appendChild(backdrop);
+function showChunkResetConfirmation(chunkIndex: number): Promise<boolean> {
+    return showModalPrompt({
+        title: 'Reset chunk understanding?',
+        body: `This will clear understanding scores and KC awards for chunk ${chunkIndex + 1}. Continue?`,
+        confirmLabel: 'Reset Chunk',
+        cancelLabel: 'Cancel'
     });
+}
+
+function showConceptAdvanceConfirmation(conceptTitle: string | null, chunkIndex: number): Promise<boolean> {
+    return showModalPrompt({
+        title: 'Advance to next concept?',
+        body: `All chunks for <strong>${conceptTitle || 'this concept'}</strong> are understood. Move on to the next concept?`,
+        confirmLabel: 'Advance',
+        cancelLabel: 'Stay Here'
+    });
+}
+
+export function showImportFailureModal(message: string): Promise<void> {
+    return showModalPrompt({
+        title: 'Import failed',
+        body: message,
+        confirmLabel: 'OK'
+    }).then(() => undefined);
 }
 
 function areAllChunksUnderstood(

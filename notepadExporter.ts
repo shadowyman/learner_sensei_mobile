@@ -1,6 +1,14 @@
 import { logger } from './logger';
 import { Note } from './notepad';
 
+export const MODULE_SECTION_SELECTOR = '.module-section';
+export const MODULE_HEADER_SELECTOR = '.module-header h2';
+export const NOTE_CARD_SELECTOR = '.note-card';
+export const CONCEPT_TITLE_SELECTOR = '.concept-title';
+export const CONCEPT_ICON_SELECTOR = '.concept-icon';
+export const NOTE_CONTENT_SELECTOR = '.note-content';
+export const NOTE_METADATA_SELECTOR = '.note-metadata .timestamp';
+
 interface ExportOptions {
     includeTimestamps?: boolean;
     groupByModule?: boolean;

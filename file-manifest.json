@@ -25,6 +25,7 @@
   "model_usage.ts",
   "moduleSelectionHandler.ts",
   "notepad.ts",
+  "notepadImporter.ts",
   "notepadExporter.ts",
   "pedagogicalProfiler.ts",
   "prompts.ts",

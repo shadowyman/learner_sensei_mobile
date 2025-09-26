@@ -7,6 +7,8 @@ import { logger } from './logger';
 import { marked } from 'marked';
 import { Curriculum } from './curriculum';
 import { NotepadExporter } from './notepadExporter';
+import { NotepadImporter, ImportedNoteData } from './notepadImporter';
+import { showImportFailureModal } from './ui';
 
 // Declare Quill for TypeScript
 declare var Quill: any;
@@ -27,6 +29,8 @@ interface NotepadState {
     notes: Note[];
     isOpen: boolean;
 }
+
+const IMPORTED_NOTES_TITLE = 'Imported Notes';
 
 function logNotepadActivity(event: string, payload?: Record<string, unknown>): void {
     if (payload && Object.keys(payload).length > 0) {
@@ -49,10 +53,13 @@ export class Notepad {
     private currentModuleIndex: number | null = null;
     private activeQuillEditor: any = null; // Track active Quill instance
     private exporter: NotepadExporter;
+    private importer: NotepadImporter;
+    private importInput: HTMLInputElement | null = null;
     private handleNoteClick: ((e: Event) => void) | null = null; // Event handler reference
-    
+
     constructor() {
         this.exporter = new NotepadExporter();
+        this.importer = new NotepadImporter();
     }
     
     public initialize(curriculum: Curriculum): void {
@@ -125,6 +132,7 @@ export class Notepad {
                 <div class="notepad-modal-header">
                     <h2 class="notepad-modal-title">📓 My Notes</h2>
                     <div class="notepad-header-controls">
+                        <button id="notepad-import-button" class="notepad-export-btn" title="Import notes from HTML">📥 Import HTML</button>
                         <button id="notepad-export-button" class="notepad-export-btn" title="Export notes as HTML">📄 Export HTML</button>
                         <button class="notepad-modal-close" aria-label="Close notepad">&times;</button>
                     </div>
@@ -133,11 +141,12 @@ export class Notepad {
                     <div id="notepad-notes-container"></div>
                 </div>
             </div>
+            <input type="file" id="notepad-import-input" accept=".html" style="display:none" />
         `;
-        
+
         document.body.appendChild(this.modalElement);
     }
-    
+
     private attachEventListeners(): void {
         this.notepadButton = document.getElementById('notepad-button') as HTMLButtonElement;
         if (this.notepadButton) {
@@ -149,12 +158,30 @@ export class Notepad {
         if (exportButton) {
             exportButton.addEventListener('click', () => this.exportToHTML());
         }
-        
+
+        const importButton = document.getElementById('notepad-import-button') as HTMLButtonElement | null;
+        if (importButton) {
+            importButton.addEventListener('click', () => this.openImportPicker());
+        }
+
+        this.importInput = document.getElementById('notepad-import-input') as HTMLInputElement | null;
+        if (this.importInput) {
+            this.importInput.addEventListener('change', async (event) => {
+                const target = event.target as HTMLInputElement;
+                if (!target.files || target.files.length === 0) {
+                    return;
+                }
+                const file = target.files[0];
+                target.value = '';
+                await this.handleImport(file);
+            });
+        }
+
         const closeButton = this.modalElement?.querySelector('.notepad-modal-close');
         if (closeButton) {
             closeButton.addEventListener('click', () => this.closeModal());
         }
-        
+
         this.modalElement?.addEventListener('click', (e) => {
             if (e.target === this.modalElement) {
                 this.closeModal();
@@ -190,7 +217,7 @@ export class Notepad {
     private renderNotes(): void {
         const container = document.getElementById('notepad-notes-container');
         if (!container) return;
-        
+
         if (this.state.notes.length === 0) {
             container.innerHTML = '<p class="notepad-empty-message">No notes yet. Select text and click "Add to Notepad" to save notes.</p>';
             return;
@@ -450,7 +477,7 @@ export class Notepad {
     private exportToHTML(): void {
         try {
             logNotepadActivity('export-started', { totalNotes: this.state.notes.length });
-            
+
             // Show loading state on button
             const exportButton = document.getElementById('notepad-export-button') as HTMLButtonElement;
             if (exportButton) {
@@ -473,6 +500,145 @@ export class Notepad {
                 exportButton.textContent = '📄 Export HTML';
             }
         }
+    }
+
+    private openImportPicker(): void {
+        const input = this.importInput;
+        if (!input) {
+            return;
+        }
+        input.click();
+    }
+
+    private async handleImport(file: File): Promise<void> {
+        const importButton = document.getElementById('notepad-import-button') as HTMLButtonElement | null;
+        if (importButton) {
+            importButton.disabled = true;
+            importButton.textContent = '⏳ Importing...';
+        }
+        try {
+            logger.info('[NOTEPAD_IMPORT] import-started', { fileName: file.name, fileSize: file.size });
+            const curriculum = this.curriculum ?? null;
+            const batch = await this.importer.importFromFile(file, curriculum);
+            const notes = this.transformImportedNotes(batch.notes);
+            if (notes.length > 0) {
+                this.state.notes.push(...notes);
+                logger.info('[NOTEPAD_IMPORT] notes-merged', { totalNotes: this.state.notes.length, addedCount: notes.length });
+                if (this.state.isOpen) {
+                    this.renderNotes();
+                }
+            }
+            logger.info('[NOTEPAD_IMPORT] import-completed', { importedCount: notes.length, syntheticModuleUsed: batch.syntheticModuleRequired });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Import failed.';
+            logger.error('[NOTEPAD_IMPORT] import-failed', { error: message });
+            await showImportFailureModal('Import failed. The selected file is not a valid Sensei export or is malformed.');
+            logger.warn('[NOTEPAD_IMPORT] user-notified', { message: 'Import failure modal displayed.' });
+        } finally {
+            if (importButton) {
+                importButton.disabled = false;
+                importButton.textContent = '📥 Import HTML';
+            }
+        }
+    }
+
+    private transformImportedNotes(data: ImportedNoteData[]): Note[] {
+        const notes: Note[] = [];
+        const syntheticModuleIndex = this.resolveSyntheticModuleIndex();
+        const modulePending = new Map<number, Map<string, number>>();
+        const moduleNextIndex = new Map<number, number>();
+        for (const item of data) {
+            const moduleIndex = this.resolveModuleIndex(item.moduleMatchIndex, syntheticModuleIndex);
+            const moduleTitle = this.resolveModuleTitle(moduleIndex, item.moduleMatchIndex, item.moduleTitle, syntheticModuleIndex);
+            const conceptIndex = this.resolveConceptIndex(moduleIndex, item.conceptTitle, item.conceptMatchIndex, modulePending, moduleNextIndex);
+            const note = this.buildNote(item, moduleIndex, moduleTitle, conceptIndex);
+            notes.push(note);
+        }
+        return notes;
+    }
+
+    private resolveModuleIndex(matchIndex: number | null, syntheticModuleIndex: number): number {
+        if (matchIndex !== null && matchIndex >= 0) {
+            return matchIndex;
+        }
+        return syntheticModuleIndex;
+    }
+
+    private resolveModuleTitle(moduleIndex: number, matchIndex: number | null, fallbackTitle: string, syntheticModuleIndex: number): string {
+        if (matchIndex !== null && this.curriculum && this.curriculum.modules[matchIndex]) {
+            return this.curriculum.modules[matchIndex].title;
+        }
+        if (moduleIndex === syntheticModuleIndex) {
+            return IMPORTED_NOTES_TITLE;
+        }
+        return fallbackTitle || IMPORTED_NOTES_TITLE;
+    }
+
+    private resolveConceptIndex(moduleIndex: number, conceptTitle: string, matchIndex: number | null, modulePending: Map<number, Map<string, number>>, moduleNextIndex: Map<number, number>): number {
+        if (matchIndex !== null && matchIndex >= 0) {
+            return matchIndex;
+        }
+        if (!modulePending.has(moduleIndex)) {
+            modulePending.set(moduleIndex, new Map());
+        }
+        const pending = modulePending.get(moduleIndex)!;
+        if (pending.has(conceptTitle)) {
+            return pending.get(conceptTitle)!;
+        }
+        const existing = this.state.notes.find(note => note.moduleIndex === moduleIndex && note.conceptTitle === conceptTitle);
+        if (existing) {
+            const index = existing.conceptIndex;
+            pending.set(conceptTitle, index);
+            return index;
+        }
+        const index = this.nextConceptIndex(moduleIndex, moduleNextIndex);
+        pending.set(conceptTitle, index);
+        return index;
+    }
+
+    private nextConceptIndex(moduleIndex: number, moduleNextIndex: Map<number, number>): number {
+        if (!moduleNextIndex.has(moduleIndex)) {
+            const existing = this.state.notes.filter(note => note.moduleIndex === moduleIndex).map(note => note.conceptIndex);
+            let next = existing.length > 0 ? Math.max(...existing) + 1 : 0;
+            if (this.curriculum && moduleIndex < this.curriculum.modules.length) {
+                const baseline = this.curriculum.modules[moduleIndex]?.concepts.length ?? 0;
+                if (next < baseline) {
+                    next = baseline;
+                }
+            }
+            moduleNextIndex.set(moduleIndex, next);
+        }
+        const value = moduleNextIndex.get(moduleIndex)!;
+        moduleNextIndex.set(moduleIndex, value + 1);
+        return value;
+    }
+
+    private buildNote(item: ImportedNoteData, moduleIndex: number, moduleTitle: string, conceptIndex: number): Note {
+        return {
+            id: crypto.randomUUID(),
+            moduleTitle,
+            conceptTitle: item.conceptTitle,
+            conceptIndex,
+            moduleIndex,
+            text: item.textContent,
+            htmlContent: item.htmlContent,
+            timestamp: item.timestamp
+        };
+    }
+
+    private resolveSyntheticModuleIndex(): number {
+        const existing = this.state.notes.find(note => note.moduleTitle === IMPORTED_NOTES_TITLE);
+        if (existing) {
+            return existing.moduleIndex;
+        }
+        if (this.curriculum) {
+            return this.curriculum.modules.length;
+        }
+        if (this.state.notes.length === 0) {
+            return 0;
+        }
+        const maxIndex = Math.max(...this.state.notes.map(note => note.moduleIndex));
+        return maxIndex + 1;
     }
 }
 
