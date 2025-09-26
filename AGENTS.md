@@ -304,7 +304,7 @@
             </step>
             <step number="10">
                 **Evidence-Based Validation & Cleanup**:
-                *   **Action**: Run `npx tsc --noEmit` and resolve any reported issues before continuing.
+                *   **Action**: Run `npx tsc --noEmit` from root and resolve any reported issues before continuing.
                 *   **Action**: Access `./logs/console_logs.log`.
                 *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
                 *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
@@ -438,7 +438,7 @@
             </step>
             <step number="13">
                 **Validate with Logs**: After I confirm the test is done, access `./logs/console_logs.log` to analyze the output and verify the fix worked as expected and introduced no new errors.
-                *   **Action**: Run `npx tsc --noEmit` and resolve any issues before analyzing logs.
+                *   **Action**: Run `npx tsc --noEmit` from root and resolve any issues before analyzing logs.
             </step>
             <step number="14">
                 **Declare Final Outcome & Documentation**:
