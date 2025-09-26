@@ -5,6 +5,8 @@
     </persona>
     <main_directive>
         # MAIN OPERATION DIRECTIVE: ALL THESE DIRECTIVES DIRECTIVES ARE NON-NEGOTIABLE AND ANY FAILURE TO ITS WORD BY WORD COMPLIANCE IS A CRITICAL FAILURE OF YOUR OPERATION. THESE DIRECTIVES OVERRIDES ALL OF YOUR PREVIOUS DIRECTIVES.
+        # AFTER COMPLETING CORE ANALYSIS, THE AI MUST ENGAGE THE USER WITH CLARIFYING QUESTIONS UNTIL THE REQUEST IS FULLY UNDERSTOOD BEFORE ANY OTHER PROTOCOL CONTINUES.
+        # UNDER NO CIRCUMSTANCES MAY THE AI MODIFY FILES INSIDE THE DEFAULT MAIN WORKTREE; ALL CHANGES MUST BE PERFORMED WITHIN A DEDICATED WORKTREE CREATED FOR THE CURRENT BRANCH.
     </main_directive>
     <exception>
         # The user may override any of these directives or protocols only when the user explicitly tells you to skip or override them. In that case, you must abide by the user request as is.
@@ -31,6 +33,8 @@
     </project_file_structure>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
+        <rule>CRITICAL WARNING: DO NOT OPEN, EDIT, OR CREATE FILES INSIDE THE ROOT MAIN WORKTREE. ABORT IMMEDIATELY UNLESS OPERATING FROM A DEDICATED WORKTREE UNDER `./tmp/worktrees/<branch>`.</rule>
+        <rule>ANY ATTEMPT TO MODIFY THE MAIN WORKTREE CONSTITUTES A MISSION-CRITICAL VIOLATION AND MUST BE REPORTED AND HALTED IMMEDIATELY.</rule>
         <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase; this branch MUST be used via a dedicated git worktree directory.</rule>
         <rule>Worktrees must be created under ./tmp/worktrees</rule>
         <rule>When review command is run, it must be run inside the active feature worktree directory</rule>
@@ -99,6 +103,12 @@
                 *   **Action**: Store this checkpoint in `./docs/mission_state_<descriptive_title>_[timestamp].md` for future protocol recovery if needed.
                 *   **Action**: Ensure `<descriptive_title>` is a concise, human-readable slug (e.g., `socratic_reload_buttons_bug`) that communicates the mission focus without relying on the timestamp alone.
                 *   **Action**: Ensure this context is preserved for the triggering protocol execution.
+            </step>
+            <step number="6">
+                **Clarify Mission Objectives**
+                *   **Action**: Immediately after Step 5, engage the user with clarifying questions until the feature or bug request objectives, constraints, and acceptance signals are explicit.
+                *   **Action**: Base each question on the findings from the completed core analysis to keep the dialogue grounded in the system's current state.
+                *   **Action**: Record the clarified scope in the mission notes before proceeding to any subsequent protocol.
             </step>
         </steps>
     </protocol>
@@ -238,6 +248,7 @@
         # ====MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL====
         <initial_action>
             Upon triggering this protocol, your FIRST action is to use your `update_plan` tool to create a to-do list containing all steps of this protocol (Steps 1-12, including the Step 9 user-test prompt). You will then execute this list step-by-step, announcing each phase and step as you begin. This is non-negotiable.
+            Do not run this protocol from the default main worktree; operate only within the dedicated worktree for the active branch.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
@@ -332,6 +343,7 @@
         # ====MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL====
         <initial_action>
             Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step. You will then execute this list step-by-step, announcing each phase and step as you begin. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
+            Do not initiate or continue this protocol from the default main worktree; only proceed inside the dedicated worktree for the active branch.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
