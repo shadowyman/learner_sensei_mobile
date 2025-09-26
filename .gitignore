@@ -30,3 +30,4 @@ Thumbs.db
 backup/
 .mcp-storage/
 sonarqube-25.6.0.109173/
+code_review/
