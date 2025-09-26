@@ -33,7 +33,7 @@
         # MANDATORY IMPLEMENTATION GIT POLICY
         <rule>MANDATORY: Immediately create or switch to a dedicated git branch named for the change scope before touching the codebase; this branch MUST be used via a dedicated git worktree directory.</rule>
         <rule>Worktrees must be created under ./tmp/worktrees</rule>
-        <rule>When review command is run, it must be run under ROOT dir</rule>
+        <rule>When review command is run, it must be run inside the active feature worktree directory</rule>
         <rule>NEVER fetch changes from remote. Local main is the absolute source of truth</rule>
         <rule>ABSOLUTE PROHIBITION: NEVER operate directly on `main`; abort any edit attempt until a worktree on a feature/bug branch is active.</rule>
         <rule>MANDATORY: Use git worktrees for parallel work. Each active feature or bugfix branch MUST be checked out in its own isolated worktree directory; do not edit in the root working tree.</rule>
@@ -129,7 +129,7 @@
             </step>
             <step number="5">
                 **Generate Review Artifact**:
-                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` FROM ROOT FOLDER, NOT WORKTREE FOLDER!!!.
+                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` from the active feature worktree directory.
                 *   Reuse the same `<slug>` on subsequent runs; update the narrative to reflect only what changed in that run.
             </step>
             <step number="6">

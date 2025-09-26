@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, unlinkSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, isAbsolute } from 'path';
 import { spawnSync } from 'child_process';
 
 type DiffMode = 'staged' | 'working' | 'branch';
@@ -205,6 +205,12 @@ function timestamp(): string {
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
+function getRepositoryRoot(): string {
+  const commonDirRaw = runGit(['rev-parse', '--git-common-dir']).trim();
+  const commonDir = isAbsolute(commonDirRaw) ? commonDirRaw : resolve(process.cwd(), commonDirRaw);
+  return resolve(commonDir, '..');
+}
+
 function readCurrentBranch(): string {
   try {
     const name = runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
@@ -396,7 +402,8 @@ function generateReview(): void {
   }
   const prRequestRaw = parseArgument(argv, 'pr_request').trim();
   const generated = timestamp();
-  const outputDir = resolve(process.cwd(), 'code_review');
+  const repoRoot = getRepositoryRoot();
+  const outputDir = resolve(repoRoot, 'code_review');
   ensureDirectory(outputDir);
   const branchName = readCurrentBranch();
   let files: string[] = [];
