@@ -30,6 +30,14 @@
         <rule>- All other misc files will be created under ROOT ./tmp</rule>
         <rule>- You MUST NOT create files in the root folder unless they are core project code files</rule>
     </project_file_structure>
+    <backup_policy>
+        <rule>Before modifying any project file (excluding docs), you MUST generate a timestamped manifest backup in **root backup folder**: create `root/backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
+        <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
+        <rule>If you add or remove a project file that should be tracked, you MUST update `file-manifest.json` in the same session before producing the backup.</rule>
+        <rule>When both the manifest and project files change, update the manifest first, then regenerate the timestamped backup so it reflects the latest list.</rule>
+        <rule>Codex MUST programmatically assemble `BACKUP_CONTEXT.md` (<=10 lines with timestamp, feature/fix name, and planned scope) immediately before zipping: write it temporarily to `backup/BACKUP_CONTEXT.md`, include it inside the archive being created, confirm the file is present in the zip, then automatically delete the workspace copy so no residue of `BACKUP_CONTEXT.md` exists outside the archive.</rule>
+        <rule>When in the midst of adding slight modifications, changes as part of a bigger implementation, no need to backup as long as initial backup was created for that feature or bug.</rule>
+    </backup_policy>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
         <rule>Never modify files while on `main`; switch to a dedicated feature branch before making changes.</rule>
@@ -41,8 +49,16 @@
         # PLANNING DISCIPLINE DIRECTIVE
         <rule>Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish.</rule>
     </planning_discipline>
+    <analysis_mandate>
+        # ANALYZER UTILIZATION DIRECTIVE
+        <rule>Before engaging in any code review, cleanup, refactor, or investigative protocol, execute `npm run analysis:run` (scoping with `--include` when appropriate) and review the generated artifacts prior to planning or editing. Example analyzer usage is documented within the <analysis_tooling> section.</rule>
+        <rule>When determining call sites, dependencies, or side effects, the agent MUST first consult analyzer outputs (e.g., query `tmp/analysis/calls.json`, `functions.json`, `fan_in.json`) or some appropriate artifact before resorting to manual file searches.</rule>
+    </analysis_mandate>
     <analysis_tooling>
         YOU MUST USE THE TOOL AS MUCH AS POSSIBLE INSTEAD OF DOING MANUAL LOOKUPS
+        <mandate>
+            Before any code review, cleanup, refactor, or similar investigation, the agent MUST execute `npm run analysis:run` (scoped with `--include` when appropriate) and consult the emitted artifacts prior to planning or editing. Example invocations of the analyzer are documented within this <analysis_tooling> section for quick reference.
+        </mandate>
         # ANALYZER TOOL (scripts/analyze.ts)
         ANALYZER(1) — Static Codebase Analyzer for Sensei
         ==================================================
@@ -150,14 +166,6 @@
         # DOM: templates with extracted selectors (file + line + selectors)
         jq '.templates[]|{file,line:.loc.start.line,selectors:[.selectors[].selector]}' tmp/analysis/domsuite_templates.json
     </analysis_tooling>
-    <backup_policy>
-        <rule>Before modifying any project file (excluding docs), you MUST generate a timestamped manifest backup in **root backup folder**: create `root/backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
-        <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
-        <rule>If you add or remove a project file that should be tracked, you MUST update `file-manifest.json` in the same session before producing the backup.</rule>
-        <rule>When both the manifest and project files change, update the manifest first, then regenerate the timestamped backup so it reflects the latest list.</rule>
-        <rule>Codex MUST programmatically assemble `BACKUP_CONTEXT.md` (<=10 lines with timestamp, feature/fix name, and planned scope) immediately before zipping: write it temporarily to `backup/BACKUP_CONTEXT.md`, include it inside the archive being created, confirm the file is present in the zip, then automatically delete the workspace copy so no residue of `BACKUP_CONTEXT.md` exists outside the archive.</rule>
-        <rule>When in the midst of adding slight modifications, changes as part of a bigger implementation, no need to backup as long as initial backup was created for that feature or bug.</rule>
-    </backup_policy>
     <protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)">
         # ====MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)====
         <usage>
@@ -429,6 +437,7 @@
             <step number="7">
                 **Execute Plan & Implement Validation Logs**:
                 *   **Action**: Begin implementation step-by-step.
+                *   **Action**: Utilize analyze tool for faster lookups and better understanding of dependencies in tandem with manual audit.
                 *   **Action**: Do not add comments.
                 *   **Action**: You MUST implement the code **AND** the exact corresponding Validation Logs as defined in the approved plan from Step 5.
             </step>
@@ -572,6 +581,7 @@
                 **Generate Phased To-Do List**: Once I approve a strategy, convert it into a detailed to-do list, including steps for adding temporary debug logs for validation. STOP HERE!
             </step>
             <step number="10">
+                **Action**: Utilize analyze tool for faster lookups and better understanding of dependencies in tandem with manual audit.
                 **Execute Fix with Logging**: Do not add comments. Implement the fix according to the plan, adding descriptive debug logs `logger.[log|warn|error]` that will prove the fix works.  Logs must start with "[XXX]..." and must have a tag defining the bug for `XXX`.
             </step>
             <step number="11">
