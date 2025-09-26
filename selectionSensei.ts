@@ -57,6 +57,7 @@ class SelectionSensei {
     private isDragging = false;
     private offsetX = 0;
     private offsetY = 0;
+    private boundOutsidePointerHandler: (event: PointerEvent) => void;
 
     constructor(
         private ai: GoogleGenAI,
@@ -69,6 +70,7 @@ class SelectionSensei {
         this.handleDragStart = this.handleDragStart.bind(this);
         this.handleDragMove = this.handleDragMove.bind(this);
         this.handleDragEnd = this.handleDragEnd.bind(this);
+        this.boundOutsidePointerHandler = this.handleOutsidePointerDown.bind(this);
     }
 
     public initialize(): void {
@@ -83,6 +85,7 @@ class SelectionSensei {
         document.removeEventListener('selectionchange', this.handleSelectionChange);
         document.removeEventListener('mousemove', this.handleDragMove);
         document.removeEventListener('mouseup', this.handleDragEnd);
+        document.removeEventListener('pointerdown', this.boundOutsidePointerHandler, true);
 
         if (this.responseModalCloseButton) {
             this.responseModalCloseButton.removeEventListener('click', this.hideResponseModal);
@@ -159,6 +162,7 @@ class SelectionSensei {
         // Use global listeners for move and up to handle dragging outside the modal
         document.addEventListener('mousemove', this.handleDragMove);
         document.addEventListener('mouseup', this.handleDragEnd);
+        document.addEventListener('pointerdown', this.boundOutsidePointerHandler, true);
     }
 
     private handleTextSelection(event: MouseEvent | TouchEvent): void {
@@ -861,6 +865,27 @@ class SelectionSensei {
             this.isDragging = false;
             if (this.responseModal) this.responseModal.style.userSelect = '';
         }
+    }
+
+    private handleOutsidePointerDown(event: PointerEvent): void {
+        if (!this.responseModal) {
+            return;
+        }
+
+        if (this.isDragging) {
+            return;
+        }
+
+        if (this.responseModal.style.display === 'none') {
+            return;
+        }
+
+        const target = event.target as Node | null;
+        if (target && this.responseModal.contains(target)) {
+            return;
+        }
+
+        this.hideResponseModal();
     }
 }
 
