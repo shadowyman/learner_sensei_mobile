@@ -257,6 +257,7 @@ function resolveImport(fromFile: string, spec: string): string | null {
   const base = path.dirname(fromFile)
   const full = path.resolve(base, spec)
   const candidates = [full, path.join(full, 'index')]
+  for (const c of candidates) if (fs.existsSync(c)) return rel(c)
   const exts = ['.ts', '.tsx', '.d.ts', '.js', '.jsx']
   for (const c of candidates) {
     for (const ext of exts) {
@@ -281,6 +282,29 @@ function literalText(node: ts.Expression, sf: ts.SourceFile): string | null {
   if (ts.isStringLiteral(node)) return node.text
   if (ts.isNoSubstitutionTemplateLiteral(node)) return node.text
   return null
+}
+
+function unwrap(e: ts.Expression): ts.Expression {
+  while (true) {
+    if (ts.isParenthesizedExpression(e)) {
+      e = e.expression
+      continue
+    }
+    if (ts.isNonNullExpression(e)) {
+      e = e.expression
+      continue
+    }
+    if (ts.isAsExpression(e)) {
+      e = e.expression
+      continue
+    }
+    if (ts.isTypeAssertionExpression(e)) {
+      e = e.expression
+      continue
+    }
+    break
+  }
+  return e
 }
 
 function selectorsFromHtml(html: string) {
@@ -621,6 +645,26 @@ function collectAliases(sf: ts.SourceFile): ImportAlias[] {
       }
     }
   })
+
+  sf.forEachChild(node => {
+    if (!ts.isVariableStatement(node)) return
+    for (const decl of node.declarationList.declarations) {
+      if (!ts.isObjectBindingPattern(decl.name) || !decl.initializer) continue
+      const init = ts.isAwaitExpression(decl.initializer) ? decl.initializer.expression : decl.initializer
+      if (!ts.isCallExpression(init) || init.expression.kind !== ts.SyntaxKind.ImportKeyword) continue
+      const arg = init.arguments[0]
+      if (!arg || !ts.isStringLiteral(arg)) continue
+      const source = resolveImport(sf.fileName, arg.text)
+      if (!source) continue
+      for (const el of decl.name.elements) {
+        if (!ts.isBindingElement(el)) continue
+        const local = el.name.getText(sf)
+        const exported = el.propertyName ? el.propertyName.getText(sf) : el.name.getText(sf)
+        aliases.push({ local, source, export: exported })
+      }
+    }
+  })
+
   return aliases
 }
 
@@ -735,6 +779,8 @@ function collectFunctions(program: ts.Program, include?: string[]) {
     analyzeFile(data, functionIndex, funcs, edges, assumptions)
   }
 
+  scanGlobalExposures(program, edges, functionIndex)
+
   for (const edge of edges) {
     if (!edge.fromStable) {
       const stable = functionStableIdById.get(edge.from)
@@ -752,6 +798,20 @@ function collectFunctions(program: ts.Program, include?: string[]) {
 function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: FunctionInfo[], edges: CallEdge[], assumptions: Assumption[]) {
   const { sf, file, nodes, locals, instanceTypes } = data
   const aliases = collectAliases(sf)
+  const nsImports = new Map<string, string>()
+  sf.forEachChild(n => {
+    if (!ts.isVariableStatement(n)) return
+    for (const decl of n.declarationList.declarations) {
+      if (!ts.isIdentifier(decl.name) || !decl.initializer) continue
+      let init = decl.initializer as ts.Expression
+      if (ts.isAwaitExpression(init)) init = init.expression as ts.Expression
+      if (!ts.isCallExpression(init) || init.expression.kind !== ts.SyntaxKind.ImportKeyword) continue
+      const arg = init.arguments[0]
+      if (!arg || !ts.isStringLiteral(arg)) continue
+      const source = resolveImport(sf.fileName, arg.text)
+      if (source) nsImports.set(decl.name.text, source)
+    }
+  })
   const classFieldInstances = new Map<string, Map<string, { source: string; className: string }>>()
   let anonCounter = 0
 
@@ -1180,6 +1240,12 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
             if (instance) {
               const target = resolveInstanceTarget(instance.source, instance.className, prop)
               recordEdge(target, `${recvText}.${prop}`, getLoc(sf, node))
+            } else {
+              const nsSrc = nsImports.get(rawRecv.text)
+              if (nsSrc) {
+                const target = functionIndex.get(`${nsSrc}::${prop}`)
+                if (target) recordEdge(target, `${recvText}.${prop}`, getLoc(sf, node))
+              }
             }
           } else if (isThisExpression(rawRecv) && className) {
             const candidate = resolveIdentifier(`${className}.${prop}`)
@@ -1213,6 +1279,12 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
             if (instance) {
               const target = resolveInstanceTarget(instance.source, instance.className, prop)
               recordEdge(target, `${recvText}[${prop}]`, getLoc(sf, node))
+            } else if (arg && ts.isStringLiteral(arg)) {
+              const nsSrc = nsImports.get(rawRecv.text)
+              if (nsSrc) {
+                const target = functionIndex.get(`${nsSrc}::${arg.text}`)
+                if (target) recordEdge(target, `${recvText}[${prop}]`, getLoc(sf, node))
+              }
             }
           }
         }
@@ -1287,6 +1359,206 @@ function analyzeFile(data: FileData, functionIndex: Map<string, string>, funcs: 
       startLine: selfLoc.start.line,
       startCol: selfLoc.start.col
     })
+  }
+}
+
+function scanGlobalExposures(program: ts.Program, edges: CallEdge[], functionIndex: Map<string, string>) {
+  const globals = new Set(['window', 'globalThis', 'self'])
+
+  const tryBuildPath = (lhs: ts.Expression, sf: ts.SourceFile, aliases: Set<string>) => {
+    const parts: string[] = []
+    let cur: ts.Expression = lhs
+    while (ts.isPropertyAccessExpression(cur) || ts.isElementAccessExpression(cur)) {
+      if (ts.isPropertyAccessExpression(cur)) {
+        parts.unshift(cur.name.getText(sf))
+        cur = cur.expression
+      } else {
+        const arg = cur.argumentExpression && unwrap(cur.argumentExpression as ts.Expression)
+        if (!arg || !ts.isStringLiteral(arg)) return null
+        parts.unshift(arg.text)
+        cur = cur.expression
+      }
+    }
+    cur = unwrap(cur)
+    if (!ts.isIdentifier(cur)) return null
+    const root = cur.text
+    if (!aliases.has(root)) return null
+    return { root, path: parts.join('.') }
+  }
+
+  const propertyNameText = (name: ts.PropertyName | undefined, sf: ts.SourceFile): string | null => {
+    if (!name) return null
+    if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name) || ts.isPrivateIdentifier(name)) return name.text
+    if (ts.isComputedPropertyName(name)) {
+      const expr = unwrap(name.expression)
+      if (ts.isStringLiteral(expr) || ts.isNumericLiteral(expr)) return expr.text
+      return expr.getText(sf)
+    }
+    return name.getText(sf)
+  }
+
+  const resolveTarget = (
+    rhs: ts.Expression,
+    sf: ts.SourceFile,
+    file: string,
+    aliasByLocal: Map<string, ImportAlias>,
+    nsImports: Map<string, string>
+  ): string | null => {
+    rhs = unwrap(rhs)
+    if (ts.isCallExpression(rhs) && ts.isPropertyAccessExpression(rhs.expression) && rhs.expression.name.getText(sf) === 'bind') {
+      return resolveTarget(rhs.expression.expression as ts.Expression, sf, file, aliasByLocal, nsImports)
+    }
+    if (ts.isIdentifier(rhs)) {
+      const byLocal = functionIndex.get(`${file}::${rhs.text}`)
+      if (byLocal) return byLocal
+      const alias = aliasByLocal.get(rhs.text)
+      if (alias) return functionIndex.get(`${alias.source}::${alias.export}`) ?? null
+      const sym = unaliasSymbol(checker.getSymbolAtLocation(rhs))
+      if (sym) {
+        const decls = sym.getDeclarations() || []
+        for (const d of decls) {
+          const to = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
+          if (to) return to
+        }
+      }
+      return null
+    }
+    if (ts.isPropertyAccessExpression(rhs)) {
+      const name = rhs.name.getText(sf)
+      if (ts.isIdentifier(rhs.expression)) {
+        const src = nsImports.get(rhs.expression.text)
+        if (src) return functionIndex.get(`${src}::${name}`) ?? null
+      }
+      const propSym0 = checker.getSymbolAtLocation(rhs.name)
+      const propSym = propSym0 && (propSym0.flags & ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(propSym0) : propSym0
+      if (propSym) {
+        const decls = propSym.getDeclarations() || []
+        for (const d of decls) {
+          const to = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+          if (to) return to
+        }
+      }
+      return null
+    }
+    return null
+  }
+
+  for (const sf of program.getSourceFiles()) {
+    if (!isProjectSource(sf)) continue
+    const file = rel(sf.fileName)
+    const importAliases = collectAliases(sf)
+    const aliasByLocal = new Map(importAliases.map(a => [a.local, a]))
+
+    const windowAliases = new Set<string>(globals)
+    sf.forEachChild(n => {
+      if (!ts.isVariableStatement(n)) return
+      for (const decl of n.declarationList.declarations) {
+        if (!ts.isIdentifier(decl.name) || !decl.initializer) continue
+        const init = unwrap(decl.initializer as ts.Expression)
+        if (ts.isIdentifier(init) && globals.has(init.text)) windowAliases.add(decl.name.text)
+      }
+    })
+
+    const nsImports = new Map<string, string>()
+    sf.forEachChild(n => {
+      if (!ts.isVariableStatement(n)) return
+      for (const decl of n.declarationList.declarations) {
+        if (!ts.isIdentifier(decl.name) || !decl.initializer) continue
+        let init = decl.initializer as ts.Expression
+        if (ts.isAwaitExpression(init)) init = init.expression as ts.Expression
+        if (!ts.isCallExpression(init) || init.expression.kind !== ts.SyntaxKind.ImportKeyword) continue
+        const arg = init.arguments[0]
+        if (!arg || !ts.isStringLiteral(arg)) continue
+        const source = resolveImport(sf.fileName, arg.text)
+        if (source) nsImports.set(decl.name.text, source)
+      }
+    })
+
+    const addEdge = (to: string, via: string, locNode: ts.Node) => {
+      const loc = getLoc(sf, locNode)
+      const toStable = functionStableIdById.get(to)
+      const rec: CallEdge = { from: 'global::exposed', to, via, loc }
+      if (toStable) rec.toStable = toStable
+      edges.push(rec)
+    }
+
+    const visit = (node: ts.Node) => {
+      if (ts.isExpressionStatement(node) && ts.isBinaryExpression(node.expression) && node.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        const be = node.expression
+        const lhsInfo = (ts.isPropertyAccessExpression(be.left) || ts.isElementAccessExpression(be.left)) && tryBuildPath(be.left, sf, windowAliases)
+        if (lhsInfo) {
+          const to = resolveTarget(be.right as ts.Expression, sf, file, aliasByLocal, nsImports)
+          if (to) addEdge(to, `${lhsInfo.root}.${lhsInfo.path}=id`, node)
+        }
+      }
+
+      if (ts.isExpressionStatement(node) && ts.isCallExpression(node.expression)) {
+        const call = node.expression
+        const callee = call.expression
+        const name = ts.isPropertyAccessExpression(callee) ? callee.name.getText(sf) : (ts.isIdentifier(callee) ? callee.text : '')
+        if (name === 'defineProperty' || name === 'defineProperties' || name === 'assign') {
+          const args = call.arguments
+          if (args.length >= 1) {
+            const target = unwrap(args[0] as ts.Expression)
+            const isGlobalTarget = ts.isIdentifier(target) && windowAliases.has(target.text)
+            if (isGlobalTarget) {
+              if (name === 'assign' && args.length >= 2) {
+                const second = unwrap(args[1] as ts.Expression)
+                if (ts.isObjectLiteralExpression(second)) {
+                  for (const p of second.properties) {
+                    if (ts.isPropertyAssignment(p) || ts.isMethodDeclaration(p as any)) {
+                      const valueExpr = ts.isPropertyAssignment(p) ? (p.initializer as ts.Expression) : (p as any)
+                      const to = resolveTarget(valueExpr, sf, file, aliasByLocal, nsImports)
+                      if (to) {
+                        const pname = propertyNameText((p as ts.PropertyAssignment | ts.MethodDeclaration).name, sf)
+                        if (pname) addEdge(to, `Object.assign(${(target as ts.Identifier).text}).${pname}`, node)
+                      }
+                    }
+                  }
+                }
+              } else if (name === 'defineProperty' && args.length >= 3) {
+                const propArg = unwrap(args[1] as ts.Expression)
+                const desc = unwrap(args[2] as ts.Expression)
+                if (ts.isStringLiteral(propArg) && ts.isObjectLiteralExpression(desc)) {
+                  const propName = propArg.text
+                  for (const dp of desc.properties) {
+                    if (!ts.isPropertyAssignment(dp)) continue
+                    const key = propertyNameText(dp.name, sf)
+                    if (!key) continue
+                    if (key !== 'value' && key !== 'get' && key !== 'set') continue
+                    const to = resolveTarget(dp.initializer as ts.Expression, sf, file, aliasByLocal, nsImports)
+                    if (to) addEdge(to, `Object.defineProperty(${(target as ts.Identifier).text}).${propName}.${key}`, node)
+                  }
+                }
+              } else if (name === 'defineProperties' && args.length >= 2) {
+                const second = unwrap(args[1] as ts.Expression)
+                if (ts.isObjectLiteralExpression(second)) {
+                  for (const p of second.properties) {
+                    if (!ts.isPropertyAssignment(p)) continue
+                    const propName = propertyNameText(p.name, sf)
+                    if (!propName) continue
+                    const descExpr = unwrap(p.initializer as ts.Expression)
+                    if (!ts.isObjectLiteralExpression(descExpr)) continue
+                    for (const dp of descExpr.properties) {
+                      if (!ts.isPropertyAssignment(dp)) continue
+                      const key = propertyNameText(dp.name, sf)
+                      if (!key) continue
+                      if (key !== 'value' && key !== 'get' && key !== 'set') continue
+                      const to = resolveTarget(dp.initializer as ts.Expression, sf, file, aliasByLocal, nsImports)
+                      if (to) addEdge(to, `Object.defineProperties(${(target as ts.Identifier).text}).${propName}.${key}`, node)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      ts.forEachChild(node, visit)
+    }
+
+    sf.forEachChild(visit)
   }
 }
 
