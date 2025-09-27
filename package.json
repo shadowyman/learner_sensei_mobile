@@ -13,7 +13,8 @@
     "analysis:dom": "npm run analysis:run -- --preset domsuite",
     "analysis:ui": "npm run analysis:run -- --preset ui",
     "analysis:notepad": "npm run analysis:run -- --preset notepad",
-    "test:analyzer": "ts-node tests/analyzer.integration.ts"
+    "test:analyzer": "ts-node tests/analyzer.integration.ts",
+    "backup:create": "ts-node scripts/createBackup.ts"
   },
   "keywords": [
     "education",

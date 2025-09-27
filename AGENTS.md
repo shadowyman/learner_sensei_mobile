@@ -30,12 +30,9 @@
         <rule>- You MUST NOT create files in the root folder unless they are core project code files</rule>
     </project_file_structure>
     <backup_policy>
-        <rule>Before modifying any non-doc project file, you MUST create `root/backup/sensei_backup_<feature>_<YYYYMMDD_HHMMSS>.zip` including all files from `file-manifest.json` and a fresh `BACKUP_CONTEXT.md`.</rule>
-        <rule>`<feature>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that conveys the backup’s purpose.</rule>
-        <rule>If tracked files are added or removed, you MUST update `file-manifest.json` in the same session before creating the backup.</rule>
-        <rule>If both manifest and project files change, update the manifest first, then create a new timestamped backup.</rule>
-        <rule>Codex MUST programmatically generate `BACKUP_CONTEXT.md` (≤10 lines: timestamp, feature/fix name, planned scope) immediately before zipping; write to `backup/BACKUP_CONTEXT.md`, include it in the archive, verify it’s present, then delete the workspace copy.</rule>
-        <rule>Minor tweaks within the same feature/bug after the initial backup do not require another backup.</rule>
+        <rule>Before modifying any non-doc project file, run `npm run backup:create -- --feature "<feature_slug>" --context "<custom context>"` to produce the required archive.</rule>
+        <rule>`<feature_slug>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that conveys the backup’s purpose.</rule>
+        <rule>Compose the context argument as 1-2 sentences that state the scope and the planned changes that will follow after the backup; the script stores the text verbatim.</rule>
     </backup_policy>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
@@ -254,6 +251,7 @@
                 *   Adopt a skeptical reviewer persona and examine the change as if you did not author it.
                 *   Challenge robustness, edge cases, error handling, and alignment with the original requirements.
                 *   Reopen the latest Core Analysis artifacts (static execution trace, DSE table, assumptions) and verify the change preserves their correctness or updates them appropriately.
+                *   Pull context from `tmp/analysis` artifacts before opening source files manually; only inspect code directly when analyzer data cannot answer the question.
                 *   Verify every requirement from the parent step is met.
             </step>
             <step number="3">
@@ -261,22 +259,18 @@
                 *   If issues are found, document them succinctly, remediate, and repeat Step 2 until the change passes review.
             </step>
             <step number="4">
-                **Stage & Commit**:
-                *   Stage new and updated files AND commit using a conventional message appropriate to the context. YOU MUST RUN THIS WITH ELEVATED PERMISSIONS.
-            </step>
-            <step number="5">
                 **Generate Review Artifact**:
                 *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on `main`.
                 *   Reuse the same `<slug>` on subsequent runs; update the narrative to reflect only what changed in that run.
             </step>
-            <step number="6">
+            <step number="5">
                 **Record Artifact Path**:
                 *   Capture the emitted path `code_review/review_<final_slug>.html`.
                 *   Do not update documentation at this step. Store this path for later use in the respective protocol’s documentation step.
                 *   If invoked from Feature Implementation, retain the path to include in the Feature Documentation step.
                 *   If invoked from Root Cause & Remediation, retain the path to cite in `PREVIOUS_BUG_FIXES.md` during its documentation step.
             </step>
-            <step number="7">
+            <step number="6">
                 **Review Handoff & Proceed**:
                 *   Announce completion: “RCI Review protocol complete. Resuming <parent protocol step>.”
             </step>
@@ -291,6 +285,7 @@
             * Assign risk level (1-5) based on scope and criticality
             * Determine required analysis depth based on classification
             * Log classification rationale with evidence
+            * Source evidence from analyzer outputs before supplementing with manual inspection; only escalate to direct file review if the artifacts lack required detail.
         </step>
         <step number="2">
             **Multi-Dimensional Impact Mapping**:
@@ -300,6 +295,7 @@
             * **Operational Dimension**: Monitoring, logging, deployment implications
             * **Maintenance Dimension**: Code clarity, documentation, future developer experience
             * Create impact score for each dimension (1-10)
+            * Use analyzer dependency graphs and reports before exploring files manually; fall back to manual context only when tooling does not surface the needed insight.
         </step>
         <step number="3">
             **Stakeholder Cascade Analysis**:
@@ -308,6 +304,7 @@
             * Analyze end-user impact (UX flows, performance, accessibility)
             * Consider operations impact (debugging, monitoring, deployment)
             * Document future developer implications (patterns, maintainability)
+            * Query analyzer call graphs and fan-in/out data first; perform manual chaining only if analyzer coverage is insufficient.
         </step>
         <step number="4">
             **Temporal Ripple Effect Analysis**:
@@ -315,6 +312,7 @@
             * **Short-term**: How will this affect integration? User experience? Performance?
             * **Medium-term**: Technical debt implications? Maintenance burden? Scalability?
             * **Long-term**: Architecture evolution? Migration compatibility? Team knowledge transfer?
+            * Derive supporting signals from analyzer outputs prior to manual exploration; inspect code directly only when tools cannot answer timeline impacts.
         </step>
         <step number="5">
             **Context-Aware Validation Plan**:
@@ -322,6 +320,7 @@
             * Define specific evidence needed to prove safety (logs, tests, metrics)
             * Establish rollback plan and monitoring requirements
             * Set success criteria for each affected dimension
+            * Lean on analyzer artifacts (functions.json, calls.json, assumptions.json) when selecting validation targets; supplement manually only if the tooling is silent.
         </step>
         <step number="6">
             **Execute with Comprehensive Monitoring**:
@@ -334,7 +333,7 @@
     <protocol name="MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL">
         This protocol only runs if changes aren't simple changes.
         <initial_action>
-            Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol and announce each step as you begin.
+            Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol and announce each step as you begin. Consult analyzer artifacts before attempting manual context gathering; only explore source files directly when tooling does not provide the needed detail.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
@@ -345,6 +344,7 @@
             <step number="1">
                 **Architectural Context Mapping**: Go beyond a "deep scan" of immediately affected files. Analyze the `PROJECT WORKFLOW` document and sample key files from each major phase to build a mental model of the project's architectural patterns. State your findings clearly (e.g., "The system follows a Component-Based architecture where state is managed centrally in `index.tsx`.").
                 *   Reference the latest Core Analysis artifacts (`tmp/analysis/summary.txt`, `functions.json`, `calls.json`) to corroborate fan-in hotspots, call chains, and side-effect boundaries while describing the architecture.
+                *   Exhaust analyzer outputs (fan-in/out, calls, assumptions) before opening code manually; only inspect raw files when analyzer insight is insufficient.
             </step>
             <step number="2">
                 **Principle Declaration**: Explicitly declare the core software engineering principles (e.g., SOLID, DRY, KISS) that will guide your implementation. Justify why they are relevant to this specific request.
@@ -377,6 +377,7 @@
         <initial_action>
             Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol (including the Step 9 user-test prompt) and announce each phase as you begin.
             Comply with the Main Directive main-only restriction before proceeding.
+            Prefer analyzer outputs for context gathering; only inspect files manually when the tooling cannot supply the necessary detail.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
@@ -388,6 +389,7 @@
                 **Define Goals & Requirements**:
                 *   **Action**: Clearly list the primary **Functional Requirements** (what the feature must do) and **Non-Functional Requirements (NFRs)** (e.g., performance, security).
                 *   **Action**: Ground these requirements in the latest Core Analysis mission-state artifacts (scope list, static execution trace, DSE table) to ensure the planned work covers every mapped entry point and dependency.
+                *   **Action**: Pull data from analyzer artifacts (`summary.txt`, `functions.json`, `calls.json`) before falling back to manual exploration of the codebase.
                 *   **Action**: Immediately execute the **COMPREHENSIVE IMPACT ANALYSIS PROTOCOL** using this goal statement before proceeding to architectural choices.
             </step>
             <step number="2">
