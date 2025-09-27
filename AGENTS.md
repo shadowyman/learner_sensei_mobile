@@ -270,7 +270,7 @@
                 *   Capture the emitted path `code_review/review_<final_slug>.html`.
                 *   Do not update documentation at this step. Store this path for later use in the respective protocol’s documentation step.
                 *   If invoked from Feature Implementation, retain the path to include in the Feature Documentation step.
-                *   If invoked from Root Cause & Remediation, retain the path to cite in `PREVIOUS_BUG_FIXES.md` during its documentation step.
+                *   If invoked from Root Cause & Remediation, retain the path to cite in `docs/PREVIOUS_BUG_FIXES.md` during its documentation step.
             </step>
             <step number="6">
                 **Review Handoff & Proceed**:
@@ -464,7 +464,7 @@
                 *   **Action**: When the implementation succeeds, you MUST update an existing relevant feature document in `./docs/features/` if one already covers the affected area; otherwise create a new markdown record named `feature_<descriptive_slug>_<YYYYMMDD_HHMMSS>.md` before yielding any response to the user. The slug must clearly reflect the change (e.g., `concept_prompt_improvement` instead of a generic label).
                 *   **Action**: Document the feature summary, rationale, key code changes with file:line references, behavioral impacts, and validation evidence. Include links to log lines or test results when applicable. Skipping this artifact or using an ambiguous slug is treated as a critical protocol violation.
                 *   **Action**: The document must list both the backup path generated for the work and the latest review artifact path (use the final slug, e.g., `backup/sensei_backup_<feature_slug>_<timestamp>.zip`, `code_review/review_<final_slug>.html`).
-                *   **Action**: For bug fixes handled via the Adaptive Root Cause protocol, reference the corresponding entry in `PREVIOUS_BUG_FIXES.md` instead of duplicating content; the feature document should note that pointer.
+                *   **Action**: For bug fixes handled via the Adaptive Root Cause protocol, reference the corresponding entry in `docs/PREVIOUS_BUG_FIXES.md` instead of duplicating content; the feature document should note that pointer.
             </step>
             <step number="12">
                 **Commit & Push on Main**:
@@ -601,7 +601,7 @@
                 *If Validation Succeeds*: Announce success. MUST DELETE THE TEMPORARY DEBUG LOGS added for validation, leaving only essential, permanent logs. Then proceed to mandatory documentation.
                 *If Validation Fails*: Announce failure. Revert the fix. Return to **Step 1** of this protocol to diagnose the new, combined issue (the original bug + the failed fix).
                 **MANDATORY Bug Fix Documentation** (NON-NEGOTIABLE FINAL STEP - ONLY FOR SUCCESSFUL FIXES):
-                **Action**: After ANY SUCCESSFUL bug fix, you MUST append to the `PREVIOUS_BUG_FIXES.md` file. This is an ABSOLUTE REQUIREMENT and failure to do so is a critical protocol violation.
+                **Action**: After ANY SUCCESSFUL bug fix, you MUST APPEND to the `docs/PREVIOUS_BUG_FIXES.md` file. This is an ABSOLUTE REQUIREMENT and failure to do so is a critical protocol violation.
                 **Action**: The entry must explicitly include the fully qualified path to the backup generated for this fix as well as the latest review artifact (use the final slug, e.g., `backup/sensei_backup_<bug_slug>_<timestamp>.zip`, `code_review/review_<final_slug>.html`).
                 **Documentation Format**: Create a new numbered entry that includes:
                 - **Issue**: One-sentence description of the visible problem
@@ -610,7 +610,7 @@
                 - **Fix Applied**: What changes were made to resolve it
                 - **Related Files**: List affected files with specific line numbers using format `filename:line-range`
                 - **Keywords for Future Reference**: Add searchable terms related to the bug
-                **Rationale**: This creates a searchable knowledge base for future debugging. When encountering new bugs, you MUST first check `PREVIOUS_BUG_FIXES.md` to see if similar issues have been encountered and resolved before.
+                **Rationale**: This creates a searchable knowledge base for future debugging. When encountering new bugs, you MUST first check `docs/PREVIOUS_BUG_FIXES.md` to see if similar issues have been encountered and resolved before.
             </step>
             <step number="15">
                 **Commit & Push on Main**:

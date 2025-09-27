@@ -138,10 +138,11 @@ const repoRoot = process.cwd()
 const realRepoRoot = fs.realpathSync(repoRoot)
 const manifestPath = path.join(repoRoot, 'file-manifest.json')
 let manifestSet: Set<string> | null = null
-if (fs.existsSync(manifestPath)) {
-  const rawManifest = fs.readFileSync(manifestPath, 'utf8')
-  const manifestEntries = JSON.parse(rawManifest) as string[]
-  manifestSet = new Set(manifestEntries.map(entry => path.normalize(entry).split(path.sep).join('/')))
+{
+  const manifestEntries = readJsonFile<string[]>(manifestPath, [])
+  if (manifestEntries.length) {
+    manifestSet = new Set(manifestEntries.map(entry => path.normalize(entry).split(path.sep).join('/')))
+  }
 }
 const outDir = path.join(repoRoot, 'tmp', 'analysis')
 const functionNodeById = new Map<string, { sf: ts.SourceFile; node: ts.FunctionLikeDeclaration | ts.MethodDeclaration | ts.ArrowFunction | ts.FunctionExpression; file: string }>()
@@ -281,7 +282,7 @@ function isProjectSource(sf: ts.SourceFile) {
     const relFromReal = path.relative(realRepoRoot, realFile).split(path.sep).join('/')
     if (!manifestSet.has(relFromRepo) && !manifestSet.has(relFromReal)) return false
   }
-  const ext = path.extname(realFile)
+  const ext = path.extname(realFile).toLowerCase()
   const allowed = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'])
   return allowed.has(ext)
 }
@@ -384,15 +385,16 @@ function selectorsFromHtml(html: string) {
         for (const attr of node.attrs) {
           if (!attr || typeof attr !== 'object') continue
           if (attr.name === 'id' && attr.value) {
-            result.push({ selector: `#${attr.value}`, kind: 'id' })
+            result.push({ selector: `#${cssEscape(attr.value)}`, kind: 'id' })
           } else if (attr.name === 'class' && attr.value) {
             const classes = attr.value.split(/\s+/).filter(Boolean)
-            for (const c of classes) result.push({ selector: `.${c}`, kind: 'class' })
-          } else if (attr.name) {
-            result.push({ selector: `[${attr.name}]`, kind: 'unknown' })
+            for (const c of classes) result.push({ selector: `.${cssEscape(c)}`, kind: 'class' })
+          } else if (attr.name && attr.name !== 'id' && attr.name !== 'class') {
+            const escapedName = cssEscape(attr.name)
+            result.push({ selector: `[${escapedName}]`, kind: 'unknown' })
             if (attr.value) {
               const escaped = attr.value.replace(/"/g, '\\"')
-              result.push({ selector: `[${attr.name}="${escaped}"]`, kind: 'unknown' })
+              result.push({ selector: `[${escapedName}="${escaped}"]`, kind: 'unknown' })
             }
           }
         }
@@ -448,7 +450,7 @@ function analyzeDelegatedHandler(node: ts.FunctionLikeDeclaration | ts.ArrowFunc
   return { delegated, selectors: Array.from(selectors) }
 }
 
-function extractReceiverSelector(expr: ts.Expression, sf: ts.SourceFile) {
+function extractReceiverSelector(expr: ts.Expression, sf: ts.SourceFile): { selector?: string; via?: string } {
   if (ts.isCallExpression(expr)) {
     const callee = expr.expression
     if (ts.isPropertyAccessExpression(callee)) {
@@ -458,11 +460,11 @@ function extractReceiverSelector(expr: ts.Expression, sf: ts.SourceFile) {
       if (arg) {
         const value = literalText(arg as ts.Expression, sf)
         if (value) {
-          if (method === 'getElementById') return { selector: `#${value}`, via: `${base}.${method}` }
+          if (method === 'getElementById') return { selector: `#${cssEscape(value)}`, via: `${base}.${method}` }
           if (method === 'querySelector' || method === 'querySelectorAll') return { selector: value, via: `${base}.${method}` }
           if (method === 'getElementsByClassName') {
             const first = value.split(/\s+/).filter(Boolean)[0]
-            if (first) return { selector: `.${first}`, via: `${base}.${method}` }
+            if (first) return { selector: `.${cssEscape(first)}`, via: `${base}.${method}` }
           }
         }
       }
@@ -520,9 +522,7 @@ const presetSeedPath = path.join(repoRoot, 'config', 'preset-seeds.json')
 const presetManifestPath = path.join(repoRoot, 'config', 'presets.generated.json')
 
 function loadPresetSeeds(): PresetSeed[] {
-  if (!fs.existsSync(presetSeedPath)) return []
-  const raw = fs.readFileSync(presetSeedPath, 'utf8')
-  const parsed = JSON.parse(raw) as PresetSeed[]
+  const parsed = readJsonFile<PresetSeed[]>(presetSeedPath, [])
   return parsed.slice().sort((a, b) => a.slug.localeCompare(b.slug))
 }
 
@@ -531,6 +531,61 @@ function stableStringify(obj: any): string {
   if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']'
   const keys = Object.keys(obj).sort()
   return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}'
+}
+
+function readJsonFile<T>(filePath: string, fallback: T): T {
+  try {
+    if (!fs.existsSync(filePath)) return fallback
+    const raw = fs.readFileSync(filePath, 'utf8')
+    return JSON.parse(raw) as T
+  } catch (err) {
+    console.warn(`Failed to parse JSON at ${filePath}: ${String(err)}`)
+    return fallback
+  }
+}
+
+function cssEscape(input: string): string {
+  const native = (globalThis as any)?.CSS?.escape
+  if (typeof native === 'function') return native(input)
+  const s = String(input)
+  const len = s.length
+  let out = ''
+  for (let i = 0; i < len; i++) {
+    const ch = s.charAt(i)
+    const code = ch.charCodeAt(0)
+    if (code === 0x0000) {
+      out += '\uFFFD'
+      continue
+    }
+    const isDigit = code >= 0x30 && code <= 0x39
+    if (isDigit && (i === 0 || (i === 1 && s.charAt(0) === '-'))) {
+      out += '\' + code.toString(16) + ' '
+      continue
+    }
+    if ((code >= 0x0001 && code <= 0x001F) || code === 0x007F) {
+      out += '\' + code.toString(16) + ' '
+      continue
+    }
+    if (i === 0 && ch === '-' && len === 1) {
+      out += '\-'
+      continue
+    }
+    if (
+      ch === '-' || ch === '_' ||
+      (code >= 0x30 && code <= 0x39) ||
+      (code >= 0x41 && code <= 0x5A) ||
+      (code >= 0x61 && code <= 0x7A)
+    ) {
+      out += ch
+      continue
+    }
+    if (code >= 0x20 && code <= 0x7E) {
+      out += '\' + ch
+      continue
+    }
+    out += ch
+  }
+  return out
 }
 
 function computeGraphHash(seeds: PresetSeed[], funcs: FunctionInfo[], edges: CallEdge[]) {
@@ -558,8 +613,12 @@ function buildFunctionLookups(funcs: FunctionInfo[]) {
 function buildDirectedAdjacency(edges: CallEdge[]) {
   const adj = new Map<string, string[]>()
   for (const edge of edges) {
-    if (!adj.has(edge.from)) adj.set(edge.from, [])
-    adj.get(edge.from)!.push(edge.to)
+    const list = adj.get(edge.from)
+    if (!list) {
+      adj.set(edge.from, [edge.to])
+    } else if (!list.includes(edge.to)) {
+      list.push(edge.to)
+    }
   }
   return adj
 }
@@ -1090,7 +1149,7 @@ function analyzeFile(
     const className = fn.className
     const fieldInstances = new Map<string, { source: string; className: string }>()
     const selfLoc = getLoc(sf, fn.node)
-    const currentStableId = `${file}::${fn.name}#L${selfLoc.start.line}`
+    const currentStableId = stableIdForFunction(file, fn.name, fn.node, sf)
     functionStableIdById.set(currentId, currentStableId)
     functionStableIdById.set(`${file}::${fn.name}`, currentStableId)
 
@@ -1577,10 +1636,10 @@ function analyzeFile(
               const value = literalText(arg as ts.Expression, sf)
               if (value) {
                 if (method === 'getElementById') {
-                  addSelectorUsage(`#${value}`, file, expr.getText(sf), getLoc(sf, arg), false, currentId)
+                  addSelectorUsage(`#${cssEscape(value)}`, file, expr.getText(sf), getLoc(sf, arg), false, currentId)
                 } else if (method === 'getElementsByClassName') {
                   const classes = value.split(/\s+/).filter(Boolean)
-                  for (const c of classes) addSelectorUsage(`.${c}`, file, expr.getText(sf), getLoc(sf, arg), false, currentId)
+                  for (const c of classes) addSelectorUsage(`.${cssEscape(c)}`, file, expr.getText(sf), getLoc(sf, arg), false, currentId)
                 } else {
                   addSelectorUsage(value, file, expr.getText(sf), getLoc(sf, arg), false, currentId)
                 }
@@ -1797,6 +1856,18 @@ function analyzeFile(
       startCol: selfLoc.start.col
     })
   }
+}
+
+function stableIdForFunction(file: string, name: string, node: ts.Node, sf: ts.SourceFile): string {
+  const text = node.getText(sf)
+  const digest = crypto
+    .createHash('sha1')
+    .update(file).update('\0')
+    .update(name).update('\0')
+    .update(text)
+    .digest('hex')
+    .slice(0, 12)
+  return `${file}::${name}#${digest}`
 }
 
 function scanGlobalExposures(
