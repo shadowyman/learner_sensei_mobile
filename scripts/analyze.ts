@@ -147,8 +147,8 @@ let checker: ts.TypeChecker = undefined as any
 const functionIdByNode = new WeakMap<ts.Node, string>()
 const functionIdByDeclNode = new WeakMap<ts.Node, string>()
 const PURE_GLOBAL_IDENTIFIERS = new Set([
-  'String','Number','Boolean','Object','Array','Symbol','BigInt','Date',
-  'parseInt','parseFloat','isNaN','isFinite','encodeURI','decodeURI','encodeURIComponent','decodeURIComponent'
+  'String','Boolean','Object','Array','Symbol','BigInt','Date',
+  'isFinite','encodeURI','decodeURI','encodeURIComponent','decodeURIComponent'
 ])
 const PURE_GLOBAL_NAMESPACES = new Set(['Math','JSON'])
 
@@ -189,6 +189,11 @@ function unaliasSymbol(sym: ts.Symbol | undefined): ts.Symbol | undefined {
 
   const DOM_MUTATING_FINAL_PROPS = new Set([
     'innerHTML','outerHTML','textContent','innerText','value','checked','disabled','src','href','className'
+  ])
+
+  const DOM_MUTATOR_METHODS = new Set([
+    'setAttribute','removeAttribute','appendChild','insertBefore','replaceWith','remove',
+    'after','before','append','prepend','replaceChildren','insertAdjacentHTML'
   ])
 
   function isDomMutationChain(parts: string[]): boolean {
@@ -251,8 +256,12 @@ function rel(file: string) {
 function isProjectSource(sf: ts.SourceFile) {
   const f = sf.fileName
   if (!f.startsWith(repoRoot)) return false
-  if (f.includes('/node_modules/')) return false
-  return f.endsWith('.ts') || f.endsWith('.tsx')
+  if (sf.isDeclarationFile) return false
+  const nm = `${path.sep}node_modules${path.sep}`
+  if (f.includes(nm)) return false
+  const ext = path.extname(f)
+  const allowed = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
+  return allowed.has(ext)
 }
 
 function loadProgram() {
@@ -286,8 +295,13 @@ function selectorKindFromString(selector: string): SelectorKind {
 }
 
 function literalText(node: ts.Expression, sf: ts.SourceFile): string | null {
-  if (ts.isStringLiteral(node)) return node.text
-  if (ts.isNoSubstitutionTemplateLiteral(node)) return node.text
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
+  if (ts.isTemplateExpression(node)) {
+    const head = node.head.text
+    if (node.templateSpans.every(s => ts.isStringLiteral(s.expression))) {
+      return head + node.templateSpans.map(s => s.expression.text + s.literal.text).join('')
+    }
+  }
   return null
 }
 
@@ -325,10 +339,15 @@ function selectorsFromHtml(html: string) {
           if (!attr || typeof attr !== 'object') continue
           if (attr.name === 'id' && attr.value) {
             result.push({ selector: `#${attr.value}`, kind: 'id' })
-          }
-          if (attr.name === 'class' && attr.value) {
+          } else if (attr.name === 'class' && attr.value) {
             const classes = attr.value.split(/\s+/).filter(Boolean)
             for (const c of classes) result.push({ selector: `.${c}`, kind: 'class' })
+          } else if (attr.name) {
+            result.push({ selector: `[${attr.name}]`, kind: 'unknown' })
+            if (attr.value) {
+              const escaped = attr.value.replace(/"/g, '\\"')
+              result.push({ selector: `[${attr.name}="${escaped}"]`, kind: 'unknown' })
+            }
           }
         }
       }
@@ -461,9 +480,16 @@ function loadPresetSeeds(): PresetSeed[] {
   return parsed.slice().sort((a, b) => a.slug.localeCompare(b.slug))
 }
 
+function stableStringify(obj: any): string {
+  if (obj === null || typeof obj !== 'object') return JSON.stringify(obj)
+  if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']'
+  const keys = Object.keys(obj).sort()
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}'
+}
+
 function computeGraphHash(seeds: PresetSeed[], funcs: FunctionInfo[]) {
   const hash = crypto.createHash('sha256')
-  hash.update(JSON.stringify(seeds))
+  hash.update(stableStringify(seeds))
   const stableIds = funcs.map(f => f.stableId || `${f.file}::${f.name}`).sort()
   hash.update(stableIds.join('|'))
   return hash.digest('hex')
@@ -626,7 +652,9 @@ function collectImportGraph(program: ts.Program, include: string[] | undefined, 
     const deps = new Set<string>()
     sf.forEachChild(node => {
       if (ts.isImportDeclaration(node)) {
-        const text = node.moduleSpecifier.getText(sf).slice(1, -1)
+        const spec = node.moduleSpecifier
+        if (!ts.isStringLiteral(spec)) return
+        const text = spec.text
         const resolved = resolveImport(sf.fileName, text)
         if (resolved && inScope(resolved)) deps.add(resolved)
       }
@@ -654,9 +682,11 @@ function functionId(file: string, name: string, pos: number) {
 }
 
 function mkSideEffect(kind: string, detail: string, loc?: Location): SideEffect {
-  const base = kind === 'network' || kind === 'filesystem'
+  const high = new Set(['network', 'filesystem'])
+  const medium = new Set(['state-write', 'dom', 'timer'])
+  const base = high.has(kind)
     ? { kind, detail, cost: 'High' as const, blast: 'High' as const, concurrency: 'Medium' as const }
-    : (kind === 'state-write' || kind === 'dom'
+    : (medium.has(kind)
         ? { kind, detail, cost: 'Medium' as const, blast: 'Medium' as const, concurrency: 'Medium' as const }
         : { kind, detail, cost: 'Low' as const, blast: 'Low' as const, concurrency: 'Low' as const })
   return loc ? { ...base, loc } : base
@@ -668,7 +698,9 @@ function collectAliases(sf: ts.SourceFile, resolveImport: ImportResolver): Impor
   const aliases: ImportAlias[] = []
   sf.forEachChild(node => {
     if (ts.isImportDeclaration(node) && node.importClause) {
-      const mod = node.moduleSpecifier.getText(sf).slice(1, -1)
+      const spec = node.moduleSpecifier
+      if (!ts.isStringLiteral(spec)) return
+      const mod = spec.text
       const resolved = resolveImport(sf.fileName, mod)
       if (!resolved) return
       const ic = node.importClause
@@ -815,6 +847,12 @@ function collectFunctions(program: ts.Program, resolveImport: ImportResolver, in
 
   scanGlobalExposures(program, edges, functionIndex, resolveImport, useTypeChecker)
   ensureSyntheticFunction(funcs, 'global::exposed', 'global::exposed')
+  for (const e of edges) {
+    if (e.to.startsWith('global::') && !functionStableIdById.has(e.to)) {
+      functionStableIdById.set(e.to, e.to)
+      ensureSyntheticFunction(funcs, e.to, e.to)
+    }
+  }
 
   for (const edge of edges) {
     if (!edge.fromStable) {
@@ -865,6 +903,7 @@ function analyzeFile(
     }
   })
   const classFieldInstances = new Map<string, Map<string, { source: string; className: string }>>()
+  const assumptionKeySet = new Set<string>()
   let anonCounter = 0
 
   const resolveIdentifier = (name: string): string | null => {
@@ -872,15 +911,16 @@ function analyzeFile(
     const alias = aliases.find(a => a.local === name)
     if (alias) {
       const key = `${alias.source}::${alias.export}`
-      return functionIndex.get(key) ?? key
+      const id = functionIndex.get(key)
+      return id ?? null
     }
     const key = `${file}::${name}`
     return functionIndex.get(key) ?? null
   }
 
   const pseudoLinkExternal = (name: string, loc: Location, se?: SideEffect[]): boolean => {
-    if (name === 'fetch') {
-      recordEdgeLocal('global::fetch', name, loc, se, 'network')
+    if (name === 'fetch' || name === 'axios') {
+      recordEdgeLocal(`global::${name}`, name, loc, se, 'network')
       return true
     }
     if (name === 'setTimeout' || name === 'setInterval' || name === 'requestAnimationFrame' || name === 'clearTimeout' || name === 'clearInterval') {
@@ -1042,6 +1082,7 @@ function analyzeFile(
           const nsSource = nsImports.get(recvExpr.text)
           if (nsSource) {
             const target = functionIndex.get(`${nsSource}::${methodName}`)
+              ?? (methodName === 'default' ? functionIndex.get(`${nsSource}::default`) : undefined)
             if (target) {
               rec(target, `${viaPrefix}${propName}:prop`, locInit)
               return true
@@ -1097,7 +1138,7 @@ function analyzeFile(
               rec(fallback, `arg.obj.${id.text}:shorthand`, getLoc(sfLocal, prop))
             }
           }
-        } else if (ts.isMethodDeclaration?.(prop as any)) {
+        } else if (ts.isMethodDeclaration(prop as any)) {
           const name = (prop as any).name?.getText?.(sfLocal) ?? 'method'
           const anonId = addAnon(prop as any)
           rec(anonId, `arg.obj.${name}:cb:inline`, getLoc(sfLocal, prop))
@@ -1106,8 +1147,19 @@ function analyzeFile(
     }
 
     const resolveInstanceTarget = (source: string, className: string, prop: string) => {
-      const key = `${source}::${className}.${prop}`
-      return functionIndex.get(key) ?? key
+      const directKey = `${source}::${className}.${prop}`
+      const direct = functionIndex.get(directKey)
+      if (direct) return direct
+      const candidates: { key: string; value: string }[] = []
+      for (const [key, value] of functionIndex) {
+        if (!key.startsWith(`${source}::`)) continue
+        if (!key.endsWith(`.${prop}`)) continue
+        candidates.push({ key, value })
+      }
+      if (candidates.length === 1) {
+        return candidates[0].key.includes(`::${className}.`) ? candidates[0].value : null
+      }
+      return null
     }
 
     const visit = (node: ts.Node) => {
@@ -1238,10 +1290,12 @@ function analyzeFile(
                 const bdecls = baseSym.getDeclarations() || []
                 if (bdecls.length && !bdecls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
                   if (isPureGlobalNamespace(recvTxt)) calleeLinked = true
+                  if (!calleeLinked && isPureGlobalIdentifier(recvTxt)) calleeLinked = pseudoLinkExternal(recvTxt, getLoc(sf, node), sideEffects)
                 }
               }
               if (!calleeLinked && recvTxt === 'console') {
-                linkCallee(`global::console.${methodName}`, expr.getText(sf))
+                recordEdgeLocal(`global::console.${methodName}`, expr.getText(sf), getLoc(sf, node))
+                calleeLinked = true
               }
             }
           }
@@ -1253,6 +1307,7 @@ function analyzeFile(
             const nsSource = nsImports.get(recv.text)
             if (nsSource) {
               const target = functionIndex.get(`${nsSource}::${methodName}`)
+                ?? (methodName === 'default' ? functionIndex.get(`${nsSource}::default`) : undefined)
               if (target) {
                 linkCallee(target, expr.getText(sf))
                 calleeLinked = true
@@ -1269,7 +1324,8 @@ function analyzeFile(
               }
             }
             if (!calleeLinked && recv.text === 'console') {
-              linkCallee(`global::console.${methodName}`, expr.getText(sf))
+              recordEdgeLocal(`global::console.${methodName}`, expr.getText(sf), getLoc(sf, node))
+              calleeLinked = true
             }
           }
           if (!calleeLinked) {
@@ -1279,24 +1335,30 @@ function analyzeFile(
         }
 
         if (!calleeLinked && ts.isIdentifier(expr)) {
-          const target = resolveIdentifier(expr.getText(sf))
+          const name = expr.getText(sf)
+          const loc = getLoc(sf, node)
+          const target = resolveIdentifier(name)
           if (target) {
-            linkCallee(target, expr.getText(sf))
+            linkCallee(target, name)
           } else {
-            const stmt = `Invocation of global or external function '${expr.getText(sf)}' in ${file}`
-            assumptions.push({
-              statement: stmt,
-              rationale: 'Call target cannot be statically linked to project source; ensure external dependency is safe.',
-              impact: 'Medium',
-              verification: 'Review external API usage and ensure expected behavior.',
-              loc: getLoc(sf, node)
-            })
+            const stmt = `Invocation of global or external function '${name}' in ${file}`
+            const assumeKey = `${loc.file}:${loc.start.line}:${loc.start.col}:${stmt}`
+            if (!assumptionKeySet.has(assumeKey)) {
+              assumptions.push({
+                statement: stmt,
+                rationale: 'Call target cannot be statically linked to project source; ensure external dependency is safe.',
+                impact: 'Medium',
+                verification: 'Review external API usage and ensure expected behavior.',
+                loc
+              })
+              assumptionKeySet.add(assumeKey)
+            }
           }
-          if (expr.getText(sf) === 'fetch' || expr.getText(sf) === 'axios') {
-            sideEffects.push(mkSideEffect('network', expr.getText(sf), getLoc(sf, node)))
+          if (name === 'fetch' || name === 'axios') {
+            sideEffects.push(mkSideEffect('network', name, loc))
           }
-          if (expr.getText(sf) === 'setTimeout' || expr.getText(sf) === 'setInterval') {
-            sideEffects.push(mkSideEffect('timer', expr.getText(sf), getLoc(sf, node)))
+          if (name === 'setTimeout' || name === 'setInterval') {
+            sideEffects.push(mkSideEffect('timer', name, loc))
           }
         }
         if (enableDomIndex && ts.isPropertyAccessExpression(expr)) {
@@ -1379,8 +1441,10 @@ function analyzeFile(
           if (ts.isIdentifier(rawRecv)) {
             const instance = instanceTypes.get(rawRecv.getText(sf))
             if (instance) {
-              const target = resolveInstanceTarget(instance.source, instance.className, prop)
-              recordEdge(target, `${recvText}.${prop}`, getLoc(sf, node))
+              const resolved = resolveInstanceTarget(instance.source, instance.className, prop)
+              const fallback = resolved ?? `${instance.source}::${instance.className}.${prop}`
+              if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
+              recordEdge(resolved ?? fallback, `${recvText}.${prop}`, getLoc(sf, node))
             } else {
               const nsSrc = nsImports.get(rawRecv.text)
               if (nsSrc) {
@@ -1397,16 +1461,19 @@ function analyzeFile(
             const field = rawRecv.name.getText(sf)
             const info = fieldInstances.get(field) || classFieldInstances.get(className)?.get(field)
             if (info) {
-              const target = resolveInstanceTarget(info.source, info.className, prop)
-              recordEdge(target, `${recvText}.${prop}`, getLoc(sf, node))
+              const resolved = resolveInstanceTarget(info.source, info.className, prop)
+              const fallback = resolved ?? `${info.source}::${info.className}.${prop}`
+              if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
+              recordEdge(resolved ?? fallback, `${recvText}.${prop}`, getLoc(sf, node))
             }
           }
 
           if (recvText === 'fs') sideEffects.push(mkSideEffect('filesystem', `fs.${prop}`, getLoc(sf, node)))
           if (recvText === 'document' || recvText === 'window') sideEffects.push(mkSideEffect('dom', `${recvText}.${prop}`, getLoc(sf, node)))
           if (recvText === 'localStorage' || recvText === 'sessionStorage') sideEffects.push(mkSideEffect('state-write', `${recvText}.${prop}`, getLoc(sf, node)))
-          const domMutators = new Set(['setAttribute','removeAttribute','appendChild','insertBefore','replaceWith','remove','after','before','append','prepend'])
-          if (domMutators.has(prop) || ((prop === 'add' || prop === 'remove' || prop === 'toggle') && recvText.endsWith('.classList'))) {
+          if (DOM_MUTATOR_METHODS.has(prop) ||
+             ((prop === 'add' || prop === 'remove' || prop === 'toggle' || prop === 'replace') && recvText.endsWith('.classList')) ||
+             ((prop === 'setProperty' || prop === 'removeProperty') && recvText.endsWith('.style'))) {
             sideEffects.push(mkSideEffect('dom', `${recvText}.${prop}`, getLoc(sf, node)))
           }
         }
@@ -1418,8 +1485,10 @@ function analyzeFile(
           if (ts.isIdentifier(rawRecv)) {
             const instance = instanceTypes.get(rawRecv.getText(sf))
             if (instance) {
-              const target = resolveInstanceTarget(instance.source, instance.className, prop)
-              recordEdge(target, `${recvText}[${prop}]`, getLoc(sf, node))
+              const resolved = resolveInstanceTarget(instance.source, instance.className, prop)
+              const fallback = resolved ?? `${instance.source}::${instance.className}.${prop}`
+              if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
+              recordEdge(resolved ?? fallback, `${recvText}[${prop}]`, getLoc(sf, node))
             } else if (arg && ts.isStringLiteral(arg)) {
               const nsSrc = nsImports.get(rawRecv.text)
               if (nsSrc) {
@@ -1476,6 +1545,12 @@ function analyzeFile(
           const parts = propertyChain(left, sf)
           const seKind = isDomMutationChain(parts) ? 'dom' : 'state-write'
           sideEffects.push(mkSideEffect(seKind, left.getText(sf), getLoc(sf, left)))
+        } else if (ts.isElementAccessExpression(left)) {
+          const base = left.expression.getText(sf)
+          const idx = left.argumentExpression && unwrap(left.argumentExpression as ts.Expression)
+          const prop = idx && ts.isStringLiteral(idx) ? idx.text : '[computed]'
+          const seKind = isDomMutationChain([base, prop]) ? 'dom' : 'state-write'
+          sideEffects.push(mkSideEffect(seKind, `${base}[${prop}]`, getLoc(sf, left)))
         }
       }
 
@@ -1562,7 +1637,11 @@ function scanGlobalExposures(
       }
       if (ts.isPropertyAccessExpression(rhs) && ts.isIdentifier(rhs.expression)) {
         const ns = nsImports.get(rhs.expression.text)
-        if (ns) return functionIndex.get(`${ns}::${rhs.name.getText(sf)}`) ?? null
+        if (ns) {
+          const direct = functionIndex.get(`${ns}::${rhs.name.getText(sf)}`)
+          if (direct) return direct
+          if (rhs.name.getText(sf) == 'default') return functionIndex.get(`${ns}::default`) ?? null
+        }
       }
       return null
     }
@@ -1590,7 +1669,11 @@ function scanGlobalExposures(
       const name = rhs.name.getText(sf)
       if (ts.isIdentifier(rhs.expression)) {
         const src = nsImports.get(rhs.expression.text)
-        if (src) return functionIndex.get(`${src}::${name}`) ?? null
+        if (src) {
+          const direct = functionIndex.get(`${src}::${name}`)
+          if (direct) return direct
+          if (name === 'default') return functionIndex.get(`${src}::default`) ?? null
+        }
       }
       if (useTypeCheckerFlag && checker) {
         const propSym0 = checker.getSymbolAtLocation(rhs.name)
@@ -1756,13 +1839,18 @@ function buildAdjacency(edges: CallEdge[]) {
 }
 
 function focusFromEntry(entryFuzzy: string, funcs: FunctionInfo[], edges: CallEdge[], maxDepth: number) {
-  const cand = funcs.find(f => `${f.file}::${f.name}`.startsWith(entryFuzzy))
+  const cand = funcs.find(f =>
+    f.id === entryFuzzy ||
+    f.stableId === entryFuzzy ||
+    `${f.file}::${f.name}`.startsWith(entryFuzzy)
+  )
   if (!cand) return null
   const start = cand.id
   const adj = buildAdjacency(edges)
   const seen = new Set<string>()
   const keptEdges: CallEdge[] = []
   const keptFuncs = new Set<string>([start])
+  const funcSet = new Set(funcs.map(f => f.id))
   const q: { node: string; depth: number }[] = [{ node: start, depth: 0 }]
   while (q.length) {
     const { node, depth } = q.shift()!
@@ -1773,9 +1861,11 @@ function focusFromEntry(entryFuzzy: string, funcs: FunctionInfo[], edges: CallEd
       const key = node + '>' + to
       if (!seen.has(key)) {
         seen.add(key)
-        keptEdges.push({ ...edge })
-        keptFuncs.add(to)
-        q.push({ node: to, depth: depth + 1 })
+        if (funcSet.has(to)) {
+          keptEdges.push({ ...edge })
+          keptFuncs.add(to)
+          q.push({ node: to, depth: depth + 1 })
+        }
       }
     }
   }
