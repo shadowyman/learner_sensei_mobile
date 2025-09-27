@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2025-09-26T14:16:45.274Z",
-  "graphHash": "cedfc801d5e995065c1684fefedfe829e24fa04c12024de016925d7ea959259b",
+  "generatedAt": "2025-09-27T15:17:35.521Z",
+  "graphHash": "17cfcac44e06cb1e1f249e350c408ad28978d71a12900db67f849ab436de5384",
   "presets": {
     "adaptive-engine": {
       "slug": "adaptive-engine",
@@ -85,6 +85,7 @@
         "enhancementManager.ts",
         "index.tsx",
         "logger.ts",
+        "mermaid-theme-integration.js",
         "mermaidErrorRecovery.ts",
         "mermaidManager.ts",
         "selectionSensei.ts",
@@ -182,6 +183,7 @@
         "enhancementManager.ts",
         "index.tsx",
         "logger.ts",
+        "mermaid-theme-integration.js",
         "mermaidErrorRecovery.ts",
         "mermaidManager.ts",
         "moduleSelectionHandler.ts",
@@ -270,6 +272,7 @@
       "includeFiles": [
         "interactionHelpers.ts",
         "logger.ts",
+        "mermaid-theme-integration.js",
         "mermaidErrorRecovery.ts",
         "mermaidManager.ts",
         "prompts.ts",
@@ -305,6 +308,7 @@
         "index.tsx",
         "interactionHelpers.ts",
         "logger.ts",
+        "mermaid-theme-integration.js",
         "mermaidErrorRecovery.ts",
         "mermaidManager.ts",
         "moduleSelectionHandler.ts",
@@ -326,6 +330,7 @@
         "index.tsx",
         "interactionHelpers.ts",
         "logger.ts",
+        "mermaid-theme-integration.js",
         "mermaidErrorRecovery.ts",
         "mermaidManager.ts",
         "ui.ts"

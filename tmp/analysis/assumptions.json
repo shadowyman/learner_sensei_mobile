@@ -1,0 +1,3232 @@
+[
+  {
+    "statement": "Invocation of global or external function 'fn' in logger.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "logger.ts",
+      "start": {
+        "line": 264,
+        "col": 34
+      },
+      "end": {
+        "line": 264,
+        "col": 38
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'fn' in logger.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "logger.ts",
+      "start": {
+        "line": 283,
+        "col": 28
+      },
+      "end": {
+        "line": 283,
+        "col": 32
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'callback' in logger.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "logger.ts",
+      "start": {
+        "line": 85,
+        "col": 53
+      },
+      "end": {
+        "line": 85,
+        "col": 68
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'llmPlanner' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 357,
+        "col": 25
+      },
+      "end": {
+        "line": 357,
+        "col": 56
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 364,
+        "col": 61
+      },
+      "end": {
+        "line": 364,
+        "col": 74
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 369,
+        "col": 61
+      },
+      "end": {
+        "line": 369,
+        "col": 74
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 635,
+        "col": 62
+      },
+      "end": {
+        "line": 635,
+        "col": 75
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 728,
+        "col": 62
+      },
+      "end": {
+        "line": 728,
+        "col": 75
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 816,
+        "col": 62
+      },
+      "end": {
+        "line": 816,
+        "col": 75
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 966,
+        "col": 66
+      },
+      "end": {
+        "line": 966,
+        "col": 79
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 1094,
+        "col": 66
+      },
+      "end": {
+        "line": 1094,
+        "col": 79
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 1165,
+        "col": 66
+      },
+      "end": {
+        "line": 1165,
+        "col": 79
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 1204,
+        "col": 74
+      },
+      "end": {
+        "line": 1204,
+        "col": 87
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in curriculum.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "curriculum.ts",
+      "start": {
+        "line": 1544,
+        "col": 23
+      },
+      "end": {
+        "line": 1544,
+        "col": 39
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'getComputedStyle' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 62,
+        "col": 20
+      },
+      "end": {
+        "line": 62,
+        "col": 62
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'lineNumbers' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 195,
+        "col": 9
+      },
+      "end": {
+        "line": 195,
+        "col": 22
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'highlightSpecialChars' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 196,
+        "col": 9
+      },
+      "end": {
+        "line": 196,
+        "col": 32
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'history' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 197,
+        "col": 9
+      },
+      "end": {
+        "line": 197,
+        "col": 18
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'drawSelection' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 198,
+        "col": 9
+      },
+      "end": {
+        "line": 198,
+        "col": 24
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'closeBrackets' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 199,
+        "col": 9
+      },
+      "end": {
+        "line": 199,
+        "col": 24
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'autocompletion' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 200,
+        "col": 9
+      },
+      "end": {
+        "line": 200,
+        "col": 25
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'indentOnInput' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 201,
+        "col": 9
+      },
+      "end": {
+        "line": 201,
+        "col": 24
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'highlightActiveLine' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 202,
+        "col": 9
+      },
+      "end": {
+        "line": 202,
+        "col": 30
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'bracketMatching' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 203,
+        "col": 9
+      },
+      "end": {
+        "line": 203,
+        "col": 26
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'syntaxHighlighting' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 204,
+        "col": 9
+      },
+      "end": {
+        "line": 204,
+        "col": 78
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'cpp' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 268,
+        "col": 13
+      },
+      "end": {
+        "line": 268,
+        "col": 18
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'handler' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 350,
+        "col": 5
+      },
+      "end": {
+        "line": 350,
+        "col": 20
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in codeEditorModal.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "codeEditorModal.ts",
+      "start": {
+        "line": 453,
+        "col": 12
+      },
+      "end": {
+        "line": 453,
+        "col": 105
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION' in geminiService.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "geminiService.ts",
+      "start": {
+        "line": 131,
+        "col": 18
+      },
+      "end": {
+        "line": 131,
+        "col": 93
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in geminiService.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "geminiService.ts",
+      "start": {
+        "line": 115,
+        "col": 57
+      },
+      "end": {
+        "line": 115,
+        "col": 91
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 173,
+        "col": 9
+      },
+      "end": {
+        "line": 173,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 174,
+        "col": 9
+      },
+      "end": {
+        "line": 174,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 184,
+        "col": 9
+      },
+      "end": {
+        "line": 184,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 185,
+        "col": 9
+      },
+      "end": {
+        "line": 185,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'renderMarkdown' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 194,
+        "col": 15
+      },
+      "end": {
+        "line": 194,
+        "col": 111
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 198,
+        "col": 9
+      },
+      "end": {
+        "line": 198,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 199,
+        "col": 9
+      },
+      "end": {
+        "line": 199,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 204,
+        "col": 5
+      },
+      "end": {
+        "line": 204,
+        "col": 36
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 205,
+        "col": 5
+      },
+      "end": {
+        "line": 205,
+        "col": 38
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 219,
+        "col": 5
+      },
+      "end": {
+        "line": 219,
+        "col": 37
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 225,
+        "col": 9
+      },
+      "end": {
+        "line": 225,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 226,
+        "col": 9
+      },
+      "end": {
+        "line": 226,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'renderMarkdown' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 231,
+        "col": 15
+      },
+      "end": {
+        "line": 231,
+        "col": 108
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 234,
+        "col": 9
+      },
+      "end": {
+        "line": 234,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 235,
+        "col": 9
+      },
+      "end": {
+        "line": 235,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 241,
+        "col": 5
+      },
+      "end": {
+        "line": 241,
+        "col": 37
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 242,
+        "col": 5
+      },
+      "end": {
+        "line": 242,
+        "col": 38
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'getAI' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 262,
+        "col": 16
+      },
+      "end": {
+        "line": 262,
+        "col": 23
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 263,
+        "col": 5
+      },
+      "end": {
+        "line": 263,
+        "col": 37
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 271,
+        "col": 9
+      },
+      "end": {
+        "line": 271,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 272,
+        "col": 9
+      },
+      "end": {
+        "line": 272,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 282,
+        "col": 9
+      },
+      "end": {
+        "line": 282,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 283,
+        "col": 9
+      },
+      "end": {
+        "line": 283,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setLoadingState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 288,
+        "col": 9
+      },
+      "end": {
+        "line": 288,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'setActiveState' in enhancementManager.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "enhancementManager.ts",
+      "start": {
+        "line": 289,
+        "col": 9
+      },
+      "end": {
+        "line": 289,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'findMatchingDelimiter' in mermaidErrorRecovery.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "mermaidErrorRecovery.ts",
+      "start": {
+        "line": 165,
+        "col": 26
+      },
+      "end": {
+        "line": 165,
+        "col": 96
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'renderAttempt' in mermaidErrorRecovery.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "mermaidErrorRecovery.ts",
+      "start": {
+        "line": 355,
+        "col": 34
+      },
+      "end": {
+        "line": 355,
+        "col": 63
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'anime' in ui.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "ui.ts",
+      "start": {
+        "line": 731,
+        "col": 9
+      },
+      "end": {
+        "line": 749,
+        "col": 11
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'anime' in ui.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "ui.ts",
+      "start": {
+        "line": 769,
+        "col": 9
+      },
+      "end": {
+        "line": 781,
+        "col": 11
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in ui.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "ui.ts",
+      "start": {
+        "line": 1186,
+        "col": 39
+      },
+      "end": {
+        "line": 1186,
+        "col": 56
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'getComputedStyle' in ui.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "ui.ts",
+      "start": {
+        "line": 2090,
+        "col": 31
+      },
+      "end": {
+        "line": 2090,
+        "col": 57
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'getComputedStyle' in ui.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "ui.ts",
+      "start": {
+        "line": 2115,
+        "col": 27
+      },
+      "end": {
+        "line": 2115,
+        "col": 53
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'anime' in ui.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "ui.ts",
+      "start": {
+        "line": 739,
+        "col": 17
+      },
+      "end": {
+        "line": 747,
+        "col": 19
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'handler' in ui.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "ui.ts",
+      "start": {
+        "line": 1519,
+        "col": 17
+      },
+      "end": {
+        "line": 1519,
+        "col": 36
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in debugMode.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "debugMode.ts",
+      "start": {
+        "line": 425,
+        "col": 39
+      },
+      "end": {
+        "line": 425,
+        "col": 56
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'getManifestContentCallback' in debugMode.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "debugMode.ts",
+      "start": {
+        "line": 709,
+        "col": 45
+      },
+      "end": {
+        "line": 709,
+        "col": 73
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'alert' in debugMode.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "debugMode.ts",
+      "start": {
+        "line": 856,
+        "col": 9
+      },
+      "end": {
+        "line": 856,
+        "col": 49
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'getManifestContentCallback' in debugMode.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "debugMode.ts",
+      "start": {
+        "line": 872,
+        "col": 45
+      },
+      "end": {
+        "line": 872,
+        "col": 73
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'marked' in notepad.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "notepad.ts",
+      "start": {
+        "line": 283,
+        "col": 53
+      },
+      "end": {
+        "line": 283,
+        "col": 70
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'marked' in notepad.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "notepad.ts",
+      "start": {
+        "line": 419,
+        "col": 26
+      },
+      "end": {
+        "line": 419,
+        "col": 43
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'alert' in notepad.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "notepad.ts",
+      "start": {
+        "line": 498,
+        "col": 13
+      },
+      "end": {
+        "line": 498,
+        "col": 62
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'addLanguageDisplayToCodeBlocks' in selectionSensei.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "selectionSensei.ts",
+      "start": {
+        "line": 469,
+        "col": 13
+      },
+      "end": {
+        "line": 469,
+        "col": 74
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'addCopyButtonsToCodeBlocks' in selectionSensei.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "selectionSensei.ts",
+      "start": {
+        "line": 470,
+        "col": 13
+      },
+      "end": {
+        "line": 470,
+        "col": 70
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in selectionSensei.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "selectionSensei.ts",
+      "start": {
+        "line": 794,
+        "col": 75
+      },
+      "end": {
+        "line": 794,
+        "col": 88
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in test.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "test.ts",
+      "start": {
+        "line": 357,
+        "col": 35
+      },
+      "end": {
+        "line": 357,
+        "col": 52
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in test.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "test.ts",
+      "start": {
+        "line": 358,
+        "col": 44
+      },
+      "end": {
+        "line": 358,
+        "col": 71
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1715,
+        "col": 23
+      },
+      "end": {
+        "line": 1715,
+        "col": 54
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1715,
+        "col": 58
+      },
+      "end": {
+        "line": 1715,
+        "col": 134
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'Boolean' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 2125,
+        "col": 27
+      },
+      "end": {
+        "line": 2125,
+        "col": 71
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 672,
+        "col": 26
+      },
+      "end": {
+        "line": 672,
+        "col": 58
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 718,
+        "col": 24
+      },
+      "end": {
+        "line": 718,
+        "col": 55
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 742,
+        "col": 22
+      },
+      "end": {
+        "line": 742,
+        "col": 58
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 944,
+        "col": 22
+      },
+      "end": {
+        "line": 944,
+        "col": 58
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 954,
+        "col": 22
+      },
+      "end": {
+        "line": 954,
+        "col": 59
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1273,
+        "col": 28
+      },
+      "end": {
+        "line": 1273,
+        "col": 64
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1283,
+        "col": 28
+      },
+      "end": {
+        "line": 1283,
+        "col": 64
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'recordEdgeLocal' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1426,
+        "col": 17
+      },
+      "end": {
+        "line": 1426,
+        "col": 101
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'recordEdgeLocal' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1456,
+        "col": 15
+      },
+      "end": {
+        "line": 1456,
+        "col": 99
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1877,
+        "col": 24
+      },
+      "end": {
+        "line": 1877,
+        "col": 60
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolveImport' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1887,
+        "col": 24
+      },
+      "end": {
+        "line": 1887,
+        "col": 61
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'recordEdgeLocal' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 991,
+        "col": 7
+      },
+      "end": {
+        "line": 991,
+        "col": 67
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'recordEdgeLocal' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 995,
+        "col": 7
+      },
+      "end": {
+        "line": 995,
+        "col": 65
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'recordEdgeLocal' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 999,
+        "col": 7
+      },
+      "end": {
+        "line": 999,
+        "col": 52
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1218,
+        "col": 21
+      },
+      "end": {
+        "line": 1218,
+        "col": 85
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1227,
+        "col": 15
+      },
+      "end": {
+        "line": 1227,
+        "col": 83
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'addAnon' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1232,
+        "col": 26
+      },
+      "end": {
+        "line": 1232,
+        "col": 46
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1233,
+        "col": 11
+      },
+      "end": {
+        "line": 1233,
+        "col": 74
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'addAnon' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1094,
+        "col": 24
+      },
+      "end": {
+        "line": 1094,
+        "col": 44
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1095,
+        "col": 9
+      },
+      "end": {
+        "line": 1095,
+        "col": 80
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1110,
+        "col": 19
+      },
+      "end": {
+        "line": 1110,
+        "col": 67
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1117,
+        "col": 17
+      },
+      "end": {
+        "line": 1117,
+        "col": 88
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1125,
+        "col": 11
+      },
+      "end": {
+        "line": 1125,
+        "col": 71
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1129,
+        "col": 11
+      },
+      "end": {
+        "line": 1129,
+        "col": 82
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1154,
+        "col": 19
+      },
+      "end": {
+        "line": 1154,
+        "col": 83
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1161,
+        "col": 17
+      },
+      "end": {
+        "line": 1161,
+        "col": 115
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1176,
+        "col": 15
+      },
+      "end": {
+        "line": 1176,
+        "col": 67
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1184,
+        "col": 15
+      },
+      "end": {
+        "line": 1184,
+        "col": 67
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'rec' in scripts/analyze.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/analyze.ts",
+      "start": {
+        "line": 1190,
+        "col": 11
+      },
+      "end": {
+        "line": 1190,
+        "col": 95
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'unlinkSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 91,
+        "col": 7
+      },
+      "end": {
+        "line": 91,
+        "col": 43
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolve' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 91,
+        "col": 18
+      },
+      "end": {
+        "line": 91,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'readdirSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 99,
+        "col": 19
+      },
+      "end": {
+        "line": 99,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'existsSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 101,
+        "col": 22
+      },
+      "end": {
+        "line": 101,
+        "col": 66
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolve' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 101,
+        "col": 33
+      },
+      "end": {
+        "line": 101,
+        "col": 65
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolve' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 141,
+        "col": 18
+      },
+      "end": {
+        "line": 141,
+        "col": 46
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'existsSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 142,
+        "col": 8
+      },
+      "end": {
+        "line": 142,
+        "col": 26
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'readFileSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 146,
+        "col": 21
+      },
+      "end": {
+        "line": 146,
+        "col": 49
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'isAbsolute' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 210,
+        "col": 21
+      },
+      "end": {
+        "line": 210,
+        "col": 45
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolve' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 210,
+        "col": 63
+      },
+      "end": {
+        "line": 210,
+        "col": 99
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolve' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 211,
+        "col": 10
+      },
+      "end": {
+        "line": 211,
+        "col": 34
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'spawnSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 226,
+        "col": 18
+      },
+      "end": {
+        "line": 226,
+        "col": 62
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'existsSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 391,
+        "col": 8
+      },
+      "end": {
+        "line": 391,
+        "col": 24
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'mkdirSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 392,
+        "col": 5
+      },
+      "end": {
+        "line": 392,
+        "col": 41
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolve' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 406,
+        "col": 21
+      },
+      "end": {
+        "line": 406,
+        "col": 53
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'resolve' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 420,
+        "col": 22
+      },
+      "end": {
+        "line": 420,
+        "col": 50
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'writeFileSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 458,
+        "col": 5
+      },
+      "end": {
+        "line": 458,
+        "col": 47
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'writeFileSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 492,
+        "col": 5
+      },
+      "end": {
+        "line": 492,
+        "col": 47
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'writeFileSync' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 503,
+        "col": 3
+      },
+      "end": {
+        "line": 503,
+        "col": 42
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in scripts/generateReview.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/generateReview.ts",
+      "start": {
+        "line": 153,
+        "col": 72
+      },
+      "end": {
+        "line": 153,
+        "col": 84
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'spawnSync' in scripts/vetUnusedExports.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/vetUnusedExports.ts",
+      "start": {
+        "line": 32,
+        "col": 20
+      },
+      "end": {
+        "line": 32,
+        "col": 83
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'spawnSync' in scripts/vetUnusedExports.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/vetUnusedExports.ts",
+      "start": {
+        "line": 77,
+        "col": 20
+      },
+      "end": {
+        "line": 80,
+        "col": 7
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'spawnSync' in scripts/vetUnusedExports.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "scripts/vetUnusedExports.ts",
+      "start": {
+        "line": 151,
+        "col": 20
+      },
+      "end": {
+        "line": 153,
+        "col": 7
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'execFileSync' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 16,
+        "col": 3
+      },
+      "end": {
+        "line": 16,
+        "col": 116
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 51,
+        "col": 3
+      },
+      "end": {
+        "line": 51,
+        "col": 46
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 52,
+        "col": 3
+      },
+      "end": {
+        "line": 52,
+        "col": 59
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 56,
+        "col": 3
+      },
+      "end": {
+        "line": 56,
+        "col": 53
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 57,
+        "col": 3
+      },
+      "end": {
+        "line": 57,
+        "col": 66
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 68,
+        "col": 3
+      },
+      "end": {
+        "line": 68,
+        "col": 48
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 78,
+        "col": 3
+      },
+      "end": {
+        "line": 78,
+        "col": 64
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 79,
+        "col": 3
+      },
+      "end": {
+        "line": 79,
+        "col": 67
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 80,
+        "col": 3
+      },
+      "end": {
+        "line": 80,
+        "col": 149
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 82,
+        "col": 3
+      },
+      "end": {
+        "line": 82,
+        "col": 46
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 91,
+        "col": 3
+      },
+      "end": {
+        "line": 91,
+        "col": 59
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 92,
+        "col": 3
+      },
+      "end": {
+        "line": 92,
+        "col": 57
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 93,
+        "col": 3
+      },
+      "end": {
+        "line": 93,
+        "col": 65
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 94,
+        "col": 3
+      },
+      "end": {
+        "line": 94,
+        "col": 61
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 103,
+        "col": 3
+      },
+      "end": {
+        "line": 103,
+        "col": 56
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 105,
+        "col": 3
+      },
+      "end": {
+        "line": 105,
+        "col": 61
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 120,
+        "col": 3
+      },
+      "end": {
+        "line": 120,
+        "col": 56
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 125,
+        "col": 5
+      },
+      "end": {
+        "line": 125,
+        "col": 90
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 127,
+        "col": 5
+      },
+      "end": {
+        "line": 127,
+        "col": 68
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 133,
+        "col": 5
+      },
+      "end": {
+        "line": 133,
+        "col": 69
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 151,
+        "col": 3
+      },
+      "end": {
+        "line": 151,
+        "col": 29
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 153,
+        "col": 3
+      },
+      "end": {
+        "line": 153,
+        "col": 62
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 154,
+        "col": 3
+      },
+      "end": {
+        "line": 154,
+        "col": 58
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 159,
+        "col": 3
+      },
+      "end": {
+        "line": 159,
+        "col": 45
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 179,
+        "col": 3
+      },
+      "end": {
+        "line": 179,
+        "col": 68
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 180,
+        "col": 3
+      },
+      "end": {
+        "line": 180,
+        "col": 70
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 181,
+        "col": 3
+      },
+      "end": {
+        "line": 181,
+        "col": 55
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 200,
+        "col": 3
+      },
+      "end": {
+        "line": 200,
+        "col": 47
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 217,
+        "col": 3
+      },
+      "end": {
+        "line": 217,
+        "col": 58
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 233,
+        "col": 3
+      },
+      "end": {
+        "line": 233,
+        "col": 110
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 234,
+        "col": 3
+      },
+      "end": {
+        "line": 234,
+        "col": 119
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 250,
+        "col": 3
+      },
+      "end": {
+        "line": 250,
+        "col": 89
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 260,
+        "col": 3
+      },
+      "end": {
+        "line": 260,
+        "col": 132
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 261,
+        "col": 3
+      },
+      "end": {
+        "line": 261,
+        "col": 102
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 269,
+        "col": 3
+      },
+      "end": {
+        "line": 269,
+        "col": 117
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 291,
+        "col": 3
+      },
+      "end": {
+        "line": 291,
+        "col": 57
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 296,
+        "col": 3
+      },
+      "end": {
+        "line": 296,
+        "col": 68
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 300,
+        "col": 3
+      },
+      "end": {
+        "line": 300,
+        "col": 136
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 311,
+        "col": 3
+      },
+      "end": {
+        "line": 311,
+        "col": 74
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 313,
+        "col": 3
+      },
+      "end": {
+        "line": 313,
+        "col": 75
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 327,
+        "col": 3
+      },
+      "end": {
+        "line": 327,
+        "col": 63
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 328,
+        "col": 3
+      },
+      "end": {
+        "line": 328,
+        "col": 79
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 332,
+        "col": 3
+      },
+      "end": {
+        "line": 332,
+        "col": 61
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 353,
+        "col": 3
+      },
+      "end": {
+        "line": 353,
+        "col": 83
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 363,
+        "col": 3
+      },
+      "end": {
+        "line": 363,
+        "col": 66
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 373,
+        "col": 3
+      },
+      "end": {
+        "line": 373,
+        "col": 88
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 374,
+        "col": 3
+      },
+      "end": {
+        "line": 374,
+        "col": 92
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 384,
+        "col": 3
+      },
+      "end": {
+        "line": 384,
+        "col": 82
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 385,
+        "col": 3
+      },
+      "end": {
+        "line": 385,
+        "col": 78
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 387,
+        "col": 3
+      },
+      "end": {
+        "line": 387,
+        "col": 120
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 400,
+        "col": 3
+      },
+      "end": {
+        "line": 400,
+        "col": 39
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 401,
+        "col": 3
+      },
+      "end": {
+        "line": 401,
+        "col": 59
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 404,
+        "col": 3
+      },
+      "end": {
+        "line": 404,
+        "col": 99
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 412,
+        "col": 3
+      },
+      "end": {
+        "line": 412,
+        "col": 53
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'assert' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 414,
+        "col": 5
+      },
+      "end": {
+        "line": 414,
+        "col": 65
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 260,
+        "col": 27
+      },
+      "end": {
+        "line": 260,
+        "col": 43
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in tests/analyzer.integration.ts",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "tests/analyzer.integration.ts",
+      "start": {
+        "line": 260,
+        "col": 64
+      },
+      "end": {
+        "line": 260,
+        "col": 81
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in index.tsx",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "index.tsx",
+      "start": {
+        "line": 319,
+        "col": 118
+      },
+      "end": {
+        "line": 319,
+        "col": 136
+      }
+    }
+  },
+  {
+    "statement": "Invocation of global or external function 'String' in index.tsx",
+    "rationale": "Call target cannot be statically linked to project source; ensure external dependency is safe.",
+    "impact": "Medium",
+    "verification": "Review external API usage and ensure expected behavior.",
+    "loc": {
+      "file": "index.tsx",
+      "start": {
+        "line": 326,
+        "col": 115
+      },
+      "end": {
+        "line": 326,
+        "col": 133
+      }
+    }
+  }
+]

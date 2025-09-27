@@ -44,6 +44,12 @@
         <rule>Run `npm run analysis:run` before any code review, cleanup, refactor, or investigation; scope with `--include` as needed; then review the generated artifacts before planning or editing. See <analysis_tooling> for examples.</rule>
         <rule>Consult analyzer outputs first to determine call sites, dependencies, and side effects—query `tmp/analysis/calls.json`, `functions.json`, `fan_in.json` (or other relevant artifacts) before any manual file search.</rule>
     </analysis_mandate>
+    <code_review_policy>
+        <rule>Execute only the explicit actions in the received code-review command.</rule>
+        <rule>You must understand the nature of code changes by analyzing codebase in the light of changes present in review document. You may utilize analyze tool as needed.</rule>
+        <rule>Do NOT trigger any protocols, backups.</rule>
+        <rule>Treat this policy as overriding other mandates for the duration of the code review.</rule>
+    </code_review_policy>
     <analysis_tooling>
         YOU MUST USE THE TOOL AS MUCH AS POSSIBLE INSTEAD OF DOING MANUAL LOOKUPS
         <mandate>
@@ -324,7 +330,7 @@
         </step>
     </protocol>
     <protocol name="MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL">
-        # ====MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL====
+        This protocol only runs if changes aren't simple changes.
         <initial_action>
             Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol and announce each step as you begin.
         </initial_action>
@@ -389,7 +395,7 @@
             </step>
             <step number="3">
                 **Explore Approaches with a Trade-off Matrix**:
-                <condition>IF `MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL` was NOT executed AND not a simple request
+                <condition>IF `MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL` was NOT executed because of a simple requests
                     *   **Action**: Propose 2-3 distinct technical approaches.
                     *   **Action**: Present them in a structured matrix list, evaluating them against key principles and NFRs (e.g., Maintainability, Performance, Testability), assess a feasibility score over 100, explain with a rationale.
                     *   **Stop and Await MY Approval**

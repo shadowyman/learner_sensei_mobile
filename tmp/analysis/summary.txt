@@ -1,0 +1,31 @@
+Entry candidates:
+  - docs/bug_proposed_fix_script.ts
+  - index.tsx
+  - scripts/analyze.ts
+  - scripts/generateReview.ts
+  - scripts/vetUnusedExports.ts
+  - server/vite.config.ts
+  - tests/analyzer.integration.ts
+  - tests/teachingInvariantsValidation.ts
+Top fan-in:
+  - logger.ts (21)
+  - curriculum.ts (12)
+  - adaptiveEngine.ts (10)
+  - prompts.ts (8)
+  - model_usage.ts (8)
+  - ui.ts (7)
+  - geminiService.ts (4)
+  - notepad.ts (4)
+  - codeEditorModal.ts (2)
+  - enhancementManager.ts (2)
+Top fan-out:
+  - index.tsx (18)
+  - ui.ts (8)
+  - moduleSelectionHandler.ts (8)
+  - selectionSensei.ts (8)
+  - geminiService.ts (5)
+  - interactionHelpers.ts (5)
+  - notepad.ts (5)
+  - saveloadProgressManager.ts (5)
+  - consolidationManager.ts (4)
+  - curriculum.ts (4)
