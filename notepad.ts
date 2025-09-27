@@ -477,6 +477,20 @@ export class Notepad {
             this.renderNotes();
         }
     }
+
+    public getAllNotes(): Note[] {
+        return this.state.notes.map(note => this.cloneNote(note));
+    }
+
+    public restoreNotes(rawNotes: any[]): void {
+        const normalized = this.normalizeRestoredNotes(rawNotes);
+        this.state.notes = normalized;
+        this.activeQuillEditor = null;
+        if (this.state.isOpen) {
+            this.renderNotes();
+        }
+        logger.info('[NOTEPAD_SAVE_BUG] restoreNotes applied to notepad state', { restoredCount: this.state.notes.length });
+    }
     
     private exportToHTML(): void {
         try {
