@@ -4,9 +4,18 @@
  */
 
 import { logger, DEBUG_FLAGS } from './logger';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { marked } from 'marked';
-import { sanitizeCodeFences, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks, setupTextareaAutosize } from './ui';
+import {
+    sanitizeCodeFences,
+    addLanguageDisplayToCodeBlocks,
+    addCopyButtonsToCodeBlocks,
+    setupTextareaAutosize,
+    displayMessage,
+    createMessageRegistry,
+    MessageRegistry,
+    Message,
+} from './ui';
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { mermaidManager } from './mermaidManager';
 import { runMermaidRecovery } from './mermaidErrorRecovery';
@@ -51,6 +60,16 @@ class SelectionSensei {
     private responseModalTextContent: HTMLDivElement | null = null;
     private responseModalSpinner: HTMLDivElement | null = null;
     private responseModalCloseButton: HTMLButtonElement | null = null;
+    private responseModalDragZone: HTMLDivElement | null = null;
+    private responseModalTranscript: HTMLDivElement | null = null;
+    private responseModalComposer: HTMLDivElement | null = null;
+    private responseModalComposerInput: HTMLTextAreaElement | null = null;
+    private responseModalSendButton: HTMLButtonElement | null = null;
+    private modalMessageRegistry: MessageRegistry = createMessageRegistry();
+    private followupInFlight = false;
+    private modalMessageCounter = 0;
+    private modalConversationToken = 0;
+    private selectionChat: Chat | null = null;
 
     private isAskModeActive = false; // Add this line
     private askInputContainer: HTMLDivElement | null = null; // Add this property
@@ -71,11 +90,15 @@ class SelectionSensei {
         this.handleDragMove = this.handleDragMove.bind(this);
         this.handleDragEnd = this.handleDragEnd.bind(this);
         this.boundOutsidePointerHandler = this.handleOutsidePointerDown.bind(this);
+        this.handleFollowupSubmit = this.handleFollowupSubmit.bind(this);
+        this.handleComposerKeydown = this.handleComposerKeydown.bind(this);
     }
 
     public initialize(): void {
         this.getDOMElements();
         this.attachEventListeners();
+        this.initializeModalComposer();
+        this.resetModalState();
     }
 
     public cleanup(): void {
@@ -93,7 +116,27 @@ class SelectionSensei {
 
         if (this.responseModalHeader) {
             this.responseModalHeader.removeEventListener('mousedown', this.handleDragStart);
+            this.responseModalHeader.removeEventListener('touchstart', this.handleDragStart as any);
         }
+
+        if (this.responseModalDragZone) {
+            this.responseModalDragZone.removeEventListener('mousedown', this.handleDragStart);
+            this.responseModalDragZone.removeEventListener('touchstart', this.handleDragStart as any);
+        }
+
+        if (this.responseModalComposerInput) {
+            this.responseModalComposerInput.removeEventListener('keydown', this.handleComposerKeydown);
+        }
+
+        if (this.responseModalSendButton) {
+            this.responseModalSendButton.removeEventListener('click', this.handleFollowupSubmit);
+        }
+
+        this.clearModalRegistry();
+        this.modalMessageRegistry = createMessageRegistry();
+        this.followupInFlight = false;
+        this.modalMessageCounter = 0;
+        this.selectionChat = null;
 
         // Hide any open modals
         if (this.responseModal) {
@@ -109,6 +152,11 @@ class SelectionSensei {
         this.responseModalTextContent = null;
         this.responseModalSpinner = null;
         this.responseModalCloseButton = null;
+        this.responseModalDragZone = null;
+        this.responseModalTranscript = null;
+        this.responseModalComposer = null;
+        this.responseModalComposerInput = null;
+        this.responseModalSendButton = null;
     }
 
     private getDOMElements(): void {
@@ -119,6 +167,11 @@ class SelectionSensei {
         this.responseModalTextContent = document.getElementById('response-modal-text-content') as HTMLDivElement;
         this.responseModalSpinner = document.getElementById('response-modal-spinner') as HTMLDivElement;
         this.responseModalCloseButton = document.getElementById('response-modal-close-button') as HTMLButtonElement;
+        this.responseModalDragZone = document.getElementById('response-modal-drag-zone') as HTMLDivElement;
+        this.responseModalTranscript = document.getElementById('selection-sensei-transcript') as HTMLDivElement;
+        this.responseModalComposer = document.getElementById('selection-sensei-composer') as HTMLDivElement;
+        this.responseModalComposerInput = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement;
+        this.responseModalSendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement;
 
         if (!this.responseModal || !this.responseModalTextContent) {
             logger.warn("[SENSEI_SELECTION] Modal elements not yet available in DOM - will retry on first use");
@@ -130,9 +183,11 @@ class SelectionSensei {
         // If not (e.g., after save/load), re-fetch all DOM elements
         if (!this.responseModal || !this.responseModal.isConnected ||
             !this.responseModalTextContent || !this.responseModalTextContent.isConnected ||
-            !this.responseModalSpinner || !this.responseModalSpinner.isConnected) {
+            !this.responseModalSpinner || !this.responseModalSpinner.isConnected ||
+            !this.responseModalDragZone || !this.responseModalDragZone.isConnected) {
 
             this.getDOMElements();
+            this.initializeModalComposer();
 
             // Re-attach event listeners for modal elements only
             if (this.responseModalCloseButton) {
@@ -143,6 +198,15 @@ class SelectionSensei {
             if (this.responseModalHeader) {
                 this.responseModalHeader.removeEventListener('mousedown', this.handleDragStart);
                 this.responseModalHeader.addEventListener('mousedown', this.handleDragStart);
+                this.responseModalHeader.removeEventListener('touchstart', this.handleDragStart as any);
+                this.responseModalHeader.addEventListener('touchstart', this.handleDragStart as any);
+            }
+
+            if (this.responseModalDragZone) {
+                this.responseModalDragZone.removeEventListener('mousedown', this.handleDragStart);
+                this.responseModalDragZone.addEventListener('mousedown', this.handleDragStart);
+                this.responseModalDragZone.removeEventListener('touchstart', this.handleDragStart as any);
+                this.responseModalDragZone.addEventListener('touchstart', this.handleDragStart as any);
             }
         }
     }
@@ -158,11 +222,322 @@ class SelectionSensei {
 
         if (this.responseModalHeader) {
             this.responseModalHeader.addEventListener('mousedown', this.handleDragStart);
+            this.responseModalHeader.addEventListener('touchstart', this.handleDragStart as any);
+        }
+
+        if (this.responseModalDragZone) {
+            this.responseModalDragZone.addEventListener('mousedown', this.handleDragStart);
+            this.responseModalDragZone.addEventListener('touchstart', this.handleDragStart as any);
         }
         // Use global listeners for move and up to handle dragging outside the modal
         document.addEventListener('mousemove', this.handleDragMove);
         document.addEventListener('mouseup', this.handleDragEnd);
         document.addEventListener('pointerdown', this.boundOutsidePointerHandler, true);
+    }
+
+    private initializeModalComposer(): void {
+        if (!this.responseModalComposerInput || !this.responseModalSendButton) {
+            return;
+        }
+
+        this.responseModalComposerInput.removeEventListener('keydown', this.handleComposerKeydown);
+        this.responseModalComposerInput.addEventListener('keydown', this.handleComposerKeydown);
+        setupTextareaAutosize(this.responseModalComposerInput);
+
+        this.responseModalSendButton.removeEventListener('click', this.handleFollowupSubmit);
+        this.responseModalSendButton.addEventListener('click', this.handleFollowupSubmit);
+
+        if (!this.responseModalComposerInput.dataset.selFollowupInit) {
+            this.responseModalComposerInput.dataset.selFollowupInit = 'true';
+            logger.info('[SEL_FOLLOWUP] modal-ready', {
+                transcriptId: this.responseModalTranscript?.id || null,
+                composerId: this.responseModalComposer?.id || null,
+            });
+        }
+    }
+
+    private clearModalRegistry(): number {
+        let clearedTimerCount = 0;
+        this.modalMessageRegistry.timers.forEach(timerId => {
+            clearInterval(timerId);
+            clearedTimerCount += 1;
+        });
+        this.modalMessageRegistry.timers.clear();
+        this.modalMessageRegistry.rawText.clear();
+        return clearedTimerCount;
+    }
+
+    private setComposerEnabled(enabled: boolean): void {
+        if (this.responseModalComposerInput) {
+            this.responseModalComposerInput.disabled = !enabled;
+        }
+        if (this.responseModalSendButton) {
+            this.responseModalSendButton.disabled = !enabled;
+        }
+    }
+
+    private ensureSelectionChat(): Chat | null {
+        if (!this.ai) {
+            return null;
+        }
+        if (!this.selectionChat) {
+            this.selectionChat = this.ai.chats.create({
+                model: SELECTION_SENSEI_CONFIG.modelName,
+                config: {
+                    ...SELECTION_SENSEI_CONFIG.config,
+                    systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
+                },
+                history: [],
+            });
+        }
+        return this.selectionChat;
+    }
+
+    private resetModalState(): void {
+        this.modalConversationToken += 1;
+        this.ensureDOMElementsValid();
+        const transcript = this.responseModalTranscript;
+        let removedMessages = 0;
+        if (transcript) {
+            const children = Array.from(transcript.children);
+            children.forEach(child => {
+                if (child instanceof HTMLElement && child.id !== 'response-modal-sensei-bubble') {
+                    transcript.removeChild(child);
+                    removedMessages += 1;
+                }
+            });
+        }
+
+        if (this.responseModalTextContent) {
+            this.responseModalTextContent.innerHTML = '';
+        }
+
+        if (this.responseModalSpinner) {
+            this.responseModalSpinner.style.display = 'none';
+        }
+
+        if (this.responseModalTitleElement) {
+            this.responseModalTitleElement.textContent = 'Sensei Explains...';
+        }
+
+        if (this.responseModalComposerInput) {
+            this.responseModalComposerInput.value = '';
+            this.responseModalComposerInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        const timersCleared = this.clearModalRegistry();
+        this.modalMessageRegistry = createMessageRegistry();
+        this.followupInFlight = false;
+        this.modalMessageCounter = 0;
+        this.selectionChat = null;
+        this.setComposerEnabled(true);
+
+        logger.info('[SEL_FOLLOWUP] reset', {
+            removedMessages,
+            timersCleared,
+        });
+    }
+
+    private generateModalMessageId(prefix: 'user' | 'sensei'): string {
+        this.modalMessageCounter += 1;
+        return `selection-sensei-modal-${prefix}-${this.modalMessageCounter}`;
+    }
+
+    private formatFollowupAnswer(rawText: string): { text: string; strategy: 'parsed-full' | 'explanation-only' | 'raw' } {
+        const trimmed = rawText.trim();
+        if (!trimmed) {
+            return { text: 'Sensei could not generate a response.', strategy: 'raw' };
+        }
+
+        let parsedResponse: { suggestedTitle?: string; explanation?: string } = {};
+        let parseSuccess = false;
+
+        try {
+            parsedResponse = JSON.parse(trimmed);
+            parseSuccess = true;
+        } catch (error) {
+            try {
+                const repaired = this.attemptJSONRepair(trimmed);
+                parsedResponse = JSON.parse(repaired);
+                parseSuccess = true;
+            } catch (repairError) {
+                const extracted = this.extractContentWithRegex(trimmed);
+                if (extracted.suggestedTitle || extracted.explanation) {
+                    parsedResponse = extracted;
+                    parseSuccess = true;
+                }
+            }
+        }
+
+        if (parseSuccess && parsedResponse.suggestedTitle && parsedResponse.explanation) {
+            return {
+                text: `**${parsedResponse.suggestedTitle}**\n\n${parsedResponse.explanation}`,
+                strategy: 'parsed-full',
+            };
+        }
+
+        if (parseSuccess && parsedResponse.explanation) {
+            return {
+                text: parsedResponse.explanation,
+                strategy: 'explanation-only',
+            };
+        }
+
+        return {
+            text: trimmed,
+            strategy: 'raw',
+        };
+    }
+
+    private async appendModalMessage(message: Message, conversationToken?: number): Promise<void> {
+        if (conversationToken !== undefined && conversationToken !== this.modalConversationToken) {
+            return;
+        }
+        this.ensureDOMElementsValid();
+        if (!this.responseModalTranscript) {
+            return;
+        }
+        await displayMessage(message, {
+            container: this.responseModalTranscript,
+            scrollTarget: this.responseModalTranscript,
+            registry: this.modalMessageRegistry,
+        });
+    }
+
+    private handleComposerKeydown(event: KeyboardEvent): void {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            void this.handleFollowupSubmit();
+        }
+    }
+
+    private async handleFollowupSubmit(): Promise<void> {
+        if (this.followupInFlight || !this.responseModalComposerInput) {
+            return;
+        }
+        const conversationToken = this.modalConversationToken;
+        const trimmed = this.responseModalComposerInput.value.trim();
+        if (!trimmed) {
+            return;
+        }
+
+        this.followupInFlight = true;
+        this.setComposerEnabled(false);
+
+        try {
+            const userMessageId = this.generateModalMessageId('user');
+            await this.appendModalMessage({
+                id: userMessageId,
+                sender: 'user',
+                displayName: 'You',
+                text: trimmed,
+                timestamp: new Date(),
+            }, conversationToken);
+
+            if (conversationToken !== this.modalConversationToken) {
+                this.followupInFlight = false;
+                return;
+            }
+
+            this.responseModalComposerInput.value = '';
+            this.responseModalComposerInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+            await this.dispatchFollowupToAI(trimmed, conversationToken);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error('[SEL_FOLLOWUP] failure', {
+                message,
+                stage: 'submit',
+            });
+            this.followupInFlight = false;
+            if (conversationToken === this.modalConversationToken) {
+                this.setComposerEnabled(true);
+            }
+        }
+    }
+
+    private async dispatchFollowupToAI(question: string, conversationToken: number): Promise<void> {
+        if (conversationToken !== this.modalConversationToken) {
+            this.followupInFlight = false;
+            return;
+        }
+
+        const loadingMessageId = this.generateModalMessageId('sensei');
+        await this.appendModalMessage({
+            id: loadingMessageId,
+            sender: 'sensei',
+            displayName: 'Sensei',
+            text: 'Sensei is preparing a follow-up...',
+            timestamp: new Date(),
+            isLoading: true,
+        }, conversationToken);
+
+        if (conversationToken !== this.modalConversationToken) {
+            this.followupInFlight = false;
+            return;
+        }
+
+        if (!this.ai) {
+            await this.appendModalMessage({
+                id: loadingMessageId,
+                sender: 'sensei',
+                displayName: 'Sensei',
+                text: 'AI service is not available. Please refresh and try again.',
+                timestamp: new Date(),
+                isLoading: false,
+            }, conversationToken);
+            this.followupInFlight = false;
+            if (conversationToken === this.modalConversationToken) {
+                this.setComposerEnabled(true);
+            }
+            return;
+        }
+
+        try {
+            const chat = this.ensureSelectionChat();
+            if (!chat) {
+                throw new Error('Selection Sensei chat unavailable');
+            }
+
+            const response = await chat.sendMessage({
+                message: question,
+            });
+
+            const formatted = this.formatFollowupAnswer(response.text ?? '');
+
+            if (conversationToken !== this.modalConversationToken) {
+                this.followupInFlight = false;
+                return;
+            }
+
+            await this.appendModalMessage({
+                id: loadingMessageId,
+                sender: 'sensei',
+                displayName: 'Sensei',
+                text: formatted.text,
+                timestamp: new Date(),
+                isLoading: false,
+            }, conversationToken);
+
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+
+            if (conversationToken === this.modalConversationToken) {
+                await this.appendModalMessage({
+                    id: loadingMessageId,
+                    sender: 'sensei',
+                    displayName: 'Sensei',
+                    text: 'Sorry, I encountered an error. Please try again.',
+                    timestamp: new Date(),
+                    isLoading: false,
+                }, conversationToken);
+            }
+        } finally {
+            if (conversationToken === this.modalConversationToken) {
+                this.followupInFlight = false;
+                this.setComposerEnabled(true);
+            }
+        }
     }
 
     private handleTextSelection(event: MouseEvent | TouchEvent): void {
@@ -394,6 +769,8 @@ class SelectionSensei {
         this.responseModalTitleElement.textContent = "Sensei is preparing an explanation...";
         this.responseModalSpinner.style.display = 'block';
 
+        this.setComposerEnabled(false);
+
         // Now show the modal with clean content
         this.responseModal.style.left = '50%';
         this.responseModal.style.top = '50%';
@@ -487,6 +864,8 @@ class SelectionSensei {
             uiEnhancementsApplied,
             mermaidProcessed
         });
+
+        this.setComposerEnabled(true);
     }
 
     private hideResponseModal(): void {
@@ -657,7 +1036,9 @@ class SelectionSensei {
             modelsAvailable
         });
 
+        this.resetModalState();
         this.showResponseModalWithLoading();
+        this.setComposerEnabled(false);
         this.hideSelectionToolbar();
 
         if (!this.ai || !this.ai.models) {
@@ -693,17 +1074,19 @@ class SelectionSensei {
         let hasTitle = false;
         let hasExplanation = false;
 
+        const chat = this.ensureSelectionChat();
+        if (!chat) {
+            await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.");
+            this.setComposerEnabled(true);
+            return;
+        }
+
         try {
-            const response: GenerateContentResponse = await this.ai.models.generateContent({
-                model: SELECTION_SENSEI_CONFIG.modelName, 
-                contents: [{ parts: [{ text: userPrompt }] }],
-                config: {
-                     ...SELECTION_SENSEI_CONFIG.config, 
-                     systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
-                }
+            const response = await chat.sendMessage({
+                message: userPrompt,
             });
-            
-            let jsonText = response.text.trim();
+
+            let jsonText = (response.text || '').trim();
             responseLength = jsonText.length;
 
             const startsWithBrace = jsonText.startsWith('{');
@@ -813,7 +1196,7 @@ class SelectionSensei {
             } else if (errorMessage.includes('parse') || errorMessage.includes('JSON')) {
                 userMessage = "Failed to process the response. Please try again.";
             }
-            
+
             await this.updateResponseModalContentAndTitle("Error", userMessage);
         }
 

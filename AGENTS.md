@@ -19,6 +19,7 @@
         <inviolable_rule> ALWAYS Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
         <inviolable_rule> Use python3 to run your internal commands/scripts.</inviolable_rule>
         <inviolable_rule> Use apply patch tool to modify files, don't use scripts</inviolable_rule>
+        <inviolable_rule> NEVER revert, change any modifications you didn't do yourself even when you discovered them later</inviolable_rule>
     </constraints>
     <project_file_structure>
         # Project Files: 
@@ -48,6 +49,7 @@
         <rule>You must understand the nature of code changes by analyzing codebase in the light of changes present in review document. You may utilize analyze tool as needed.</rule>
         <rule>Do NOT trigger any protocols, backups.</rule>
         <rule>Treat this policy as overriding other mandates for the duration of the code review.</rule>
+        <rule>DO NOT review any diff or changes that were NOT present in the provided review artifact</rule>
     </code_review_policy>
     <analysis_tooling>
         YOU MUST USE THE TOOL AS MUCH AS POSSIBLE INSTEAD OF DOING MANUAL LOOKUPS

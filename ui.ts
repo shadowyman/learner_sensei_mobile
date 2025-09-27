@@ -76,20 +76,25 @@ function escapeHtml(text: string): string {
         .replace(/'/g, '&#39;');
 }
 
-function replaceMermaidFenceInRaw(messageId: string, originalCode: string, replacement: string): void {
-    const current = streamingMessagesRawText.get(messageId) || '';
+function replaceMermaidFenceInRaw(
+    messageId: string,
+    originalCode: string,
+    replacement: string,
+    rawTextMap: Map<string, string> = streamingMessagesRawText
+): void {
+    const current = rawTextMap.get(messageId) || '';
     if (!current) return;
     const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const exact = new RegExp("```\\s*mermaid\\s*\\n\\s*" + escapeRe(originalCode) + "\\s*\\n```", 's');
     if (exact.test(current)) {
         const updated = current.replace(exact, replacement);
-        streamingMessagesRawText.set(messageId, updated);
+        rawTextMap.set(messageId, updated);
         return;
     }
     const generic = /```\s*mermaid[\s\S]*?```/;
     if (generic.test(current)) {
         const updated = current.replace(generic, replacement);
-        streamingMessagesRawText.set(messageId, updated);
+        rawTextMap.set(messageId, updated);
     }
 }
 
@@ -134,6 +139,29 @@ const footerIntentValue = document.getElementById('footer-intent-value') as HTML
 // Exporting for dependency injection into selectionSensei.ts
 export const streamingMessagesRawText = new Map<string, string>();
 export const streamingMessageTimers = new Map<string, number>();
+
+export interface MessageRegistry {
+    timers: Map<string, number>;
+    rawText: Map<string, string>;
+}
+
+export interface DisplayMessageOptions {
+    container?: HTMLElement;
+    scrollTarget?: HTMLElement;
+    registry?: MessageRegistry;
+}
+
+const defaultMessageRegistry: MessageRegistry = {
+    timers: streamingMessageTimers,
+    rawText: streamingMessagesRawText,
+};
+
+export function createMessageRegistry(): MessageRegistry {
+    return {
+        timers: new Map<string, number>(),
+        rawText: new Map<string, string>(),
+    };
+}
 
 const FONT_SIZES = ['small', 'medium', 'large'];
 
@@ -1136,15 +1164,31 @@ function surroundEnhancementRange(rangeInfo: EnhancementRange, className: string
     }
 }
 
-export async function displayMessage(message: Message) {
-    // Skip processing the response modal
-    if (message.id === 'response-modal-sensei-bubble') {
+export async function displayMessage(message: Message, options: DisplayMessageOptions = {}) {
+    const targetContainer = options.container ?? messageArea;
+    const scrollElement = options.scrollTarget ?? targetContainer;
+    const registry = options.registry ?? defaultMessageRegistry;
+
+    if (!targetContainer) {
+        logger.error('[UI] displayMessage called without a target container', { messageId: message.id });
+        return;
+    }
+
+    if (!options.container && message.id === 'response-modal-sensei-bubble') {
         logger.warn('[UI] Attempted to display response modal as a message - skipping');
         return;
     }
 
-    const bubble = document.getElementById(message.id) || document.createElement('div');
-    const isNewBubble = !document.getElementById(message.id); // <<< ADD THIS LINE
+    if (options.container) {
+        logger.info('[SEL_FOLLOWUP] render-target', {
+            target: options.container.id || 'anonymous-container',
+            messageId: message.id,
+        });
+    }
+
+    const existingBubble = document.getElementById(message.id) as HTMLDivElement | null;
+    const bubble = existingBubble || document.createElement('div');
+    const isNewBubble = !existingBubble;
     bubble.id = message.id;
     bubble.innerHTML = ''; // Clear previous content, including old reload buttons
 
@@ -1191,14 +1235,14 @@ export async function displayMessage(message: Message) {
         thinkingArea.appendChild(spinner);
         messageText.appendChild(thinkingArea);
 
-        const oldTimerId = streamingMessageTimers.get(message.id);
+        const oldTimerId = registry.timers.get(message.id);
         if (oldTimerId) clearInterval(oldTimerId);
         const timerId = window.setInterval(() => {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             timerSpan.textContent = `(${elapsed}s)`;
         }, 1000);
-        streamingMessageTimers.set(message.id, timerId);
-        streamingMessagesRawText.set(message.id, ''); // Initialize raw text for loading message
+        registry.timers.set(message.id, timerId);
+        registry.rawText.set(message.id, ''); // Initialize raw text for loading message
         let dotCount = 1;
         const dotAnimation = window.setInterval(() => {
             dotCount = (dotCount % 3) + 1;
@@ -1208,11 +1252,10 @@ export async function displayMessage(message: Message) {
     } else {
         bubble.removeAttribute('data-typing');
         bubble.classList.remove('loading');
-        const hadTimer = streamingMessageTimers.has(message.id);
-        const oldTimerId = streamingMessageTimers.get(message.id);
+        const oldTimerId = registry.timers.get(message.id);
         if (oldTimerId) {
             clearInterval(oldTimerId);
-            streamingMessageTimers.delete(message.id);
+            registry.timers.delete(message.id);
         }
         const dotAnimation = (bubble as any).dotAnimation;
         if (dotAnimation) {
@@ -1385,13 +1428,13 @@ export async function displayMessage(message: Message) {
         } else {
             if (message.sender === 'sensei') {
                 // Store raw text for potential selection action later
-                 if (!streamingMessagesRawText.has(message.id) || streamingMessagesRawText.get(message.id) !== message.text) {
-                    streamingMessagesRawText.set(message.id, message.text);
+                 if (!registry.rawText.has(message.id) || registry.rawText.get(message.id) !== message.text) {
+                    registry.rawText.set(message.id, message.text);
                 }
                 const sanitizedText = sanitizeCodeFences(message.text);
                 messageText.innerHTML = marked.parse(sanitizedText) as string;
             } else {
-                streamingMessagesRawText.set(message.id, message.text);
+                registry.rawText.set(message.id, message.text);
                 const renderedUserMessage = renderUserMessageHtml(message.text);
                 messageText.innerHTML = renderedUserMessage.html;
             }
@@ -1443,7 +1486,7 @@ export async function displayMessage(message: Message) {
                         });
                         if (recoveryResult) {
                             const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
-                            replaceMermaidFenceInRaw(message.id, rawMermaidCode, replacement);
+                            replaceMermaidFenceInRaw(message.id, rawMermaidCode, replacement, registry.rawText);
                             renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
                             return;
                         }
@@ -1453,14 +1496,14 @@ export async function displayMessage(message: Message) {
 
                     const errorDiv = document.createElement('div');
                     logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
-                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
+                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]", registry.rawText);
                     errorDiv.className = 'mermaid-error';
                     errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                     fixingDiv.replaceWith(errorDiv);
                 } else {
                     const errorDiv = document.createElement('div');
                     logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
-                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]");
+                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]", registry.rawText);
                     errorDiv.className = 'mermaid-error';
                     errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
                     preElement.replaceWith(errorDiv);
@@ -1531,8 +1574,8 @@ export async function displayMessage(message: Message) {
     timestamp.textContent = message.timestamp.toLocaleTimeString();
     bubble.appendChild(timestamp);
 
-    if (!document.getElementById(message.id)) {
-        messageArea.appendChild(bubble);
+    if (isNewBubble) {
+        targetContainer.appendChild(bubble);
     }
 
     try {
@@ -1545,7 +1588,9 @@ export async function displayMessage(message: Message) {
             easing: 'easeOutQuad',
             begin: () => {
                 if (isNewBubble) {
-                    messageArea.scrollTop = messageArea.scrollHeight;
+                    if (scrollElement) {
+                        scrollElement.scrollTop = scrollElement.scrollHeight;
+                    }
                 }
             },
             complete: () => {
@@ -1557,7 +1602,9 @@ export async function displayMessage(message: Message) {
         bubble.style.transform = 'translateY(0)'; // Fallback
         bubble.dataset.animationState = "idle"; // Fallback
         if (isNewBubble) {
-            messageArea.scrollTop = messageArea.scrollHeight;
+            if (scrollElement) {
+                scrollElement.scrollTop = scrollElement.scrollHeight;
+            }
         }
     }
 }

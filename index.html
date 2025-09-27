@@ -203,19 +203,28 @@
     <!-- Response Modal (for Selection Sensei) -->
     <div id="response-modal" style="display: none;">
         <div id="response-modal-header">
+            <div id="response-modal-drag-zone"></div>
             <h2 id="response-modal-title">Sensei Explains...</h2>
             <button id="response-modal-close-button" aria-label="Close modal">&times;</button>
         </div>
         <div id="response-modal-content-area">
-            <!-- Sensei bubble with transparent background for modal context -->
-            <div id="response-modal-sensei-bubble" class="message-bubble" data-sender="sensei">
-                <div class="sender-name">Sensei</div>
-                <div class="message-text markdown-content">
-                    <div id="response-modal-spinner" class="inline-spinner" style="display: none;"></div>
-                    <div id="response-modal-text-content">
-                        <!-- Content will be injected here -->
+            <div id="selection-sensei-transcript" aria-live="polite" aria-label="Selection Sensei transcript">
+                <!-- Sensei bubble with transparent background for modal context -->
+                <div id="response-modal-sensei-bubble" class="message-bubble" data-sender="sensei">
+                    <div class="sender-name">Sensei</div>
+                    <div class="message-text markdown-content">
+                        <div id="response-modal-spinner" class="inline-spinner" style="display: none;"></div>
+                        <div id="response-modal-text-content">
+                            <!-- Content will be injected here -->
+                        </div>
                     </div>
                 </div>
+            </div>
+            <div id="selection-sensei-composer" aria-label="Selection Sensei follow-up composer">
+                <textarea id="selection-sensei-composer-input" rows="1" placeholder="Ask a follow-up..." aria-label="Type a follow-up question" autocomplete="off"></textarea>
+                <button id="selection-sensei-send-button" type="button" aria-label="Send follow-up">
+                    <span class="icon-placeholder" data-icon="send"></span>
+                </button>
             </div>
         </div>
     </div>

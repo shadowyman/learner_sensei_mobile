@@ -1943,7 +1943,7 @@ body::before {
     height: auto;
     max-height: 85vh;
     min-height: 200px;
-    padding: 24px;
+    padding: 24px 24px 12px;
     background: rgba(15, 23, 42, 0.16);
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
@@ -1964,6 +1964,13 @@ body::before {
     margin-bottom: 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     cursor: move;
+}
+
+#response-modal-drag-zone {
+    position: absolute;
+    inset: -12px -24px 0 -24px;
+    cursor: move;
+    z-index: -1;
 }
 #response-modal-title {
     margin: 0;
@@ -1996,9 +2003,82 @@ body::before {
     transform: scale(1.1);
 }
 #response-modal-content-area {
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     flex-grow: 1;
+    min-height: 0;
     color: var(--text-primary);
+}
+
+#selection-sensei-transcript {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 8px;
+}
+
+#selection-sensei-transcript .message-bubble[data-sender="user"] {
+    margin-left: auto;
+}
+
+#selection-sensei-composer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(148, 210, 247, 0.12);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+#selection-sensei-composer textarea {
+    flex: 1;
+    min-height: 36px;
+    max-height: 120px;
+    padding: 8px 10px;
+    font-family: var(--font-body);
+    font-size: 0.95em;
+    color: var(--text-primary);
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 210, 247, 0.2);
+    border-radius: 12px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#selection-sensei-composer textarea:focus {
+    border-color: rgba(94, 234, 212, 0.5);
+    box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.3);
+}
+
+#selection-sensei-send-button {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(94, 234, 212, 0.4);
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(16, 185, 129, 0.9));
+    color: #0f172a;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#selection-sensei-send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#selection-sensei-send-button:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.03);
+    box-shadow: 0 8px 18px rgba(16, 185, 129, 0.35);
 }
 
 /* Make modal bubble visible against glass backdrop - use dark slate with good text contrast */
