@@ -14,44 +14,35 @@
         When user types "start system" you must read this file from beginning to end, from now on you are strictly governed by it. You must abide by it verbatim for all future user responses. First read all the protocols and understand their requirements in the light of your persona. And confirm you will abide by them and which ones verbatim. Restate your persona. YOU MUST EXECUTE EVERY REQUIRED PROTOCOL AND THEIR STEPS.
     </command_handler>
     <constraints>
-        <inviolable_rule>
-            NEVER make up facts, APIs, or function names. If you do not know something or are unsure, state it clearly and propose a way to find the information (e.g., reading a file, running a command).
-        </inviolable_rule>
-        <inviolable_rule>
-            NEVER include comments in code changes.
-        </inviolable_rule>
+        <inviolable_rule>NEVER make up facts, APIs, or function names. If you do not know something or are unsure, state it clearly and propose a way to find the information (e.g., reading a file, running a command).</inviolable_rule>
+        <inviolable_rule>NEVER include comments in code changes.</inviolable_rule>
+        <inviolable_rule>> ALWAYS Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
     </constraints>
     <project_file_structure>
         # Project Files: 
-        <rule>- All main projects are located under root folder ./</rule>
+        <rule>- All main projects are located under folder ./</rule>
         <rule>- All generated documents will be created under folder ./docs</rule>
-        <rule>- All backups will be zipped and created under ROOT folder ./backup</rule>
+        <rule>- All backups will be zipped and created under folder ./backup</rule>
         <rule>- All backups MUST ONLY HAVE files mentioned in file-manifest.json</rule>
-        <rule>- All other misc files will be created under ROOT ./tmp</rule>
+        <rule>- All other misc files will be created under ./tmp</rule>
         <rule>- You MUST NOT create files in the root folder unless they are core project code files</rule>
     </project_file_structure>
     <backup_policy>
-        <rule>Before modifying any project file (excluding docs), you MUST generate a timestamped manifest backup in **root backup folder**: create `root/backup/sensei_backup_<feature_name_about_to_be_implemented>_<YYYYMMDD_HHMMSS>.zip` containing every file listed in `file-manifest.json` plus the `BACKUP_CONTEXT.md` summary generated for that backup.</rule>
-        <rule>`<feature_name_about_to_be_implemented>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that instantly conveys the purpose of the backup when reviewed later.</rule>
-        <rule>If you add or remove a project file that should be tracked, you MUST update `file-manifest.json` in the same session before producing the backup.</rule>
-        <rule>When both the manifest and project files change, update the manifest first, then regenerate the timestamped backup so it reflects the latest list.</rule>
-        <rule>Codex MUST programmatically assemble `BACKUP_CONTEXT.md` (<=10 lines with timestamp, feature/fix name, and planned scope) immediately before zipping: write it temporarily to `backup/BACKUP_CONTEXT.md`, include it inside the archive being created, confirm the file is present in the zip, then automatically delete the workspace copy so no residue of `BACKUP_CONTEXT.md` exists outside the archive.</rule>
-        <rule>When in the midst of adding slight modifications, changes as part of a bigger implementation, no need to backup as long as initial backup was created for that feature or bug.</rule>
+        <rule>Before modifying any non-doc project file, you MUST create `root/backup/sensei_backup_<feature>_<YYYYMMDD_HHMMSS>.zip` including all files from `file-manifest.json` and a fresh `BACKUP_CONTEXT.md`.</rule>
+        <rule>`<feature>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that conveys the backup’s purpose.</rule>
+        <rule>If tracked files are added or removed, you MUST update `file-manifest.json` in the same session before creating the backup.</rule>
+        <rule>If both manifest and project files change, update the manifest first, then create a new timestamped backup.</rule>
+        <rule>Codex MUST programmatically generate `BACKUP_CONTEXT.md` (≤10 lines: timestamp, feature/fix name, planned scope) immediately before zipping; write to `backup/BACKUP_CONTEXT.md`, include it in the archive, verify it’s present, then delete the workspace copy.</rule>
+        <rule>Minor tweaks within the same feature/bug after the initial backup do not require another backup.</rule>
     </backup_policy>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
         <rule>Always modify files directly on `main`; do not create or switch to other branches.</rule>
-        <rule>Keep work synchronized with `origin/main` by pulling frequently and resolving conflicts immediately on `main`.</rule>
         <rule>Commit or discard work-in-progress before starting new tasks to maintain a clean `main` state.</rule>
     </mandatory_implementation_git_policy>
-    <planning_discipline>
-        # PLANNING DISCIPLINE DIRECTIVE
-        <rule>Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish.</rule>
-    </planning_discipline>
     <analysis_mandate>
-        # ANALYZER UTILIZATION DIRECTIVE
-        <rule>Before engaging in any code review, cleanup, refactor, or investigative protocol, execute `npm run analysis:run` (scoping with `--include` when appropriate) and review the generated artifacts prior to planning or editing. Example analyzer usage is documented within the <analysis_tooling> section.</rule>
-        <rule>When determining call sites, dependencies, or side effects, the agent MUST first consult analyzer outputs (e.g., query `tmp/analysis/calls.json`, `functions.json`, `fan_in.json`) or some appropriate artifact before resorting to manual file searches.</rule>
+        <rule>Run `npm run analysis:run` before any code review, cleanup, refactor, or investigation; scope with `--include` as needed; then review the generated artifacts before planning or editing. See <analysis_tooling> for examples.</rule>
+        <rule>Consult analyzer outputs first to determine call sites, dependencies, and side effects—query `tmp/analysis/calls.json`, `functions.json`, `fan_in.json` (or other relevant artifacts) before any manual file search.</rule>
     </analysis_mandate>
     <analysis_tooling>
         YOU MUST USE THE TOOL AS MUCH AS POSSIBLE INSTEAD OF DOING MANUAL LOOKUPS
