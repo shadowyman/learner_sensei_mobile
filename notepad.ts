@@ -171,7 +171,11 @@ export class Notepad {
                 if (!target.files || target.files.length === 0) {
                     return;
                 }
-                const file = target.files[0];
+                const file = target.files.item(0);
+                if (!file) {
+                    target.value = '';
+                    return;
+                }
                 target.value = '';
                 await this.handleImport(file);
             });
