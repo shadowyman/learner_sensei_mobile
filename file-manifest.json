@@ -18,7 +18,6 @@
   "mermaid-theme-integration.js",
   "mermaidErrorRecovery.ts",
   "mermaidManager.ts",
-  "metadata-1.json",
   "metadata.json",
   "config/preset-seeds.json",
   "config/presets.generated.json",

@@ -11,6 +11,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+tmp/
 
 # Logs
 *.log
@@ -31,5 +32,6 @@ backup/
 .mcp-storage/
 sonarqube-25.6.0.109173/
 code_review/
+config/
 scripts/create_worktree.py
 scripts/vetUnusedExports.ts
