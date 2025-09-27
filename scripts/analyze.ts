@@ -1035,6 +1035,23 @@ function analyzeFile(
     currentIdTemp = currentId
     currentStableIdTemp = currentStableId
 
+    const paramSlotByLocal = new Map<string, { index: number; prop: string }>()
+    fn.node.parameters?.forEach((p: ts.ParameterDeclaration, pIndex: number) => {
+      const nameNode = p.name
+      if (ts.isObjectBindingPattern(nameNode)) {
+        for (const el of nameNode.elements) {
+          if (!el.name) continue
+          const localId = ts.isIdentifier(el.name) ? el.name.text : el.name.getText(sf)
+          const prop = el.propertyName
+            ? (ts.isIdentifier(el.propertyName) || ts.isStringLiteral(el.propertyName))
+              ? el.propertyName.text
+              : el.propertyName.getText(sf)
+            : localId
+          paramSlotByLocal.set(localId, { index: pIndex, prop })
+        }
+      }
+    })
+
     const recordEdge = (to: string, via: string, loc: Location) => {
       calls.push(to)
       const toStable = functionStableIdById.get(to)
@@ -1449,21 +1466,32 @@ function analyzeFile(
         if (!calleeLinked && ts.isIdentifier(expr)) {
           const name = expr.getText(sf)
           const loc = getLoc(sf, node)
-          const target = resolveIdentifier(name)
-          if (target) {
-            linkCallee(target, name)
-          } else {
-            const stmt = `Invocation of global or external function '${name}' in ${file}`
-            const assumeKey = `${loc.file}:${loc.start.line}:${loc.start.col}:${stmt}`
-            if (!assumptionKeySet.has(assumeKey)) {
-              assumptions.push({
-                statement: stmt,
-                rationale: 'Call target cannot be statically linked to project source; ensure external dependency is safe.',
-                impact: 'Medium',
-                verification: 'Review external API usage and ensure expected behavior.',
-                loc
-              })
-              assumptionKeySet.add(assumeKey)
+          const slot = paramSlotByLocal.get(name)
+          if (slot) {
+            const slotId = `${currentStableId}::param${slot.index}.${slot.prop}`
+            if (!functionStableIdById.has(slotId)) {
+              ensureSyntheticFunction(funcs, slotId, slotId)
+            }
+            recordEdge(slotId, `${name}:param-slot`, loc)
+            calleeLinked = true
+          }
+          if (!calleeLinked) {
+            const target = resolveIdentifier(name)
+            if (target) {
+              linkCallee(target, name)
+            } else {
+              const stmt = `Invocation of global or external function '${name}' in ${file}`
+              const assumeKey = `${loc.file}:${loc.start.line}:${loc.start.col}:${stmt}`
+              if (!assumptionKeySet.has(assumeKey)) {
+                assumptions.push({
+                  statement: stmt,
+                  rationale: 'Call target cannot be statically linked to project source; ensure external dependency is safe.',
+                  impact: 'Medium',
+                  verification: 'Review external API usage and ensure expected behavior.',
+                  loc
+                })
+                assumptionKeySet.add(assumeKey)
+              }
             }
           }
           if (name === 'fetch' || name === 'axios') {
