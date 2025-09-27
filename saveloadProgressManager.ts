@@ -13,6 +13,7 @@ import {
     deserializeLearnerModel as deserializeLearnerModelHelper,
     validateSerializedData
 } from './saveloadSerialization';
+import { logger } from './logger';
 import { CurriculumState, Curriculum } from './curriculum';
 import { LearnerModel } from './adaptiveEngine';
 import { displayMessage } from './ui';
@@ -168,7 +169,9 @@ export class SaveLoadProgressManager {
         
         const chatHistory = this.extractChatHistory(w.mainSenseiChat);
         
-        const notepadNotes = w.notepad?.getAllNotes?.() || [];
+        const rawNotepadNotes = w.notepad?.getAllNotes?.();
+        const notepadNotes = Array.isArray(rawNotepadNotes) ? rawNotepadNotes : [];
+        logger.info('[NOTEPAD_SAVE_BUG] collectSessionData captured notepad notes', { count: notepadNotes.length });
         
         const uiState = this.collectUIState();
         
@@ -231,6 +234,7 @@ export class SaveLoadProgressManager {
         
         if (session.notepad?.notes && w.notepad?.restoreNotes) {
             w.notepad.restoreNotes(session.notepad.notes);
+            logger.info('[NOTEPAD_SAVE_BUG] restoreSessionData completed notepad hydration');
         }
         
         this.handlePendingOperations(session);

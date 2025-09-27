@@ -575,6 +575,94 @@ export class Notepad {
         return notes;
     }
 
+    private normalizeRestoredNotes(rawNotes: any[]): Note[] {
+        if (!Array.isArray(rawNotes)) {
+            return [];
+        }
+        const normalized: Note[] = [];
+        for (const item of rawNotes) {
+            const note = this.normalizeRestoredNote(item);
+            if (note) {
+                normalized.push(note);
+            }
+        }
+        return normalized;
+    }
+
+    private normalizeRestoredNote(raw: any): Note | null {
+        if (!raw || typeof raw !== 'object') {
+            return null;
+        }
+        const moduleIndex = Number.isInteger(raw.moduleIndex) && raw.moduleIndex >= 0 ? raw.moduleIndex : 0;
+        const conceptIndex = Number.isInteger(raw.conceptIndex) && raw.conceptIndex >= 0 ? raw.conceptIndex : 0;
+        const moduleTitle = typeof raw.moduleTitle === 'string' ? raw.moduleTitle : '';
+        const conceptTitle = typeof raw.conceptTitle === 'string' ? raw.conceptTitle : '';
+        const text = typeof raw.text === 'string' ? raw.text : '';
+        const id = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : crypto.randomUUID();
+        const timestamp = this.resolveTimestamp(raw.timestamp);
+        const note: Note = {
+            id,
+            moduleTitle,
+            conceptTitle,
+            conceptIndex,
+            moduleIndex,
+            text,
+            timestamp
+        };
+        if (raw.htmlContent !== undefined) {
+            note.htmlContent = typeof raw.htmlContent === 'string' ? raw.htmlContent : String(raw.htmlContent);
+        }
+        if (raw.quillDelta !== undefined) {
+            note.quillDelta = this.cloneDelta(raw.quillDelta);
+        }
+        return note;
+    }
+
+    private cloneNote(note: Note): Note {
+        const cloned: Note = {
+            ...note,
+            timestamp: this.resolveTimestamp(note.timestamp)
+        };
+        if (note.htmlContent !== undefined) {
+            cloned.htmlContent = note.htmlContent;
+        } else {
+            delete cloned.htmlContent;
+        }
+        if (note.quillDelta !== undefined) {
+            cloned.quillDelta = this.cloneDelta(note.quillDelta);
+        } else {
+            delete cloned.quillDelta;
+        }
+        return cloned;
+    }
+
+    private cloneDelta(delta: any): any {
+        if (delta === undefined || delta === null) {
+            return delta;
+        }
+        if (typeof delta !== 'object') {
+            return delta;
+        }
+        try {
+            return JSON.parse(JSON.stringify(delta));
+        } catch {
+            return delta;
+        }
+    }
+
+    private resolveTimestamp(value: any): Date {
+        if (value instanceof Date) {
+            return new Date(value.getTime());
+        }
+        if (typeof value === 'string' || typeof value === 'number') {
+            const candidate = new Date(value);
+            if (!Number.isNaN(candidate.getTime())) {
+                return candidate;
+            }
+        }
+        return new Date();
+    }
+
     private resolveModuleIndex(matchIndex: number | null, syntheticModuleIndex: number): number {
         if (matchIndex !== null && matchIndex >= 0) {
             return matchIndex;

@@ -24,3 +24,26 @@
 🤖 Generated with [Claude Code](https://claude.ai/code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>
+
+## Bug Fix #2
+
+**Issue**: Loading a saved session failed to restore notepad notes, leaving the notepad empty after import.
+
+**Root Cause**: The `Notepad` singleton never exposed the `getAllNotes`/`restoreNotes` APIs that `SaveLoadProgressManager` calls during serialization and hydration, so the save pipeline captured an empty array and the load pipeline skipped restoration. (`notepad.ts:481-664`, `saveloadProgressManager.ts:7-238`)
+
+**Discovery Method**: Cycle 1 – Current Component Scope (Systematic Hypothesis Space Expansion).
+
+**Fix Applied**:
+1. Added defensive `getAllNotes()` and normalization-driven `restoreNotes()` implementations with deep cloning and timestamp hydration (`notepad.ts:481-664`).
+2. Introduced shared helpers to cleanse incoming note payloads and preserve Quill deltas across round-trips (`notepad.ts:578-664`).
+3. Instrumented save/load to log captured and restored note counts, ensuring validation evidence for persistence (`saveloadProgressManager.ts:7-238`).
+
+**Related Files**:
+- `notepad.ts:481-664`
+- `saveloadProgressManager.ts:7-238`
+
+**Backup Artifact**: `backup/sensei_backup_fix_notepad_restoration_bug_20250928_000354.zip`
+
+**Review Artifact**: `code_review/review_notepad_restore_bug.html`
+
+**Keywords for Future Reference**: notepad persistence, save/load, window.notepad, session restore, quill delta, note normalization
