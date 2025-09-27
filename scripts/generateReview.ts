@@ -2,8 +2,6 @@ import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, unlink
 import { resolve, isAbsolute } from 'path';
 import { spawnSync } from 'child_process';
 
-type DiffMode = 'staged' | 'working' | 'branch';
-
 type DiffHunk = {
   header: string;
   lines: string[];
@@ -211,16 +209,6 @@ function getRepositoryRoot(): string {
   return resolve(commonDir, '..');
 }
 
-function readCurrentBranch(): string {
-  try {
-    const name = runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
-    if (name.length > 0 && name !== 'HEAD') {
-      return name;
-    }
-  } catch (error) {
-  }
-  return 'unknown-branch';
-}
 
 function runGit(args: string[]): string {
   const result = spawnSync('git', args, { encoding: 'utf8' });
@@ -234,30 +222,12 @@ function runGit(args: string[]): string {
   return result.stdout;
 }
 
-function listChangedFiles(): { files: string[]; mode: DiffMode } {
-  const staged = runGit(['diff', '--cached', '--name-only']).split('\n').map(line => line.trim()).filter(Boolean);
-  if (staged.length > 0) {
-    return { files: staged, mode: 'staged' };
-  }
-  const working = runGit(['diff', '--name-only']).split('\n').map(line => line.trim()).filter(Boolean);
-  return { files: working, mode: 'working' };
+function listWorkingTreeDiffFiles(): string[] {
+  return runGit(['diff', '--name-only']).split('\n').map(line => line.trim()).filter(Boolean);
 }
 
-function fileDiff(path: string, mode: DiffMode): string {
-  const args = ['diff'];
-  if (mode === 'staged') {
-    args.push('--cached');
-  }
-  args.push('--', path);
-  return runGit(args);
-}
-
-function listChangedFilesAgainstBase(base: string, branch: string): string[] {
-  return runGit(['diff', '--name-only', `${base}...${branch}`]).split('\n').map(line => line.trim()).filter(Boolean);
-}
-
-function fileDiffAgainstBase(path: string, base: string, branch: string): string {
-  return runGit(['diff', `${base}...${branch}`, '--', path]);
+function diffFile(path: string): string {
+  return runGit(['diff', '--', path]);
 }
 
 function escapeHtml(value: string): string {
@@ -373,18 +343,17 @@ function buildFileSection(section: FileSection): string {
   return `<section id="${escapeHtml(section.id)}" class="file-section">${header}${hunkIndex}${articles}</section>`;
 }
 
-function buildNoDiffDocument(featureSlug: string, generatedAt: string, path: string, prMarkup: { html: string; script: string }, branchName: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Code Review - ${escapeHtml(featureSlug)} - ${generatedAt}</title><style>body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#1f2933;background:#f8fafc;}h1{margin-bottom:16px;}p{margin-bottom:12px;}section.pr-request{margin-top:20px;padding:16px;background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);}section.pr-request h2{margin-top:0;margin-bottom:12px;}</style></head><body><h1>Code Review: ${escapeHtml(featureSlug)}</h1><p>Date Created: ${escapeHtml(generatedAt)}</p><p>Git Branch With Changes: ${escapeHtml(branchName)}</p><p>Diff Command: git diff main...${escapeHtml(branchName)}</p>${prMarkup.html}<p>No differences detected against main or working tree. Nothing to review.</p><p>Output: ${escapeHtml(path)}</p>${prMarkup.script}</body></html>`;
+function buildNoDiffDocument(featureSlug: string, generatedAt: string, path: string, prMarkup: { html: string; script: string }, diffCommand: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Code Review - ${escapeHtml(featureSlug)} - ${escapeHtml(generatedAt)}</title><style>body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#1f2933;background:#f8fafc;}h1{margin-bottom:16px;}p{margin-bottom:12px;}section.pr-request{margin-top:20px;padding:16px;background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);}section.pr-request h2{margin-top:0;margin-bottom:12px;}</style></head><body><h1>Code Review: ${escapeHtml(featureSlug)}</h1><p>Date Created: ${escapeHtml(generatedAt)}</p><p>Diff Command: ${escapeHtml(diffCommand)}</p>${prMarkup.html}<p>No differences detected for the working tree. Nothing to review.</p><p>Output: ${escapeHtml(path)}</p>${prMarkup.script}</body></html>`;
 }
 
-function buildDocument(featureSlug: string, generatedAt: string, mode: DiffMode, sections: FileSection[], checklistHtml: string, prMarkup: { html: string; script: string }, branchName: string): string {
-  const diffSource = mode === 'staged' ? 'Staged changes (git diff --cached)' : mode === 'working' ? 'Working tree changes (git diff)' : `Branch-only changes (git diff main...${branchName})`;
+function buildDocument(featureSlug: string, generatedAt: string, diffCommand: string, sections: FileSection[], checklistHtml: string, prMarkup: { html: string; script: string }): string {
   const totalAdditions = sections.reduce((acc, section) => acc + section.additions, 0);
   const totalDeletions = sections.reduce((acc, section) => acc + section.deletions, 0);
   const sectionHtml = sections.map(buildFileSection).join('');
-  const styles = `body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:24px;background:#eef2f8;color:#1b2733;}a{color:#2563eb;text-decoration:none;}a:hover{text-decoration:underline;}header.page-header{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}header.page-header h1{margin:0;font-size:28px;}header.page-header .metadata{font-size:14px;color:#475569;display:flex;flex-direction:column;gap:6px;line-height:1.4;}header.page-header .summary{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;}header.page-header .summary-card{background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:16px 20px;min-width:160px;display:flex;flex-direction:column;gap:4px;}header.page-header .summary-card span.label{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;}header.page-header .summary-card span.value{font-size:22px;font-weight:600;}section.pr-request{background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:20px;margin-bottom:28px;}section.pr-request h2{margin:0 0 12px;font-size:18px;border:none;}section.pr-request p{margin:0 0 10px;font-size:14px;line-height:1.6;}section.checklist{background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:20px;margin-bottom:28px;}section.checklist h2{margin:0 0 12px;font-size:18px;border:none;}section.checklist ol{margin:0;padding-left:20px;}section.checklist li{margin-bottom:12px;font-size:14px;}section.checklist .checklist-file{display:flex;align-items-center;gap:12px;font-weight:600;}section.checklist .checklist-file-name{font-size:15px;}section.checklist .checklist-file-counts{color:#475569;font-size:13px;}section.checklist ul{margin:8px 0 0;padding-left:20px;}section.checklist ul li{font-weight:500;margin-bottom:6px;}section.checklist .checklist-hunk-counts{margin-left:8px;font-size:12px;color:#64748b;}section.file-section{background:#fff;border-radius:16px;box-shadow:0 18px 36px rgba(15,23,42,0.1);margin-bottom:32px;padding:24px;}section.file-section .file-header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;}section.file-section h2{margin:0;font-size:22px;border:none;}section.file-section .file-stats{display:flex;gap:10px;font-weight:600;font-size:14px;}section.file-section .file-additions{color:#15803d;}section.file-section .file-deletions{color:#b91c1c;}section.file-section .hunk-index{margin:20px 0;}section.file-section .hunk-index h3{margin:0 0 10px;font-size:16px;}section.file-section .hunk-index ol{margin:0;padding-left:20px;}section.file-section .hunk-index li{margin-bottom:8px;font-size:14px;}article.hunk{margin-top:28px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;}article.hunk .hunk-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;background:#f8fafc;padding:16px;border-bottom:1px solid #e2e8f0;}article.hunk .hunk-header h3{margin:0;font-size:18px;}article.hunk .hunk-summary{font-size:12px;color:#475569;margin-top:4px;flex-basis:100%;}article.hunk .hunk-diff-counts{font-weight:600;color:#0ea5e9;}article.hunk pre{margin:0;background:#0f172a;color:#e2e8f0;padding:20px;font-size:13px;line-height:1.5;}article.hunk pre code{display:block;white-space:pre;}article.hunk .review-notes{background:#f8fafc;padding:16px;border-top:1px solid #e2e8f0;}article.hunk .review-notes h4{margin:0 0 10px;font-size:15px;}article.hunk .review-notes ul{margin:0;padding-left:18px;}article.hunk .review-notes li{margin-bottom:6px;font-size:14px;}article.hunk .hunk-nav{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f1f5f9;border-top:1px solid #e2e8f0;font-size:13px;}article.hunk .hunk-nav span{color:#94a3b8;}footer.page-footer{margin-top:40px;text-align:center;font-size:13px;color:#64748b;}
+  const styles = `body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:24px;background:#eef2f8;color:#1b2733;}a{color:#2563eb;text-decoration:none;}a:hover{text-decoration:underline;}header.page-header{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}header.page-header h1{margin:0;font-size:28px;}header.page-header .metadata{font-size:14px;color:#475569;display:flex;flex-direction:column;gap:6px;line-height:1.4;}header.page-header .summary{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;}header.page-header .summary-card{background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:16px 20px;min-width:160px;display:flex;flex-direction:column;gap:4px;}header.page-header .summary-card span.label{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;}header.page-header .summary-card span.value{font-size:22px;font-weight:600;}section.pr-request{background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:20px;margin-bottom:28px;}section.pr-request h2{margin:0 0 12px;font-size:18px;border:none;}section.pr-request p{margin:0 0 10px;font-size:14px;line-height:1.6;}section.checklist{background:#fff;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:20px;margin-bottom:28px;}section.checklist h2{margin:0 0 12px;font-size:18px;border:none;}section.checklist ol{margin:0;padding-left:20px;}section.checklist li{margin-bottom:12px;font-size:14px;}section.checklist .checklist-file{display:flex;align-items:center;gap:12px;font-weight:600;}section.checklist .checklist-file-name{font-size:15px;}section.checklist .checklist-file-counts{color:#475569;font-size:13px;}section.checklist ul{margin:8px 0 0;padding-left:20px;}section.checklist ul li{font-weight:500;margin-bottom:6px;}section.checklist .checklist-hunk-counts{margin-left:8px;font-size:12px;color:#64748b;}section.file-section{background:#fff;border-radius:16px;box-shadow:0 18px 36px rgba(15,23,42,0.1);margin-bottom:32px;padding:24px;}section.file-section .file-header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;}section.file-section h2{margin:0;font-size:22px;border:none;}section.file-section .file-stats{display:flex;gap:10px;font-weight:600;font-size:14px;}section.file-section .file-additions{color:#15803d;}section.file-section .file-deletions{color:#b91c1c;}section.file-section .hunk-index{margin:20px 0;}section.file-section .hunk-index h3{margin:0 0 10px;font-size:16px;}section.file-section .hunk-index ol{margin:0;padding-left:20px;}section.file-section .hunk-index li{margin-bottom:8px;font-size:14px;}article.hunk{margin-top:28px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;}article.hunk .hunk-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;background:#f8fafc;padding:16px;border-bottom:1px solid #e2e8f0;}article.hunk .hunk-header h3{margin:0;font-size:18px;}article.hunk .hunk-summary{font-size:12px;color:#475569;margin-top:4px;flex-basis:100%;}article.hunk .hunk-diff-counts{font-weight:600;color:#0ea5e9;}article.hunk pre{margin:0;background:#0f172a;color:#e2e8f0;padding:20px;font-size:13px;line-height:1.5;}article.hunk pre code{display:block;white-space:pre;}article.hunk .review-notes{background:#f8fafc;padding:16px;border-top:1px solid #e2e8f0;}article.hunk .review-notes h4{margin:0 0 10px;font-size:15px;}article.hunk .review-notes ul{margin:0;padding-left:18px;}article.hunk .review-notes li{margin-bottom:6px;font-size:14px;}article.hunk .hunk-nav{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f1f5f9;border-top:1px solid #e2e8f0;font-size:13px;}article.hunk .hunk-nav span{color:#94a3b8;}footer.page-footer{margin-top:40px;text-align:center;font-size:13px;color:#64748b;}
   `;
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Code Review - ${escapeHtml(featureSlug)} - ${generatedAt}</title><style>${styles}</style></head><body><header id="top" class="page-header"><h1>Code Review • ${escapeHtml(featureSlug)}</h1><div class="metadata"><div>Date Created: ${escapeHtml(generatedAt)}</div><div>Git Branch With Changes: ${escapeHtml(branchName)}</div><div>Diff Command: git diff main...${escapeHtml(branchName)}</div><div>Diff Source: ${escapeHtml(diffSource)}</div></div><div class="summary"><div class="summary-card"><span class="label">Total Additions</span><span class="value">+${totalAdditions}</span></div><div class="summary-card"><span class="label">Total Deletions</span><span class="value">-${totalDeletions}</span></div><div class="summary-card"><span class="label">Files Changed</span><span class="value">${sections.length}</span></div></div></header>${prMarkup.html}${checklistHtml}${sectionHtml}${prMarkup.script}<footer class="page-footer"><a href="#top">Back to top</a></footer></body></html>`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Code Review - ${escapeHtml(featureSlug)} - ${escapeHtml(generatedAt)}</title><style>${styles}</style></head><body><header id="top" class="page-header"><h1>Code Review • ${escapeHtml(featureSlug)}</h1><div class="metadata"><div>Date Created: ${escapeHtml(generatedAt)}</div><div>Diff Command: ${escapeHtml(diffCommand)}</div></div><div class="summary"><div class="summary-card"><span class="label">Total Additions</span><span class="value">+${totalAdditions}</span></div><div class="summary-card"><span class="label">Total Deletions</span><span class="value">-${totalDeletions}</span></div><div class="summary-card"><span class="label">Files Changed</span><span class="value">${sections.length}</span></div></div></header>${prMarkup.html}${checklistHtml}${sectionHtml}${prMarkup.script}<footer class="page-footer"><a href="#top">Back to top</a></footer></body></html>`;
 }
 
 function ensureDirectory(path: string): void {
@@ -405,17 +374,8 @@ function generateReview(): void {
   const repoRoot = getRepositoryRoot();
   const outputDir = resolve(repoRoot, 'code_review');
   ensureDirectory(outputDir);
-  const branchName = readCurrentBranch();
-  let files: string[] = [];
-  let mode: DiffMode = 'branch';
-  if (branchName !== 'unknown-branch') {
-    files = listChangedFilesAgainstBase('main', branchName);
-  }
-  if (branchName === 'unknown-branch' || files.length === 0) {
-    const fallback = listChangedFiles();
-    files = fallback.files;
-    mode = fallback.mode;
-  }
+  const diffCommand = 'git diff';
+  const files = listWorkingTreeDiffFiles();
   const { filename, finalSlug, previousFilename, priorArtifacts } = computeTargetFilename(outputDir, slug);
   const targetPath = resolve(outputDir, filename);
   const previousEntries = loadPreviousPrRequests(outputDir, previousFilename);
@@ -454,7 +414,7 @@ function generateReview(): void {
   removeArtifacts(outputDir, artifactsToRemove);
 
   if (files.length === 0) {
-    const content = buildNoDiffDocument(finalSlug, generated, targetPath, prMarkup, branchName);
+    const content = buildNoDiffDocument(finalSlug, generated, targetPath, prMarkup, diffCommand);
     writeFileSync(targetPath, content, 'utf8');
     console.log(`No changes found. Review log saved to ${targetPath}`);
     return;
@@ -464,7 +424,7 @@ function generateReview(): void {
   const registry = new Map<string, number>();
 
   for (const path of files) {
-    const diff = mode === 'branch' ? fileDiffAgainstBase(path, 'main', branchName) : fileDiff(path, mode);
+    const diff = diffFile(path);
     if (!diff.trim()) {
       continue;
     }
@@ -488,7 +448,7 @@ function generateReview(): void {
   }
 
   if (sections.length === 0) {
-    const content = buildNoDiffDocument(finalSlug, generated, targetPath, prMarkup, branchName);
+    const content = buildNoDiffDocument(finalSlug, generated, targetPath, prMarkup, diffCommand);
     writeFileSync(targetPath, content, 'utf8');
     console.log(`No diff content found. Review log saved to ${targetPath}`);
     return;
@@ -499,7 +459,7 @@ function generateReview(): void {
     console.log(`Review Checklist:\n${checklist.text}\n`);
   }
 
-  const html = buildDocument(finalSlug, generated, mode, sections, checklist.html, prMarkup, branchName);
+  const html = buildDocument(finalSlug, generated, diffCommand, sections, checklist.html, prMarkup);
   writeFileSync(targetPath, html, 'utf8');
   console.log(`Code review generated at ${targetPath}`);
 }

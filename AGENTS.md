@@ -16,7 +16,9 @@
     <constraints>
         <inviolable_rule>NEVER make up facts, APIs, or function names. If you do not know something or are unsure, state it clearly and propose a way to find the information (e.g., reading a file, running a command).</inviolable_rule>
         <inviolable_rule>NEVER include comments in code changes.</inviolable_rule>
-        <inviolable_rule>> ALWAYS Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
+        <inviolable_rule> ALWAYS Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
+        <inviolable_rule> Use python3 to run your internal commands/scripts.</inviolable_rule>
+        <inviolable_rule> Use apply patch tool to modify files, don't use scripts</inviolable_rule>
     </constraints>
     <project_file_structure>
         # Project Files: 
@@ -446,7 +448,7 @@
             </step>
             <step number="10">
                 **Evidence-Based Validation & Cleanup**:
-                *   **Action**: Run `npx tsc --noEmit` from root and resolve any reported issues before continuing.
+                *   **Action**: Run `npx tsc --noEmit` and resolve any reported issues before continuing.
                 *   **Action**: Access `./logs/console_logs.log`.
                 *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
                 *   **Action**: Confirm that execution evidence covers every function listed in the Core Analysis Static Execution Trace; document any trace segment not exercised and address it before proceeding.
