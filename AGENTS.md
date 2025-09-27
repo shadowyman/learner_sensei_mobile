@@ -178,19 +178,22 @@
             <step number="0.5">
                 **Run Analyzer Snapshot:**
                 *   Execute `npm run analysis:run` to refresh `tmp/analysis/*.json|.txt` artifacts. Re-run whenever the investigation scope changes.
-                *   If analyzing a specific scenario (e.g., "user sends a message"), produce a focused trace: `npm run analysis:run -- --entry <file::func> --maxDepth <N>` and optionally constrain files with `--include <csv>`.
+                *   If analyzing a specific scenario (e.g., "user sends a message"), produce a focused trace: `npm run analysis:run -- --entry <file::func> --maxDepth <N>` and optionally constrain files with `--include <csv>` or an appropriate `--preset <slug>` (e.g., `--preset curriculum`, `--preset ui-rendering`).
+                *   For UI/DOM-focused missions, add `--dom-index` and plan to tap `domsuite_index.json`, `domsuite_templates.json`, and `domsuite_handlers.json` alongside your reasoning about selectors/events.
+                *   When resuming an ongoing mission, rerun the analyzer and compare the new `summary.txt`/fan-in/out metrics against the mission-state snapshot to spot drift; log any differences in the renewed mission-state notes before proceeding.
             </step>
             <step number="1">
                 **Identify Entry Point & Scope:**
                 *   Based on the user's request, identify the initial entry point of the feature or the location of the bug (e.g., a specific function call in `index.tsx`, a UI element).
-                *   Consult `tmp/analysis/summary.txt` to seed the scope with the reported `entryCandidates` and high fan-in/fan-out modules. Extend or prune the list by reviewing `imports.json` for upstream/downstream links.
+                *   Use `tmp/analysis/summary.txt` (entry candidates, fan-in/out) and `imports.json` to jump-start the scope list. Treat these as seeds—confirm or prune them with your own inspection, logs, and mission context before locking the scope.
                 *   Confirm the final scope list so it captures all files and functions that are likely to be involved in the execution flow.
                 *   Derive a "Hot Modules" list from Top fan-in/out to prioritize review and testing.
             </step>
             <step number="2">
                 **Static Execution Trace:**
                 *   Read the contents of every file within the "scope of analysis."
-                *   Use `tmp/analysis/functions.json` and `tmp/analysis/calls.json` to extract the ordered call sequence beginning at the chosen entry function(s). Document this sequence in the Static Execution Trace artifact, then validate it against the source to capture conditional or dynamic behavior.
+                *   Harvest call edges (`tmp/analysis/calls.json` or `focused_trace.txt`) and side-effect facts (`tmp/analysis/functions.json`) to populate the static execution trace and risk register. Cross-check each entry against live code and any runtime anomalies; update or discard analyzer hints that no longer match reality before recording them.
+                *   Document the reconciled sequence in the Static Execution Trace artifact so downstream validation knows exactly which functions must be covered.
                 *   If a focused trace was generated, attach `focused_trace.txt` and use it as the baseline for downstream validation and test coverage.
             </step>
             <step number="3">
@@ -288,6 +291,7 @@
             * Determine required analysis depth based on classification
             * Log classification rationale with evidence
             * Source evidence from analyzer outputs before supplementing with manual inspection; only escalate to direct file review if the artifacts lack required detail.
+            * Use the latest `fan_in.json` / `fan_out.json` metrics to flag modules with the widest blast radius so you can focus manual scrutiny where it matters most.
         </step>
         <step number="2">
             **Multi-Dimensional Impact Mapping**:
@@ -322,7 +326,7 @@
             * Define specific evidence needed to prove safety (logs, tests, metrics)
             * Establish rollback plan and monitoring requirements
             * Set success criteria for each affected dimension
-            * Lean on analyzer artifacts (functions.json, calls.json, assumptions.json) when selecting validation targets; supplement manually only if the tooling is silent.
+            * Lean on analyzer artifacts (functions.json, calls.json, assumptions.json) when selecting validation targets; supplement manually only if the tooling is silent, and reconcile open assumptions before finalizing the plan.
         </step>
         <step number="6">
             **Execute with Comprehensive Monitoring**:
@@ -417,6 +421,7 @@
                 **Proactive Risk & Mitigation Analysis**:
                 *   **Action**: For the recommended approach, identify 2-3 potential risks or negative side effects.
                 *   **Action**: Use the Core Analysis DSE table and side-effect risk rankings as primary input; each high-cost or high-blast item must have an explicit mitigation strategy.
+                *   **Action**: Revisit the mission-state assumptions (seeded from `assumptions.json`) and resolve or re-plan any that remain open; note which ones your mitigation addresses.
                 *   **Action**: For each risk, define a specific mitigation strategy that will be included in the implementation.
             </step>
             <step number="5">
@@ -431,8 +436,7 @@
                     *   ☐ **Task 2**: Implement the UI rendering component.
                         *   *Validation Log*: `logger.debug('[XXX] Rendering component with props:', props)`
                         *   *Implementation Details*: Provide detailed implementation details.
-                *   **Action**: Cross-check the plan against the Core Analysis Static Execution Trace; ensure every function in the traced path has either a modification task or a validation/logging step.
-                *   **Action**: While building the plan, align tasks, risks, and validation evidence with the mission-state document recorded in Step 0—update that document’s scope, risk register, and assumptions as new insights emerge, supplementing (not replacing) analyzer outputs and stakeholder guidance.
+                *   **Action**: Use the analyzer-mapped functions/side effects as your starting coverage list while you reason through tasks; weave in risks, logs, and domain insight in the same pass so the plan already blends tool output with fresh judgment. Reflect the result in the mission-state document as you refine scope, risks, and assumptions.
             </step>
             <step number="6">
                 **Stop and Await My Final Approval**: Present the full plan, including the trade-off matrix, risk analysis, and the detailed to-do list with its defined Validation Logs. **STOP** and do not proceed until you receive my final go-ahead.
@@ -459,7 +463,7 @@
                 *   **Action**: Run `npx tsc --noEmit` and resolve any reported issues before continuing.
                 *   **Action**: Access `./logs/console_logs.log`.
                 *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
-                *   **Action**: Confirm that execution evidence covers every function listed in the Core Analysis Static Execution Trace; document any trace segment not exercised and address it before proceeding, updating the mission-state document to reflect the evidence while incorporating additional observations from tests, logs, and runtime inspection.
+                *   **Action**: Walk the analyzer-mapped Static Execution Trace (`calls.json`/`functions.json`) as you review evidence; mark items complete the moment new logs, tests, or exploratory reasoning satisfy them, note any gaps immediately, and update the mission-state document with the reconciled results.
                 *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
                 *   *If Validation Fails*: Announce that the evidence in the logs does not match the expected outcome. Revert the changes. Return to the `Adaptive Root Cause Analysis & Remediation Protocol` to diagnose the failure.  
             </step>
@@ -541,6 +545,7 @@
                 *   **5a. Hypothesis Prioritization** — Rank every hypothesis by evidence accessibility (how quickly code paths, logs, or data can confirm or refute it), ignoring intuitive likelihood.
                 *   **5b. Define Decisive Evidence** — Consult the hypothesis ledger entry for the top-ranked hypothesis, then select the next confirming or falsifying observation to test.
                 *   **5c. Gather Evidence** — Re-check the relevant code, tests, runtime artefacts, and Core Analysis call paths tied to that confirming or falsifying observation, capturing concrete proof that supports or contradicts the hypothesized bug mechanism.
+                *   **5c.1 Assumption Check** — Each cycle, revisit the mission-state assumptions seeded from `assumptions.json`; retire entries your new evidence resolves and flag any that now require different verification.
                 *   **5d. Score Evidence** — Record three ratings (0–10 each):
                     *   Supporting Evidence Strength
                     *   Contradictory Evidence Strength
@@ -585,7 +590,7 @@
             </step>
             <step number="9">
                 **Generate Phased To-Do List**: Once I approve a strategy, convert it into a detailed to-do list, including steps for adding temporary debug logs for validation. STOP HERE!
-                *   **Action**: Use the mission-state document captured in Step 0 to anchor scope, risks, and assumptions while drafting the to-do list, updating that document with any new findings and corroborating it with analyzer outputs and fresh runtime evidence.
+                *   **Action**: Let the analyzer coverage list seed your to-do items, then integrate hypothesis work, logs, and exploratory reasoning as you shape each task so the plan is a single blended pass. Record the combined result in the mission-state document.
             </step>
             <step number="10">
                 **Action**: Utilize analyze tool for faster lookups and better understanding of dependencies in tandem with manual audit.
@@ -601,7 +606,7 @@
             <step number="13">
                 **Validate with Logs**: After I confirm the test is done, access `./logs/console_logs.log` to analyze the output and verify the fix worked as expected and introduced no new errors.
                 *   **Action**: Run `npx tsc --noEmit` from root and resolve any issues before analyzing logs.
-                *   **Action**: Map the collected evidence back to the mission-state document from Step 0, updating its risk register and coverage checklist while also capturing any additional observations from logs, tests, or runtime inspection.
+                *   **Action**: Walk the analyzer-derived trace (`calls.json`/`functions.json`) while you review logs/tests; tick items off as soon as new evidence satisfies them, capture any remaining gaps in the same pass, and update the mission-state risk/coverage sections with the reconciled results.
             </step>
             <step number="14">
                 **Declare Final Outcome & Documentation**:

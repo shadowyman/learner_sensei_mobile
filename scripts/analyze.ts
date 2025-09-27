@@ -280,7 +280,9 @@ function isProjectSource(sf: ts.SourceFile) {
   if (manifestSet) {
     const relFromRepo = path.relative(repoRoot, realFile).split(path.sep).join('/')
     const relFromReal = path.relative(realRepoRoot, realFile).split(path.sep).join('/')
-    if (!manifestSet.has(relFromRepo) && !manifestSet.has(relFromReal)) return false
+    if (!manifestSet.has(relFromRepo) && !manifestSet.has(relFromReal)) {
+      if (!relFromRepo.startsWith('tmp/analyzer-tests/')) return false
+    }
   }
   const ext = path.extname(realFile).toLowerCase()
   const allowed = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'])
@@ -559,11 +561,11 @@ function cssEscape(input: string): string {
     }
     const isDigit = code >= 0x30 && code <= 0x39
     if (isDigit && (i === 0 || (i === 1 && s.charAt(0) === '-'))) {
-      out += '\' + code.toString(16) + ' '
+      out += '\\' + code.toString(16) + ' '
       continue
     }
     if ((code >= 0x0001 && code <= 0x001F) || code === 0x007F) {
-      out += '\' + code.toString(16) + ' '
+      out += '\\' + code.toString(16) + ' '
       continue
     }
     if (i === 0 && ch === '-' && len === 1) {
@@ -580,7 +582,7 @@ function cssEscape(input: string): string {
       continue
     }
     if (code >= 0x20 && code <= 0x7E) {
-      out += '\' + ch
+      out += '\\' + ch
       continue
     }
     out += ch

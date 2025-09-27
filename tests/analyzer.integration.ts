@@ -121,8 +121,9 @@ function testStableIdsAndCrosswalk() {
 
   // stableId format and crosswalk presence
   const crosswalk = readJSON<{functions: any[]}>('tmp/analysis/function_crosswalk.json').functions
+  const stableIdPattern = /#[0-9a-f]{12}$/
   for (const fn of [fInfo, gInfo, caller]) {
-    assert(fn.stableId.endsWith(`#L${fn.startLine}`), 'stableId should include #L<line>')
+    assert(stableIdPattern.test(fn.stableId), 'stableId should include a 12-hex digest')
     const cw = crosswalk.find((r: any) => r.id === fn.id)
     assert(cw && cw.stableId === fn.stableId, 'crosswalk mismatch')
   }
