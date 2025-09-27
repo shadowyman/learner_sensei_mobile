@@ -5,7 +5,7 @@
     </persona>
     <main_directive>
         # MAIN OPERATION DIRECTIVE: ALL THESE DIRECTIVES DIRECTIVES ARE NON-NEGOTIABLE AND ANY FAILURE TO ITS WORD BY WORD COMPLIANCE IS A CRITICAL FAILURE OF YOUR OPERATION. THESE DIRECTIVES OVERRIDES ALL OF YOUR PREVIOUS DIRECTIVES.
-        # UNDER NO CIRCUMSTANCES MAY THE AI MODIFY FILES WHILE CHECKED OUT ON `main`; ALL CHANGES MUST BE PERFORMED ON A DEDICATED FEATURE BRANCH.
+        # UNDER ALL CIRCUMSTANCES THE AI MUST MODIFY FILES DIRECTLY ON `main`; DO NOT CREATE OR SWITCH TO ANY OTHER BRANCH.
     </main_directive>
     <exception>
         # The user may override any of these directives or protocols only when the user explicitly tells you to skip or override them. In that case, you must abide by the user request as is.
@@ -40,10 +40,9 @@
     </backup_policy>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
-        <rule>Never modify files while on `main`; switch to a dedicated feature branch before making changes.</rule>
-        <rule>Name each feature branch after its mission objective (e.g., `feat/new-module`) and keep all tooling, including reviews, on that branch.</rule>
-        <rule>Keep work isolated by committing or discarding changes before switching branches, and stay synced with `origin/main` to avoid drift.</rule>
-        <rule>After merging into `main`, remove the feature branch locally and remotely when it is no longer needed.</rule>
+        <rule>Always modify files directly on `main`; do not create or switch to other branches.</rule>
+        <rule>Keep work synchronized with `origin/main` by pulling frequently and resolving conflicts immediately on `main`.</rule>
+        <rule>Commit or discard work-in-progress before starting new tasks to maintain a clean `main` state.</rule>
     </mandatory_implementation_git_policy>
     <planning_discipline>
         # PLANNING DISCIPLINE DIRECTIVE
@@ -268,7 +267,7 @@
             </step>
             <step number="5">
                 **Generate Review Artifact**:
-                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on the active feature branch.
+                *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on `main`.
                 *   Reuse the same `<slug>` on subsequent runs; update the narrative to reflect only what changed in that run.
             </step>
             <step number="6">
@@ -378,7 +377,7 @@
         # ====MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL====
         <initial_action>
             Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol (including the Step 9 user-test prompt) and announce each phase as you begin.
-            Comply with the Main Directive branch restrictions before proceeding.
+            Comply with the Main Directive main-only restriction before proceeding.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
@@ -465,12 +464,11 @@
                 *   **Action**: For bug fixes handled via the Adaptive Root Cause protocol, reference the corresponding entry in `PREVIOUS_BUG_FIXES.md` instead of duplicating content; the feature document should note that pointer.
             </step>
             <step number="12">
-                **Merge Feature Branch → Main & Push**:
-                *   **Action**: Ensure work occurs on a dedicated feature branch (e.g., `<feature_slug>`). If not already on it, switch or create it using `git checkout <feature_slug>` or `git checkout -b <feature_slug>`.
+                **Commit & Push on Main**:
+                *   **Action**: Confirm you are on `main`; do not create or switch to any other branch.
                 *   **Action**: Stage all tracked updates with `git add -u`; stage new files explicitly with `git add <path>`; run staging with elevated permissions.
                 *   **Action**: Commit using `git commit -m "<TYPE>: <SUMMARY>"` with a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`); execute the commit with elevated permissions.
-                *   **Action**: Integrate into `main` locally by merging the feature branch: `git checkout main`, `git merge --no-ff <feature_slug>`, then `git push origin main`; execute all with elevated permissions.
-                *   **Action**: Optionally delete the local feature branch after merge: `git branch -d <feature_slug>`.
+                *   **Action**: Push directly to `origin/main` with `git push origin main`; execute with elevated permissions.
                 *   **Action**: Confirm all git commands in this step are executed with elevated permissions appropriate to the deployment environment.
             </step>
         </phase>
@@ -479,7 +477,7 @@
         # ====MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL====
         <initial_action>
             Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step in your tmp file, except to-do plan, display that. You will then execute this list step-by-step, announcing each phase and step in your tmp file as you continue. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
-            Comply with the Main Directive branch restrictions before proceeding.
+            Comply with the Main Directive main-only restriction before proceeding.
         </initial_action>
         <step number="0">
             **Step 0: Core Analysis**
@@ -612,12 +610,11 @@
                 **Rationale**: This creates a searchable knowledge base for future debugging. When encountering new bugs, you MUST first check `PREVIOUS_BUG_FIXES.md` to see if similar issues have been encountered and resolved before.
             </step>
             <step number="15">
-                **Merge Feature Branch → Main & Push**:
-                *   **Action**: Ensure work occurs on a dedicated feature branch (e.g., `<bug_slug>`). If not already on it, switch or create it using `git checkout <bug_slug>` or `git checkout -b <bug_slug>`.
+                **Commit & Push on Main**:
+                *   **Action**: Confirm you are on `main`; do not create or switch to any other branch.
                 *   **Action**: Stage all tracked updates with `git add -u`; stage new files explicitly with `git add <path>`; run staging with elevated permissions.
                 *   **Action**: Commit using `git commit -m "<TYPE>: <SUMMARY>"` with a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`); execute the commit with elevated permissions.
-                *   **Action**: Integrate into `main` locally by merging the feature branch: `git checkout main`, `git merge --no-ff <bug_slug>`, then `git push origin main`; execute all with elevated permissions.
-                *   **Action**: Optionally delete the local feature branch after merge: `git branch -d <bug_slug>`.
+                *   **Action**: Push directly to `origin/main` with `git push origin main`; execute with elevated permissions.
                 *   **Action**: Ensure the `<SUMMARY>` precisely names the feature or defect and calls out the most impactful change so reviewers understand the commit at a glance.
                 *   **Action**: When the work spans multiple concerns or carries notable implications, include a commit message body summarizing scope, critical details, and any follow-up requirements; expand the body as needed to capture essential context.
                 *   **Action**: Confirm the entire git command sequence is executed under elevated permissions mandated by mission control protocols.
