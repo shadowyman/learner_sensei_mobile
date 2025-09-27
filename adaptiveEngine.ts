@@ -1,5 +1,3 @@
-
-// Sync trigger: 2024-12-19
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.1
