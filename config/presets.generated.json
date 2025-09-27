@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2025-09-27T15:17:35.521Z",
-  "graphHash": "17cfcac44e06cb1e1f249e350c408ad28978d71a12900db67f849ab436de5384",
+  "generatedAt": "2025-09-27T20:44:40.471Z",
+  "graphHash": "9df735087f1f0e5d8ac0c41c2bf9d3b94802a71df92a9ac90f8d27dd54a94113",
   "presets": {
     "adaptive-engine": {
       "slug": "adaptive-engine",
@@ -287,6 +287,7 @@
     "tests-teaching": {
       "slug": "tests-teaching",
       "includeFiles": [
+        "consolidationManager.ts",
         "curriculum.ts",
         "logger.ts",
         "prompts.ts",
