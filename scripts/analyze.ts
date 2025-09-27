@@ -128,7 +128,8 @@ function createTsResolver(program: ts.Program, repoRoot: string): ImportResolver
     const isNodeModules = f.includes(`${path.sep}node_modules${path.sep}`)
     const ext = path.extname(f)
     const isSourceExt = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'].includes(ext)
-    if (isNodeModules || !isSourceExt) return null
+    const isDts = f.endsWith('.d.ts') || f.endsWith('.d.tsx')
+    if (isNodeModules || !isSourceExt || isDts) return null
     return normalize(f)
   }
 }
@@ -842,10 +843,15 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
 
   sf.forEachChild(node => {
     if (ts.isFunctionDeclaration(node) && node.modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)) {
-      const exported = true
-      const funcName = node.name?.getText(sf) ?? 'defaultExport'
-      const id = addFunc(funcName, node, 'function', exported, undefined, true, node)
-      functionIndex.set(`${file}::default`, id)
+      const existingId = functionIdByDeclNode.get(node)
+      if (existingId) {
+        functionIndex.set(`${file}::default`, existingId)
+      } else {
+        const exported = true
+        const funcName = node.name?.getText(sf) ?? 'defaultExport'
+        const id = addFunc(funcName, node, 'function', exported, undefined, true, node)
+        functionIndex.set(`${file}::default`, id)
+      }
     }
     if (ts.isExportAssignment(node) && !node.isExportEquals) {
       const expr = unwrap(node.expression as ts.Expression)
@@ -892,7 +898,7 @@ function collectFunctions(program: ts.Program, resolveImport: ImportResolver, in
     analyzeFile(data, functionIndex, funcs, edges, assumptions, resolveImport)
   }
 
-  scanGlobalExposures(program, edges, functionIndex, resolveImport, useTypeChecker)
+  scanGlobalExposures(program, edges, functionIndex, resolveImport, useTypeChecker, funcs)
   ensureSyntheticFunction(funcs, 'global::exposed', 'global::exposed')
   for (const e of edges) {
     if (e.to.startsWith('global::') && !functionStableIdById.has(e.to)) {
@@ -1041,7 +1047,12 @@ function analyzeFile(
 
     const addAnonFunc = (node: ts.ArrowFunction | ts.FunctionExpression | ts.MethodDeclaration, preferredName?: string): string => {
       const existing = functionIdByNode.get(node)
-      if (existing) return existing
+      if (existing) {
+        if (!functionNodeById.has(existing)) {
+          functionNodeById.set(existing, { sf, node, file })
+        }
+        return existing
+      }
       const anonName = preferredName ? `${fn.name}.${preferredName}` : `${fn.name}__anon${++anonCounter}`
       const kind: FunctionInfo['kind'] = ts.isArrowFunction(node) ? 'arrow' : 'function'
       const id = functionId(file, anonName, node.pos)
@@ -1225,6 +1236,17 @@ function analyzeFile(
     }
 
     const visit = (node: ts.Node) => {
+      if (
+        node !== fn.node && (
+          ts.isFunctionDeclaration(node) ||
+          ts.isFunctionExpression(node) ||
+          ts.isArrowFunction(node) ||
+          ts.isMethodDeclaration(node) ||
+          ts.isConstructorDeclaration(node)
+        )
+      ) {
+        return
+      }
       if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
         let init = node.initializer as ts.Expression
         if (ts.isAwaitExpression(init)) init = init.expression as ts.Expression
@@ -1686,7 +1708,8 @@ function scanGlobalExposures(
   edges: CallEdge[],
   functionIndex: Map<string, string>,
   resolveImport: ImportResolver,
-  useTypeCheckerFlag: boolean
+  useTypeCheckerFlag: boolean,
+  funcs: FunctionInfo[]
 ) {
   const globals = new Set(['window', 'globalThis', 'self'])
 
@@ -1840,6 +1863,11 @@ function scanGlobalExposures(
 
     const addEdge = (to: string, via: string, locNode: ts.Node) => {
       const loc = getLoc(sf, locNode)
+      const hasAtPos = /@-?\d+$/.test(to)
+      if (!hasAtPos && !functionStableIdById.has(to)) {
+        functionStableIdById.set(to, to)
+        ensureSyntheticFunction(funcs, to, to)
+      }
       let toStable = functionStableIdById.get(to)
       if (!toStable) {
         toStable = to
