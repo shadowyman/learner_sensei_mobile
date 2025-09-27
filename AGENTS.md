@@ -340,6 +340,7 @@
         <step number="0">
             **Step 0: Core Analysis**
             *   **Action:** Complete the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)** before advancing to Step 1.
+            *   **Action:** Record the path of the mission-state document generated during Core Analysis; treat it as the living checkpoint that complements analyzer outputs and fresh observations for every subsequent step, updating it whenever scope, risks, or assumptions change.
         </step>
         <phase name="Phase 1: System-Wide Understanding & Synthesis">
             ### Phase 1: System-Wide Understanding & Synthesis
@@ -347,6 +348,7 @@
                 **Architectural Context Mapping**: Go beyond a "deep scan" of immediately affected files. Analyze the `PROJECT WORKFLOW` document and sample key files from each major phase to build a mental model of the project's architectural patterns. State your findings clearly (e.g., "The system follows a Component-Based architecture where state is managed centrally in `index.tsx`.").
                 *   Reference the latest Core Analysis artifacts (`tmp/analysis/summary.txt`, `functions.json`, `calls.json`) to corroborate fan-in hotspots, call chains, and side-effect boundaries while describing the architecture.
                 *   Exhaust analyzer outputs (fan-in/out, calls, assumptions) before opening code manually; only inspect raw files when analyzer insight is insufficient.
+                *   Fold in the mission-state document created in Step 0 as the baseline snapshot of scope and risks, enhancing it with architectural findings while still corroborating every conclusion with analyzer data and fresh code review.
             </step>
             <step number="2">
                 **Principle Declaration**: Explicitly declare the core software engineering principles (e.g., SOLID, DRY, KISS) that will guide your implementation. Justify why they are relevant to this specific request.
@@ -384,6 +386,7 @@
         <step number="0">
             **Step 0: Core Analysis**
             *   **Action:** Complete the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)** before advancing to Step 1.
+            *   **Action:** Capture the filepath of the newly created mission-state document and reference it alongside analyzer artifacts and new evidence throughout this protocol, updating the document when discoveries alter scope, risks, or open questions.
         </step>
         <phase name="Phase 1: Design, Planning, & Risk Assessment (The "Blueprint")">
             ### Phase 1: Design, Planning, & Risk Assessment (The "Blueprint")
@@ -429,6 +432,7 @@
                         *   *Validation Log*: `logger.debug('[XXX] Rendering component with props:', props)`
                         *   *Implementation Details*: Provide detailed implementation details.
                 *   **Action**: Cross-check the plan against the Core Analysis Static Execution Trace; ensure every function in the traced path has either a modification task or a validation/logging step.
+                *   **Action**: While building the plan, align tasks, risks, and validation evidence with the mission-state document recorded in Step 0—update that document’s scope, risk register, and assumptions as new insights emerge, supplementing (not replacing) analyzer outputs and stakeholder guidance.
             </step>
             <step number="6">
                 **Stop and Await My Final Approval**: Present the full plan, including the trade-off matrix, risk analysis, and the detailed to-do list with its defined Validation Logs. **STOP** and do not proceed until you receive my final go-ahead.
@@ -455,7 +459,7 @@
                 *   **Action**: Run `npx tsc --noEmit` and resolve any reported issues before continuing.
                 *   **Action**: Access `./logs/console_logs.log`.
                 *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
-                *   **Action**: Confirm that execution evidence covers every function listed in the Core Analysis Static Execution Trace; document any trace segment not exercised and address it before proceeding.
+                *   **Action**: Confirm that execution evidence covers every function listed in the Core Analysis Static Execution Trace; document any trace segment not exercised and address it before proceeding, updating the mission-state document to reflect the evidence while incorporating additional observations from tests, logs, and runtime inspection.
                 *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
                 *   *If Validation Fails*: Announce that the evidence in the logs does not match the expected outcome. Revert the changes. Return to the `Adaptive Root Cause Analysis & Remediation Protocol` to diagnose the failure.  
             </step>
@@ -485,6 +489,7 @@
         <step number="0">
             **Step 0: Core Analysis**
             *   **Action:** Execute the **MANDATORY CORE ANALYSIS PROTOCOL**. Upon completion, proceed to Step 1 of this protocol.
+            *   **Action:** Note the mission-state document produced in Step 0 and use it in conjunction with analyzer data, runtime evidence, and stakeholder input for the remainder of this protocol—refreshing its registers whenever you validate or refine the investigation scope.
         </step>
         <phase name="Phase 1: Enhanced Root Cause Discovery (The "Why")">
             ### Phase 1: Enhanced Root Cause Discovery (The "Why")
@@ -580,6 +585,7 @@
             </step>
             <step number="9">
                 **Generate Phased To-Do List**: Once I approve a strategy, convert it into a detailed to-do list, including steps for adding temporary debug logs for validation. STOP HERE!
+                *   **Action**: Use the mission-state document captured in Step 0 to anchor scope, risks, and assumptions while drafting the to-do list, updating that document with any new findings and corroborating it with analyzer outputs and fresh runtime evidence.
             </step>
             <step number="10">
                 **Action**: Utilize analyze tool for faster lookups and better understanding of dependencies in tandem with manual audit.
@@ -595,6 +601,7 @@
             <step number="13">
                 **Validate with Logs**: After I confirm the test is done, access `./logs/console_logs.log` to analyze the output and verify the fix worked as expected and introduced no new errors.
                 *   **Action**: Run `npx tsc --noEmit` from root and resolve any issues before analyzing logs.
+                *   **Action**: Map the collected evidence back to the mission-state document from Step 0, updating its risk register and coverage checklist while also capturing any additional observations from logs, tests, or runtime inspection.
             </step>
             <step number="14">
                 **Declare Final Outcome & Documentation**:
