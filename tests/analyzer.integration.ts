@@ -193,7 +193,7 @@ function testInstanceMethodResolution() {
       const c = new C()
       c.m()
     }`)
-  runAnalyzer(['--include', `${base}/u.ts`])
+  runAnalyzer(['--include', `${base}/u.ts,${base}/m.ts`])
 
   const calls = readJSON<any[]>('tmp/analysis/calls.json')
   const edge = calls.find(c => typeof c.from === 'string' && c.from.startsWith(`${base}/u.ts::run`) && typeof c.to === 'string' && c.to.includes(`${base}/lib.ts::C.m`))
@@ -227,7 +227,7 @@ function testDynamicImportResolution() {
       const { g } = await import('./m')
       g()
     }`)
-  runAnalyzer(['--include', `${base}/u.ts`])
+  runAnalyzer(['--include', `${base}/u.ts,${base}/m.ts`])
 
   const calls = readJSON<any[]>('tmp/analysis/calls.json').filter(c => typeof c.from === 'string' && c.from.startsWith(`${base}/u.ts::a`))
   assert(calls.some(c => typeof c.to === 'string' && c.to.includes(`${base}/m.ts::f`)), 'missing mod.f edge')
@@ -244,7 +244,7 @@ function testElementAccessResolution() {
       ns['z']()
       o['z']()
     }`)
-  runAnalyzer(['--include', `${base}/u.ts`])
+  runAnalyzer(['--include', `${base}/u.ts,${base}/lib.ts`])
 
   const calls = readJSON<any[]>('tmp/analysis/calls.json').filter(c => c.from?.startsWith(`${base}/u.ts::run`))
   assert(calls.some(c => c.to?.includes(`${base}/lib.ts::z`)), 'missing ns[\'z\'] edge')
@@ -357,7 +357,7 @@ function testNamespaceResolutionWithoutTypechecker() {
   const base = 'tmp/analyzer-tests/no-tc-ns'
   writeFile(path.join(base, 'lib.ts'), `export function run(){} `)
   writeFile(path.join(base, 'u.ts'), `import * as ns from './lib'; export function caller(){ ns.run() }`)
-  runAnalyzer(['--include', `${base}/u.ts`, '--no-typechecker'])
+  runAnalyzer(['--include', `${base}/u.ts,${base}/lib.ts`, '--no-typechecker'])
   const calls = readJSON<any[]>('tmp/analysis/calls.json')
   const edge = calls.find(c => typeof c.to === 'string' && c.to.includes(`${base}/lib.ts::run`))
   assert(edge, 'namespace resolution failed without typechecker')

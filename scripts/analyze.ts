@@ -299,7 +299,7 @@ function literalText(node: ts.Expression, sf: ts.SourceFile): string | null {
   if (ts.isTemplateExpression(node)) {
     const head = node.head.text
     if (node.templateSpans.every(s => ts.isStringLiteral(s.expression))) {
-      return head + node.templateSpans.map(s => s.expression.text + s.literal.text).join('')
+      return head + node.templateSpans.map(s => (s.expression as ts.StringLiteral).text + s.literal.text).join('')
     }
   }
   return null
@@ -543,6 +543,19 @@ function generatePreset(
         console.warn(`Preset seed '${seed.slug}' could not resolve function '${prefix}'`)
       }
       ids.forEach(id => queue.push({ id, depth: 0 }))
+    }
+  }
+
+  if (seed.defaultEntry) {
+    if (byId.has(seed.defaultEntry)) {
+      queue.push({ id: seed.defaultEntry, depth: 0 })
+    } else {
+      const entryIds = resolveSeedFunction(seed.defaultEntry, byPrefix)
+      if (entryIds.length) {
+        entryIds.forEach(id => queue.push({ id, depth: 0 }))
+      } else {
+        console.warn(`Preset seed '${seed.slug}' could not resolve default entry '${seed.defaultEntry}'`)
+      }
     }
   }
 
@@ -1157,12 +1170,41 @@ function analyzeFile(
         candidates.push({ key, value })
       }
       if (candidates.length === 1) {
-        return candidates[0].key.includes(`::${className}.`) ? candidates[0].value : null
+        const candidate = candidates[0]!
+        return candidate.key.includes(`::${className}.`) ? candidate.value : null
       }
       return null
     }
 
     const visit = (node: ts.Node) => {
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+        let init = node.initializer as ts.Expression
+        if (ts.isAwaitExpression(init)) init = init.expression as ts.Expression
+        if (ts.isCallExpression(init) && init.expression.kind === ts.SyntaxKind.ImportKeyword) {
+          const arg = init.arguments[0]
+          if (arg && ts.isStringLiteral(arg)) {
+            const source = resolveImport(sf.fileName, arg.text)
+            if (source) nsImports.set(node.name.text, source)
+          }
+        }
+      } else if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer) {
+        let init = node.initializer as ts.Expression
+        if (ts.isAwaitExpression(init)) init = init.expression as ts.Expression
+        if (ts.isCallExpression(init) && init.expression.kind === ts.SyntaxKind.ImportKeyword) {
+          const arg = init.arguments[0]
+          if (arg && ts.isStringLiteral(arg)) {
+            const source = resolveImport(sf.fileName, arg.text)
+            if (source) {
+              for (const el of node.name.elements) {
+                if (!ts.isBindingElement(el)) continue
+                const local = el.name.getText(sf)
+                const exported = el.propertyName ? el.propertyName.getText(sf) : el.name.getText(sf)
+                aliases.push({ local, source, export: exported })
+              }
+            }
+          }
+        }
+      }
       if (enableDomIndex) {
         if (ts.isNoSubstitutionTemplateLiteral(node) || ts.isStringLiteral(node)) {
           const text = (node as ts.NoSubstitutionTemplateLiteral | ts.StringLiteral).text
@@ -1279,7 +1321,7 @@ function analyzeFile(
                 if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
                   const toIdDirect = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
                   if (toIdDirect) {
-                    linkCallee(toIdDirect, expr.getText(sf))
+                          linkCallee(toIdDirect, expr.getText(sf))
                     break
                   }
                 }
@@ -1632,15 +1674,17 @@ function scanGlobalExposures(
         const byLocal = functionIndex.get(`${file}::${rhs.text}`)
         if (byLocal) return byLocal
         const alias = aliasByLocal.get(rhs.text)
-        if (alias) return functionIndex.get(`${alias.source}::${alias.export}`) ?? null
+        if (alias) return functionIndex.get(`${alias.source}::${alias.export}`) ?? `${alias.source}::${alias.export}`
         return null
       }
       if (ts.isPropertyAccessExpression(rhs) && ts.isIdentifier(rhs.expression)) {
         const ns = nsImports.get(rhs.expression.text)
         if (ns) {
-          const direct = functionIndex.get(`${ns}::${rhs.name.getText(sf)}`)
+          const name = rhs.name.getText(sf)
+          const direct = functionIndex.get(`${ns}::${name}`)
           if (direct) return direct
-          if (rhs.name.getText(sf) == 'default') return functionIndex.get(`${ns}::default`) ?? null
+          if (name === 'default') return functionIndex.get(`${ns}::default`) ?? `${ns}::default`
+          return `${ns}::${name}`
         }
       }
       return null
@@ -1648,46 +1692,47 @@ function scanGlobalExposures(
     if (ts.isCallExpression(rhs) && ts.isPropertyAccessExpression(rhs.expression) && rhs.expression.name.getText(sf) === 'bind') {
       return resolveTarget(rhs.expression.expression as ts.Expression, sf, file, aliasByLocal, nsImports)
     }
-    if (ts.isIdentifier(rhs)) {
-      const byLocal = functionIndex.get(`${file}::${rhs.text}`)
-      if (byLocal) return byLocal
-      const alias = aliasByLocal.get(rhs.text)
-      if (alias) return functionIndex.get(`${alias.source}::${alias.export}`) ?? null
-      if (useTypeCheckerFlag && checker) {
-        const sym = unaliasSymbol(checker.getSymbolAtLocation(rhs))
-        if (sym) {
-          const decls = sym.getDeclarations() || []
-          for (const d of decls) {
-            const to = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
-            if (to) return to
+      if (ts.isIdentifier(rhs)) {
+        const byLocal = functionIndex.get(`${file}::${rhs.text}`)
+        if (byLocal) return byLocal
+        const alias = aliasByLocal.get(rhs.text)
+        if (alias) return functionIndex.get(`${alias.source}::${alias.export}`) ?? `${alias.source}::${alias.export}`
+        if (useTypeCheckerFlag && checker) {
+          const sym = unaliasSymbol(checker.getSymbolAtLocation(rhs))
+          if (sym) {
+            const decls = sym.getDeclarations() || []
+            for (const d of decls) {
+              const to = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
+              if (to) return to
+            }
           }
         }
+        return null
       }
-      return null
-    }
-    if (ts.isPropertyAccessExpression(rhs)) {
-      const name = rhs.name.getText(sf)
-      if (ts.isIdentifier(rhs.expression)) {
-        const src = nsImports.get(rhs.expression.text)
-        if (src) {
-          const direct = functionIndex.get(`${src}::${name}`)
-          if (direct) return direct
-          if (name === 'default') return functionIndex.get(`${src}::default`) ?? null
-        }
-      }
-      if (useTypeCheckerFlag && checker) {
-        const propSym0 = checker.getSymbolAtLocation(rhs.name)
-        const propSym = propSym0 && (propSym0.flags & ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(propSym0) : propSym0
-        if (propSym) {
-          const decls = propSym.getDeclarations() || []
-          for (const d of decls) {
-            const to = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
-            if (to) return to
+      if (ts.isPropertyAccessExpression(rhs)) {
+        const name = rhs.name.getText(sf)
+        if (ts.isIdentifier(rhs.expression)) {
+          const src = nsImports.get(rhs.expression.text)
+          if (src) {
+            const direct = functionIndex.get(`${src}::${name}`)
+            if (direct) return direct
+            if (name === 'default') return functionIndex.get(`${src}::default`) ?? `${src}::default`
+            return `${src}::${name}`
           }
         }
+        if (useTypeCheckerFlag && checker) {
+          const propSym0 = checker.getSymbolAtLocation(rhs.name)
+          const propSym = propSym0 && (propSym0.flags & ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(propSym0) : propSym0
+          if (propSym) {
+            const decls = propSym.getDeclarations() || []
+            for (const d of decls) {
+              const to = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+              if (to) return to
+            }
+          }
+        }
+        return null
       }
-      return null
-    }
     return null
   }
 
@@ -1734,7 +1779,11 @@ function scanGlobalExposures(
 
     const addEdge = (to: string, via: string, locNode: ts.Node) => {
       const loc = getLoc(sf, locNode)
-      const toStable = functionStableIdById.get(to)
+      let toStable = functionStableIdById.get(to)
+      if (!toStable) {
+        toStable = to
+        functionStableIdById.set(to, toStable)
+      }
       const rec: CallEdge = { from: 'global::exposed', to, via, loc }
       if (toStable) rec.toStable = toStable
       edges.push(rec)
@@ -1798,17 +1847,24 @@ function scanGlobalExposures(
                     const descExpr = unwrap(p.initializer as ts.Expression)
                     if (!ts.isObjectLiteralExpression(descExpr)) continue
                     for (const dp of descExpr.properties) {
-                      if (!ts.isPropertyAssignment(dp)) continue
-                      const key = propertyNameText(dp.name, sf)
-                      if (!key) continue
-                      if (key !== 'value' && key !== 'get' && key !== 'set') continue
-                      const to = resolveTarget(dp.initializer as ts.Expression, sf, file, aliasByLocal, nsImports)
-                      if (to) addEdge(to, `Object.defineProperties(${(target as ts.Identifier).text}).${propName}.${key}`, node)
+                    if (!ts.isPropertyAssignment(dp) && !ts.isShorthandPropertyAssignment(dp)) continue
+                    const key = propertyNameText(dp.name, sf)
+                    if (!key) continue
+                    if (key !== 'value' && key !== 'get' && key !== 'set') continue
+                    let exprTarget: ts.Expression | null = null
+                    if (ts.isPropertyAssignment(dp)) {
+                      exprTarget = dp.initializer as ts.Expression
+                    } else if (ts.isShorthandPropertyAssignment(dp)) {
+                      exprTarget = dp.name as unknown as ts.Expression
                     }
+                    if (!exprTarget) continue
+                    const to = resolveTarget(exprTarget, sf, file, aliasByLocal, nsImports)
+                    if (to) addEdge(to, `Object.defineProperties(${(target as ts.Identifier).text}).${propName}.${key}`, node)
                   }
                 }
               }
             }
+          }
           }
         }
       }
