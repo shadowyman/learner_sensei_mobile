@@ -31,3 +31,5 @@ backup/
 .mcp-storage/
 sonarqube-25.6.0.109173/
 code_review/
+scripts/create_worktree.py
+scripts/vetUnusedExports.ts
