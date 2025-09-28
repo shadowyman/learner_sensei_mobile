@@ -925,7 +925,7 @@ export function buildSenseiEnhancementPrompt(originalMarkdown: string): string {
         '1. Refrain from enhancing welcome messages or simple acknowledgments. Focus on substantive teaching content.',
         '2. key: must match a sentence from the original message exactly (ignoring surrounding whitespace).',
         '3. value: provides additional explanation or augmentation or examples or definitions of unexplained terms or interview specific tips or counterexamples or and more.',
-        '4. Ensure value flows naturally not only from the key sentence but also from the text following your insertion.',
+        '4. Ensure when your value inserted, it does not break the link between <key> sentence and the sentence that comes after your insertion. Add a bridging sentence at the end of your value if needed to link to the sentence that comes after your <value>.',
         '5. insertType "append" adds sentences immediately after the key sentence; "paragraph" inserts a new paragraph after the paragraph containing key.',
         '6. Do not delete or rewrite existing text; only add material that deepens understanding.',
         '7. If no useful enhancements exist, return {"enhancements":[],"metadata":{}}.',

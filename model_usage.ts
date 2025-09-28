@@ -87,7 +87,7 @@ export const PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG = {
  * Uses Flash model for quick, structured responses to text selection actions.
  */
 export const SELECTION_SENSEI_CONFIG = {
-  modelName: GEMINI_FLASH,
+  modelName: GEMINI_PRO,
   config: {
     temperature: 0.5,
     responseMimeType: "application/json",

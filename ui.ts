@@ -1447,6 +1447,7 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
         // Mermaid rendering logic - skip if skipMermaid is true
         if (!message.skipMermaid) {
             const mermaidBlocks = messageText.querySelectorAll('pre code.language-mermaid');
+
             for (const block of mermaidBlocks) {
             const preElement = block.parentElement as HTMLElement;
             const rawMermaidCodeFromLLM = block.textContent || '';

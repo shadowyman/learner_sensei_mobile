@@ -868,61 +868,162 @@ class SelectionSensei {
     
 
     private extractContentWithRegex(text: string): { suggestedTitle?: string; explanation?: string } {
-        try {
-            // Try to extract title pattern
-            const titlePatterns = [
-                /"suggestedTitle"\s*:\s*"([^"]+)"/,
-                /'suggestedTitle'\s*:\s*'([^']+)'/,
-                /suggestedTitle['":\s]+([^'",\n]+)/i
-            ];
-            
-            let title: string | undefined;
-            for (const pattern of titlePatterns) {
-                const match = text.match(pattern);
-                if (match && match[1]) {
-                    title = match[1].trim();
-                    break;
-                }
-            }
-            
-            // Try to extract explanation pattern
-            const explanationPatterns = [
-                /"explanation"\s*:\s*"([\s\S]*?)"\s*}/,
-                /'explanation'\s*:\s*'([\s\S]*?)'\s*}/,
-                /explanation['":\s]+([\s\S]+)/i
-            ];
-            
-            let explanation: string | undefined;
-            for (const pattern of explanationPatterns) {
-                const match = text.match(pattern);
-                if (match && match[1]) {
-                    explanation = match[1]
-                        .replace(/\\n/g, '\n')
-                        .replace(/\\r/g, '\r')
-                        .replace(/\\t/g, '\t')
-                        .replace(/\\"/g, '"')
-                        .trim();
-                    break;
-                }
-            }
-            
-            const result: { suggestedTitle?: string; explanation?: string } = {};
-            if (title !== undefined) {
-                result.suggestedTitle = title;
-            }
-            if (explanation !== undefined) {
-                result.explanation = explanation;
-            }
-            return result;
-        } catch (error) {
-            logger.warn("[SENSEI_SELECTION] Regex extraction failed:", error);
-            return {};
+        const normalized = this.normalizeJsonPayload(text);
+
+        const parsed = this.tryParseStructuredPayload(normalized);
+        if (parsed.suggestedTitle || parsed.explanation) {
+            return parsed;
         }
+
+        const repairedPayload = this.repairLooseJson(normalized);
+        if (repairedPayload !== normalized) {
+            const repairedParsed = this.tryParseStructuredPayload(repairedPayload, false);
+            if (repairedParsed.suggestedTitle || repairedParsed.explanation) {
+                return repairedParsed;
+            }
+        }
+
+        const fallbackTitle = this.extractStringField(normalized, 'suggestedTitle');
+        const fallbackExplanation = this.extractStringField(normalized, 'explanation');
+
+        const result: { suggestedTitle?: string; explanation?: string } = {};
+        if (fallbackTitle !== undefined) {
+            result.suggestedTitle = fallbackTitle;
+        }
+        if (fallbackExplanation !== undefined) {
+            result.explanation = fallbackExplanation;
+        }
+        return result;
+    }
+
+    private normalizeJsonPayload(payload: string): string {
+        return payload
+            .replace(/[\u201C\u201D]/g, '"')
+            .replace(/[\u2018\u2019]/g, "'")
+            .trim();
+    }
+
+    private tryParseStructuredPayload(payload: string, logFailure: boolean = true): { suggestedTitle?: string; explanation?: string } {
+        try {
+            const parsed = JSON.parse(payload);
+            if (parsed && typeof parsed === 'object') {
+                const result: { suggestedTitle?: string; explanation?: string } = {};
+                if (typeof (parsed as any).suggestedTitle === 'string') {
+                    result.suggestedTitle = (parsed as any).suggestedTitle;
+                }
+                if (typeof (parsed as any).explanation === 'string') {
+                    result.explanation = (parsed as any).explanation;
+                }
+                return result;
+            }
+        } catch (error) {
+            if (logFailure) {
+                logger.debug('[SENSEI_SELECTION] JSON parse failed', {
+                    message: error instanceof Error ? error.message : String(error)
+                });
+            }
+        }
+        return {};
+    }
+
+    private repairLooseJson(payload: string): string {
+        let repaired = payload;
+        repaired = repaired.replace(/([{,]\s*)'([^']+?)'\s*:/g, '$1"$2":');
+        repaired = repaired.replace(/:\s*'([^']*?)'/g, ': "$1"');
+        repaired = repaired.replace(/,\s*}/g, '}');
+        repaired = repaired.replace(/,\s*]/g, ']');
+        return repaired;
+    }
+
+    private extractStringField(source: string, key: string): string | undefined {
+        const keyIndex = source.indexOf(`"${key}"`);
+        if (keyIndex === -1) {
+            return undefined;
+        }
+
+        let cursor = source.indexOf(':', keyIndex + key.length + 2);
+        if (cursor === -1) {
+            return undefined;
+        }
+
+        cursor += 1;
+        while (cursor < source.length && /\s/.test(source[cursor])) {
+            cursor += 1;
+        }
+
+        if (cursor >= source.length) {
+            return undefined;
+        }
+
+        const quoteChar = source[cursor];
+        if (quoteChar !== '"' && quoteChar !== "'") {
+            return undefined;
+        }
+
+        cursor += 1;
+        let escapeNext = false;
+        let value = '';
+
+        while (cursor < source.length) {
+            const ch = source[cursor];
+            cursor += 1;
+
+            if (escapeNext) {
+                switch (ch) {
+                    case 'n':
+                        value += '\n';
+                        break;
+                    case 'r':
+                        value += '\r';
+                        break;
+                    case 't':
+                        value += '\t';
+                        break;
+                    case '\\':
+                        value += '\\';
+                        break;
+                    case '"':
+                        value += '"';
+                        break;
+                    case "'":
+                        value += "'";
+                        break;
+                    case 'u': {
+                        const hex = source.slice(cursor, cursor + 4);
+                        if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+                            value += String.fromCharCode(parseInt(hex, 16));
+                            cursor += 4;
+                        } else {
+                            value += 'u';
+                        }
+                        break;
+                    }
+                    default:
+                        value += ch;
+                        break;
+                }
+                escapeNext = false;
+                continue;
+            }
+
+            if (ch === '\\') {
+                escapeNext = true;
+                continue;
+            }
+
+            if (ch === quoteChar) {
+                return value;
+            }
+
+            value += ch;
+        }
+
+        return value || undefined;
     }
 
     private async processMermaidDiagrams(container: HTMLElement): Promise<void> {
         const mermaidBlocks = container.querySelectorAll('pre code.language-mermaid');
-        
+
         // Process all Mermaid diagrams in parallel
         const mermaidPromises = Array.from(mermaidBlocks).map(async (block) => {
             const preElement = block.parentElement as HTMLElement;
@@ -970,7 +1071,7 @@ class SelectionSensei {
                 fixingDiv.replaceWith(errorDiv);
             }
         });
-        
+
         await Promise.all(mermaidPromises);
     }
 

@@ -210,3 +210,22 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Review Artifact**: `code_review/review_mermaid_enhance_decouple.html`
 
 **Keywords for Future Reference**: enhancement toggle, mermaid recovery, skipMermaidProcessing, processMermaidBlocks, runMermaidRecovery
+
+## Bug Fix #13: Selection Sensei Mermaid Responses Truncated
+
+**Issue**: Selection Sensei responses containing multiple Mermaid diagrams rendered only the first diagram and lost the remaining prose; when that diagram failed to recover, the modal appeared blank.
+
+**Root Cause**: The regex-based extractor clipped the JSON `explanation` string at the first escaped quote (common inside Mermaid code), leaving only a partial markdown payload for rendering.
+
+**Fix Applied**: Replaced the regex with a resilient parsing pipeline that normalizes smart quotes, attempts `JSON.parse`, repairs loosely formatted payloads, and finally falls back to a manual string reader. Upgraded Selection Sensei to `gemini-2.5-pro` for consistent response quality.
+
+**Related Files**:
+- `selectionSensei.ts:346`
+- `selectionSensei.ts:870`
+- `model_usage.ts:90`
+
+**Backup**: `backup/sensei_backup_switch_selection_sensei_model_to_pro_20250928_072251.zip`
+
+**Review Artifact**: `code_review/review_selection_sensei_mermaid_json_fix.html`
+
+**Keywords for Future Reference**: selection sensei, mermaid, escaped quotes, json parsing, modal rendering
