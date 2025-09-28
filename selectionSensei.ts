@@ -349,44 +349,23 @@ class SelectionSensei {
             return { text: 'Sensei could not generate a response.', strategy: 'raw' };
         }
 
-        let parsedResponse: { suggestedTitle?: string; explanation?: string } = {};
-        let parseSuccess = false;
+        const extracted = this.extractContentWithRegex(trimmed);
 
-        try {
-            parsedResponse = JSON.parse(trimmed);
-            parseSuccess = true;
-        } catch (error) {
-            try {
-                const repaired = this.attemptJSONRepair(trimmed);
-                parsedResponse = JSON.parse(repaired);
-                parseSuccess = true;
-            } catch (repairError) {
-                const extracted = this.extractContentWithRegex(trimmed);
-                if (extracted.suggestedTitle || extracted.explanation) {
-                    parsedResponse = extracted;
-                    parseSuccess = true;
-                }
-            }
-        }
-
-        if (parseSuccess && parsedResponse.suggestedTitle && parsedResponse.explanation) {
+        if (extracted.suggestedTitle && extracted.explanation) {
             return {
-                text: `**${parsedResponse.suggestedTitle}**\n\n${parsedResponse.explanation}`,
+                text: `**${extracted.suggestedTitle}**\n\n${extracted.explanation}`,
                 strategy: 'parsed-full',
             };
         }
 
-        if (parseSuccess && parsedResponse.explanation) {
+        if (extracted.explanation) {
             return {
-                text: parsedResponse.explanation,
+                text: extracted.explanation,
                 strategy: 'explanation-only',
             };
         }
 
-        return {
-            text: trimmed,
-            strategy: 'raw',
-        };
+        return { text: trimmed, strategy: 'raw' };
     }
 
     private async appendModalMessage(message: Message, conversationToken?: number): Promise<void> {
@@ -886,37 +865,7 @@ class SelectionSensei {
         this.hideSelectionToolbar();
     }
 
-    private attemptJSONRepair(jsonString: string): string {
-        try {
-            // Remove any BOM characters
-            jsonString = jsonString.replace(/^\uFEFF/, '');
-            
-            // Replace unescaped quotes inside string values
-            // This is a simple heuristic - may need refinement
-            jsonString = jsonString.replace(/"([^"]*)":/g, (match, key) => {
-                return `"${key.replace(/"/g, '\\"')}":`;
-            });
-            
-            // Fix common issues with newlines in JSON strings
-            jsonString = jsonString.replace(/:\s*"([^"]*)"/g, (match, value) => {
-                const fixed = value
-                    .replace(/\n/g, '\\n')
-                    .replace(/\r/g, '\\r')
-                    .replace(/\t/g, '\\t')
-                    .replace(/(?<!\\)"/g, '\\"');
-                return `: "${fixed}"`;
-            });
-            
-            // Remove trailing commas
-            jsonString = jsonString.replace(/,\s*}/g, '}');
-            jsonString = jsonString.replace(/,\s*]/g, ']');
-            
-            return jsonString;
-        } catch (error) {
-            logger.warn("[SENSEI_SELECTION] JSON repair attempt failed:", error);
-            return jsonString;
-        }
-    }
+    
 
     private extractContentWithRegex(text: string): { suggestedTitle?: string; explanation?: string } {
         try {
@@ -1069,7 +1018,7 @@ class SelectionSensei {
 
         let responseLength = 0;
         let hadFence = false;
-        let parseStrategy: 'direct' | 'repaired' | 'regex' | 'failed' = 'failed';
+        let parseStrategy: 'regex' | 'failed' = 'failed';
         let contentStrategy: ContentStrategy = 'error';
         let hasTitle = false;
         let hasExplanation = false;
@@ -1109,30 +1058,11 @@ class SelectionSensei {
             let parsedResponse: { suggestedTitle?: string; explanation?: string } = {};
             let parseSuccess = false;
 
-            // Step 1: Try standard JSON parsing
-            try {
-                parsedResponse = JSON.parse(jsonText);
+            // Regex-only extraction
+            parsedResponse = this.extractContentWithRegex(jsonText);
+            if (parsedResponse.suggestedTitle || parsedResponse.explanation) {
                 parseSuccess = true;
-                parseStrategy = 'direct';
-            } catch (firstError) {
-                logger.warn("[SENSEI_SELECTION] Initial JSON parse failed, attempting repair:", firstError);
-                
-                // Step 2: Try to repair and parse JSON
-                try {
-                    const repairedJson = this.attemptJSONRepair(jsonText);
-                    parsedResponse = JSON.parse(repairedJson);
-                    parseSuccess = true;
-                    parseStrategy = 'repaired';
-                } catch (secondError) {
-                    logger.warn("[SENSEI_SELECTION] JSON repair failed, attempting regex extraction:", secondError);
-
-                    // Step 3: Try regex extraction
-                    parsedResponse = this.extractContentWithRegex(jsonText);
-                    if (parsedResponse.suggestedTitle || parsedResponse.explanation) {
-                        parseSuccess = true;
-                        parseStrategy = 'regex';
-                    }
-                }
+                parseStrategy = 'regex';
             }
 
             // Step 4: Display the response or fallback

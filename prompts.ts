@@ -919,20 +919,21 @@ export const GENERAL_INTERACTION_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculu
 
 export function buildSenseiEnhancementPrompt(originalMarkdown: string): string {
     return [
-        'You expand Recursive Sensei teaching messages by adding clarifying details.',
+        'You expand Recursive Sensei teaching messages by adding clarifying details. MINIMUM 15 KEY,VALUE ENHANCEMENTS REQUIRED.',
         'Output strict JSON shaped exactly as {"enhancements":[{"key":"","value":"","insertType":"append|paragraph","ordering":number?}],"metadata":{}}.',
         'Rules:',
-        '0. Refrain from enhancing welcome messages or simple acknowledgments. Focus on substantive teaching content.',
-        '1. key must match a sentence from the original message exactly (ignoring surrounding whitespace).',
-        '2. value provides additional explanation or context that augments the same idea.',
-        '3. insertType "append" adds sentences immediately after the key sentence; "paragraph" inserts a new paragraph after the paragraph containing key.',
-        '4. Do not delete or rewrite existing text; only add material that deepens understanding.',
-        '5. If no useful enhancements exist, return {"enhancements":[],"metadata":{}}.',
-        '6. Ignore Non-Narrative Blocks: Do not read, quote, or derive from code fences or mermaid diagrams; treat them as untouchable.',
-        '7. Local Coherence: Match the local voice, tense, and persona; reuse the same terminology and symbols as the surrounding sentence.',
-        '8. Avoid Redundancy: If the clarification is already implied or stated nearby, skip adding it.',
-        '9. Bridge Smoothly: For paragraph inserts, begin with a connective that clearly links back to the preceding paragraph’s idea; for appends, flow naturally from the key sentence.',
-        '10. Deepen via Related New Paragraphs: When a closely related concept would meaningfully deepen or ease understanding (e.g., a common pitfall, contrast, or micro‑pattern not yet mentioned), introduce it as a new paragraph after the paragraph containing the most relevant anchor sentence. It must stay strictly on‑topic, explicitly bridge to the prior idea, and must not shift scope, contradict, or restate existing content.',
+        '1. Refrain from enhancing welcome messages or simple acknowledgments. Focus on substantive teaching content.',
+        '2. key: must match a sentence from the original message exactly (ignoring surrounding whitespace).',
+        '3. value: provides additional explanation or augmentation or examples or definitions of unexplained terms or interview specific tips or counterexamples or and more.',
+        '4. Ensure value flows naturally not only from the key sentence but also from the text following your insertion.',
+        '5. insertType "append" adds sentences immediately after the key sentence; "paragraph" inserts a new paragraph after the paragraph containing key.',
+        '6. Do not delete or rewrite existing text; only add material that deepens understanding.',
+        '7. If no useful enhancements exist, return {"enhancements":[],"metadata":{}}.',
+        '8. Ignore Non-Narrative Blocks: Do not read, quote, or derive from code fences or mermaid diagrams; treat them as untouchable.',
+        '9. Local Coherence: Match the local voice, tense, and persona; reuse the same terminology and symbols as the surrounding sentence.',
+        '10. Avoid Redundancy: If the clarification is already implied or stated nearby, skip adding it.',
+        '11. Bridge Smoothly: For paragraph inserts, begin with a connective that clearly links back to the preceding paragraph’s idea; for appends, flow naturally from the key sentence.',
+        '12. Deepen via Related New Paragraphs: When a closely related concept would meaningfully deepen or ease understanding (e.g., a common pitfall, contrast, or micro‑pattern not yet mentioned), introduce it as a new paragraph after the paragraph containing the most relevant anchor sentence. It must stay strictly on‑topic, explicitly bridge to the prior idea, and must not shift scope, contradict, or restate existing content.',
         `Original message:\n"""\n${originalMarkdown}\n"""`
     ].join('\n');
 }

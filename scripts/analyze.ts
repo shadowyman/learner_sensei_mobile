@@ -1173,6 +1173,9 @@ function analyzeFile(
           paramSlotByLocal.set(localId, { index: pIndex, prop })
         }
       }
+      if (ts.isIdentifier(nameNode)) {
+        paramSlotByLocal.set(nameNode.text, { index: pIndex, prop: '<call>' })
+      }
     })
 
     const recordEdge = (to: string, via: string, loc: Location) => {
@@ -1205,6 +1208,79 @@ function analyzeFile(
       return id
     }
 
+    const ensureRegisteredDecl = (decl: ts.Declaration, classNameHint?: string): string | undefined => {
+      const existing = functionIdByDeclNode.get(decl) || functionIdByNode.get(decl as any)
+      if (existing) return existing
+      const declSf = decl.getSourceFile()
+      if (rel(declSf.fileName) !== file) return undefined
+      let target: ts.FunctionLikeDeclaration | ts.ArrowFunction | ts.FunctionExpression | ts.MethodDeclaration | ts.ConstructorDeclaration | null = null
+      let kind: FunctionInfo['kind'] = 'function'
+      let name: string | null = null
+      let className = classNameHint
+      if (ts.isFunctionDeclaration(decl) && decl.name) {
+        target = decl
+        name = decl.name.text
+      } else if (ts.isMethodDeclaration(decl)) {
+        target = decl
+        kind = 'method'
+        if (!className) {
+          let parent: ts.Node | undefined = decl.parent
+          while (parent) {
+            if (ts.isClassDeclaration(parent) && parent.name) {
+              className = parent.name.text
+              break
+            }
+            parent = parent.parent
+          }
+        }
+        const memberName = (ts.isIdentifier(decl.name) || ts.isPrivateIdentifier(decl.name)) ? decl.name.text : decl.name.getText(declSf)
+        name = className ? `${className}.${memberName}` : memberName
+      } else if (ts.isConstructorDeclaration(decl)) {
+        target = decl
+        if (!className) {
+          let parent: ts.Node | undefined = decl.parent
+          while (parent) {
+            if (ts.isClassDeclaration(parent) && parent.name) {
+              className = parent.name.text
+              break
+            }
+            parent = parent.parent
+          }
+        }
+        if (className) name = `${className}.constructor`
+      } else if (ts.isVariableDeclaration(decl) && decl.initializer && ts.isIdentifier(decl.name)) {
+        const init = unwrap(decl.initializer as ts.Expression)
+        if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) {
+          target = init
+          kind = ts.isArrowFunction(init) ? 'arrow' : 'function'
+          name = decl.name.text
+        }
+      }
+      if (!target || !name) return undefined
+      const key = `${file}::${name}`
+      const id = functionIndex.get(key) ?? functionId(file, name, target.pos)
+      const tracked = functionNodeById.has(id)
+      if (!tracked) {
+        const info: NodeInfo = { name, id, node: target, kind, exported: false }
+        if (className) info.className = className
+        nodes.push(info)
+        functionNodeById.set(id, { sf: declSf, node: target, file })
+      } else {
+        functionNodeById.set(id, { sf: declSf, node: target, file })
+      }
+      functionIdByNode.set(target, id)
+      functionIdByDeclNode.set(decl, id)
+      if (target !== decl) functionIdByDeclNode.set(target, id)
+      return id
+    }
+
+    const isStdLibDecl = (decl: ts.Declaration): boolean => {
+      const sfDecl = decl.getSourceFile()
+      if (!sfDecl.isDeclarationFile) return false
+      const normalized = sfDecl.fileName.replace(/\\/g, '/')
+      return /(^|\/)lib\..*\.d\.ts$/.test(normalized)
+    }
+
     const recordEdgeForInitializer = (
       init: ts.Expression,
       propName: string,
@@ -1228,7 +1304,8 @@ function analyzeFile(
             for (const d of decls) {
               const sfDecl = d.getSourceFile()
               if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-                const toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any) || null
+                let toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
+                if (!toId) toId = ensureRegisteredDecl(d)
                 if (toId) {
                   rec(toId, `${viaPrefix}${propName}:id`, locInit)
                   return true
@@ -1272,7 +1349,8 @@ function analyzeFile(
             for (const d of decls) {
               const sfDecl = d.getSourceFile()
               if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-                const toId = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+                let toId = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+                if (!toId) toId = ensureRegisteredDecl(d)
                 if (toId) {
                   rec(toId, `${viaPrefix}${propName}:prop`, getLoc(sfLocal, init))
                   return true
@@ -1336,7 +1414,8 @@ function analyzeFile(
               for (const d of decls) {
                 const sfDecl = d.getSourceFile()
                 if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-                  const toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
+                  let toId = functionIdByDeclNode.get(d) || (ts.isVariableDeclaration(d) && d.initializer ? functionIdByNode.get(d.initializer) : undefined) || functionIdByNode.get(d as any)
+                  if (!toId) toId = ensureRegisteredDecl(d)
                   if (toId) {
                     rec(toId, `arg.obj.${id.text}:shorthand`, getLoc(sfLocal, prop))
                     break
@@ -1449,7 +1528,10 @@ function analyzeFile(
               for (const d of decls) {
                 const sfDecl = d.getSourceFile()
                 if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-                  const toIdDirect = functionIdByDeclNode.get(d)
+                  let toIdDirect = functionIdByDeclNode.get(d)
+                  if (!toIdDirect) {
+                    toIdDirect = functionIdByNode.get(d as any) || ensureRegisteredDecl(d)
+                  }
                   if (toIdDirect) {
                     linkCallee(toIdDirect, expr.getText(sf))
                     break
@@ -1462,7 +1544,7 @@ function analyzeFile(
                       break
                     }
                     if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) {
-                      const byDecl = functionIdByDeclNode.get(d)
+                      const byDecl = functionIdByDeclNode.get(d) || ensureRegisteredDecl(d)
                       if (byInit || byDecl) {
                         const id = byInit ?? byDecl!
                         linkCallee(id, expr.getText(sf))
@@ -1482,7 +1564,7 @@ function analyzeFile(
                         for (const pd of pdecls) {
                           const psf = pd.getSourceFile()
                           if (isProjectSource(psf) && !psf.isDeclarationFile) {
-                            const mapped = functionIdByDeclNode.get(pd) || functionIdByNode.get(pd as any)
+                            const mapped = functionIdByDeclNode.get(pd) || functionIdByNode.get(pd as any) || ensureRegisteredDecl(pd)
                             if (mapped) {
                               linkCallee(mapped, expr.getText(sf))
                               break
@@ -1510,6 +1592,9 @@ function analyzeFile(
                   }
                 }
               }
+              if (!calleeLinked && decls.length && decls.every(isStdLibDecl)) {
+                calleeLinked = true
+              }
               if (!calleeLinked && decls.length && !decls.some(d => isProjectSource(d.getSourceFile()) && !d.getSourceFile().isDeclarationFile)) {
                 const name = expr.getText(sf)
                 if (!isPureGlobalIdentifier(name)) calleeLinked = pseudoLinkExternal(name, getLoc(sf, node), sideEffects)
@@ -1535,12 +1620,15 @@ function analyzeFile(
               for (const d of decls) {
                 const sfDecl = d.getSourceFile()
                 if (isProjectSource(sfDecl) && !sfDecl.isDeclarationFile) {
-                  const toIdDirect = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+                  const toIdDirect = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any) || ensureRegisteredDecl(d)
                   if (toIdDirect) {
                           linkCallee(toIdDirect, expr.getText(sf))
                     break
                   }
                 }
+              }
+              if (!calleeLinked && decls.length && decls.every(isStdLibDecl)) {
+                calleeLinked = true
               }
               const recvTxt = expr.expression.getText(sf)
               const baseSym = checker.getSymbolAtLocation(expr.expression)

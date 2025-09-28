@@ -17,7 +17,6 @@
         <inviolable_rule>NEVER make up facts, APIs, or function names. If you do not know something or are unsure, state it clearly and propose a way to find the information (e.g., reading a file, running a command).</inviolable_rule>
         <inviolable_rule>NEVER include comments in code changes.</inviolable_rule>
         <inviolable_rule> ALWAYS Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
-        <inviolable_rule> Use python3 to run your internal commands/scripts.</inviolable_rule>
         <inviolable_rule> Use apply patch tool to modify files, don't use scripts</inviolable_rule>
         <inviolable_rule> NEVER revert, change any modifications you didn't do yourself even when you discovered them later</inviolable_rule>
     </constraints>
@@ -61,7 +60,7 @@
         ==================================================
         ----
         NAME
-        analyzer — fast static index: imports, fan-in/out, function catalog, side-effects, calls, assumptions, optional DOM suite.
+        analyzer — fast static index: imports, fan-in/out, function catalog, side-effects, calls, optional DOM suite.
         ----
         SYNOPSIS
         npm run analysis:run [-- <option>...]
@@ -86,7 +85,6 @@
         fan_out.json           Fan-out counts per file.
         functions.json         [{id,stableId,file,name,kind,export,async,calls,sideEffects,loc,startLine,startCol}]
         calls.json             [{from,to,via,loc,fromStable,toStable}]
-        assumptions.json       Unresolved invocations with rationale/impact/verification.
         function_crosswalk.json {functions:[{id,stableId,file,name,startLine,startCol}]}
         focused_calls.json     (with --entry) Kept edges within maxDepth.
         focused_functions.json (with --entry) Reachable functions.
@@ -146,8 +144,6 @@
         jq 'map(select(.fromStable and .toStable) | select((.fromStable|split("::")[0]) != (.toStable|split("::")[0])))' tmp/analysis/calls.json
         # Most frequent call pairs (collapse)
         jq -r 'group_by(.fromStable+"->"+(.toStable//.to))|map({k:(.[0].fromStable+"->"+(.[0].toStable//.[0].to)),n:length})|sort_by(-.n)|.[:15]' tmp/analysis/calls.json
-        # Assumptions with High impact
-        jq 'map(select(.impact=="High"))' tmp/analysis/assumptions.json
         # Entry candidates list
         jq '.entryCandidates' tmp/analysis/summary.json
         # Function ID ↔ stableId crosswalk
@@ -191,8 +187,8 @@
             </step>
             <step number="2">
                 **Static Execution Trace:**
-                *   Read the contents of every file within the "scope of analysis."
-                *   Harvest call edges (`tmp/analysis/calls.json` or `focused_trace.txt`) and side-effect facts (`tmp/analysis/functions.json`) to populate the static execution trace and risk register. Cross-check each entry against live code and any runtime anomalies; update or discard analyzer hints that no longer match reality before recording them.
+                *   Read the contents of every file within the "scope of analysis.". Amalgam usage of analyze tool and your own tools.
+                *   Harvest call edges (`tmp/analysis/calls.json` or `focused_trace.txt`) and side-effect facts (`tmp/analysis/functions.json`) to populate the static execution trace and risk register. 
                 *   Document the reconciled sequence in the Static Execution Trace artifact so downstream validation knows exactly which functions must be covered.
                 *   If a focused trace was generated, attach `focused_trace.txt` and use it as the baseline for downstream validation and test coverage.
             </step>
@@ -203,7 +199,7 @@
                     *   **Dependencies:** Any other functions it calls or major data structures it reads (e.g., `LearnerModel`, `curriculumState`). Use `fan_in.json`, `fan_out.json`, and `imports.json` to qualify impact.
                     *   **Side Effects:** Any "High-Cost" or "State-Changing" operations it performs (e.g., "Makes LLM call," "Modifies `curriculumState`," "Renders to DOM").
                     *   **Side-Effect Risk Ranking:** Tag each side effect with cost, blast radius, and concurrency risk; explicitly flag external I/O and state writes. Leverage the analyzer's `sideEffects` output in `functions.json` as the baseline and adjust after code review.
-                *   **Unknowns & Assumptions Register**: Seed the ledger with items from `assumptions.json`. Capture every assumption and unknown discovered so far with fields:
+                *   **Unknowns Register**: Capture every open unknown discovered so far with fields:
                     *   Statement and rationale
                     *   Impact risk (Low/Medium/High)
                     *   Verification plan (specific test/measure/log to confirm or refute)
@@ -238,6 +234,14 @@
                 *   **Action**: Base each question on the findings from the completed core analysis to keep the dialogue grounded in the system's current state.
                 *   **Action**: Record the clarified scope in the mission notes before proceeding to any subsequent protocol.
             </step>
+             <step number="7">
+                **Decide What Protocol to Follow**
+                *   **Action**: Analyze the nature of the request and determine the appropriate protocol to follow:
+                    * **COMPREHENSIVE IMPACT ANALYSIS PROTOCOL**
+                    * **MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL**
+                    * **MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL**
+                    * **MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL**       
+            </step>
         </steps>
     </protocol>
     <protocol name="MANDATORY RCI REVIEW PROTOCOL">
@@ -255,7 +259,7 @@
                 **Skeptical Reviewer Pass**:
                 *   Adopt a skeptical reviewer persona and examine the change as if you did not author it.
                 *   Challenge robustness, edge cases, error handling, and alignment with the original requirements.
-                *   Reopen the latest Core Analysis artifacts (static execution trace, DSE table, assumptions) and verify the change preserves their correctness or updates them appropriately.
+                *   Reopen the latest Core Analysis artifacts (static execution trace, DSE table, open unknowns) and verify the change preserves their correctness or updates them appropriately.
                 *   Pull context from `tmp/analysis` artifacts before opening source files manually; only inspect code directly when analyzer data cannot answer the question.
                 *   Verify every requirement from the parent step is met.
             </step>
@@ -326,7 +330,7 @@
             * Define specific evidence needed to prove safety (logs, tests, metrics)
             * Establish rollback plan and monitoring requirements
             * Set success criteria for each affected dimension
-            * Lean on analyzer artifacts (functions.json, calls.json, assumptions.json) when selecting validation targets; supplement manually only if the tooling is silent, and reconcile open assumptions before finalizing the plan.
+            * Lean on analyzer artifacts (functions.json, calls.json) when selecting validation targets; supplement manually only if the tooling is silent, and reconcile open unknowns before finalizing the plan.
         </step>
         <step number="6">
             **Execute with Comprehensive Monitoring**:
@@ -344,14 +348,14 @@
         <step number="0">
             **Step 0: Core Analysis**
             *   **Action:** Complete the **MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)** before advancing to Step 1.
-            *   **Action:** Record the path of the mission-state document generated during Core Analysis; treat it as the living checkpoint that complements analyzer outputs and fresh observations for every subsequent step, updating it whenever scope, risks, or assumptions change.
+            *   **Action:** Record the path of the mission-state document generated during Core Analysis; treat it as the living checkpoint that complements analyzer outputs and fresh observations for every subsequent step, updating it whenever scope or risks change.
         </step>
         <phase name="Phase 1: System-Wide Understanding & Synthesis">
             ### Phase 1: System-Wide Understanding & Synthesis
             <step number="1">
                 **Architectural Context Mapping**: Go beyond a "deep scan" of immediately affected files. Analyze the `PROJECT WORKFLOW` document and sample key files from each major phase to build a mental model of the project's architectural patterns. State your findings clearly (e.g., "The system follows a Component-Based architecture where state is managed centrally in `index.tsx`.").
                 *   Reference the latest Core Analysis artifacts (`tmp/analysis/summary.txt`, `functions.json`, `calls.json`) to corroborate fan-in hotspots, call chains, and side-effect boundaries while describing the architecture.
-                *   Exhaust analyzer outputs (fan-in/out, calls, assumptions) before opening code manually; only inspect raw files when analyzer insight is insufficient.
+                *   Exhaust analyzer outputs (fan-in/out, calls) before opening code manually; only inspect raw files when analyzer insight is insufficient.
                 *   Fold in the mission-state document created in Step 0 as the baseline snapshot of scope and risks, enhancing it with architectural findings while still corroborating every conclusion with analyzer data and fresh code review.
             </step>
             <step number="2">
@@ -421,7 +425,7 @@
                 **Proactive Risk & Mitigation Analysis**:
                 *   **Action**: For the recommended approach, identify 2-3 potential risks or negative side effects.
                 *   **Action**: Use the Core Analysis DSE table and side-effect risk rankings as primary input; each high-cost or high-blast item must have an explicit mitigation strategy.
-                *   **Action**: Revisit the mission-state assumptions (seeded from `assumptions.json`) and resolve or re-plan any that remain open; note which ones your mitigation addresses.
+                *   **Action**: Revisit the mission-state unknowns and resolve or re-plan any that remain open; note which ones your mitigation addresses.
                 *   **Action**: For each risk, define a specific mitigation strategy that will be included in the implementation.
             </step>
             <step number="5">
@@ -436,7 +440,7 @@
                     *   ☐ **Task 2**: Implement the UI rendering component.
                         *   *Validation Log*: `logger.debug('[XXX] Rendering component with props:', props)`
                         *   *Implementation Details*: Provide detailed implementation details.
-                *   **Action**: Use the analyzer-mapped functions/side effects as your starting coverage list while you reason through tasks; weave in risks, logs, and domain insight in the same pass so the plan already blends tool output with fresh judgment. Reflect the result in the mission-state document as you refine scope, risks, and assumptions.
+                *   **Action**: Use the analyzer-mapped functions/side effects as your starting coverage list while you reason through tasks; weave in risks, logs, and domain insight in the same pass so the plan already blends tool output with fresh judgment. Reflect the result in the mission-state document as you refine scope and risks.
             </step>
             <step number="6">
                 **Stop and Await My Final Approval**: Present the full plan, including the trade-off matrix, risk analysis, and the detailed to-do list with its defined Validation Logs. **STOP** and do not proceed until you receive my final go-ahead.
@@ -485,7 +489,7 @@
         </phase>
     </protocol>
     <protocol name="MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL">
-        # ====MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL====
+        CRITICAL FOR BUGS:
         <initial_action>
             Upon receiving a bug report, your FIRST action is to create temporary text file under ./tmp in which you will create a to-do list containing all steps of this protocol (Steps 1-15) and track the process while noting the output for each step in your tmp file, except to-do plan, display that. You will then execute this list step-by-step, announcing each phase and step in your tmp file as you continue. You must loop through hypothesis as mentioned until confidence reaches 90%. Remove the tmp file once you fixed the bug. This is non-negotiable.
             Comply with the Main Directive main-only restriction before proceeding.
@@ -545,7 +549,7 @@
                 *   **5a. Hypothesis Prioritization** — Rank every hypothesis by evidence accessibility (how quickly code paths, logs, or data can confirm or refute it), ignoring intuitive likelihood.
                 *   **5b. Define Decisive Evidence** — Consult the hypothesis ledger entry for the top-ranked hypothesis, then select the next confirming or falsifying observation to test.
                 *   **5c. Gather Evidence** — Re-check the relevant code, tests, runtime artefacts, and Core Analysis call paths tied to that confirming or falsifying observation, capturing concrete proof that supports or contradicts the hypothesized bug mechanism.
-                *   **5c.1 Assumption Check** — Each cycle, revisit the mission-state assumptions seeded from `assumptions.json`; retire entries your new evidence resolves and flag any that now require different verification.
+                *   **5c.1 Unknowns Check** — Each cycle, revisit the mission-state unknowns; retire entries your new evidence resolves and flag any that now require different verification.
                 *   **5d. Score Evidence** — Record three ratings (0–10 each):
                     *   Supporting Evidence Strength
                     *   Contradictory Evidence Strength
