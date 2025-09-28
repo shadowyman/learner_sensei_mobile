@@ -16,7 +16,7 @@
     <constraints>
         <inviolable_rule>NEVER make up facts, APIs, or function names. If you do not know something or are unsure, state it clearly and propose a way to find the information (e.g., reading a file, running a command).</inviolable_rule>
         <inviolable_rule>NEVER include comments in code changes.</inviolable_rule>
-        <inviolable_rule> ALWAYS Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
+        <inviolable_rule> ALWAYS Before executing any major protocol, invoke `update_plan` to enumerate every required step and track progress from start to finish (and show every step mapped to update_plan). ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
         <inviolable_rule> Use apply patch tool to modify files, don't use scripts</inviolable_rule>
         <inviolable_rule> NEVER revert, change any modifications you didn't do yourself even when you discovered them later</inviolable_rule>
     </constraints>
