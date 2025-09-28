@@ -1087,6 +1087,24 @@ class SelectionSensei {
         });
 
         this.resetModalState();
+        const conversationToken = this.modalConversationToken;
+        logger.info("[SEL_MODAL_DEBUG] request-start", {
+            actionType,
+            conversationToken,
+            selectedTextLength: selectedText?.length || 0,
+        });
+        const guardActive = (stage: string): boolean => {
+            if (conversationToken !== this.modalConversationToken) {
+                logger.info("[SEL_MODAL_DEBUG] response-discarded", {
+                    stage,
+                    conversationToken,
+                    activeToken: this.modalConversationToken,
+                });
+                return false;
+            }
+            return true;
+        };
+
         this.showResponseModalWithLoading();
         this.setComposerEnabled(false);
         this.hideSelectionToolbar();
@@ -1096,7 +1114,9 @@ class SelectionSensei {
                 aiExists: !!this.ai,
                 modelsExists: this.ai ? !!this.ai.models : false
             });
-            await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.");
+            if (guardActive('ai-check')) {
+                await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken);
+            }
             return;
         }
 
@@ -1112,7 +1132,11 @@ class SelectionSensei {
                 case 'explainInMoreDepth': instructionText = "Explain the 'SELECTED TEXT' in more depth, providing more details and context. Try to understand why someone would require more depth for 'SELECTED TEXT' and tailor your response accordingly. The goal is proactively making sure you cover everything for it."; break;
                 case 'showAnExample': instructionText = "Provide a new relevant and illustrative example for the concept in the 'SELECTED TEXT'. The example should be explained in detail."; break;
                 case 'showExampleCodeSnippet': instructionText = "Provide a complete, fully functional C++ code implementation that demonstrates the concept discussed in the 'SELECTED TEXT'. This must be a FULL implementation, not just a snippet. After the code, provide a LINE-BY-LINE explanation of the code, anticipating and addressing common questions or pitfalls a novice programmer might have about each part of the code. Make connections to the context throughout your explanation."; break;
-                default: await this.updateResponseModalContentAndTitle("Error", "Unknown action type."); return;
+                default:
+                    if (guardActive('unknown-action')) {
+                        await this.updateResponseModalContentAndTitle("Error", "Unknown action type.", conversationToken);
+                    }
+                    return;
             }
             userPrompt = SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(originalSenseiMessageText, selectedText, instructionText, actionLabel);
         }
@@ -1126,8 +1150,10 @@ class SelectionSensei {
 
         const chat = this.ensureSelectionChat();
         if (!chat) {
-            await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.");
-            this.setComposerEnabled(true);
+            if (guardActive('ensure-chat')) {
+                await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken);
+                this.setComposerEnabled(true);
+            }
             return;
         }
 
@@ -1135,6 +1161,10 @@ class SelectionSensei {
             const response = await chat.sendMessage({
                 message: userPrompt,
             });
+
+            if (!guardActive('post-send')) {
+                return;
+            }
 
             let jsonText = (response.text || '').trim();
             responseLength = jsonText.length;
@@ -1171,35 +1201,51 @@ class SelectionSensei {
                 hasTitle = true;
                 hasExplanation = true;
                 contentStrategy = 'parsed-full';
+                if (!guardActive('update-parsed-full')) {
+                    return;
+                }
                 try {
                     await this.updateResponseModalContentAndTitle(
                         parsedResponse.suggestedTitle,
-                        parsedResponse.explanation
+                        parsedResponse.explanation,
+                        conversationToken
                     );
                 } catch (updateError) {
                     logger.error("[SENSEI_SELECTION] Error updating modal:", updateError);
-                    throw updateError; // Re-throw to be caught by outer catch
+                    throw updateError;
                 }
             } else if (parseSuccess && parsedResponse.explanation) {
                 hasExplanation = true;
                 contentStrategy = 'explanation-only';
+                if (!guardActive('update-explanation-only')) {
+                    return;
+                }
                 await this.updateResponseModalContentAndTitle(
                     "Sensei Explains...",
-                    parsedResponse.explanation
+                    parsedResponse.explanation,
+                    conversationToken
                 );
             } else if (jsonText && jsonText.length > 0) {
                 contentStrategy = 'raw-fallback';
                 logger.warn("[SENSEI_SELECTION] Using raw response as fallback");
+                if (!guardActive('update-raw-fallback')) {
+                    return;
+                }
                 await this.updateResponseModalContentAndTitle(
                     "Sensei's Response",
-                    jsonText
+                    jsonText,
+                    conversationToken
                 );
             } else {
                 contentStrategy = 'error';
                 logger.warn("[SENSEI_SELECTION] No valid content to display");
+                if (!guardActive('update-empty')) {
+                    return;
+                }
                 await this.updateResponseModalContentAndTitle(
                     "Error",
-                    "Sorry, I couldn't generate a proper response. Please try again."
+                    "Sorry, I couldn't generate a proper response. Please try again.",
+                    conversationToken
                 );
             }
         } catch (error) {
@@ -1228,7 +1274,15 @@ class SelectionSensei {
                 userMessage = "Failed to process the response. Please try again.";
             }
 
-            await this.updateResponseModalContentAndTitle("Error", userMessage);
+            if (!guardActive('update-error')) {
+                return;
+            }
+
+            await this.updateResponseModalContentAndTitle("Error", userMessage, conversationToken);
+        }
+
+        if (!guardActive('response-handled')) {
+            return;
         }
 
         logSelectionSenseiValidation('response-handled', {

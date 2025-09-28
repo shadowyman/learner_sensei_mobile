@@ -1,13 +1,10 @@
 {
-  "generatedAt": "2025-09-28T04:29:24.925Z",
-  "graphHash": "6c6cb30d29edfff2484ea661e37e3fe28435e5202350426310014a620473e709",
+  "generatedAt": "2025-09-28T22:44:05.569Z",
+  "graphHash": "f35af21293d798225a198d6ff1d3196ff9625964fac1f11d6ebe010e3c7c2cb7",
   "presets": {
     "smoke": {
       "slug": "smoke",
-      "includeFiles": [
-        "tmp/analyzer-tests/presets/seed.ts",
-        "tmp/analyzer-tests/presets/use.ts"
-      ],
+      "includeFiles": [],
       "maxDepth": 2,
       "entry": "tmp/analyzer-tests/presets/use.ts::run",
       "description": "seed by function"

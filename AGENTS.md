@@ -61,6 +61,10 @@
         <mandate>
             Before any code review, cleanup, refactor, or similar investigation, the agent MUST execute `npm run analysis:run` (scoped with `--include` when appropriate) and consult the emitted artifacts prior to planning or editing. Example invocations of the analyzer are documented within this <analysis_tooling> section for quick reference.
         </mandate>
+        WARNING — Artifact scope is overwritten by flags:
+        - Any analyzer run with flags like `--include`, `--entry`, `--preset`, or `--dom-index` overwrites `tmp/analysis/*` to reflect only that flagged scope.
+        - If you later need broad, repo-wide insight, first rerun the baseline command `npm run analysis:run` to regenerate comprehensive artifacts before querying.
+        - You can still perform targeted lookups with `jq` without rerunning flags, e.g.: `jq '.functions[] | select(.file=="selectionSensei.ts" and .name=="SelectionSensei.handleOutsidePointerDown") | {name,stableId}' tmp/analysis/function_crosswalk.json`.
         # ANALYZER TOOL (scripts/analyze.ts)
         ANALYZER(1) — Static Codebase Analyzer for Sensei
         ==================================================
@@ -167,20 +171,26 @@
     </analysis_tooling>
     <protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)">
         Please refer to docs/protocols/MANDATORY_CORE_ANALYSIS_PROTOCOL_STEP_0.md and fully follow its steps as defined in that file.
+        <when_to_run>Run FIRST before any major workflow (feature, bug, architecture, or impact) to ground decisions in fresh analyzer artifacts.</when_to_run>
     </protocol>
     <protocol name="MANDATORY RCI REVIEW PROTOCOL">
         Please refer to docs/protocols/MANDATORY_RCI_REVIEW_PROTOCOL.md and fully follow its steps as defined in that file.
+        <when_to_run>Invoke during Feature Implementation Step 8 or Root Cause Step 11 for the self-review cycle and review artifact.</when_to_run>
     </protocol>
     <protocol name="COMPREHENSIVE IMPACT ANALYSIS PROTOCOL">
         Please refer to docs/protocols/COMPREHENSIVE_IMPACT_ANALYSIS_PROTOCOL.md and fully follow its steps as defined in that file.
+        <when_to_run>Run BEFORE any modification to existing code to map blast radius and validation needs.</when_to_run>
     </protocol>
     <protocol name="MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL">
         Please refer to docs/protocols/MANDATORY_ARCHITECTURAL_SYNTHESIS_PROTOCOL.md and fully follow its steps as defined in that file.
+        <when_to_run>Run when changes are non-trivial (new module/architecture) after Core Analysis and before implementation.</when_to_run>
     </protocol>
     <protocol name="MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL">
         Please refer to docs/protocols/MANDATORY_PRINCIPLE_DRIVEN_FEATURE_IMPLEMENTATION_PROTOCOL.md and fully follow its steps as defined in that file.
+        <when_to_run>Run to implement an approved feature after Core Analysis (and Impact Analysis; include Architecture Synthesis first if complexity warrants).</when_to_run>
     </protocol>
     <protocol name="MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL">
         Please refer to docs/protocols/MANDATORY_ADAPTIVE_ROOT_CAUSE_ANALYSIS_AND_REMEDIATION_PROTOCOL.md and fully follow its steps as defined in that file.
+        <when_to_run>Run for any bug investigation and fix immediately after Core Analysis upon receiving a bug report.</when_to_run>
     </protocol>
 </system_directives>
