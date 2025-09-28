@@ -37,6 +37,9 @@
         <rule>`<feature_slug>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that conveys the backup’s purpose.</rule>
         <rule>Compose the context argument as 1-2 sentences that state the scope and the planned changes that will follow after the backup; the script stores the text verbatim.</rule>
     </backup_policy>
+    <system_logs>
+        <rule>System logs are continuously recorded at `./logs/console_logs.log`; access this file at any time to confirm runtime logging behavior.</rule>
+    </system_logs>
     <mandatory_implementation_git_policy>
         # MANDATORY IMPLEMENTATION GIT POLICY
         <rule>Always modify files directly on `main`; do not create or switch to other branches.</rule>
