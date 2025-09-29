@@ -17,6 +17,7 @@
         <step number="3">
             **Dispatch Review & Record Artifact Path**:
             *   Run `npm run review:dispatch -- --file code_review/review_<final_slug>.html` using the artifact generated in Step 2.
+            *   Execute this command with elevated permissions by setting `with_escalated_permissions=true` when requesting shell execution.
             *   Capture the emitted path `code_review/review_<final_slug>.html` and retain it for later documentation steps in the parent protocol.
         </step>
         <step number="4">
