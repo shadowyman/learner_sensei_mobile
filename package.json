@@ -17,7 +17,8 @@
     "analysis:dom": "npm run analysis:run -- --preset domsuite",
     "analysis:ui": "npm run analysis:run -- --preset ui",
     "analysis:notepad": "npm run analysis:run -- --preset notepad",
-    "test:analyzer": "ts-node tests/analyzer.integration.ts",
+    "functional:analyzer": "ts-node tests/analyzer.integration.ts",
+    "functional:review-cli": "ts-node tests/reviewEdit.functional.test.ts",
     "backup:create": "ts-node scripts/createBackup.ts"
   },
   "keywords": [
