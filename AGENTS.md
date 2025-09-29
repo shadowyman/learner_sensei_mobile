@@ -37,6 +37,7 @@ CRITICAL: NEVER, EVER REVERT CHANGES THAT DOES NOT BELONG TO YOU DISCOVERED IN G
         <rule>- All backups MUST ONLY HAVE files mentioned in file-manifest.json</rule>
         <rule>- All other misc files will be created under ./tmp</rule>
         <rule>- You MUST NOT create files in the root folder unless they are core project code files</rule>
+        <rule>- Mission state checkpoints must be stored under ./docs/mission_state/ with filenames following mission_state_<descriptive_title>_[timestamp].md</rule>
     </project_file_structure>
     <backup_policy>
         <rule>Before modifying any non-doc project file, run `npm run backup:create -- --feature "<feature_slug>" --context "<custom context>"` to produce the required archive.</rule>

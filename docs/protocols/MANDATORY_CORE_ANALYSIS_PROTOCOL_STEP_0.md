@@ -63,7 +63,7 @@
                 *   Assumptions & unknowns register with impact ratings and verification plans
                 *   Key architectural insights discovered
                 *   Triggering protocol to be executed next
-            *   **Action**: Store this checkpoint in `./docs/mission_state_<descriptive_title>_[timestamp].md` for future protocol recovery if needed.
+            *   **Action**: Store this checkpoint in `./docs/mission_state/mission_state_<descriptive_title>_[timestamp].md` for future protocol recovery if needed.
             *   **Action**: Ensure `<descriptive_title>` is a concise, human-readable slug (e.g., `socratic_reload_buttons_bug`) that communicates the mission focus without relying on the timestamp alone.
             *   **Action**: Ensure this context is preserved for the triggering protocol execution.
         </step>
