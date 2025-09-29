@@ -36,3 +36,4 @@ config/
 scripts/create_worktree.py
 scripts/vetUnusedExports.ts
 .claude/settings.local.json
+scripts/.sync_review_processed.json
