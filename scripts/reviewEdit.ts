@@ -315,6 +315,7 @@ function findChildIndexByClass(parent: P5Node, tag: string, cls: string): number
 
 function insertVerdict(path: string, raw: string, verdictBody: string) {
   const doc = parse5.parse(raw)
+  ensureVerdictStyles(doc)
   const verdictHtml = ensureVerdictBody(verdictBody)
   const bodyNode = findSectionByTag(doc, 'body')
   const prIdx = findChildIndexByClass(bodyNode, 'section', 'pr-request')
@@ -322,13 +323,48 @@ function insertVerdict(path: string, raw: string, verdictBody: string) {
   if (verdictIdxExisting >= 0) {
     bodyNode.childNodes.splice(verdictIdxExisting, 1)
   }
-  const fragment = parse5.parseFragment(`<section class="verdict"><h2>VERDICT</h2>${verdictHtml}</section>`) as P5Node
+  const fragment = parse5.parseFragment(`<section class="pr-request verdict"><h2>VERDICT</h2><div class="verdict-content">${verdictHtml}</div></section>`) as P5Node
   const newSection = (fragment.childNodes || []).find((n: P5Node) => n.tagName === 'section')
   if (newSection) {
     const insertAt = prIdx >= 0 ? prIdx + 1 : (bodyNode.childNodes || []).length
     bodyNode.childNodes.splice(insertAt, 0, newSection)
     const updated = parse5.serialize(doc)
     writeFileSync(path, updated, 'utf8')
+  }
+}
+
+function findHead(doc: P5Node): P5Node | null {
+  let result: P5Node | null = null
+  const visit = (n: P5Node) => {
+    if (result) return
+    if (n && n.tagName === 'head') { result = n; return }
+    const kids = n && n.childNodes ? n.childNodes : []
+    for (const k of kids) visit(k)
+  }
+  visit(doc)
+  return result
+}
+
+function styleContains(node: P5Node, snippet: string): boolean {
+  if (!node || node.tagName !== 'style') return false
+  const kids = node.childNodes || []
+  for (const k of kids) {
+    if (k.nodeName === '#text' && typeof k.value === 'string' && k.value.includes(snippet)) return true
+  }
+  return false
+}
+
+function ensureVerdictStyles(doc: P5Node) {
+  const head = findHead(doc)
+  if (!head) return
+  const existing = (head.childNodes || []).some((n: P5Node) => styleContains(n, 'section.pr-request.verdict'))
+  if (existing) return
+  const css = `section.pr-request.verdict{border-left:4px solid #10b981;background:#ecfdf5;box-shadow:0 10px 24px rgba(16,185,129,0.15);transition:box-shadow 200ms ease, transform 200ms ease}section.pr-request.verdict:hover{box-shadow:0 14px 32px rgba(16,185,129,0.22);transform:translateY(-1px)}section.pr-request.verdict h2{margin:0 0 12px;color:#065f46}section.pr-request.verdict .verdict-content{display:block;font-size:14px;line-height:1.6;color:#064e3b}`
+  const frag = parse5.parseFragment(`<style>${css}</style>`) as P5Node
+  const styleNode = (frag.childNodes || []).find((n: P5Node) => n.tagName === 'style')
+  if (styleNode) {
+    if (!head.childNodes) head.childNodes = []
+    head.childNodes.push(styleNode)
   }
 }
 
