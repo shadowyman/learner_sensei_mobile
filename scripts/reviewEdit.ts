@@ -159,6 +159,16 @@ function ensureBody(body: string): string {
   return `<p>${escaped}</p>`
 }
 
+function ensureVerdictBody(body: string): string {
+  const trimmed = body.trim()
+  if (trimmed.startsWith('<')) return body
+  const escaped = body
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return `<pre><code>${escaped}</code></pre>`
+}
+
 function cmdListUuid(fileArg: string) {
   if (!fileArg) {
     stderr('Missing required --file <artifact>\n')
@@ -234,6 +244,11 @@ function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
   let raw: string
   try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
   let body = bodyArg
+  const verdictArg = parseArg(process.argv.slice(2), 'verdict')
+  if (body === '-' && verdictArg === '-') {
+    stderr('Cannot read both --body and --verdict from stdin simultaneously. Provide one inline or via file piping.\n')
+    process.exit(1)
+  }
   if (body === '-') {
     body = readFileSync(0, 'utf8')
   }
@@ -274,12 +289,57 @@ function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
   const updated = parse5.serialize(doc)
   writeFileSync(path, updated, 'utf8')
   stdout(`Updated remark for UUID ${uuid} in ${path}\n`)
+  // Optionally update VERDICT section
+  if (verdictArg) {
+    let verdict = verdictArg
+    if (verdict === '-') {
+      verdict = readFileSync(0, 'utf8')
+    }
+    const verdictHtml = ensureVerdictBody(verdict)
+    const bodyNode = findSectionByTag(doc, 'body')
+    const prIdx = findChildIndexByClass(bodyNode, 'section', 'pr-request')
+    // Remove existing verdict section if present
+    const verdictIdxExisting = findChildIndexByClass(bodyNode, 'section', 'verdict')
+    if (verdictIdxExisting >= 0) {
+      bodyNode.childNodes.splice(verdictIdxExisting, 1)
+    }
+    const fragment = parse5.parseFragment(`<section class="verdict"><h2>VERDICT</h2>${verdictHtml}</section>`) as P5Node
+    const newSection = (fragment.childNodes || []).find((n: P5Node) => n.tagName === 'section')
+    if (newSection) {
+      const insertAt = prIdx >= 0 ? prIdx + 1 : (bodyNode.childNodes || []).length
+      bodyNode.childNodes.splice(insertAt, 0, newSection)
+      const updated2 = parse5.serialize(doc)
+      writeFileSync(path, updated2, 'utf8')
+      stdout(`Updated VERDICT section in ${path}\n`)
+    }
+  }
+}
+
+function findSectionByTag(doc: P5Node, tag: string): P5Node | null {
+  let result: P5Node | null = null
+  const visit = (n: P5Node) => {
+    if (result) return
+    if (n && n.tagName === tag) { result = n; return }
+    const kids = n && n.childNodes ? n.childNodes : []
+    for (const k of kids) visit(k)
+  }
+  visit(doc)
+  return result
+}
+
+function findChildIndexByClass(parent: P5Node, tag: string, cls: string): number {
+  if (!parent || !parent.childNodes) return -1
+  for (let i = 0; i < parent.childNodes.length; i++) {
+    const n = parent.childNodes[i]
+    if (n && n.tagName === tag && hasClass(n, cls)) return i
+  }
+  return -1
 }
 
 function main() {
   const argv = process.argv.slice(2)
   if (!argv.length) {
-    stderr('Usage: review:edit -- <list-uuid|show-diff|remark> --file <artifact> [--uuid <id>] [--body <text|html|->]\n')
+    stderr('Usage: review:edit -- <list-uuid|show-diff|remark> --file <artifact> [--uuid <id>] [--body <text|html|->] [--verdict <html|code|->]\n')
     process.exit(1)
   }
   const sub = argv[0]

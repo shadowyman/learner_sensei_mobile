@@ -65,9 +65,13 @@
             <code>npm run review:edit -- show-diff --file <artifact> --uuid <uuid></code>
         </rule>
         <rule>
-            3) After reviewing per external guidelines you were supplied analyze the codebase against diff, add/replace the remark for UUID you're reviewing:
+            3) After reviewing per external guidelines you were supplied analyze the codebase against diff, add/replace the remark for the UUID you're reviewing:
             <code>npm run review:edit -- remark --file <artifact> --uuid <uuid> --body "<text or <div>...>|-"</code>
             If <code>--body -</code>, the remark is read from stdin. Plain text is escaped and wrapped in <code><p></code>; HTML is trusted as‑is.
+        </rule>
+        <rule>
+            Optional) Add a top‑level VERDICT after the PR Review Context:
+            <code>npm run review:edit -- remark --file <artifact> --uuid <uuid> --body "..." --verdict "<div>...>|-"</code>
         </rule>
     </code_review_policy>
     <analysis_tooling>
