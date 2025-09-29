@@ -17,24 +17,18 @@
         "marked": "https://esm.sh/marked@^15.0.12",
         "mermaid": "https://esm.sh/mermaid@^11.11.0",
         "jszip": "https://esm.sh/jszip@^3.10.1",
-        "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1"
-      }
-    }
-    </script>
-    <script type="importmap">
-    {
-      "imports": {
-        "@codemirror/state": "https://esm.sh/@codemirror/state@6.5.2",
-        "@codemirror/view": "https://esm.sh/@codemirror/view@6.25.0?deps=@codemirror/state@6.5.2",
-        "@codemirror/language": "https://esm.sh/@codemirror/language@6.10.3?deps=@codemirror/state@6.5.2",
-        "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.2.4?deps=@codemirror/state@6.5.2",
-        "@codemirror/autocomplete": "https://esm.sh/@codemirror/autocomplete@6.9.2?deps=@codemirror/state@6.5.2,@codemirror/view@6.25.0",
-        "@codemirror/lang-cpp": "https://esm.sh/@codemirror/lang-cpp@6.1.2?deps=@codemirror/state@6.5.2,@codemirror/language@6.10.3",
-        "@codemirror/highlight": "https://esm.sh/@codemirror/highlight@6.12.0?deps=@codemirror/state@6.5.2",
-        "@codemirror/gutter": "https://esm.sh/@codemirror/gutter@6.3.0?deps=@codemirror/state@6.5.2,@codemirror/view@6.25.0",
-        "@lezer/highlight": "https://esm.sh/@lezer/highlight@1.1.6",
+        "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1",
+        "@codemirror/state": "https://esm.sh/@codemirror/state",
+        "@codemirror/view": "https://esm.sh/@codemirror/view",
+        "@codemirror/language": "https://esm.sh/@codemirror/language",
+        "@codemirror/commands": "https://esm.sh/@codemirror/commands",
+        "@codemirror/autocomplete": "https://esm.sh/@codemirror/autocomplete",
+        "@codemirror/lang-cpp": "https://esm.sh/@codemirror/lang-cpp",
+        "@codemirror/highlight": "https://esm.sh/@codemirror/highlight",
+        "@codemirror/gutter": "https://esm.sh/@codemirror/gutter",
+        "@lezer/highlight": "https://esm.sh/@lezer/highlight",
         "w3c-keyname": "https://esm.sh/w3c-keyname@2.2.6"
-      }
+     }
     }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
@@ -162,15 +156,17 @@
                 <textarea id="user-input" class="chat-input-textarea" placeholder="Ask Sensei a question or type your thoughts..." aria-label="Your message"></textarea>
             </div>
             <div class="chat-input-actions">
-                <button id="code-editor-button" class="chat-input-editor-button" type="button" aria-label="Open code editor" title="Open code editor">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M7 15 3 12 7 9M17 9 21 12 17 15M16 5 8 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
-                        <path d="M15.5 4.8 8.5 19.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                </button>
-                <button id="send-button" class="chat-input-send-button" type="submit" aria-label="Send message" title="Send message">
-                    <span class="icon-placeholder" data-icon="send"></span>
-                </button>
+                <div class="send-button-stack">
+                    <button id="send-button" class="chat-input-send-button" type="submit" aria-label="Send message" title="Send message">
+                        <span class="icon-placeholder" data-icon="send"></span>
+                    </button>
+                    <button id="code-editor-button" class="chat-input-editor-button" type="button" aria-label="Open code editor" title="Open code editor">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M7 15 3 12 7 9M17 9 21 12 17 15M16 5 8 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M15.5 4.8 8.5 19.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </form>
         <div id="code-editor-overlay" class="code-editor-overlay" aria-hidden="true" style="display: none;">
