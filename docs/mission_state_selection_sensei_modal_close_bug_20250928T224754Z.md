@@ -68,3 +68,12 @@
 ## Next Steps
 - Execute Strategy B per phased plan once backup requirements are satisfied.
 
+## Validation Summary (2025-09-29)
+- TypeScript safety check via `npx tsc --noEmit` passes after final guard adjustments in `hideResponseModal`.
+- `logs/console_logs.log` tail inspected; only baseline initialization entries observed, no new warnings/errors during modal teardown scenarios.
+- `[SEL_MODAL_DEBUG]` instrumentation removed post-validation; `[SEL_MODAL_CANCEL]` telemetry retained for long-term monitoring.
+- Awaiting user confirmation of in-app behaviour with mid-request closure and follow-up cancellation.
+
+## Unknowns Register Updates
+- Follow-up cancellation state now reset within `hideResponseModal` regardless of DOM availability; followupInFlight clearing verified through static reasoning. Pending user validation remains as noted above.
+- Helper `sendMessage` path confirmed to use the same guard via `handleToolbarAction` entry-point; no additional work required.

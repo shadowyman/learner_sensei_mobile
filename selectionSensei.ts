@@ -761,7 +761,10 @@ class SelectionSensei {
         });
     }
 
-    private async updateResponseModalContentAndTitle(title: string, htmlContent: string): Promise<void> {
+    private async updateResponseModalContentAndTitle(title: string, htmlContent: string, conversationToken?: number): Promise<void> {
+        if (conversationToken !== undefined && conversationToken !== this.modalConversationToken) {
+            return;
+        }
         // Ensure DOM elements are still valid (important after save/load)
         this.ensureDOMElementsValid();
 
@@ -848,13 +851,16 @@ class SelectionSensei {
     }
 
     private hideResponseModal(): void {
-        // Ensure DOM elements are still valid (important after save/load)
         this.ensureDOMElementsValid();
 
-        if (this.responseModal) {
-            this.responseModal.style.display = 'none';
+        const modalElement = this.responseModal;
+        const wasHidden = modalElement ? modalElement.style.display === 'none' : true;
+        const previousToken = this.modalConversationToken;
 
-            // Clear the content when hiding to prevent stale content from showing next time
+        this.resetModalState();
+
+        if (!wasHidden && modalElement) {
+            modalElement.style.display = 'none';
             if (this.responseModalTextContent) {
                 this.responseModalTextContent.innerHTML = '';
             }
@@ -862,6 +868,11 @@ class SelectionSensei {
                 this.responseModalTitleElement.textContent = '';
             }
         }
+
+        logger.info("[SEL_MODAL_CANCEL] modal-hidden", {
+            previousToken,
+            nextToken: this.modalConversationToken,
+        });
         this.hideSelectionToolbar();
     }
 
@@ -947,7 +958,7 @@ class SelectionSensei {
         }
 
         cursor += 1;
-        while (cursor < source.length && /\s/.test(source[cursor])) {
+        while (cursor < source.length && /\s/.test(source.charAt(cursor))) {
             cursor += 1;
         }
 
@@ -955,7 +966,7 @@ class SelectionSensei {
             return undefined;
         }
 
-        const quoteChar = source[cursor];
+        const quoteChar = source.charAt(cursor);
         if (quoteChar !== '"' && quoteChar !== "'") {
             return undefined;
         }
@@ -965,7 +976,7 @@ class SelectionSensei {
         let value = '';
 
         while (cursor < source.length) {
-            const ch = source[cursor];
+            const ch = source.charAt(cursor);
             cursor += 1;
 
             if (escapeNext) {
@@ -1088,18 +1099,8 @@ class SelectionSensei {
 
         this.resetModalState();
         const conversationToken = this.modalConversationToken;
-        logger.info("[SEL_MODAL_DEBUG] request-start", {
-            actionType,
-            conversationToken,
-            selectedTextLength: selectedText?.length || 0,
-        });
         const guardActive = (stage: string): boolean => {
             if (conversationToken !== this.modalConversationToken) {
-                logger.info("[SEL_MODAL_DEBUG] response-discarded", {
-                    stage,
-                    conversationToken,
-                    activeToken: this.modalConversationToken,
-                });
                 return false;
             }
             return true;

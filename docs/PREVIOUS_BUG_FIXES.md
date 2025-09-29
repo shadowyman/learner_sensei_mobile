@@ -229,3 +229,26 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Review Artifact**: `code_review/review_selection_sensei_mermaid_json_fix.html`
 
 **Keywords for Future Reference**: selection sensei, mermaid, escaped quotes, json parsing, modal rendering
+
+## Bug Fix #14: Selection Sensei Modal Reopened After User Closed It
+
+**Issue**: Closing the Selection Sensei response modal during an in-flight explanation caused the modal to reopen with the old response, blocking the user from issuing a new command immediately after dismissal.
+
+**Root Cause**: `handleToolbarAction` awaited the AI response and always rendered the result without verifying that the modal conversation was still active. `hideResponseModal` merely hid the DOM element and left `modalConversationToken`, follow-up state, and timers untouched, so late async completions still matched the stale token and repainted the modal.
+
+**Discovery Method**: Adaptive Root Cause Analysis — Cycle 1 (Component Scope) and Cycle 2 (Direct Dependencies); confirmed via `review:result` output in `code_review/review_selection_sensei_modal_close_bug_v6.html`.
+
+**Fix Applied**:
+1. Captured the conversation token when a toolbar action starts and inserted guard checks before each asynchronous continuation, ensuring stale responses bail out before touching the DOM.
+2. Reworked `hideResponseModal` to invoke `resetModalState()` even when the modal element is absent, advancing the token, clearing follow-up state, and refreshing registries before optionally hiding the DOM node.
+3. Retained `[SEL_MODAL_CANCEL]` telemetry for observability while removing temporary `[SEL_MODAL_DEBUG]` instrumentation after validation.
+
+**Related Files**:
+- `selectionSensei.ts:744-878`
+- `selectionSensei.ts:1078-1246`
+
+**Backup Artifact**: `backup/sensei_backup_selection_sensei_modal_close_cancellation_20250929_015724.zip`
+
+**Review Artifact**: `code_review/review_selection_sensei_modal_close_bug_v6.html`
+
+**Keywords for Future Reference**: selection sensei, modal cancellation, modalConversationToken, async guard, stale response, follow-up reset
