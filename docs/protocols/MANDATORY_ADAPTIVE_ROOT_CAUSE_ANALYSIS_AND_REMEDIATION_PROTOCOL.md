@@ -139,7 +139,7 @@
         <step number="15">
             **Commit & Push on Main**:
             *   **Action**: Confirm you are on `main`; do not create or switch to any other branch.
-            *   **Action**: Stage all tracked updates with `git add -u`; stage new files explicitly with `git add <path>`; run staging with elevated permissions.
+            *   **Action**: Stage all remaining files (ones not staged during RCI) with `git add -u`; stage new files explicitly with `git add <path>`; run staging with elevated permissions.
             *   **Action**: Commit using `git commit -m "<TYPE>: <SUMMARY>"` with a conventional prefix (e.g., `feat`, `fix`, `chore`, `docs`); execute the commit with elevated permissions.
             *   **Action**: Push directly to `origin/main` with `git push origin main`; execute with elevated permissions.
             *   **Action**: Ensure the `<SUMMARY>` precisely names the feature or defect and calls out the most impactful change so reviewers understand the commit at a glance.
