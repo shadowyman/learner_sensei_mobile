@@ -12,6 +12,7 @@
         </step>
         <step number="2">
             **Generate Review Artifact**:
+            *   Ensure all non-documentation file changes are staged before executing the command (exclude files under `docs/`).
             *   Run `npm run review:create -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on `main`.
             *   If re-running after addressing review feedback, ensure the `--pr_request` narrative summarizes only the changes made since the previous review submission.
         </step>
