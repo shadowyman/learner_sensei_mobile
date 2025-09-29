@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, unlinkSync } from 'fs';
 import { resolve, isAbsolute } from 'path';
 import { spawnSync } from 'child_process';
+import { createHash } from 'crypto';
 
 type DiffHunk = {
   header: string;
@@ -21,6 +22,7 @@ type HunkSummary = {
   label: string;
   additions: number;
   deletions: number;
+  uuid: string;
 };
 
 type FileSection = {
@@ -338,7 +340,8 @@ function buildFileSection(section: FileSection): string {
       ? `${metaLines.join('\n')}\n${hunk.lines.join('\n')}`
       : hunk.lines.join('\n');
     const notes = '<li>Review pending – document findings here during RCI.</li>';
-    return `<article id="${escapeHtml(hunkId)}" class="hunk"><header class="hunk-header"><h3>${escapeHtml(label)}</h3><span class="hunk-summary">${escapeHtml(hunk.header)}</span><span class="hunk-diff-counts">+${hunk.additions} / -${hunk.deletions}</span></header><pre><code>${escapeHtml(diffText)}</code></pre><div class="review-notes"><h4>Review Notes</h4><ul>${notes}</ul></div><div class="hunk-nav"><a href="#${escapeHtml(section.id)}">Back to file</a><span>•</span><a href="#top">Back to top</a></div></article>`;
+    const uuidText = summary ? summary.uuid : '';
+    return `<article id="${escapeHtml(hunkId)}" class="hunk" data-uuid="${escapeHtml(uuidText)}"><header class="hunk-header"><h3>${escapeHtml(label)}</h3><span class="hunk-summary">${escapeHtml(hunk.header)}</span><span class="hunk-diff-counts">+${hunk.additions} / -${hunk.deletions}</span><div>UUID: ${escapeHtml(uuidText)}</div></header><pre><code>${escapeHtml(diffText)}</code></pre><div class="review-notes" data-uuid="${escapeHtml(uuidText)}"><h4>Review Notes</h4><ul>${notes}</ul></div><div class="hunk-nav"><a href="#${escapeHtml(section.id)}">Back to file</a><span>•</span><a href="#top">Back to top</a></div></article>`;
   }).join('');
   return `<section id="${escapeHtml(section.id)}" class="file-section">${header}${hunkIndex}${articles}</section>`;
 }
@@ -430,12 +433,23 @@ function generateReview(): void {
     }
     const parsed = parseDiff(diff);
     const sectionId = sectionIdForPath(path, registry);
-    const summaries: HunkSummary[] = parsed.hunks.map((hunk, index) => ({
-      id: `${sectionId}-h${index + 1}`,
-      label: `Block ${index + 1}`,
-      additions: hunk.additions,
-      deletions: hunk.deletions,
-    }));
+    const summaries: HunkSummary[] = parsed.hunks.map((hunk, index) => {
+      const id = `${sectionId}-h${index + 1}`;
+      const hasher = createHash('sha1');
+      hasher.update(path);
+      hasher.update('\n');
+      hasher.update(hunk.header);
+      hasher.update('\n');
+      hasher.update(hunk.lines.join('\n'));
+      const uuid = hasher.digest('hex').slice(0, 12);
+      return {
+        id,
+        label: `Block ${index + 1}`,
+        additions: hunk.additions,
+        deletions: hunk.deletions,
+        uuid,
+      };
+    });
     sections.push({
       path,
       id: sectionId,

@@ -23,8 +23,9 @@
         </step>
         <step number="4">
             **Generate Review Artifact**:
-            *   Run `npm run review -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on `main`.
+            *   Run `npm run review:create -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on `main`.
             *   Reuse the same `<slug>` on subsequent runs; update the narrative to reflect only what changed in that run.
+            *   The generated artifact automatically embeds a stable UUID for each diff hunk and shows it in the hunk header.
         </step>
         <step number="5">
             **Record Artifact Path**:

@@ -9,6 +9,8 @@
     "snyk-monitor": "snyk monitor",
     "sonar": "./sonar",
     "review": "ts-node scripts/generateReview.ts",
+    "review:create": "ts-node scripts/generateReview.ts",
+    "review:edit": "ts-node scripts/reviewEdit.ts",
     "analysis:run": "ts-node scripts/analyze.ts",
     "analysis:dom": "npm run analysis:run -- --preset domsuite",
     "analysis:ui": "npm run analysis:run -- --preset ui",
