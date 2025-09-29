@@ -245,8 +245,9 @@ function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
   try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
   let body = bodyArg
   const verdictArg = parseArg(process.argv.slice(2), 'verdict')
-  if (body === '-' && verdictArg === '-') {
-    stderr('Cannot read both --body and --verdict from stdin simultaneously. Provide one inline or via file piping.\n')
+  if (verdictArg) {
+    stderr('Do not pass --verdict together with --uuid. Use the separate verdict command.\n')
+    stderr(`Example: npm run review:edit -- verdict --file ${fileArg} --body "<div><strong>PASS</strong>: Ready</div>"\n`)
     process.exit(1)
   }
   if (body === '-') {
@@ -289,30 +290,6 @@ function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
   const updated = parse5.serialize(doc)
   writeFileSync(path, updated, 'utf8')
   stdout(`Updated remark for UUID ${uuid} in ${path}\n`)
-  // Optionally update VERDICT section
-  if (verdictArg) {
-    let verdict = verdictArg
-    if (verdict === '-') {
-      verdict = readFileSync(0, 'utf8')
-    }
-    const verdictHtml = ensureVerdictBody(verdict)
-    const bodyNode = findSectionByTag(doc, 'body')
-    const prIdx = findChildIndexByClass(bodyNode, 'section', 'pr-request')
-    // Remove existing verdict section if present
-    const verdictIdxExisting = findChildIndexByClass(bodyNode, 'section', 'verdict')
-    if (verdictIdxExisting >= 0) {
-      bodyNode.childNodes.splice(verdictIdxExisting, 1)
-    }
-    const fragment = parse5.parseFragment(`<section class="verdict"><h2>VERDICT</h2>${verdictHtml}</section>`) as P5Node
-    const newSection = (fragment.childNodes || []).find((n: P5Node) => n.tagName === 'section')
-    if (newSection) {
-      const insertAt = prIdx >= 0 ? prIdx + 1 : (bodyNode.childNodes || []).length
-      bodyNode.childNodes.splice(insertAt, 0, newSection)
-      const updated2 = parse5.serialize(doc)
-      writeFileSync(path, updated2, 'utf8')
-      stdout(`Updated VERDICT section in ${path}\n`)
-    }
-  }
 }
 
 function findSectionByTag(doc: P5Node, tag: string): P5Node | null {
@@ -336,10 +313,43 @@ function findChildIndexByClass(parent: P5Node, tag: string, cls: string): number
   return -1
 }
 
+function insertVerdict(path: string, raw: string, verdictBody: string) {
+  const doc = parse5.parse(raw)
+  const verdictHtml = ensureVerdictBody(verdictBody)
+  const bodyNode = findSectionByTag(doc, 'body')
+  const prIdx = findChildIndexByClass(bodyNode, 'section', 'pr-request')
+  const verdictIdxExisting = findChildIndexByClass(bodyNode, 'section', 'verdict')
+  if (verdictIdxExisting >= 0) {
+    bodyNode.childNodes.splice(verdictIdxExisting, 1)
+  }
+  const fragment = parse5.parseFragment(`<section class="verdict"><h2>VERDICT</h2>${verdictHtml}</section>`) as P5Node
+  const newSection = (fragment.childNodes || []).find((n: P5Node) => n.tagName === 'section')
+  if (newSection) {
+    const insertAt = prIdx >= 0 ? prIdx + 1 : (bodyNode.childNodes || []).length
+    bodyNode.childNodes.splice(insertAt, 0, newSection)
+    const updated = parse5.serialize(doc)
+    writeFileSync(path, updated, 'utf8')
+  }
+}
+
+function cmdVerdict(fileArg: string, bodyArg: string) {
+  if (!fileArg) { stderr('Missing required --file <artifact>\n'); process.exit(1) }
+  let body = bodyArg
+  if (!body) { stderr('Missing required --body <html|code|->\n'); process.exit(1) }
+  const path = resolveArtifactPath(fileArg)
+  let raw: string
+  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
+  if (body === '-') {
+    body = readFileSync(0, 'utf8')
+  }
+  insertVerdict(path, raw, body)
+  stdout(`Updated VERDICT section in ${path}\n`)
+}
+
 function main() {
   const argv = process.argv.slice(2)
   if (!argv.length) {
-    stderr('Usage: review:edit -- <list-uuid|show-diff|remark> --file <artifact> [--uuid <id>] [--body <text|html|->] [--verdict <html|code|->]\n')
+    stderr('Usage: review:edit -- <list-uuid|show-diff|remark|verdict> --file <artifact> [--uuid <id>] [--body <text|html|->]\n')
     process.exit(1)
   }
   const sub = argv[0]
@@ -358,6 +368,12 @@ function main() {
     let body = parseArg(argv, 'body')
     if (!body) { stderr('Missing required --body <text|<div>…|->\n'); process.exit(1) }
     cmdRemark(fileArg, uuid, body)
+    return
+  }
+  if (sub === 'verdict') {
+    let body = parseArg(argv, 'body')
+    if (!body) { stderr('Missing required --body <html|code|->\n'); process.exit(1) }
+    cmdVerdict(fileArg, body)
     return
   }
   stderr(`Unknown subcommand: ${sub}\n`)

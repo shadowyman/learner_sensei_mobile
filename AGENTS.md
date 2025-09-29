@@ -70,8 +70,8 @@
             If <code>--body -</code>, the remark is read from stdin. Plain text is escaped and wrapped in <code><p></code>; HTML is trusted as‑is.
         </rule>
         <rule>
-            Optional) Add a top‑level VERDICT after the PR Review Context:
-            <code>npm run review:edit -- remark --file <artifact> --uuid <uuid> --body "..." --verdict "<div>...>|-"</code>
+            Optional) Add a top‑level VERDICT after the PR Review Context (no UUID):
+            <code>npm run review:edit -- verdict --file <artifact> --body "<div>...>|-"</code>
         </rule>
     </code_review_policy>
     <analysis_tooling>

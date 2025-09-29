@@ -3,7 +3,7 @@
 This guide covers the reviewer-facing CLI for interacting with a generated review artifact. It focuses on usage only (no implementation details).
 
 - Command form: `npm run review:edit -- <subcommand> [options]`
-- Subcommands: `list-uuid`, `show-diff`, `remark`
+- Subcommands: `list-uuid`, `show-diff`, `remark`, `verdict`
 - All commands require a review artifact path via `--file`.
 
 ## Artifact Path
@@ -39,7 +39,7 @@ This guide covers the reviewer-facing CLI for interacting with a generated revie
 
 ### 3) remark
 - Purpose: Add or replace the review remark for a specific hunk.
-- Usage: `npm run review:edit -- remark --file <artifact> --uuid <uuid> --body "<text or <div>...>|-" [--verdict "<div>...>|-"]`
+- Usage: `npm run review:edit -- remark --file <artifact> --uuid <uuid> --body "<text or <div>...>|-"`
 - Body forms:
   - Plain text string → escaped and wrapped in `<p>`
   - HTML block (e.g., `<div>...</div>`) → inserted as provided
@@ -47,12 +47,23 @@ This guide covers the reviewer-facing CLI for interacting with a generated revie
 - Behavior:
   - Replaces the hunk’s existing remark (no append/edit/delete flow)
   - Preserves the “Review Notes” heading in the artifact
-  - If `--verdict` is provided, also creates or replaces a top‑level `VERDICT` section immediately after the “PR Review Context”.
-    - `--verdict` body may be provided inline as an HTML block (e.g., `<div>…</div>`), or via stdin using `-`.
-    - If the `--verdict` body is not an HTML block, it is treated as a code block and rendered as `<pre><code>…</code></pre>`.
 - Exit codes:
   - 0 on success
   - Non‑zero if required flags are missing or the UUID is invalid
+
+### 4) verdict
+- Purpose: Add or replace a top‑level VERDICT immediately after the “PR Review Context”.
+- Usage: `npm run review:edit -- verdict --file <artifact> --body "<div>...>|-"`
+- Body forms:
+  - HTML block (e.g., `<div>...</div>`) → inserted as provided
+  - `-` → read multi‑line body from stdin
+  - Non‑HTML text → treated as a code block `<pre><code>…</code></pre>`
+- Behavior:
+  - Replaces any existing VERDICT section in the artifact
+  - Independent of per‑hunk UUIDs; do not pass `--uuid`
+ - Exit codes:
+  - 0 on success
+  - Non‑zero if required flags are missing
 
 ## Error Behavior
 - Missing `--file`: prints guidance and exits non‑zero
@@ -69,8 +80,8 @@ This guide covers the reviewer-facing CLI for interacting with a generated revie
   - `npm run review:edit -- remark --file review_feature.html --uuid 0123abcd4567 --body "Looks correct; verified edge cases."`
 - Add a rich HTML remark from stdin:
   - `cat notes.html | npm run review:edit -- remark --file review_feature.html --uuid 0123abcd4567 --body -`
-- Add a VERDICT along with a remark:
-  - `npm run review:edit -- remark --file review_feature.html --uuid 0123abcd4567 --body "LGTM" --verdict "<div><strong>PASS</strong>: Ready to merge.</div>"`
+- Add a VERDICT:
+  - `npm run review:edit -- verdict --file review_feature.html --body "<div><strong>PASS</strong>: Ready to merge.</div>"`
 - Review all hunks sequentially:
   - `npm run review:edit -- list-uuid --file review_feature.html | while read u; do npm run review:edit -- show-diff --file review_feature.html --uuid "$u"; done`
 
