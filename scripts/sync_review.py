@@ -283,6 +283,8 @@ def run_command_with_prompt(prompt: str) -> bool:
             [
                 "codex",
                 "exec",
+                "--config",
+                "hide_agent_reasoning=true",
                 "--model",
                 "gpt-5-codex",
                 "--sandbox",

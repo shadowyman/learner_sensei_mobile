@@ -84,117 +84,86 @@ CRITICAL: NEVER, EVER REVERT CHANGES THAT DOES NOT BELONG TO YOU DISCOVERED IN G
         </rule>
     </code_review_policy>
     <analysis_tooling>
-        YOU MUST USE THE TOOL AS MUCH AS POSSIBLE INSTEAD OF DOING MANUAL LOOKUPS
+        <overview>
+            YOU MUST USE THE TOOL AS MUCH AS POSSIBLE INSTEAD OF DOING MANUAL LOOKUPS.
+        </overview>
         <mandate>
-            Before any code review, cleanup, refactor, or similar investigation, the agent MUST execute `npm run analysis:run` (scoped with `--include` when appropriate) and consult the emitted artifacts prior to planning or editing. Example invocations of the analyzer are documented within this <analysis_tooling> section for quick reference.
+            <rule>Before any code review, cleanup, refactor, or similar investigation, run `npm run analysis:run` (scope with `--include` when appropriate) and consult the emitted artifacts before planning or editing.</rule>
         </mandate>
-        WARNING — Artifact scope is overwritten by flags:
-        - Any analyzer run with flags like `--include`, `--entry`, `--preset`, or `--dom-index` overwrites `tmp/analysis/*` to reflect only that flagged scope.
-        - If you later need broad, repo-wide insight, first rerun the baseline command `npm run analysis:run` to regenerate comprehensive artifacts before querying.
-        - You can still perform targeted lookups with `jq` without rerunning flags, e.g.: `jq '.functions[] | select(.file=="selectionSensei.ts" and .name=="SelectionSensei.handleOutsidePointerDown") | {name,stableId}' tmp/analysis/function_crosswalk.json`.
-        # ANALYZER TOOL (scripts/analyze.ts)
-        ANALYZER(1) — Static Codebase Analyzer for Sensei
-        ==================================================
-        ----
-        NAME
-        analyzer — fast static index: imports, fan-in/out, function catalog, side-effects, calls, optional DOM suite.
-        ----
-        SYNOPSIS
-        npm run analysis:run [-- <option>...]
-        node scripts/analyze.js [-- <option>...]
-        tsx  scripts/analyze.ts [-- <option>...]
-        ----
-        DESCRIPTION
-        Parses the project from tsconfig.json in a single AST pass. Emits JSON/TXT artifacts under tmp/analysis/ for Core Analysis steps.
-        ----
-        OPTIONS
-        --include <a[,b,...]>   Limit to files whose RELATIVE PATH contains any substring (substring match, NOT glob).
-        --entry <file::prefix>  Focused trace from first function where (file::name).startsWith(prefix).
-        --maxDepth <n>          Max traversal depth for focused traces (default 6; only with --entry).
-        --dom-index             Emit DOM suite artifacts (selectors/templates/handlers).
-        --preset <slug>         Apply one or more presets (stackable). Merges include files; may set entry/maxDepth/domIndex.
-                                <slug> can be domsuite | curriculum | adaptive-engine | pedagogy | prompts | mermaid | mermaid-recovery | mermaid-ui | debug-mode | chat-window | module-selection | notepad-export | selection-toolbar | ui-rendering | enhancement | consolidation | gemini | save-load | interaction | code-editor | tests-teaching
-        ----
-        ARTIFACTS (tmp/analysis/)
-        summary.json           JSON summary {entryCandidates, topFanIn, topFanOut, functionCount}.
-        imports.json           File → imported files (RELATIVE imports only: ./ ../).
-        fan_in.json            Fan-in counts per file (from imports.json).
-        fan_out.json           Fan-out counts per file.
-        functions.json         [{id,stableId,file,name,kind,export,async,calls,sideEffects,loc,startLine,startCol}]
-        calls.json             [{from,to,via,loc,fromStable,toStable}]
-        function_crosswalk.json {functions:[{id,stableId,file,name,startLine,startCol}]}
-        focused_calls.json     (with --entry) Kept edges within maxDepth.
-        focused_functions.json (with --entry) Reachable functions.
-        focused_trace.txt      (with --entry) Readable trace (path printed to stdout).
-        domsuite_index.json    (with --dom-index) {selectors:[{definitions[],usages[]}]}
-        domsuite_templates.json(with --dom-index) {templates:[{file,loc,snippet,selectors[]}]}
-        domsuite_handlers.json (with --dom-index) {handlers:[{event,handler,delegated,delegatedSelectors,...}]}
-        ----
-        SEMANTICS & DEFAULTS
-        Include matching        Substring on project-relative paths (e.g., "src/ui/"), not glob.
-        Entry matching          Prefix on "file::name" (startsWith); no need for @pos or #Lline.
-        Depth default           6 (only affects focused traces).
-        Import graph scope      Relative imports only; package imports excluded from imports.json.
-        Stable IDs              "file::name#L<startLine>" (line moves change anchors).
-        Console output          Prints path to summary.txt; with --entry also prints focused_trace.txt.
-        ----
-        DOM SUITE DETAILS (--dom-index)
-        HTML in strings         Any string containing "<…>" scanned: id="x" → #x; class="a b" → .a,.b (definitions).
-        Selector usages         getElementById/querySelector/querySelectorAll/getElementsByClassName.
-        Delegation detection    In handlers, .matches/.closest on handler params mark delegated usage.
-        Handlers record         event, handler or inline@line, delegated flag/selectors, receiverSelector and receiverVia when inferable.
-        ----
-        EXAMPLES (commands that work with the code)
-        1) Full snapshot
-            npm run analysis:run && cat tmp/analysis/summary.txt
-        2) Scope to UI shell
-            npm run analysis:run -- --include index.tsx,ui.ts
-        3) Focused trace from a handler (depth 4)
-            npm run analysis:run -- --entry index.tsx::handleUserInput --maxDepth 4
-        4) Combine scope + focused trace
-            npm run analysis:run -- --include index.tsx,interactionHelpers.ts --entry index.tsx::handleUserInput --maxDepth 4
-        5) DOM suite only
-            npm run analysis:run -- --dom-index
-        6) DOM suite + scope (emits domsuite_* for just these files)
-            npm run analysis:run -- --include ui.ts,selectionSensei.ts --dom-index
-        7) Stack presets (union files; may set entry/maxDepth/domIndex)
-            npm run analysis:run -- --preset gemini --preset ui-rendering
-        8) Preset + focused trace override
-            npm run analysis:run -- --preset curriculum --entry curriculum.ts::advanceCurriculumState --maxDepth 3
-        ----
-        JQ RECIPES (examples)
-        # Top fan-in files (10)
-        jq 'to_entries|sort_by(-.value)|.[:10]' tmp/analysis/fan_in.json
-        # Top fan-out files (10)
-        jq 'to_entries|sort_by(-.value)|.[:10]' tmp/analysis/fan_out.json
-        # All functions with side effects
-        jq 'map(select(.sideEffects|length>0))' tmp/analysis/functions.json
-        # Count side-effects by kind
-        jq '[.[]|.sideEffects[]?.kind]|group_by(.)|map({kind:.[0],count:length})' tmp/analysis/functions.json
-        # Functions with network effects
-        jq 'map(select(any(.sideEffects[]?; .kind=="network")))|map({stableId,file,name})' tmp/analysis/functions.json
-        # Async exported functions
-        jq 'map(select(.export and .async))|map({stableId,file,name})' tmp/analysis/functions.json
-        # Calls originating in index.tsx
-        jq 'map(select(.from|test("^.+index\\.tsx::")))' tmp/analysis/calls.json
-        # Cross-file calls (fromStable file != toStable file)
-        jq 'map(select(.fromStable and .toStable) | select((.fromStable|split("::")[0]) != (.toStable|split("::")[0])))' tmp/analysis/calls.json
-        # Most frequent call pairs (collapse)
-        jq -r 'group_by(.fromStable+"->"+(.toStable//.to))|map({k:(.[0].fromStable+"->"+(.[0].toStable//.[0].to)),n:length})|sort_by(-.n)|.[:15]' tmp/analysis/calls.json
-        # Entry candidates list
-        jq '.entryCandidates' tmp/analysis/summary.json
-        # Function ID ↔ stableId crosswalk
-        jq '.functions|map({id,stableId})' tmp/analysis/function_crosswalk.json
-        # Focused functions (IDs)
-        jq -r '.[].id' tmp/analysis/focused_functions.json
-        # Callback edges created from inline functions
-        jq 'map(select(.via=="cb:inline"))' tmp/analysis/calls.json
-        # DOM: delegated handlers
-        jq '.handlers[]|select(.delegated)' tmp/analysis/domsuite_handlers.json
-        # DOM: selectors used but never defined
-        jq '.selectors[]|select((.definitions|length)==0 and (.usages|length)>0)|{selector,usages}' tmp/analysis/domsuite_index.json
-        # DOM: templates with extracted selectors (file + line + selectors)
-        jq '.templates[]|{file,line:.loc.start.line,selectors:[.selectors[].selector]}' tmp/analysis/domsuite_templates.json
+        <warnings>
+            <rule>Analyzer runs with flags such as `--include`, `--entry`, `--preset`, or `--dom-index` overwrite `tmp/analysis/*` with scoped results.</rule>
+            <rule>Rerun the baseline `npm run analysis:run` to restore a repo-wide snapshot whenever broader insight is required.</rule>
+            <rule>Use `jq` to target existing artifacts without rerunning the analyzer.</rule>
+        </warnings>
+        <tool_reference>
+            <title>Analyzer Tool (`scripts/analyze.ts`)</title>
+            <summary>Static codebase analyzer for Sensei that indexes imports, call graphs, and optional DOM metadata.</summary>
+            <synopsis>`npm run analysis:run [-- <option>...]`</synopsis>
+            <options>
+                - `--include <a[,b,...]>`: Limit processing to files whose relative path contains any provided substring (substring match, not glob).
+                - `--entry <file::prefix>`: Start a focused trace from the first function whose `file::name` matches the prefix.
+                - `--maxDepth <n>`: Bound traversal depth for focused traces (default 6; applies only with `--entry`).
+                - `--dom-index`: Emit DOM suite artifacts (selectors, templates, handlers).
+                - `--preset <slug>`: Apply stackable presets that bundle includes and may set entry, depth, or DOM indexing. Available slugs: `domsuite`, `curriculum`, `adaptive-engine`, `pedagogy`, `prompts`, `mermaid`, `mermaid-recovery`, `mermaid-ui`, `debug-mode`, `chat-window`, `module-selection`, `notepad-export`, `selection-toolbar`, `ui-rendering`, `enhancement`, `consolidation`, `gemini`, `save-load`, `interaction`, `code-editor`, `tests-teaching`.
+            </options>
+            <artifacts>
+                - `summary.json`: JSON summary with `entryCandidates`, `topFanIn`, `topFanOut`, and `functionCount`; confirm analyzer scope and surface unexpected fan-in/out spikes.
+                - `imports.json`: Mapping of file → imported files (relative paths only); map module dependencies before reasoning about cross-file impacts.
+                - `fan_in.json`: Fan-in counts per file derived from imports; prioritize regression testing for heavy inbound dependencies.
+                - `fan_out.json`: Fan-out counts per file; identify orchestrators likely to propagate side effects.
+                - `functions.json`: Function catalog with metadata (`id`, `stableId`, `file`, `name`, `kind`, `export`, `async`, `calls`, `sideEffects`, `loc`, `startLine`, `startCol`); inspect exports, async flags, and side effects before editing.
+                - `calls.json`: Call edges with `from`, `to`, `via`, `loc`, `fromStable`, and `toStable`; trace call chains to uncover hidden consumers or side-effect sources.
+                - `function_crosswalk.json`: Stable ID index for functions; use when cross-referencing analyzer findings with diffs or logs.
+                - `focused_calls.json`: Call edges retained within the current `--entry` scope; confirm the focused call graph and ensure no unexpected edges remain.
+                - `focused_functions.json`: Reachable function set for the active `--entry`; verify the intended change surface.
+                - `focused_trace.txt`: Readable trace emitted when `--entry` is used; share the sequential narrative or validate discovery paths.
+                - `domsuite_index.json`: Selector definitions and usages emitted by `--dom-index`; confirm selectors before adjusting DOM structure.
+                - `domsuite_templates.json`: Template metadata with selector references; review pairings when proposing UI or markup edits.
+                - `domsuite_handlers.json`: Event handler catalog (including delegation metadata); surface responsibilities before modifying event wiring.
+            </artifacts>
+            <semantics>
+                - Include matching uses substring checks on project-relative paths (for example `src/ui/`); globbing is not supported.
+                - Entry matching relies on `file::name` prefixes; no `@pos` or `#Lline` syntax is required.
+                - Default depth is 6 and only affects focused traces.
+                - Import graph scope covers relative imports; package imports are excluded from `imports.json`.
+                - Stable IDs follow the format `file::name#L<startLine>`; line movement changes anchors.
+                - Console output prints the path to `summary.txt` and, when `--entry` is set, the path to `focused_trace.txt`.
+            </semantics>
+            <dom_suite_details>
+                - HTML strings containing `<...>` generate selector definitions (for example `id="x"` → `#x`, `class="a b"` → `.a`, `.b`).
+                - Selector usages are extracted from `getElementById`, `querySelector`, `querySelectorAll`, and `getElementsByClassName`.
+                - Delegated handlers are detected when `.matches` or `.closest` is called on handler parameters.
+                - Handler records include the event name, handler reference or inline location, delegation flag/selectors, and inferred receiver metadata when available.
+            </dom_suite_details>
+            <examples>
+                - Full snapshot: `npm run analysis:run && cat tmp/analysis/summary.txt`
+                - Scope to UI shell: `npm run analysis:run -- --include index.tsx,ui.ts`
+                - Focused trace (depth 4): `npm run analysis:run -- --entry index.tsx::handleUserInput --maxDepth 4`
+                - Combined scope + trace: `npm run analysis:run -- --include index.tsx,interactionHelpers.ts --entry index.tsx::handleUserInput --maxDepth 4`
+                - DOM suite only: `npm run analysis:run -- --dom-index`
+                - DOM suite + scope: `npm run analysis:run -- --include ui.ts,selectionSensei.ts --dom-index`
+                - Stack presets: `npm run analysis:run -- --preset gemini --preset ui-rendering`
+                - Preset + focused trace override: `npm run analysis:run -- --preset curriculum --entry curriculum.ts::advanceCurriculumState --maxDepth 3`
+            </examples>
+            <jq_recipes>
+                - Top fan-in files: `jq 'to_entries|sort_by(-.value)|.[:10]' tmp/analysis/fan_in.json`
+                - Top fan-out files: `jq 'to_entries|sort_by(-.value)|.[:10]' tmp/analysis/fan_out.json`
+                - Functions with side effects: `jq 'map(select(.sideEffects|length>0))' tmp/analysis/functions.json`
+                - Side-effect counts by kind: `jq '[.[]|.sideEffects[]?.kind]|group_by(.)|map({kind:.[0],count:length})' tmp/analysis/functions.json`
+                - Functions with network effects: `jq 'map(select(any(.sideEffects[]?; .kind=="network")))|map({stableId,file,name})' tmp/analysis/functions.json`
+                - Async exported functions: `jq 'map(select(.export and .async))|map({stableId,file,name})' tmp/analysis/functions.json`
+                - Calls originating in `index.tsx`: `jq 'map(select(.from|test("^.+index\\.tsx::")))' tmp/analysis/calls.json`
+                - Cross-file call edges: `jq 'map(select(.fromStable and .toStable) | select((.fromStable|split("::")[0]) != (.toStable|split("::")[0])))' tmp/analysis/calls.json`
+                - Most frequent call pairs: `jq -r 'group_by(.fromStable+"->"+(.toStable//.to))|map({k:(.[0].fromStable+"->"+(.[0].toStable//.[0].to)),n:length})|sort_by(-.n)|.[:15]' tmp/analysis/calls.json`
+                - Entry candidates: `jq '.entryCandidates' tmp/analysis/summary.json`
+                - Function ID ↔ stable ID crosswalk: `jq '.functions|map({id,stableId})' tmp/analysis/function_crosswalk.json`
+                - Focused function IDs: `jq -r '.[].id' tmp/analysis/focused_functions.json`
+                - Callback edges from inline handlers: `jq 'map(select(.via=="cb:inline"))' tmp/analysis/calls.json`
+                - Delegated handlers: `jq '.handlers[]|select(.delegated)' tmp/analysis/domsuite_handlers.json`
+                - Selectors without definitions: `jq '.selectors[]|select((.definitions|length)==0 and (.usages|length)>0)|{selector,usages}' tmp/analysis/domsuite_index.json`
+                - Template selector summary: `jq '.templates[]|{file,line:.loc.start.line,selectors:[.selectors[].selector]}' tmp/analysis/domsuite_templates.json`
+            </jq_recipes>
+        </tool_reference>
     </analysis_tooling>
     <protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)">
         Please refer to docs/protocols/MANDATORY_CORE_ANALYSIS_PROTOCOL_STEP_0.md and fully follow its steps as defined in that file.

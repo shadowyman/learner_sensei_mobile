@@ -6,6 +6,7 @@
     <steps>
         <step number="1">
             **Align Scope & Slug**:
+            *   Skip IF there are no code changes.
             *   Identify the parent protocol and step invoking RCI (Feature Step 10 or Root Cause Step 13). You will return to those protocols after successfully finishing this protocol.
             *   Set `<slug>` appropriately to `<feature_slug>` or `<bug_slug>` and use it consistently for artifacts and commands.
         </step>
