@@ -225,11 +225,11 @@ function runGit(args: string[]): string {
 }
 
 function listWorkingTreeDiffFiles(): string[] {
-  return runGit(['diff', '--name-only']).split('\n').map(line => line.trim()).filter(Boolean);
+  return runGit(['diff', '--staged', '--name-only']).split('\n').map(line => line.trim()).filter(Boolean);
 }
 
 function diffFile(path: string): string {
-  return runGit(['diff', '--', path]);
+  return runGit(['diff', '--staged', '--', path]);
 }
 
 function escapeHtml(value: string): string {
@@ -377,7 +377,7 @@ function generateReview(): void {
   const repoRoot = getRepositoryRoot();
   const outputDir = resolve(repoRoot, 'code_review');
   ensureDirectory(outputDir);
-  const diffCommand = 'git diff';
+  const diffCommand = 'git diff --staged';
   const files = listWorkingTreeDiffFiles();
   const { filename, finalSlug, previousFilename, priorArtifacts } = computeTargetFilename(outputDir, slug);
   const targetPath = resolve(outputDir, filename);
