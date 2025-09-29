@@ -254,6 +254,7 @@ function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
     body = readFileSync(0, 'utf8')
   }
   const doc = parse5.parse(raw)
+  ensureReviewNoteStyles(doc)
   const entries = findAllArticlesWithUuid(doc)
   if (entries.length === 0) {
     stderr('Artifact lacks UUIDs. Please regenerate with: npm run review:create\n')
@@ -276,6 +277,14 @@ function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
     process.exit(1)
   }
   setAttr(notes, 'data-uuid', uuid)
+  // Color coding based on PASS/FAIL keywords
+  const plain = (body || '').replace(/<[^>]*>/g, ' ')
+  let noteClass = 'review-notes'
+  const hasFailN = /\bfail\b/i.test(plain)
+  const hasPassN = /\bpass\b/i.test(plain)
+  if (hasFailN && !hasPassN) noteClass += ' is-fail'
+  else if (hasPassN && !hasFailN) noteClass += ' is-pass'
+  setAttr(notes, 'class', noteClass)
   const contentHtml = ensureBody(body)
   const fragment = parse5.parseFragment(contentHtml)
   const kids = notes.childNodes || []
@@ -317,13 +326,19 @@ function insertVerdict(path: string, raw: string, verdictBody: string) {
   const doc = parse5.parse(raw)
   ensureVerdictStyles(doc)
   const verdictHtml = ensureVerdictBody(verdictBody)
+  const plain = verdictBody.replace(/<[^>]*>/g, ' ')
+  const hasFail = /\bFAIL\b/i.test(plain)
+  const hasPass = /\bPASS\b/i.test(plain)
+  let verdictClass = ''
+  if (hasFail && !hasPass) verdictClass = ' is-fail'
+  else if (hasPass && !hasFail) verdictClass = ' is-pass'
   const bodyNode = findSectionByTag(doc, 'body')
   const prIdx = findChildIndexByClass(bodyNode, 'section', 'pr-request')
   const verdictIdxExisting = findChildIndexByClass(bodyNode, 'section', 'verdict')
   if (verdictIdxExisting >= 0) {
     bodyNode.childNodes.splice(verdictIdxExisting, 1)
   }
-  const fragment = parse5.parseFragment(`<section class="pr-request verdict"><h2>VERDICT</h2><div class="verdict-content">${verdictHtml}</div></section>`) as P5Node
+  const fragment = parse5.parseFragment(`<section class="pr-request verdict${verdictClass}"><h2>VERDICT</h2><div class="verdict-content">${verdictHtml}</div></section>`) as P5Node
   const newSection = (fragment.childNodes || []).find((n: P5Node) => n.tagName === 'section')
   if (newSection) {
     const insertAt = prIdx >= 0 ? prIdx + 1 : (bodyNode.childNodes || []).length
@@ -357,9 +372,44 @@ function styleContains(node: P5Node, snippet: string): boolean {
 function ensureVerdictStyles(doc: P5Node) {
   const head = findHead(doc)
   if (!head) return
-  const existing = (head.childNodes || []).some((n: P5Node) => styleContains(n, 'section.pr-request.verdict'))
-  if (existing) return
-  const css = `section.pr-request.verdict{border-left:4px solid #10b981;background:#ecfdf5;box-shadow:0 10px 24px rgba(16,185,129,0.15);transition:box-shadow 200ms ease, transform 200ms ease}section.pr-request.verdict:hover{box-shadow:0 14px 32px rgba(16,185,129,0.22);transform:translateY(-1px)}section.pr-request.verdict h2{margin:0 0 12px;color:#065f46}section.pr-request.verdict .verdict-content{display:block;font-size:14px;line-height:1.6;color:#064e3b}`
+  const hasBase = (head.childNodes || []).some((n: P5Node) => styleContains(n, 'section.pr-request.verdict{'))
+  const hasVariants = (head.childNodes || []).some((n: P5Node) => styleContains(n, 'verdict.is-pass'))
+  const hasNeutral = (head.childNodes || []).some((n: P5Node) => styleContains(n, 'verdict:not(.is-pass):not(.is-fail)'))
+  if (!hasBase) {
+    const baseCss = `section.pr-request.verdict{border-left:4px solid #94a3b8;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,0.08);transition:box-shadow 200ms ease, transform 200ms ease}section.pr-request.verdict:hover{box-shadow:0 14px 32px rgba(15,23,42,0.12);transform:translateY(-1px)}section.pr-request.verdict h2{margin:0 0 12px;color:#334155}section.pr-request.verdict .verdict-content{display:block;font-size:14px;line-height:1.6;color:#475569}`
+    const frag = parse5.parseFragment(`<style>${baseCss}</style>`) as P5Node
+    const styleNode = (frag.childNodes || []).find((n: P5Node) => n.tagName === 'style')
+    if (styleNode) {
+      if (!head.childNodes) head.childNodes = []
+      head.childNodes.push(styleNode)
+    }
+  }
+  if (!hasVariants) {
+    const variantsCss = `section.pr-request.verdict.is-pass{border-left-color:#10b981;background:#ecfdf5;box-shadow:0 10px 24px rgba(16,185,129,0.15)}section.pr-request.verdict.is-pass:hover{box-shadow:0 14px 32px rgba(16,185,129,0.22)}section.pr-request.verdict.is-pass h2{color:#065f46}section.pr-request.verdict.is-pass .verdict-content{color:#064e3b}section.pr-request.verdict.is-fail{border-left-color:#ef4444;background:#fef2f2;box-shadow:0 10px 24px rgba(239,68,68,0.15)}section.pr-request.verdict.is-fail:hover{box-shadow:0 14px 32px rgba(239,68,68,0.22)}section.pr-request.verdict.is-fail h2{color:#7f1d1d}section.pr-request.verdict.is-fail .verdict-content{color:#7f1d1d}`
+    const frag2 = parse5.parseFragment(`<style>${variantsCss}</style>`) as P5Node
+    const node2 = (frag2.childNodes || []).find((n: P5Node) => n.tagName === 'style')
+    if (node2) {
+      if (!head.childNodes) head.childNodes = []
+      head.childNodes.push(node2)
+    }
+  }
+  if (!hasNeutral) {
+    const neutralCss = `section.pr-request.verdict:not(.is-pass):not(.is-fail){border-left-color:#94a3b8;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,0.08)}section.pr-request.verdict:not(.is-pass):not(.is-fail) h2{color:#334155}section.pr-request.verdict:not(.is-pass):not(.is-fail) .verdict-content{color:#475569}`
+    const frag3 = parse5.parseFragment(`<style>${neutralCss}</style>`) as P5Node
+    const node3 = (frag3.childNodes || []).find((n: P5Node) => n.tagName === 'style')
+    if (node3) {
+      if (!head.childNodes) head.childNodes = []
+      head.childNodes.push(node3)
+    }
+  }
+}
+
+function ensureReviewNoteStyles(doc: P5Node) {
+  const head = findHead(doc)
+  if (!head) return
+  const has = (head.childNodes || []).some((n: P5Node) => styleContains(n, '.review-notes.is-pass') || styleContains(n, '.review-notes.is-fail'))
+  if (has) return
+  const css = `article.hunk .review-notes.is-pass{border-left:4px solid #10b981;background:#ecfdf5;box-shadow:0 8px 18px rgba(16,185,129,0.12)}article.hunk .review-notes.is-pass h4{color:#065f46}article.hunk .review-notes.is-pass p,article.hunk .review-notes.is-pass div{color:#064e3b}article.hunk .review-notes.is-fail{border-left:4px solid #ef4444;background:#fef2f2;box-shadow:0 8px 18px rgba(239,68,68,0.12)}article.hunk .review-notes.is-fail h4{color:#7f1d1d}article.hunk .review-notes.is-fail p,article.hunk .review-notes.is-fail div{color:#7f1d1d}`
   const frag = parse5.parseFragment(`<style>${css}</style>`) as P5Node
   const styleNode = (frag.childNodes || []).find((n: P5Node) => n.tagName === 'style')
   if (styleNode) {
