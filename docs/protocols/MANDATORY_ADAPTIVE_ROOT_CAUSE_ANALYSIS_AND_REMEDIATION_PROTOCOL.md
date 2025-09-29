@@ -111,22 +111,20 @@
             **Execute Fix with Logging**: Do not add comments. Implement the fix according to the plan, adding descriptive debug logs `logger.[log|warn|error]` that will prove the fix works. Logs must start with "[XXX]..." and must have a tag defining the bug for `XXX`.
         </step>
         <step number="11">
-            **Perform RCI Self-Correction**: Execute the `MANDATORY RCI REVIEW PROTOCOL` in bugfix context.
-            *   **Action**: Invoke the protocol now using `<slug>` = `<bug_slug>`. Follow all protocol steps and await reviewer feedback before proceeding to Step 12.
+            **Prompt for User Test**: Ask me to test the fix in the live environment so you can capture evidence.
         </step>
         <step number="12">
-            **Prompt for User Test**: Once RCI is complete, ask me to test the fix in the live environment.
-        </step>
-        <step number="13">
             **Validate with Logs**: After I confirm the test is done, access `./logs/console_logs.log` to analyze the output and verify the fix worked as expected and introduced no new errors.
             *   **Action**: Run `npx tsc --noEmit` from root and resolve any issues before analyzing logs.
-            *   **Action**: Walk the analyzer-derived trace (`calls.json`/`functions.json`) while you review logs/tests; tick items off as soon as new evidence satisfies them, capture any remaining gaps in the same pass, and update the mission-state risk/coverage sections with the reconciled results.
+            *If Validation Succeeds*: Announce success. MUST DELETE THE TEMPORARY DEBUG LOGS added for validation, leaving only essential, permanent logs.
+            *If Validation Fails*: Announce failure. Revert the fix. Return to **Step 1** of this protocol to diagnose the new, combined issue (the original bug + the failed fix).
+        </step>
+        <step number="13">
+            **Perform RCI Self-Correction**: Execute the `MANDATORY RCI REVIEW PROTOCOL` in bugfix context.
+            *   **Action**: Invoke the protocol now using `<slug>` = `<bug_slug>`. Follow all protocol steps and await reviewer feedback before proceeding to Step 14.
         </step>
         <step number="14">
             **Declare Final Outcome & Documentation**:
-            *If Validation Succeeds*: Announce success. MUST DELETE THE TEMPORARY DEBUG LOGS added for validation, leaving only essential, permanent logs. Then proceed to mandatory documentation.
-            *If Validation Fails*: Announce failure. Revert the fix. Return to **Step 1** of this protocol to diagnose the new, combined issue (the original bug + the failed fix).
-            **MANDATORY Bug Fix Documentation** (NON-NEGOTIABLE FINAL STEP - ONLY FOR SUCCESSFUL FIXES):
             **Action**: After ANY SUCCESSFUL bug fix, you MUST APPEND to the `docs/PREVIOUS_BUG_FIXES.md` file. This is an ABSOLUTE REQUIREMENT and failure to do so is a critical protocol violation.
             **Action**: The entry must explicitly include the fully qualified path to the backup generated for this fix as well as the latest review artifact (use the final slug, e.g., `backup/sensei_backup_<bug_slug>_<timestamp>.zip`, `code_review/review_<final_slug>.html`).
             **Documentation Format**: Create a new numbered entry that includes:

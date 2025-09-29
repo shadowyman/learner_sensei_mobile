@@ -70,20 +70,20 @@
             *   **Action**: You MUST implement the code **AND** the exact corresponding Validation Logs as defined in the approved plan from Step 5.
         </step>
         <step number="8">
-            **Perform RCI Self-Correction**: Execute the `MANDATORY RCI REVIEW PROTOCOL` in feature context.
-            *   **Action**: Invoke the protocol now using `<slug>` = `<feature_slug>`. Follow all protocol steps and await reviewer feedback before proceeding to Step 9.
-        </step>
-        <step number="9">
             **Prompt for User Test**: Once all quality gates are passed, prompt me to run the code to generate the logs, and to let you know when the test is complete.
         </step>
-        <step number="10">
+        <step number="9">
             **Evidence-Based Validation & Cleanup**:
             *   **Action**: Run `npx tsc --noEmit` and resolve any reported issues before continuing.
             *   **Action**: Access `./logs/console_logs.log`.
             *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
             *   **Action**: Walk the analyzer-mapped Static Execution Trace (`calls.json`/`functions.json`) as you review evidence; mark items complete the moment new logs, tests, or exploratory reasoning satisfy them, note any gaps immediately, and update the mission-state document with the reconciled results.
             *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
-            *   *If Validation Fails*: Announce that the evidence in the logs does not match the expected outcome. Revert the changes. Return to the `Adaptive Root Cause Analysis & Remediation Protocol` to diagnose the failure.
+            *   *If Validation Fails*: Announce that the evidence in the logs does not match the expected outcome. Debug the issue with additional logs or by revising the code changes.
+        </step>
+        <step number="10">
+            **Perform RCI Self-Correction**: Execute the `MANDATORY RCI REVIEW PROTOCOL` in feature context.
+            *   **Action**: Invoke the protocol now using `<slug>` = `<feature_slug>`. Follow all protocol steps and await reviewer feedback before proceeding to Step 11.
         </step>
         <step number="11">
             **Feature Documentation Artifact**:
