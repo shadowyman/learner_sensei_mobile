@@ -1,0 +1,58 @@
+import type { Config } from 'jest'
+
+let useSwc = true
+
+try {
+  require('@swc/core')
+} catch (error) {
+  useSwc = false
+}
+
+const transformConfig: [string, Record<string, unknown>] = useSwc
+  ? ['@swc/jest', { module: { type: 'es6' }, jsc: { target: 'es2022' } }]
+  : ['ts-jest', { useESM: true, tsconfig: 'tsconfig.jest.json' }]
+
+const config: Config = {
+  clearMocks: true,
+  collectCoverage: true,
+  collectCoverageFrom: [
+    '<rootDir>/adaptiveEngine.ts',
+    '<rootDir>/curriculum.ts',
+    '<rootDir>/geminiService.ts',
+    '<rootDir>/interactionHelpers.ts',
+    '<rootDir>/moduleSelectionHandler.ts',
+    '<rootDir>/selectionSensei.ts',
+    '<rootDir>/ui.ts',
+    '<rootDir>/prompts.ts'
+  ],
+  coverageDirectory: '<rootDir>/coverage',
+  coverageThreshold: {
+    global: {
+      statements: 10,
+      branches: 10,
+      functions: 10,
+      lines: 10
+    }
+  },
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  moduleNameMapper: {
+    '^\\./interactionHelpers\\.js$': '<rootDir>/interactionHelpers.ts',
+    '^\\./selectionSensei\\.js$': '<rootDir>/selectionSensei.ts',
+    '^\\./ui\\.js$': '<rootDir>/ui.ts',
+    '^\\./curriculum\\.js$': '<rootDir>/curriculum.ts',
+    '^\\./mermaidManager\\.js$': '<rootDir>/mermaidManager.ts',
+    '^.+\\.(css|sass|scss|less)$': '<rootDir>/__mocks__/styleStub.js',
+    '^.+\\.(gif|ttf|eot|svg|png|jpg|jpeg|webp)$': '<rootDir>/__mocks__/assetStub.js'
+  },
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  testEnvironment: 'jsdom',
+  testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/tmp/', '/tests/'],
+  transform: {
+    '^.+\\.(t|j)sx?$': transformConfig
+  },
+  transformIgnorePatterns: ['node_modules/(?!(?:.*\\.mjs$))']
+}
+
+export default config

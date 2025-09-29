@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["jest", "node"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": [
+    "dist",
+    "coverage",
+    "backup",
+    "backup/**/*",
+    "tmp",
+    "tmp/**/*",
+    "tests",
+    "tests/**/*"
+  ]
+}
