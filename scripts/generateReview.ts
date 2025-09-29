@@ -413,9 +413,6 @@ function generateReview(): void {
   }
 
   const prMarkup = buildPrRequestMarkup(prEntries);
-  const artifactsToRemove = priorArtifacts.filter(name => name !== filename);
-  removeArtifacts(outputDir, artifactsToRemove);
-
   if (files.length === 0) {
     const content = buildNoDiffDocument(finalSlug, generated, targetPath, prMarkup, diffCommand);
     writeFileSync(targetPath, content, 'utf8');

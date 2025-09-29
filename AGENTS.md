@@ -58,6 +58,8 @@ CRITICAL: NEVER, EVER REVERT CHANGES THAT DOES NOT BELONG TO YOU DISCOVERED IN G
         <rule>Execute only the explicit actions in the received code-review command.</rule>
         <rule>You must understand the nature of code changes by analyzing codebase in the light of changes present in review document. You may utilize analyze tool as needed.</rule>
         <rule>Do NOT trigger any protocols, backups.</rule>
+        <rule>Do NOT run any git commands except review CLI commands.</rule>
+        <rule>NEVER READ REVIEW ARTIFACT MANUALLY</rule>
         <rule>Treat this policy as overriding other mandates for the duration of the code review.</rule>
         <rule>DO NOT review any diff or changes that were NOT present in the provided review artifact</rule>
         <rule>REVIEW FLOW (given an artifact path):</rule>

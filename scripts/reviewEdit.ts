@@ -146,6 +146,43 @@ function extractPrReviewContext(doc: P5Node): { entries?: string[]; text?: strin
   return null
 }
 
+function resolveArticleFilePath(doc: P5Node, article: P5Node): string {
+  const articleId = attr(article, 'id') || ''
+  if (!articleId) return ''
+  const sectionId = articleId.replace(/-h\d+$/, '')
+  if (!sectionId || sectionId === articleId) return ''
+  const fileSection = findNodeByTagAndId(doc, 'section', sectionId)
+  if (!fileSection) return ''
+  const header = findChildBySelector(fileSection, 'header', 'file-header')
+  const h2 = header ? findChildBySelector(header, 'h2') : null
+  return h2 ? textContent(h2).trim() : ''
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function cleanReviewNoteText(node: P5Node): string {
+  let raw = textContent(node).replace(/\r/g, '')
+  const heading = findChildBySelector(node, 'h4')
+  if (heading) {
+    const headingText = textContent(heading).replace(/\r/g, '').trim()
+    if (headingText.length > 0) {
+      const pattern = new RegExp(`^${escapeRegExp(headingText)}\s*`, 'i')
+      raw = raw.replace(pattern, '')
+    }
+  }
+  const lines = raw.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+  return lines.join('\n').trim()
+}
+
+function isPlaceholderNote(text: string): boolean {
+  const normalized = text.toLowerCase().trim()
+  if (!normalized) return true
+  const placeholder = 'review pending – document findings here during rci.'
+  return normalized === placeholder || normalized.includes(placeholder)
+}
+
 function stdout(s: string) { process.stdout.write(s) }
 function stderr(s: string) { process.stderr.write(s) }
 
@@ -227,27 +264,55 @@ function cmdShowDiff(fileArg: string, uuid: string) {
   const header = findChildBySelector(article, 'header', 'hunk-header')
   const h3 = header ? findChildBySelector(header, 'h3') : null
   const label = h3 ? textContent(h3).trim() : ''
-  const summarySpan = header ? (header.childNodes || []).find((n: P5Node) => n.tagName === 'span' && hasClass(n, 'hunk-summary')) : null
-  const summary = summarySpan ? textContent(summarySpan).trim() : ''
-  // Derive file path from parent file-section header h2 and prefer it over @@ header
-  const articleId = attr(article, 'id') || ''
-  const sectionId = articleId.replace(/-h\d+$/, '')
-  let filePathLabel = ''
-  if (sectionId) {
-    const fileSection = findNodeByTagAndId(doc, 'section', sectionId)
-    if (fileSection) {
-      const fh = findChildBySelector(fileSection, 'header', 'file-header')
-      const h2 = fh ? findChildBySelector(fh, 'h2') : null
-      if (h2) filePathLabel = textContent(h2).trim()
-    }
-  }
+  const filePathLabel = resolveArticleFilePath(doc, article)
   const pre = (article.childNodes || []).find((n: P5Node) => n.tagName === 'pre')
   const code = pre ? findChildBySelector(pre, 'code') : null
   const diff = code ? textContent(code) : ''
   if (label) stdout(`${label}\n`)
   if (filePathLabel) stdout(`${filePathLabel}\n`)
-  else if (summary) stdout(`${summary}\n`)
   if (diff) stdout(`${diff}\n`)
+}
+
+function cmdResult(fileArg: string) {
+  if (!fileArg) {
+    stderr('Missing required --file <artifact>\n')
+    process.exit(1)
+  }
+  const path = resolveArtifactPath(fileArg)
+  let raw: string
+  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
+  const doc = parse5.parse(raw)
+  const entries = findAllArticlesWithUuid(doc)
+  const outputs: string[] = []
+  entries.forEach((entry, idx) => {
+    const article = entry.article
+    const notes = (article.childNodes || []).find((n: P5Node) => n.tagName === 'div' && hasClass(n, 'review-notes'))
+    if (!notes) return
+    const noteText = cleanReviewNoteText(notes)
+    if (!noteText || isPlaceholderNote(noteText)) return
+    const header = findChildBySelector(article, 'header', 'hunk-header')
+    const h3 = header ? findChildBySelector(header, 'h3') : null
+    const label = h3 ? textContent(h3).trim() : `Block ${idx + 1}`
+    const filePathLabel = resolveArticleFilePath(doc, article)
+    const sections: string[] = []
+    sections.push(`${label} — ${filePathLabel || 'Unknown file'} (UUID ${entry.uuid})`)
+    sections.push('Review Note:')
+    sections.push(noteText)
+    const pre = (article.childNodes || []).find((n: P5Node) => n.tagName === 'pre')
+    const code = pre ? findChildBySelector(pre, 'code') : null
+    const diff = code ? textContent(code) : ''
+    if (diff) {
+      sections.push('\nDiff:')
+      sections.push(diff)
+    }
+    outputs.push(sections.join('\n'))
+  })
+  if (!outputs.length) {
+    stderr(`No review notes found in ${fileArg}. Add remarks first.`)
+    process.exit(1)
+  }
+  const separator = '\n' + '='.repeat(30) + '\n'
+  stdout(outputs.join(separator) + '\n')
 }
 
 function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
@@ -448,7 +513,7 @@ function cmdVerdict(fileArg: string, bodyArg: string) {
 function main() {
   const argv = process.argv.slice(2)
   if (!argv.length) {
-    stderr('Usage: review:edit -- <list-uuid|show-diff|remark|verdict> --file <artifact> [--uuid <id>] [--body <text|html|->]\n')
+    stderr('Usage: review:edit -- <list-uuid|show-diff|result|remark|verdict> --file <artifact> [--uuid <id>] [--body <text|html|->]\n')
     process.exit(1)
   }
   const sub = argv[0]
@@ -460,6 +525,10 @@ function main() {
   if (sub === 'show-diff') {
     const uuid = parseArg(argv, 'uuid')
     cmdShowDiff(fileArg, uuid)
+    return
+  }
+  if (sub === 'result') {
+    cmdResult(fileArg)
     return
   }
   if (sub === 'remark') {

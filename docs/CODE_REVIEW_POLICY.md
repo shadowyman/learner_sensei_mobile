@@ -4,6 +4,7 @@ This guide covers the reviewer-facing CLI for interacting with a generated revie
 
 - Command form: `npm run review:edit -- <subcommand> [options]`
 - Subcommands: `list-uuid`, `show-diff`, `remark`, `verdict`
+- Companion command: `npm run review:result -- --file <artifact>` (see Command 3)
 - All commands require a review artifact path via `--file`.
 
 ## Artifact Path
@@ -37,7 +38,17 @@ This guide covers the reviewer-facing CLI for interacting with a generated revie
   - 0 on success
   - Non‑zero if file or UUID is invalid
 
-### 3) remark
+### 3) review:result (review summary)
+- Purpose: Display every non-empty review remark for the artifact, along with its diff.
+- Usage: `npm run review:result -- --file <artifact>`
+- Output:
+  - For each hunk with a recorded note: block label, file path, hunk header, the stripped note text, and the entire diff body.
+  - Blocks are separated with `==============================`.
+- Behavior:
+  - Skips placeholder notes such as “Review pending – document findings here during RCI.”
+  - Exits non-zero if no notes exist.
+
+### 4) remark
 - Purpose: Add or replace the review remark for a specific hunk.
 - Usage: `npm run review:edit -- remark --file <artifact> --uuid <uuid> --body "<text or <div>...>|-"`
 - Body forms:
@@ -51,7 +62,7 @@ This guide covers the reviewer-facing CLI for interacting with a generated revie
   - 0 on success
   - Non‑zero if required flags are missing or the UUID is invalid
 
-### 4) verdict
+### 5) verdict
 - Purpose: Add or replace a top‑level VERDICT immediately after the “PR Review Context”.
 - Usage: `npm run review:edit -- verdict --file <artifact> --body "<div>...>|-"`
 - Body forms:
@@ -76,6 +87,8 @@ This guide covers the reviewer-facing CLI for interacting with a generated revie
   - `npm run review:edit -- list-uuid --file review_feature.html`
 - Show a specific hunk:
   - `npm run review:edit -- show-diff --file review_feature.html --uuid 0123abcd4567`
+- Summarize current review notes + diffs:
+  - `npm run review:result -- --file review_feature.html`
 - Add a plain‑text remark:
   - `npm run review:edit -- remark --file review_feature.html --uuid 0123abcd4567 --body "Looks correct; verified edge cases."`
 - Add a rich HTML remark from stdin:
