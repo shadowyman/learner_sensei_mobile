@@ -35,3 +35,4 @@ code_review/
 config/
 scripts/create_worktree.py
 scripts/vetUnusedExports.ts
+.claude/settings.local.json

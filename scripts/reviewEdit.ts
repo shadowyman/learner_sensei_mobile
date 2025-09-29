@@ -229,11 +229,24 @@ function cmdShowDiff(fileArg: string, uuid: string) {
   const label = h3 ? textContent(h3).trim() : ''
   const summarySpan = header ? (header.childNodes || []).find((n: P5Node) => n.tagName === 'span' && hasClass(n, 'hunk-summary')) : null
   const summary = summarySpan ? textContent(summarySpan).trim() : ''
+  // Derive file path from parent file-section header h2 and prefer it over @@ header
+  const articleId = attr(article, 'id') || ''
+  const sectionId = articleId.replace(/-h\d+$/, '')
+  let filePathLabel = ''
+  if (sectionId) {
+    const fileSection = findNodeByTagAndId(doc, 'section', sectionId)
+    if (fileSection) {
+      const fh = findChildBySelector(fileSection, 'header', 'file-header')
+      const h2 = fh ? findChildBySelector(fh, 'h2') : null
+      if (h2) filePathLabel = textContent(h2).trim()
+    }
+  }
   const pre = (article.childNodes || []).find((n: P5Node) => n.tagName === 'pre')
   const code = pre ? findChildBySelector(pre, 'code') : null
   const diff = code ? textContent(code) : ''
   if (label) stdout(`${label}\n`)
-  if (summary) stdout(`${summary}\n`)
+  if (filePathLabel) stdout(`${filePathLabel}\n`)
+  else if (summary) stdout(`${summary}\n`)
   if (diff) stdout(`${diff}\n`)
 }
 

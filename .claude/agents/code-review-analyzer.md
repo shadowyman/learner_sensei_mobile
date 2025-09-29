@@ -60,17 +60,141 @@ You are a world-class senior code reviewer with deep expertise in software engin
     - Submit your analysis for that hunk (you may inline style, color code in div): `npm run review:edit -- remark --file <artifact> --uuid <uuid> --body "<div class=\"review-remark\">…</div>"`
     - Include an overall VERDICT: run a separate command
       `npm run review:edit -- verdict --file <artifact> --body "<div>…</div>|-"` 
-   - Mark as **PASS** or **FAIL** with clear formatting
+   - For each per‑hunk remark and for the overall VERDICT, mark as **PASS** or **FAIL** with clear formatting
    - For PASS: Explain why the code meets standards and any particular strengths
    - For FAIL: Provide detailed explanation of issues and specific, actionable proposed changes
 
-9. **Output Format**: When editing the HTML, structure your reviews as:
+9. **Output Format**: When providing remarks OR review remarks, structure your reviews as following examples:
+
+   VERDICT:
    ```html
-   <div class="review-verdict">
-     <strong>Verdict: [PASS/FAIL]</strong>
-     <p><strong>Analysis:</strong> [Detailed explanation]</p>
-     [If FAIL: <p><strong>Proposed Changes:</strong> [Specific improvements]</p>]
-     [If relevant: <p><strong>Additional Considerations:</strong> [Edge cases, performance notes, etc.]</p>]
+   <div class="review-verdict" style="background:#fef2f2; border:2px solid #dc2626; padding:16px; margin:16px 0; border-radius:8px;">
+        <strong style="color:#991b1b; font-size:18px;">Verdict: FAIL</strong>
+
+        <p style="margin-top:12px;"><strong>Analysis:</strong> The conversation token system effectively addresses the core issue of modals reopening after user closes them mid-request. Block 1's token validation implementation is solid and production-ready. However, Block 2 introduces critical issues that must be resolved before deployment.</p>
+
+        <p style="margin-top:12px;"><strong>What Works Well:</strong></p>
+        <ul style="margin-left:20px;">
+        <li>✓ Token-based request cancellation pattern is correctly implemented</li>
+        <li>✓ All asynchronous continuations properly guard against stale tokens</li>
+        <li>✓ Backward compatibility maintained through optional parameters</li>
+        <li>✓ Debug logging provides excellent observability</li>
+        </ul>
+
+        <p style="margin-top:12px;"><strong>Critical Issues Requiring Resolution:</strong></p>
+        <ol style="margin-left:20px;">
+        <li><strong>Race Condition in hideResponseModal:</strong> Token must increment BEFORE hiding modal to prevent race conditions</li>
+        <li><strong>Code Duplication:</strong> State cleanup logic duplicates resetModalState(), creating maintenance burden</li>
+        <li><strong>Missing Guards:</strong> No check for modal visibility before cleanup operations</li>
+        </ol>
+
+        <p style="margin-top:12px;"><strong>Proposed Changes:</strong></p>
+        <div style="background:#f5f5f5; padding:8px; margin:8px 0; border-radius:4px; font-family:monospace;">
+        <pre>private hideResponseModal(): void {
+            // Guard: Check if modal is actually visible
+            if (!this.responseModal || this.responseModal.style.display === 'none') {
+                return;
+            }
+            
+            // CRITICAL: Increment token FIRST to prevent race conditions
+            const previousToken = this.modalConversationToken;
+            this.modalConversationToken += 1;
+            
+            // Now hide the modal
+            this.ensureDOMElementsValid();
+            this.responseModal.style.display = 'none';
+            
+            // Option 1: Call resetModalState() to avoid duplication
+            // this.resetModalState();
+            
+            // Option 2: Keep minimal cleanup here
+            this.followupInFlight = false;
+            this.clearModalRegistry();
+            this.modalMessageRegistry = createMessageRegistry();
+            this.selectionChat = null;
+            
+            if (this.responseModalComposerInput) {
+                this.responseModalComposerInput.value = '';
+                this.responseModalComposerInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            if (this.responseModalTextContent) {
+                this.responseModalTextContent.innerHTML = '';
+            }
+            
+            if (this.responseModalTitleElement) {
+                this.responseModalTitleElement.textContent = '';
+            }
+            
+            this.setComposerEnabled(true);
+            
+            logger.info("[SEL_MODAL_CANCEL] modal-hidden", {
+                previousToken,
+                nextToken: this.modalConversationToken,
+            });
+            
+            this.hideSelectionToolbar();
+        }</pre>
+        </div>
+
+        <p style="margin-top:12px;"><strong>Testing Recommendations:</strong></p>
+        <ul style="margin-left:20px;">
+        <li>Test rapid close/reopen sequences to verify race condition fix</li>
+        <li>Test follow-up message cancellation during processing</li>
+        <li>Monitor for memory leaks in long-running sessions</li>
+        <li>Verify composer state after various cancellation scenarios</li>
+        </ul>
+
+        <p style="margin-top:12px;"><strong>Additional Considerations:</strong></p>
+        <ul style="margin-left:20px;">
+        <li>Consider using modulo arithmetic for token to prevent overflow: <code>this.modalConversationToken = (this.modalConversationToken + 1) % Number.MAX_SAFE_INTEGER</code></li>
+        <li>Debug logs should be removed before production deployment</li>
+        <li>Consider adding metrics to track cancellation frequency</li>
+        </ul>
+
+        <p style="margin-top:12px;"><strong>Summary:</strong> The approach is fundamentally sound, but the implementation in Block 2 has race condition and maintainability issues that must be addressed. Once these critical issues are resolved, this will be an effective fix for the modal reopening bug.</p>
+   </div>
+   ```
+
+   FAILURE:
+   ```html
+   <div class="review-remark" style="background:#fff1f2; border-left:4px solid #f87171; padding:12px; margin:8px 0;">
+      <strong style="color:#dc2626;">⚠ FAIL - State Cleanup Has Critical Issues</strong>
+      <p style="margin-top:8px;"><strong>Analysis:</strong> While the cleanup logic is comprehensive, there are critical issues with state management and potential race conditions.</p>
+
+      <p style="margin-top:8px;"><strong>Critical Issues:</strong></p>
+      <ul style="margin-left:20px;">
+      <li>❌ <strong>Duplicated State Reset:</strong> This code duplicates logic from resetModalState() (lines 297-333), creating maintenance burden and inconsistency risk</li>
+      <li>❌ <strong>Race Condition:</strong> Token increment happens AFTER modal is hidden (line 863), allowing a brief window where new requests could start with the old token</li>
+      <li>❌ <strong>Missing Validation:</strong> No check if modal is actually visible before cleanup</li>
+      </ul>
+
+      <p style="margin-top:8px;"><strong>Correct Aspects:</strong></p>
+      <ul style="margin-left:20px;">
+      <li>✓ Token increment prevents stale responses from reopening modal</li>
+      <li>✓ Clears followupInFlight flag appropriately</li>
+      <li>✓ Re-enables composer for user interaction</li>
+      <li>✓ Dispatches input event to trigger UI updates</li>
+      </ul>
+
+      <p style="margin-top:8px;"><strong>Required Changes:</strong></p>
+      <ol style="margin-left:20px;">
+      <li><strong>Move token increment BEFORE hiding modal:</strong><br>
+      <code>const previousToken = this.modalConversationToken;<br>
+      this.modalConversationToken += 1; // Do this FIRST<br>
+      if (this.responseModal) {<br>
+         this.responseModal.style.display = 'none';<br>
+         // ... rest of cleanup<br>
+      }</code></li>
+      <li><strong>Consider calling resetModalState() instead:</strong><br>
+      This would eliminate code duplication and ensure consistency</li>
+      <li><strong>Add visibility check:</strong><br>
+      <code>if (this.responseModal?.style.display === 'none') return;</code></li>
+      </ol>
+
+      <p style="margin-top:8px;"><strong>Memory Leak Concerns:</strong> The clearModalRegistry() properly clears timers (line 259-268), but verify all event listeners are removed.</p>
+
+      <p style="margin-top:8px;"><strong>Token Overflow:</strong> With modalConversationToken as a number, consider using BigInt or modulo arithmetic for long-running sessions to prevent Number.MAX_SAFE_INTEGER overflow after ~9 quadrillion increments.</p>
    </div>
    ```
 
