@@ -19,8 +19,6 @@
   "mermaidErrorRecovery.ts",
   "mermaidManager.ts",
   "metadata.json",
-  "config/preset-seeds.json",
-  "config/presets.generated.json",
   "model_usage.ts",
   "moduleSelectionHandler.ts",
   "notepad.ts",
