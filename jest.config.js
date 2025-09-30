@@ -1,21 +1,22 @@
-import type { Config } from 'jest'
-
-let useSwc = true
+/**
+ * @type {import('jest').Config}
+ */
+let useSwc = true;
 
 try {
-  require('@swc/core')
-  console.info('[jest] Using @swc/jest transformer')
+  require('@swc/core');
+  console.info('[jest] Using @swc/jest transformer');
 } catch (error) {
-  useSwc = false
-  const message = error instanceof Error ? error.message : String(error)
-  console.warn('[jest] Falling back to ts-jest transformer', message)
+  useSwc = false;
+  const message = error instanceof Error ? error.message : String(error);
+  console.warn('[jest] Falling back to ts-jest transformer', message);
 }
 
-const transformConfig: [string, Record<string, unknown>] = useSwc
+const transformConfig = useSwc
   ? ['@swc/jest', { module: { type: 'es6' }, jsc: { target: 'es2022' } }]
-  : ['ts-jest', { useESM: true, tsconfig: 'tsconfig.jest.json' }]
+  : ['ts-jest', { useESM: true, tsconfig: 'tsconfig.jest.json' }];
 
-const config: Config = {
+const config = {
   clearMocks: true,
   collectCoverage: true,
   collectCoverageFrom: [
@@ -48,6 +49,15 @@ const config: Config = {
     '^.+\\.(css|sass|scss|less)$': '<rootDir>/__mocks__/styleStub.js',
     '^.+\\.(gif|ttf|eot|svg|png|jpg|jpeg|webp)$': '<rootDir>/__mocks__/assetStub.js'
   },
+  reporters: [
+    'default',
+    ['jest-html-reporters', {
+      publicPath: '<rootDir>/__tests__/reports',
+      filename: 'index.html',
+      expand: true,
+      pageTitle: 'Jest Test Report'
+    }]
+  ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jsdom',
   testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
@@ -56,6 +66,6 @@ const config: Config = {
     '^.+\\.(t|j)sx?$': transformConfig
   },
   transformIgnorePatterns: ['node_modules/(?!(?:.*\\.mjs$))']
-}
+};
 
-export default config
+module.exports = config;
