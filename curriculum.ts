@@ -527,31 +527,43 @@ function parseSocraticAndSolidifyContent(moduleContent: string): {socratic: stri
     solidifyRegex.lastIndex = 0;
     const solidifyMatch = solidifyRegex.exec(moduleContent);
     const solidify = solidifyMatch && solidifyMatch[1] ? solidifyMatch[1].trim() : '';
-    
-    
+
+
     return { socratic, solidify };
 }
 
 function validateParsedModule(module: Module): void {
     
     if (!module.socratic) {
-        logger.error('CRITICAL: Module missing Socratic section:', module.id);
+        const details = {
+            moduleId: module.id
+        };
+        logger.error('[CURRICULUM_PARSE] Missing Socratic section.', details);
+        throw new CurriculumParsingError('Missing Socratic section', details);
     }
     if (!module.solidify) {
-        logger.error('CRITICAL: Module missing Solidify section:', module.id);
+        const details = {
+            moduleId: module.id
+        };
+        logger.error('[CURRICULUM_PARSE] Missing Solidify section.', details);
+        throw new CurriculumParsingError('Missing Solidify section', details);
     }
     if (module.methodology.length !== 2) {
         logger.error('CRITICAL: Methodology step count mismatch - Expected: 2, Got:', module.methodology.length, 'Module:', module.id);
     }
-    
+
 }
 
 export function parseModulesTxt(txt: string): Curriculum {
     const modules: Module[] = [];
-    
+
     const moduleSegments = extractModuleSegments(txt);
     if (moduleSegments.length === 0) {
-        return { modules };
+        const details = {
+            snippet: txt.slice(0, 200)
+        };
+        logger.error('[CURRICULUM_PARSE] No module headers found.', details);
+        throw new CurriculumParsingError('No module headers found', details);
     }
     
     for (const segment of moduleSegments) {
@@ -1146,6 +1158,32 @@ async function handlePhaseCompletion(
     llmPlanner: LLMTeachingPlanGenerator,
     currentItem: CurriculumItem
 ): Promise<boolean> {
+    const preTransitionSnapshot = {
+        currentModuleIndex: state.currentModuleIndex,
+        currentConceptIndex: state.currentConceptIndex,
+        currentPhase: state.currentPhase,
+        currentTeachingChunkIndex: state.currentTeachingChunkIndex,
+        teachingPlanForPhase: state.teachingPlanForPhase,
+        coveredPointsInCurrentChunk: new Set(state.coveredPointsInCurrentChunk),
+        pointsToRevisitInCurrentChunk: state.pointsToRevisitInCurrentChunk ? new Set(state.pointsToRevisitInCurrentChunk) : undefined,
+        activeConsolidationState: state.activeConsolidationState,
+        interactionCounter: learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic
+    };
+
+    const restorePreTransitionState = () => {
+        state.currentModuleIndex = preTransitionSnapshot.currentModuleIndex;
+        state.currentConceptIndex = preTransitionSnapshot.currentConceptIndex;
+        state.currentPhase = preTransitionSnapshot.currentPhase;
+        state.currentTeachingChunkIndex = preTransitionSnapshot.currentTeachingChunkIndex;
+        state.teachingPlanForPhase = preTransitionSnapshot.teachingPlanForPhase;
+        state.coveredPointsInCurrentChunk = new Set(preTransitionSnapshot.coveredPointsInCurrentChunk);
+        state.pointsToRevisitInCurrentChunk = preTransitionSnapshot.pointsToRevisitInCurrentChunk
+            ? new Set(preTransitionSnapshot.pointsToRevisitInCurrentChunk)
+            : new Set<string>();
+        state.activeConsolidationState = preTransitionSnapshot.activeConsolidationState;
+        learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic = preTransitionSnapshot.interactionCounter;
+    };
+
     const currentPhaseKCId = currentItem.curriculumPathId;
     const phaseKCMastery = learnerModel.KCs[currentPhaseKCId] || 0;
     const KC_TOLERANCE = 0.001;
@@ -1171,6 +1209,9 @@ async function handlePhaseCompletion(
         }
 
         const result = await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
+        if (!result) {
+            restorePreTransitionState();
+        }
         return result;
     } else {
         // Phase not mastered - initiate or advance consolidation
@@ -1204,7 +1245,17 @@ async function handlePhaseCompletion(
                     state.isCompleted = true;
                     return true;
                 }
-                await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
+                const phaseInitialized = await initializeNewPhaseState(curriculumData, state, learnerModel, llmPlanner);
+                if (!phaseInitialized) {
+                    logger.error('[PHASE_INIT_FAILURE]', {
+                        moduleIndex: state.currentModuleIndex,
+                        conceptIndex: state.currentConceptIndex,
+                        phase: state.currentPhase,
+                        reason: 'initializeNewPhaseState returned false after consolidation exit'
+                    });
+                    restorePreTransitionState();
+                    return false;
+                }
                 return true;
             }
         }
@@ -1561,3 +1612,5 @@ export function checkForSocraticCompletion(senseiResponse: string): SocraticComp
         cleanResponse
     };
 }
+
+export { migratePhaseIfNeeded };

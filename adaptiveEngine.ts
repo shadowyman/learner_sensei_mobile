@@ -32,10 +32,13 @@ export interface CognitiveLoadIndicatorsAnalysis {
     extraneous_load_signals: 'Low' | 'Medium' | 'High' | 'Uncertain';
 }
 
+export type RawHelpSeekingStyle = 'Low' | 'Medium' | 'High' | 'None' | 'Uncertain' | 'Appropriate' | 'Vague' | 'Demanding';
+export type NormalizedHelpSeekingStyle = 'Low' | 'Medium' | 'High' | 'None' | 'Uncertain';
+
 export interface SRLIndicatorsAnalysis {
     planning_observed: 'Low' | 'Medium' | 'High' | 'Uncertain';
     monitoring_observed: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    help_seeking_style: 'Appropriate' | 'Vague' | 'Demanding' | 'None' | 'Uncertain';
+    help_seeking_style: RawHelpSeekingStyle;
     strategy_hint: string[]; 
 }
 
@@ -117,7 +120,7 @@ export type SRLStrategy = "TrialAndError" | "PlanningAhead" | "SelfExplaining" |
 export interface SRL_Indicators {
     PlanningObserved: 'Low' | 'Medium' | 'High' | 'Uncertain';
     MonitoringObserved: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    HelpSeekingAppropriateness: 'Low' | 'Medium' | 'High' | "None";
+    HelpSeekingAppropriateness: 'Low' | 'Medium' | 'High' | 'None' | 'Uncertain';
     StrategyUse: SRLStrategy[];
 }
 
@@ -247,7 +250,7 @@ const ENGAGEMENT_MAP: { [key: string]: number } = { 'Waning': 0, 'Low': 1, 'Medi
 const REVERSE_ENGAGEMENT_MAP: ('Waning' | 'Low' | 'Medium' | 'High')[] = ['Waning', 'Low', 'Medium', 'High'];
 
 const HELP_SEEKING_MAP: { [key: string]: number } = { 'None': 0, 'Low': 1, 'Medium': 2, 'High': 3 };
-const REVERSE_HELP_SEEKING_MAP: ('None' | 'Low' | 'Medium' | 'High')[] = ['None', 'Low', 'Medium', 'High'];
+const REVERSE_HELP_SEEKING_MAP: NormalizedHelpSeekingStyle[] = ['None', 'Low', 'Medium', 'High'];
 
 /**
  * Implements an asymmetrical weighted average to dynamically update a categorical state.
@@ -259,11 +262,11 @@ const REVERSE_HELP_SEEKING_MAP: ('None' | 'Low' | 'Medium' | 'High')[] = ['None'
  * @param numberToValueMap The array to convert the calculated number back to a state string.
  * @returns The new, smoothed state, guaranteed to be of the same type as the input.
  */
-function dynamicCategoricalUpdate<T extends string>(
+export function dynamicCategoricalUpdate<T extends string>(
     previousValue: T,
     newValue: T,
     valueToNumberMap: { [key: string]: number },
-    numberToValueMap: T[]
+    numberToValueMap: ReadonlyArray<T>
 ): T {
     const previousNum = valueToNumberMap[previousValue];
     const newNum = valueToNumberMap[newValue];
@@ -282,6 +285,25 @@ function dynamicCategoricalUpdate<T extends string>(
     
     const candidate = numberToValueMap[clampedIndex];
     return candidate === undefined ? newValue : candidate;
+}
+
+export function normalizeHelpSeekingStyle(value: RawHelpSeekingStyle | undefined): NormalizedHelpSeekingStyle {
+    switch (value) {
+        case 'Appropriate':
+            return 'Medium';
+        case 'Vague':
+            return 'Low';
+        case 'Demanding':
+            return 'High';
+        case 'None':
+        case 'Low':
+        case 'Medium':
+        case 'High':
+        case 'Uncertain':
+            return value;
+        default:
+            return 'Uncertain';
+    }
 }
 // --- UPDATE LOGIC ---
 
@@ -426,7 +448,8 @@ export function updateLearnerModel(
             const newMonitoringObserved = mapAnalysisValue(srlIndicators.monitoring_observed ?? 'Uncertain', model.SRL_Indicators.MonitoringObserved);
             model.SRL_Indicators.MonitoringObserved = dynamicCategoricalUpdate(model.SRL_Indicators.MonitoringObserved, newMonitoringObserved, THREE_LEVEL_MAP, REVERSE_THREE_LEVEL_MAP);
 
-            const newHelpSeeking = mapAnalysisValue((srlIndicators.help_seeking_style as 'Low' | 'Medium' | 'High' | 'None' | 'Uncertain') ?? 'Uncertain', model.SRL_Indicators.HelpSeekingAppropriateness);
+            const normalizedHelpSeekingStyle = normalizeHelpSeekingStyle(srlIndicators.help_seeking_style);
+            const newHelpSeeking = mapAnalysisValue(normalizedHelpSeekingStyle, model.SRL_Indicators.HelpSeekingAppropriateness);
             model.SRL_Indicators.HelpSeekingAppropriateness = dynamicCategoricalUpdate(model.SRL_Indicators.HelpSeekingAppropriateness, newHelpSeeking, HELP_SEEKING_MAP, REVERSE_HELP_SEEKING_MAP);
             const strategyHints = srlIndicators.strategy_hint ?? [];
             model.SRL_Indicators.StrategyUse = strategyHints.filter(s => s !== "None" && s !== "Uncertain") as SRLStrategy[];
@@ -540,6 +563,7 @@ export function updateLearnerModel(
                         const awardedKc = (effectiveScore - previousScore) * teachingPointObject.kcValue;
                         updateKC(model, phaseKCId, awardedKc, true);
                         kcAssessmentSummary.awarded.push({ pointId: assessment.point_id, delta: Number(awardedKc.toFixed(4)) });
+                        model.awardedKcForPhasePoints.add(verbatimPointText);
                     } else {
                         // Update KC progress bar with new mastery level
                         const updatedKCMastery = model.KCs[phaseKCId];
@@ -547,6 +571,10 @@ export function updateLearnerModel(
                         if (typeof (window as any).updateKCProgressBar === 'function') {
                             (window as any).updateKCProgressBar(updatedKCMastery);
                         }
+                    }
+
+                    if (effectiveScore < previousScore) {
+                        model.awardedKcForPhasePoints.delete(verbatimPointText);
                     }
 
                     // Determine if the point is "covered" for progression purposes
@@ -558,6 +586,7 @@ export function updateLearnerModel(
                         curriculumState.coveredPointsInCurrentChunk.delete(verbatimPointText); // Ensure it's not marked as covered if below threshold
                         curriculumState.pointsToRevisitInCurrentChunk!.add(verbatimPointText); // verbatimPointText is string
                         kcAssessmentSummary.coverage.revisit.push(assessment.point_id);
+                        model.awardedKcForPhasePoints.delete(verbatimPointText);
                     }
 
                     model.contentPointsCoverage![verbatimPointText] = { // verbatimPointText is string

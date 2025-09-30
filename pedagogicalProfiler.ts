@@ -5,7 +5,7 @@
 
 import { logger, DEBUG_FLAGS } from './logger';
 import { GoogleGenAI } from "@google/genai";
-import { LearnerModel } from './adaptiveEngine';
+import { LearnerModel, normalizeHelpSeekingStyle } from './adaptiveEngine';
 import { generateDirectiveFromMetaPrompt } from './geminiService';
 
 interface FlagConfig {
@@ -231,8 +231,12 @@ export class PedagogicalProfiler {
       { flagName: 'Flag:SRL_Low_Planning', condition: (m) => m.SRL_Indicators.PlanningObserved === 'Low' },
       { flagName: 'Flag:SRL_Low_Monitoring', condition: (m) => m.SRL_Indicators.MonitoringObserved === 'Low' },
       { flagName: 'Flag:SRL_Trial_And_Error', condition: (m) => m.SRL_Indicators.StrategyUse.includes('TrialAndError') },
-      { flagName: 'Flag:SRL_Help_Seeking_Vague', condition: (m) => m.SRL_Indicators.HelpSeekingAppropriateness === 'Low' || m.LastAnalysis?.srl_indicators.help_seeking_style === 'Vague' },
-      { flagName: 'Flag:SRL_Help_Seeking_Demanding', condition: (m) => m.LastAnalysis?.srl_indicators.help_seeking_style === 'Demanding' },
+      { flagName: 'Flag:SRL_Help_Seeking_Vague', condition: (m) => {
+          const normalized = normalizeHelpSeekingStyle(m.LastAnalysis?.srl_indicators.help_seeking_style);
+          return m.SRL_Indicators.HelpSeekingAppropriateness === 'Low' || normalized === 'Low';
+        }
+      },
+      { flagName: 'Flag:SRL_Help_Seeking_Demanding', condition: (m) => normalizeHelpSeekingStyle(m.LastAnalysis?.srl_indicators.help_seeking_style) === 'High' },
       
       // Composite Profile Flags
       { flagName: 'Flag:Profile_Confident_But_Incorrect', condition: (m) => m.AffectiveState.Confidence === 'High' && (m.AffectiveState.Confusion === 'High' || Object.values(m.Misconceptions).some(p => p > 0.7)) },

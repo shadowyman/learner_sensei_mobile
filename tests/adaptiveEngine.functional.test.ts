@@ -218,7 +218,7 @@ function runInitializationAndCoverageCases() {
         understanding_score: 0.82
       }]
       const updated = updateLearnerModel('input', analysis, model, ['Explain recursion base case'], curriculumState)
-      assert.ok(updated.KCs.General_Introduction_To_Recursion >= 0.4)
+      assert.ok((updated.KCs.General_Introduction_To_Recursion ?? 0) >= 0.4)
       const payloadEntry = capture.infos.find(entry => Array.isArray(entry.args) && entry.args.some(arg => typeof arg === 'object' && arg !== null && (arg as any).event === 'kc-assessment-summary'))
       assert.ok(payloadEntry)
       assert.equal(updated.contentPointsCoverage?.['Explain recursion base case']?.understanding_score, 0.82)
@@ -343,7 +343,7 @@ function runMisconceptionCases() {
       const analysis = createAnalysis()
       analysis.misconception_hints = [{ id: 'Misconception_LoopingModel', likelihood: 'High' }]
       const updated = updateLearnerModel('input', analysis, model, [])
-      assert.ok(updated.Misconceptions['Misconception_LoopingModel'] > model.Misconceptions['Misconception_LoopingModel'])
+      assert.ok((updated.Misconceptions['Misconception_LoopingModel'] ?? 0) > (model.Misconceptions['Misconception_LoopingModel'] ?? 0))
       assert.equal(updated.MentalModelState.InferredModelType, 'Non-Viable Looping Model')
       assert.equal(updated.MentalModelState.Consistency, 'High')
     }

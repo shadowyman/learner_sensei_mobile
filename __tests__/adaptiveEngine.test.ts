@@ -1,3 +1,4 @@
+import { beforeAll, afterEach, describe, test, expect } from '@jest/globals'
 import {
   initializeLearnerModel,
   updateLearnerModel,
@@ -6,7 +7,12 @@ import {
   type ComprehensiveAnalysisResultType,
   type LearnerModel,
   type KnowledgeComponentReference,
-  type KeyContentPointAssessment
+  type KeyContentPointAssessment,
+  type AffectiveStateAnalysis,
+  type CognitiveLoadIndicatorsAnalysis,
+  type SRLIndicatorsAnalysis,
+  type MisconceptionHint,
+  type TopicInteractionAnalysis
 } from '../adaptiveEngine'
 import {
   PHASE_MASTERY_THRESHOLD,
@@ -71,46 +77,19 @@ function captureLogger<T>(run: () => T): CaptureResult<T> {
   }
 }
 
-function makeLearnerModel(overrides: Partial<LearnerModel> = {}): LearnerModel {
+function makeLearnerModel(): LearnerModel {
   const base = initializeLearnerModel()
-  const merged: LearnerModel = {
-    ...base,
-    ...overrides,
-    KCs: { ...base.KCs, ...(overrides.KCs ?? {}) },
-    KCMasteryLastUpdated: { ...base.KCMasteryLastUpdated, ...(overrides.KCMasteryLastUpdated ?? {}) },
-    Misconceptions: { ...base.Misconceptions, ...(overrides.Misconceptions ?? {}) },
-    AffectiveState: { ...base.AffectiveState, ...(overrides.AffectiveState ?? {}) },
-    CognitiveLoad: { ...base.CognitiveLoad, ...(overrides.CognitiveLoad ?? {}) },
-    SRL_Indicators: { ...base.SRL_Indicators, ...(overrides.SRL_Indicators ?? {}) },
-    LearningTrajectory: { ...base.LearningTrajectory, ...(overrides.LearningTrajectory ?? {}) },
-    CurrentTask: { ...base.CurrentTask, ...(overrides.CurrentTask ?? {}) },
-    ZPD_Estimate: { ...base.ZPD_Estimate, ...(overrides.ZPD_Estimate ?? {}) },
-    contentPointsCoverage: overrides.contentPointsCoverage
-      ? { ...overrides.contentPointsCoverage }
-      : { ...(base.contentPointsCoverage ?? {}) },
-    awardedKcForPhasePoints: overrides.awardedKcForPhasePoints instanceof Set
-      ? new Set(overrides.awardedKcForPhasePoints)
-      : new Set(
-        Array.isArray(overrides.awardedKcForPhasePoints)
-          ? overrides.awardedKcForPhasePoints
-          : Array.from(base.awardedKcForPhasePoints)
-      )
-  }
-  if (!merged.contentPointsCoverage) {
-    merged.contentPointsCoverage = {}
-  }
-  return merged
+  base.awardedKcForPhasePoints = new Set(base.awardedKcForPhasePoints)
+  base.contentPointsCoverage = { ...(base.contentPointsCoverage ?? {}) }
+  return base
 }
 
-function makeCurriculumState(
-  overrides: Partial<CurriculumState> = {},
-  teachingPlan: TeachingPoint[][] = [
-    [
-      { text: 'Explain base case semantics', kcValue: 0.5 },
-      { text: 'Trace recursive frame updates', kcValue: 0.3 }
-    ]
+function makeCurriculumState(teachingPlan: TeachingPoint[][] = [
+  [
+    { text: 'Explain base case semantics', kcValue: 0.5 },
+    { text: 'Trace recursive frame updates', kcValue: 0.3 }
   ]
-): CurriculumState {
+]): CurriculumState {
   const state: CurriculumState = {
     currentModuleIndex: 0,
     currentConceptIndex: 0,
@@ -121,10 +100,9 @@ function makeCurriculumState(
     currentTeachingChunkIndex: 0,
     coveredPointsInCurrentChunk: new Set<string>(),
     pointsToRevisitInCurrentChunk: new Set<string>(),
-    socraticTurnCount: undefined,
+    socraticTurnCount: 0,
     socraticBaseInstruction: null,
-    socraticCompletionPending: null,
-    ...overrides
+    socraticCompletionPending: null
   }
   if (!(state.coveredPointsInCurrentChunk instanceof Set)) {
     state.coveredPointsInCurrentChunk = new Set(Array.from(state.coveredPointsInCurrentChunk ?? []))
@@ -148,7 +126,30 @@ function makeCurriculumItem(overrides: Partial<CurriculumItem> = {}): Curriculum
   }
 }
 
-function makeAnalysis(overrides: Partial<ComprehensiveAnalysisResultType> = {}): ComprehensiveAnalysisResultType {
+function firstChunk(state: CurriculumState): TeachingPoint[] {
+  const chunk = state.teachingPlanForPhase[0]
+  if (!chunk) {
+    throw new Error('Teaching plan is empty')
+  }
+  return chunk
+}
+
+function firstChunkTexts(state: CurriculumState): string[] {
+  return firstChunk(state).map(point => point.text)
+}
+
+interface AnalysisOverrides {
+  affective_state?: Partial<AffectiveStateAnalysis>
+  cognitive_load_indicators?: Partial<CognitiveLoadIndicatorsAnalysis>
+  srl_indicators?: Partial<Omit<SRLIndicatorsAnalysis, 'strategy_hint'>> & { strategy_hint?: string[] }
+  misconception_hints?: MisconceptionHint[]
+  knowledge_component_references?: KnowledgeComponentReference[]
+  primary_intent?: ComprehensiveAnalysisResultType['primary_intent']
+  topic_interaction?: Partial<TopicInteractionAnalysis>
+  key_content_point_assessment?: KeyContentPointAssessment[]
+}
+
+function makeAnalysis(overrides: AnalysisOverrides = {}): ComprehensiveAnalysisResultType {
   const base: ComprehensiveAnalysisResultType = {
     affective_state: {
       confidence: 'Medium',
@@ -165,7 +166,7 @@ function makeAnalysis(overrides: Partial<ComprehensiveAnalysisResultType> = {}):
     srl_indicators: {
       planning_observed: 'Medium',
       monitoring_observed: 'Medium',
-      help_seeking_style: 'Medium',
+      help_seeking_style: 'Uncertain',
       strategy_hint: []
     },
     misconception_hints: [],
@@ -175,7 +176,7 @@ function makeAnalysis(overrides: Partial<ComprehensiveAnalysisResultType> = {}):
       continues_current_topic: true,
       signals_topic_resolution: false
     },
-    key_content_point_assessment: undefined
+    key_content_point_assessment: []
   }
   return {
     ...base,
@@ -189,7 +190,9 @@ function makeAnalysis(overrides: Partial<ComprehensiveAnalysisResultType> = {}):
     misconception_hints: overrides.misconception_hints ?? base.misconception_hints,
     knowledge_component_references: overrides.knowledge_component_references ?? base.knowledge_component_references,
     topic_interaction: { ...base.topic_interaction, ...(overrides.topic_interaction ?? {}) },
-    key_content_point_assessment: overrides.key_content_point_assessment
+    ...(overrides.key_content_point_assessment !== undefined
+      ? { key_content_point_assessment: overrides.key_content_point_assessment }
+      : {})
   }
 }
 
@@ -296,7 +299,8 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-05 elapsed minutes round using SessionStartTime baseline', () => {
-      const model = makeLearnerModel({ SessionStartTime: 0 })
+      const model = makeLearnerModel()
+      model.SessionStartTime = 0
       const analysis = makeAnalysis()
       const updated = withFrozenTime(7 * 60 * 1000 + 31 * 1000, () => updateLearnerModel('update', analysis, model, [], null))
       expect(updated.LearningTrajectory.TotalTimeOnTask).toBe('8 minutes')
@@ -308,9 +312,8 @@ describe('adaptive engine functional tests', () => {
 
   describe('Affective and cognitive smoothing', () => {
     test('TC-06 improvement converges toward higher categorical values', () => {
-      const base = makeLearnerModel({
-        AffectiveState: { ...makeLearnerModel().AffectiveState, Confidence: 'Low' }
-      })
+      const base = makeLearnerModel()
+      base.AffectiveState = { ...base.AffectiveState, Confidence: 'Low' }
       const updated = updateLearnerModel('input', makeAnalysis({ affective_state: { confidence: 'High' } }), base, [], null)
       expect(updated.AffectiveState.Confidence).toBe('Medium')
       logger.info('[ADAPTIVE_TEST] AffectiveSmoothing', {
@@ -331,11 +334,10 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-08 uncertain values keep prior affective, cognitive, SRL states', () => {
-      const base = makeLearnerModel({
-        AffectiveState: { ...makeLearnerModel().AffectiveState, Confusion: 'Medium' },
-        CognitiveLoad: { ...makeLearnerModel().CognitiveLoad, EstimatedIntrinsic: 'High' },
-        SRL_Indicators: { ...makeLearnerModel().SRL_Indicators, PlanningObserved: 'High' }
-      })
+      const base = makeLearnerModel()
+      base.AffectiveState = { ...base.AffectiveState, Confusion: 'Medium' }
+      base.CognitiveLoad = { ...base.CognitiveLoad, EstimatedIntrinsic: 'High' }
+      base.SRL_Indicators = { ...base.SRL_Indicators, PlanningObserved: 'High' }
       const analysis = makeAnalysis({
         affective_state: { confusion: 'Uncertain' },
         cognitive_load_indicators: { perceived_intrinsic_difficulty: 'Uncertain' },
@@ -356,9 +358,8 @@ describe('adaptive engine functional tests', () => {
       const base = makeLearnerModel()
       const positive = updateLearnerModel('explain', makeAnalysis({ primary_intent: 'ExpressingUnderstanding' }), base, [], null)
       expect(positive.CognitiveLoad.EstimatedGermane).toBe('High')
-      const blocked = makeLearnerModel({
-        AffectiveState: { ...makeLearnerModel().AffectiveState, Confusion: 'High', Frustration: 'High' }
-      })
+      const blocked = makeLearnerModel()
+      blocked.AffectiveState = { ...blocked.AffectiveState, Confusion: 'High', Frustration: 'High' }
       const fallback = updateLearnerModel('struggle', makeAnalysis({
         affective_state: { confusion: 'High', frustration: 'High' }
       }), blocked, [], null)
@@ -372,17 +373,16 @@ describe('adaptive engine functional tests', () => {
 
   describe('SRL indicator handling', () => {
     test('TC-10 help-seeking smoothing receives production enums', () => {
-      const base = makeLearnerModel({
-        SRL_Indicators: { ...makeLearnerModel().SRL_Indicators, HelpSeekingAppropriateness: 'Medium' }
-      })
+      const base = makeLearnerModel()
+      base.SRL_Indicators.HelpSeekingAppropriateness = 'Medium'
       const updated = updateLearnerModel('plan', makeAnalysis({
         srl_indicators: { help_seeking_style: 'Appropriate' }
       }), base, [], null)
-      expect((updated.SRL_Indicators.HelpSeekingAppropriateness as unknown as string)).toBe('Appropriate')
+      expect(updated.SRL_Indicators.HelpSeekingAppropriateness).toBe('Medium')
       const fallback = updateLearnerModel('plan', makeAnalysis({
         srl_indicators: { help_seeking_style: 'Uncertain' }
       }), updated, [], null)
-      expect((fallback.SRL_Indicators.HelpSeekingAppropriateness as unknown as string)).toBe('Appropriate')
+      expect(fallback.SRL_Indicators.HelpSeekingAppropriateness).toBe('Medium')
       logger.info('[ADAPTIVE_TEST] SRLUpdate', {
         helpSeeking: fallback.SRL_Indicators.HelpSeekingAppropriateness as unknown as string
       })
@@ -402,13 +402,12 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-12 planning and monitoring smoothing honors asymmetry', () => {
-      const base = makeLearnerModel({
-        SRL_Indicators: {
-          ...makeLearnerModel().SRL_Indicators,
-          PlanningObserved: 'High',
-          MonitoringObserved: 'High'
-        }
-      })
+      const base = makeLearnerModel()
+      base.SRL_Indicators = {
+        ...base.SRL_Indicators,
+        PlanningObserved: 'High',
+        MonitoringObserved: 'High'
+      }
       const updated = updateLearnerModel('monitor', makeAnalysis({
         srl_indicators: {
           planning_observed: 'Low',
@@ -444,10 +443,9 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-14 low likelihood reduces above threshold and restores mental model', () => {
-      const base = makeLearnerModel({
-        Misconceptions: { ...makeLearnerModel().Misconceptions, Misconception_LoopingModel: 0.4 },
-        MentalModelState: { InferredModelType: 'Non-Viable Looping Model', Consistency: 'High' }
-      })
+      const base = makeLearnerModel()
+      base.Misconceptions = { ...base.Misconceptions, Misconception_LoopingModel: 0.4 }
+      base.MentalModelState = { InferredModelType: 'Non-Viable Looping Model', Consistency: 'High' }
       const updated = updateLearnerModel('clarified', makeAnalysis({
         misconception_hints: [{ id: 'Misconception_LoopingModel', likelihood: 'Low' }]
       }), base, [], null)
@@ -479,9 +477,8 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-16 misconception updates remain bounded', () => {
-      const base = makeLearnerModel({
-        Misconceptions: { ...makeLearnerModel().Misconceptions, Misconception_MagicModel: 0.95 }
-      })
+      const base = makeLearnerModel()
+      base.Misconceptions = { ...base.Misconceptions, Misconception_MagicModel: 0.95 }
       const decreased = updateLearnerModel('loop', makeAnalysis({
         misconception_hints: [{ id: 'Misconception_MagicModel', likelihood: 'Low' }]
       }), base, [], null)
@@ -498,9 +495,8 @@ describe('adaptive engine functional tests', () => {
 
   describe('Knowledge component progression', () => {
     test('TC-17 positive/negative signals adjust mastery excluding current task', () => {
-      const base = makeLearnerModel({
-        CurrentTask: { ID: 'Task_KC', TargetKCs: ['Task_KC'] }
-      })
+      const base = makeLearnerModel()
+      base.CurrentTask = { ...base.CurrentTask, ID: 'Task_KC', TargetKCs: ['Task_KC'] }
       const analysis = makeAnalysis({
         knowledge_component_references: [
           { kc_id: 'Task_KC', understanding_signal: 'Positive' } as KnowledgeComponentReference,
@@ -517,18 +513,16 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-18 ExpressingUnderstanding awards phase KCs only when confusion is low', () => {
-      const base = makeLearnerModel({
-        CurrentTask: { ID: 'PhaseKC', TargetKCs: ['PhaseKC', 'KC_Supplement'] }
-      })
+      const base = makeLearnerModel()
+      base.CurrentTask = { ...base.CurrentTask, ID: 'PhaseKC', TargetKCs: ['PhaseKC', 'KC_Supplement'] }
       base.AffectiveState.Confusion = 'Low'
       const positive = updateLearnerModel('understood', makeAnalysis({
         primary_intent: 'ExpressingUnderstanding'
       }), base, [], null)
       expect(positive.KCs['KC_Supplement']).toBeCloseTo(0.12)
-      const blocked = makeLearnerModel({
-        CurrentTask: { ID: 'PhaseKC', TargetKCs: ['PhaseKC', 'KC_Supplement'] },
-        AffectiveState: { ...makeLearnerModel().AffectiveState, Confusion: 'High' }
-      })
+      const blocked = makeLearnerModel()
+      blocked.CurrentTask = { ...blocked.CurrentTask, ID: 'PhaseKC', TargetKCs: ['PhaseKC', 'KC_Supplement'] }
+      blocked.AffectiveState = { ...blocked.AffectiveState, Confusion: 'High' }
       const result = updateLearnerModel('uncertain', makeAnalysis({
         primary_intent: 'ExpressingUnderstanding'
       }), blocked, [], null)
@@ -541,11 +535,12 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-19 timestamp refreshes and clamps at 1.0 for stacked gains', () => {
       const base = makeLearnerModel()
+      base.KCMasteryLastUpdated['KC_GeneralRecursionDefinition'] = '2000-01-01T00:00:00.000Z'
       const analysis = makeAnalysis({
         knowledge_component_references: Array.from({ length: 10 }, () => ({
           kc_id: 'KC_GeneralRecursionDefinition',
           understanding_signal: 'Positive'
-        } as KnowledgeComponentReference))
+        }))
       })
       const updated = withFrozenTime(Date.now() + 1000, () => updateLearnerModel('growth', analysis, base, [], null))
       expect(updated.KCs['KC_GeneralRecursionDefinition']).toBeLessThanOrEqual(1)
@@ -560,15 +555,16 @@ describe('adaptive engine functional tests', () => {
       base.awardedKcForPhasePoints = new Set(['Old Point'])
       base.CurrentTask.ID = 'Phase_KC'
       base.CurrentTask.TargetKCs = ['Phase_KC', 'KC_Supplement']
-      const state = makeCurriculumState({ currentTeachingChunkIndex: 0 })
+      const state = makeCurriculumState()
+      state.currentTeachingChunkIndex = 0
       const curriculumItem = makeCurriculumItem({ curriculumPathId: 'Phase_KC' })
-      const updated = updateLearnerModel('start', makeAnalysis(), base, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      const updated = updateLearnerModel('start', makeAnalysis(), base, firstChunkTexts(state), state)
       expect(updated.KCs['Phase_KC']).toBeDefined()
       expect(updated.awardedKcForPhasePoints.size).toBe(0)
       expect(base.awardedKcForPhasePoints.size).toBe(1)
       const overrideResult = overrideChunkUnderstanding(updated, state, curriculumItem, 0, true)
       expect(overrideResult.kcDelta).toBeGreaterThan(0)
-      expect(updated.awardedKcForPhasePoints.size).toBe(state.teachingPlanForPhase[0].length)
+      expect(updated.awardedKcForPhasePoints.size).toBe(firstChunk(state).length)
       logger.info('[ADAPTIVE_TEST] KCProgression', {
         phaseKC: updated.KCs['Phase_KC'] ?? 0
       })
@@ -579,24 +575,23 @@ describe('adaptive engine functional tests', () => {
     test('TC-21 expected content points populate coverage before assessments', () => {
       const model = makeLearnerModel()
       const state = makeCurriculumState()
-      const updated = updateLearnerModel('input', makeAnalysis({ key_content_point_assessment: [] }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
-      expect(Object.keys(updated.contentPointsCoverage ?? {})).toEqual(state.teachingPlanForPhase[0].map(tp => tp.text))
+      const updated = updateLearnerModel('input', makeAnalysis({ key_content_point_assessment: [] }), model, firstChunkTexts(state), state)
+      expect(Object.keys(updated.contentPointsCoverage ?? {})).toEqual(firstChunkTexts(state))
       logger.info('[ADAPTIVE_TEST] CoverageSnapshot', {
         keys: Object.keys(updated.contentPointsCoverage ?? {})
       })
     })
 
     test('TC-22 exact-match assessments raise high-water mark and award KC deltas', () => {
-      const model = makeLearnerModel({
-        CurrentTask: { ID: 'PhaseKC', TargetKCs: ['PhaseKC'] },
-        KCs: { ...makeLearnerModel().KCs, PhaseKC: 0 }
-      })
+      const model = makeLearnerModel()
+      model.CurrentTask = { ...model.CurrentTask, ID: 'PhaseKC', TargetKCs: ['PhaseKC'] }
+      model.KCs = { ...model.KCs, PhaseKC: 0 }
       const state = makeCurriculumState()
       const assessments = makeAssessments([
         { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.9 },
         { text: 'Trace recursive frame updates', coverage: 'ImplicitlyAddressed', score: 0.8 }
       ])
-      const updated = updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: assessments }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      const updated = updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: assessments }), model, firstChunkTexts(state), state)
       expect(updated.contentPointsCoverage?.['Explain base case semantics']?.understanding_score).toBeCloseTo(0.9)
       expect(updated.KCs['PhaseKC']).toBeGreaterThan(0)
       logger.info('[ADAPTIVE_TEST] KCPhaseSummary', {
@@ -612,12 +607,12 @@ describe('adaptive engine functional tests', () => {
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.8 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      }), model, firstChunkTexts(state), state)
       const second = updateLearnerModel('assessment', makeAnalysis({
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.5 }
         ])
-      }), first, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      }), first, firstChunkTexts(state), state)
       expect(second.contentPointsCoverage?.['Explain base case semantics']?.understanding_score).toBeCloseTo(0.8)
       logger.info('[ADAPTIVE_TEST] CoverageSnapshot', {
         highWater: second.contentPointsCoverage?.['Explain base case semantics']?.understanding_score
@@ -625,16 +620,15 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-24 phase KC awards accumulate and stay within mastery bounds', () => {
-      const model = makeLearnerModel({
-        CurrentTask: { ID: 'PhaseKC', TargetKCs: ['PhaseKC'] },
-        KCs: { ...makeLearnerModel().KCs, PhaseKC: 0 }
-      })
+      const model = makeLearnerModel()
+      model.CurrentTask = { ...model.CurrentTask, ID: 'PhaseKC', TargetKCs: ['PhaseKC'] }
+      model.KCs = { ...model.KCs, PhaseKC: 0 }
       const state = makeCurriculumState()
       const assessments = makeAssessments([
         { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 1 },
         { text: 'Trace recursive frame updates', coverage: 'ExplicitlyAddressed', score: 1 }
       ])
-      const updated = updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: assessments }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      const updated = updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: assessments }), model, firstChunkTexts(state), state)
       expect(updated.KCs['PhaseKC']).toBeCloseTo(0.8)
       expect(updated.KCs['PhaseKC']).toBeLessThanOrEqual(1)
       logger.info('[ADAPTIVE_TEST] KCPhaseSummary', {
@@ -645,7 +639,7 @@ describe('adaptive engine functional tests', () => {
     test('TC-25 zero kcValue teaching points bypass mastery updates', () => {
       const model = makeLearnerModel()
       const zeroPlan: TeachingPoint[][] = [[{ text: 'Explain base case semantics', kcValue: 0 }]]
-      const state = makeCurriculumState({}, zeroPlan)
+      const state = makeCurriculumState(zeroPlan)
       const { value: updated, logs } = captureLogger(() => updateLearnerModel('assessment', makeAnalysis({
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 1 }
@@ -666,7 +660,7 @@ describe('adaptive engine functional tests', () => {
         { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.75 },
         { text: 'Trace recursive frame updates', coverage: 'ImplicitlyAddressed', score: 0.4 }
       ])
-      updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: assessments }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: assessments }), model, firstChunkTexts(state), state)
       expect(state.coveredPointsInCurrentChunk instanceof Set).toBe(true)
       expectSetEqual(state.coveredPointsInCurrentChunk, ['Explain base case semantics'])
       expectSetEqual(state.pointsToRevisitInCurrentChunk ?? new Set<string>(), ['Trace recursive frame updates'])
@@ -683,7 +677,7 @@ describe('adaptive engine functional tests', () => {
         key_content_point_assessment: makeAssessments([
           { text: '*Explain* base case semantics', coverage: 'ExplicitlyAddressed', score: 0.72 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state))
+      }), model, firstChunkTexts(state), state))
       const validationLog = capture.logs.infos.find(args => String(args[0]).includes('[ADAPTIVE_VALIDATION]'))
       expect(validationLog).toBeDefined()
       logger.info('[ADAPTIVE_TEST] CoverageSnapshot', {
@@ -698,7 +692,7 @@ describe('adaptive engine functional tests', () => {
         key_content_point_assessment: makeAssessments([
           { text: 'Nonexistent point', coverage: 'ExplicitlyAddressed', score: 0.8 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state))
+      }), model, firstChunkTexts(state), state))
       expect(capture.logs.warns.some(args => String(args[0]).includes('Could not match assessment point_id'))).toBe(true)
       logger.info('[ADAPTIVE_TEST] CoverageSnapshot', {
         warnCount: capture.logs.warns.length
@@ -707,12 +701,13 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-29 revisit set initializes lazily and persists across updates', () => {
       const model = makeLearnerModel()
-      const state = makeCurriculumState({ pointsToRevisitInCurrentChunk: undefined })
+      const state = makeCurriculumState()
+      delete (state as { pointsToRevisitInCurrentChunk?: Set<string> }).pointsToRevisitInCurrentChunk
       updateLearnerModel('assessment', makeAnalysis({
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.3 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      }), model, firstChunkTexts(state), state)
       expect(state.pointsToRevisitInCurrentChunk).toBeDefined()
       expect(state.pointsToRevisitInCurrentChunk instanceof Set).toBe(true)
       logger.info('[ADAPTIVE_TEST] CoverageSnapshot', {
@@ -728,7 +723,7 @@ describe('adaptive engine functional tests', () => {
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.9 },
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.9 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state))
+      }), model, firstChunkTexts(state), state))
       const summary = capture.logs.infos.find(args => String(args[0]).includes('[ADAPTIVE_VALIDATION]'))
       expect(summary).toBeDefined()
       logger.info('[ADAPTIVE_TEST] KCPhaseSummary', {
@@ -738,12 +733,13 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-31 IntroIllustrate phase processes assessments normally', () => {
       const model = makeLearnerModel()
-      const state = makeCurriculumState({ currentPhase: 'IntroIllustrate' })
+      const state = makeCurriculumState()
+      state.currentPhase = 'IntroIllustrate'
       const updated = updateLearnerModel('assessment', makeAnalysis({
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.9 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      }), model, firstChunkTexts(state), state)
       expect(updated.contentPointsCoverage?.['Explain base case semantics']?.understanding_score).toBeCloseTo(0.9)
       logger.info('[ADAPTIVE_TEST] CoverageSnapshot', {
         phase: state.currentPhase,
@@ -767,13 +763,12 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-33 confusion or high frustration stalls trajectory when interactions > 0', () => {
-      const model = makeLearnerModel({
-        LearningTrajectory: {
-          ...makeLearnerModel().LearningTrajectory,
-          InteractionCounter_On_Current_Topic: 2,
-          RecentPerformanceTrend: 'Stable'
-        }
-      })
+      const model = makeLearnerModel()
+      model.LearningTrajectory = {
+        ...model.LearningTrajectory,
+        InteractionCounter_On_Current_Topic: 2,
+        RecentPerformanceTrend: 'Stable'
+      }
       model.AffectiveState.Frustration = 'High'
       const updated = updateLearnerModel('struggling', makeAnalysis({ primary_intent: 'ExpressingConfusion' }), model, [], null)
       expect(updated.LearningTrajectory.RecentPerformanceTrend).toBe('Stalled_On_Current_Topic')
@@ -783,12 +778,11 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-34 interaction counter remains unchanged by updateLearnerModel', () => {
-      const model = makeLearnerModel({
-        LearningTrajectory: {
-          ...makeLearnerModel().LearningTrajectory,
-          InteractionCounter_On_Current_Topic: 3
-        }
-      })
+      const model = makeLearnerModel()
+      model.LearningTrajectory = {
+        ...model.LearningTrajectory,
+        InteractionCounter_On_Current_Topic: 3
+      }
       const updated = updateLearnerModel('neutral', makeAnalysis(), model, [], null)
       expect(updated.LearningTrajectory.InteractionCounter_On_Current_Topic).toBe(3)
       logger.info('[ADAPTIVE_TEST] TrajectoryUpdate', {
@@ -799,32 +793,36 @@ describe('adaptive engine functional tests', () => {
 
   describe('ZPD transitions', () => {
     test('TC-35 improving trend with high confidence raises complexity and lowers scaffolding', () => {
-      const model = makeLearnerModel({
-        LearningTrajectory: { ...makeLearnerModel().LearningTrajectory, RecentPerformanceTrend: 'Improving' },
-        AffectiveState: { ...makeLearnerModel().AffectiveState, Confidence: 'High' }
-      })
-      const updated = updateLearnerModel('status', makeAnalysis(), model, [], null)
+      const model = makeLearnerModel()
+      model.LearningTrajectory = { ...model.LearningTrajectory, RecentPerformanceTrend: 'Improving' }
+      model.AffectiveState = { ...model.AffectiveState, Confidence: 'High' }
+      const updated = updateLearnerModel('status', makeAnalysis({
+        affective_state: { confidence: 'High' },
+        knowledge_component_references: [{ kc_id: 'KC_Positive', understanding_signal: 'Positive' }]
+      }), model, [], null)
       expect(updated.ZPD_Estimate.NextComplexity).toBe('Slightly Higher')
       expect(updated.ZPD_Estimate.ScaffoldingNeed).toBe('Low')
       logger.info('[ADAPTIVE_TEST] ZPDOutcome', updated.ZPD_Estimate)
     })
 
     test('TC-36 stalled trend or high frustration lowers complexity and raises scaffolding', () => {
-      const model = makeLearnerModel({
-        LearningTrajectory: { ...makeLearnerModel().LearningTrajectory, RecentPerformanceTrend: 'Stalled_On_Current_Topic' },
-        AffectiveState: { ...makeLearnerModel().AffectiveState, Frustration: 'High' }
-      })
-      const updated = updateLearnerModel('status', makeAnalysis(), model, [], null)
+      const model = makeLearnerModel()
+      model.LearningTrajectory = { ...model.LearningTrajectory, RecentPerformanceTrend: 'Stalled_On_Current_Topic' }
+      model.AffectiveState = { ...model.AffectiveState, Frustration: 'High' }
+      const updated = updateLearnerModel('status', makeAnalysis({
+        affective_state: { frustration: 'High' }
+      }), model, [], null)
       expect(updated.ZPD_Estimate.NextComplexity).toBe('Slightly Lower')
       expect(updated.ZPD_Estimate.ScaffoldingNeed).toBe('Very High')
       logger.info('[ADAPTIVE_TEST] ZPDOutcome', updated.ZPD_Estimate)
     })
 
     test('TC-37 high confusion or low confidence keeps complexity same but raises scaffolding', () => {
-      const model = makeLearnerModel({
-        AffectiveState: { ...makeLearnerModel().AffectiveState, Confusion: 'High', Confidence: 'Low' }
-      })
-      const updated = updateLearnerModel('status', makeAnalysis(), model, [], null)
+      const model = makeLearnerModel()
+      model.AffectiveState = { ...model.AffectiveState, Confusion: 'High', Confidence: 'Low' }
+      const updated = updateLearnerModel('status', makeAnalysis({
+        affective_state: { confusion: 'High', confidence: 'Low' }
+      }), model, [], null)
       expect(updated.ZPD_Estimate.NextComplexity).toBe('Same')
       expect(updated.ZPD_Estimate.ScaffoldingNeed).toBe('High')
       logger.info('[ADAPTIVE_TEST] ZPDOutcome', updated.ZPD_Estimate)
@@ -876,7 +874,7 @@ describe('adaptive engine functional tests', () => {
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 0.9 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state))
+      }), model, firstChunkTexts(state), state))
       expect(capture.logs.infos.some(args => String(args[0]).includes('[ADAPTIVE_VALIDATION]'))).toBe(true)
       logger.info('[ADAPTIVE_TEST] LogCaptureSummary', {
         infoLogs: capture.logs.infos.length,
@@ -910,7 +908,7 @@ describe('adaptive engine functional tests', () => {
     test('TC-44 no assessments avoid emitting validation logs', () => {
       const model = makeLearnerModel()
       const state = makeCurriculumState()
-      const capture = captureLogger(() => updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: [] }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state))
+      const capture = captureLogger(() => updateLearnerModel('assessment', makeAnalysis({ key_content_point_assessment: [] }), model, firstChunkTexts(state), state))
       expect(capture.logs.infos.filter(args => String(args[0]).includes('[ADAPTIVE_VALIDATION]')).length).toBe(0)
       logger.info('[ADAPTIVE_TEST] LogCaptureSummary', {
         validationLogs: capture.logs.infos.length
@@ -932,12 +930,13 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-46 understood=true awards mastery and records awarded set', () => {
-      const model = makeLearnerModel({ contentPointsCoverage: {} })
+      const model = makeLearnerModel()
+      model.contentPointsCoverage = {}
       const state = makeCurriculumState()
       const item = makeCurriculumItem()
       const result = overrideChunkUnderstanding(model, state, item, 0, true)
       expect(result.kcDelta).toBeGreaterThan(0)
-      expect(model.awardedKcForPhasePoints.size).toBe(state.teachingPlanForPhase[0].length)
+      expect(model.awardedKcForPhasePoints.size).toBe(firstChunk(state).length)
       logger.info('[ADAPTIVE_TEST] OverrideResult', {
         kcDelta: result.kcDelta,
         awarded: model.awardedKcForPhasePoints.size
@@ -952,7 +951,7 @@ describe('adaptive engine functional tests', () => {
       const result = overrideChunkUnderstanding(model, state, item, 0, false)
       expect(result.kcDelta).toBeLessThanOrEqual(0)
       expect(model.awardedKcForPhasePoints.size).toBe(0)
-      expect(Array.from(state.pointsToRevisitInCurrentChunk ?? new Set<string>())).toEqual(state.teachingPlanForPhase[0].map(point => point.text))
+      expect(Array.from(state.pointsToRevisitInCurrentChunk ?? new Set<string>())).toEqual(firstChunkTexts(state))
       logger.info('[ADAPTIVE_TEST] OverrideResult', {
         kcDelta: result.kcDelta
       })
@@ -960,13 +959,12 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-48 overriding non-active chunk does not mutate curriculum state sets', () => {
       const model = makeLearnerModel()
-      const state = makeCurriculumState({
-        currentTeachingChunkIndex: 1,
-        teachingPlanForPhase: [
-          [{ text: 'Chunk A', kcValue: 0.4 }],
-          [{ text: 'Chunk B', kcValue: 0.4 }]
-        ]
-      })
+      const state = makeCurriculumState()
+      state.currentTeachingChunkIndex = 1
+      state.teachingPlanForPhase = [
+        [{ text: 'Chunk A', kcValue: 0.4 }],
+        [{ text: 'Chunk B', kcValue: 0.4 }]
+      ]
       const item = makeCurriculumItem()
       const beforeCovered = new Set(state.coveredPointsInCurrentChunk)
       overrideChunkUnderstanding(model, state, item, 0, true)
@@ -978,7 +976,8 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-49 coverage map persists across overrides even when initially undefined', () => {
-      const model = makeLearnerModel({ contentPointsCoverage: undefined })
+      const model = makeLearnerModel()
+      delete (model as { contentPointsCoverage?: typeof model.contentPointsCoverage }).contentPointsCoverage
       const state = makeCurriculumState()
       const item = makeCurriculumItem()
       overrideChunkUnderstanding(model, state, item, 0, true)
@@ -990,10 +989,12 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-50 KC mastery timestamps refresh on overrides', () => {
       const item = makeCurriculumItem({ curriculumPathId: 'Phase_KC' })
-      const model = makeLearnerModel({
-        KCs: { ...makeLearnerModel().KCs, Phase_KC: 0.2 },
-        KCMasteryLastUpdated: { ...makeLearnerModel().KCMasteryLastUpdated, Phase_KC: '2000-01-01T00:00:00.000Z' }
-      })
+      const model = makeLearnerModel()
+      model.KCs = { ...model.KCs, Phase_KC: 0.2 }
+      model.KCMasteryLastUpdated = {
+        ...model.KCMasteryLastUpdated,
+        Phase_KC: '2000-01-01T00:00:00.000Z'
+      }
       const state = makeCurriculumState()
       const before = model.KCMasteryLastUpdated[item.curriculumPathId]
       overrideChunkUnderstanding(model, state, item, 0, true)
@@ -1017,12 +1018,13 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-52 revisit set auto-creates from plain array', () => {
       const model = makeLearnerModel()
-      const state = makeCurriculumState({ pointsToRevisitInCurrentChunk: ['Legacy'] as unknown as Set<string> })
+      const state = makeCurriculumState()
+      state.pointsToRevisitInCurrentChunk = new Set(['Legacy'])
       updateLearnerModel('assessment', makeAnalysis({
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ImplicitlyAddressed', score: 0.4 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      }), model, firstChunkTexts(state), state)
       expect(state.pointsToRevisitInCurrentChunk instanceof Set).toBe(true)
       logger.info('[ADAPTIVE_TEST] EdgeCaseCheck', {
         revisitSize: state.pointsToRevisitInCurrentChunk ? state.pointsToRevisitInCurrentChunk.size : 0
@@ -1030,7 +1032,8 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-53 awarded set reconstructs from serialized array', () => {
-      const model = makeLearnerModel({ awardedKcForPhasePoints: ['LegacyAward'] as unknown as Set<string> })
+      const model = makeLearnerModel()
+      model.awardedKcForPhasePoints = new Set(['LegacyAward'])
       const updated = updateLearnerModel('assessment', makeAnalysis(), model, [], null)
       expect(updated.awardedKcForPhasePoints instanceof Set).toBe(true)
       expectSetEqual(updated.awardedKcForPhasePoints, ['LegacyAward'])
@@ -1040,15 +1043,14 @@ describe('adaptive engine functional tests', () => {
     })
 
     test('TC-54 phase KC remains clamped when mastery at threshold', () => {
-      const model = makeLearnerModel({
-        KCs: { ...makeLearnerModel().KCs, PhaseKC: PHASE_MASTERY_THRESHOLD }
-      })
+      const model = makeLearnerModel()
+      model.KCs = { ...model.KCs, PhaseKC: PHASE_MASTERY_THRESHOLD }
       const state = makeCurriculumState()
       const updated = updateLearnerModel('assessment', makeAnalysis({
         key_content_point_assessment: makeAssessments([
           { text: 'Explain base case semantics', coverage: 'ExplicitlyAddressed', score: 1 }
         ])
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      }), model, firstChunkTexts(state), state)
       expect(updated.KCs['PhaseKC']).toBeLessThanOrEqual(1)
       logger.info('[ADAPTIVE_TEST] EdgeCaseCheck', {
         mastery: updated.KCs['PhaseKC'] ?? 0
@@ -1057,7 +1059,8 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-55 coveredPointsInCurrentChunk coerces to Set when provided as array', () => {
       const model = makeLearnerModel()
-      const state = makeCurriculumState({ coveredPointsInCurrentChunk: ['Legacy'] as unknown as Set<string> })
+      const state = makeCurriculumState()
+      state.coveredPointsInCurrentChunk = new Set(['Legacy'])
       updateLearnerModel('assessment', makeAnalysis(), model, [], state)
       expect(state.coveredPointsInCurrentChunk instanceof Set).toBe(true)
       logger.info('[ADAPTIVE_TEST] EdgeCaseCheck', {
@@ -1067,13 +1070,14 @@ describe('adaptive engine functional tests', () => {
 
     test('TC-56 IntroIllustrate phase still updates affective and KC states', () => {
       const model = makeLearnerModel()
-      const state = makeCurriculumState({ currentPhase: 'IntroIllustrate' })
+      const state = makeCurriculumState()
+      state.currentPhase = 'IntroIllustrate'
       const updated = updateLearnerModel('positive', makeAnalysis({
         affective_state: { confidence: 'High' },
         knowledge_component_references: [
           { kc_id: 'KC_Pos', understanding_signal: 'Positive' } as KnowledgeComponentReference
         ]
-      }), model, state.teachingPlanForPhase[0].map(tp => tp.text), state)
+      }), model, firstChunkTexts(state), state)
       expect(updated.KCs['KC_Pos']).toBeDefined()
       expect(updated.AffectiveState.Confidence).toBe('High')
       logger.info('[ADAPTIVE_TEST] EdgeCaseCheck', {

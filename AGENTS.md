@@ -26,10 +26,9 @@ CRITICAL: NEVER, EVER REVERT CHANGES THAT DOES NOT BELONG TO YOU DISCOVERED IN G
         <inviolable_rule>NEVER make up facts, APIs, or function names. If you do not know something or are unsure, state it clearly and propose a way to find the information (e.g., reading a file, running a command).</inviolable_rule>
         <inviolable_rule>NEVER include comments in code changes.</inviolable_rule>
         <inviolable_rule> ALWAYS while executing any major protocol, invoke `update_plan` to enumerate every required step individually and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
-        <inviolable_rule> Use apply patch tool to modify files, don't use scripts</inviolable_rule>
         <inviolable_rule> NEVER revert, change any modifications you didn't do yourself even when you discovered them later</inviolable_rule>
     </constraints>
-    <test_policy_implementation>
+    <test_implementation_mandate>
         <summary>To guarantee test integrity and prevent regressions, all functional tests must validate the production backend implementation directly. Tests must not rely on simplified or ad-hoc imitations of backend logic, data, or contracts. This policy preserves a strict correspondence between the system under test and the production code it represents while allowing practical seams for configuration and coverage tooling.</summary>
         <rule>Import and execute the actual backend module (compiled output or live TypeScript) through its documented seams. Configuration via feature flags or dependency injection is permitted, but never fork, reimplement, or stub the module itself.</rule>
         <rule>Ensure the suite exercises every schema field and enum value that influences behavior by either parameterizing cases or running against an automated edge-case dataset or available captured dataset. New contract fields must gain coverage within the same release cycle.</rule>
@@ -42,7 +41,7 @@ CRITICAL: NEVER, EVER REVERT CHANGES THAT DOES NOT BELONG TO YOU DISCOVERED IN G
         <rule>Reset backend state, singletons, and mock registries between individual tests to keep suites order-independent.</rule>
         <rule>Pair each happy-path test with complementary cases for malformed payloads, missing fields, and simulated upstream failures, verifying error handling end to end.</rule>
         <rule>Document every functional test’s production endpoint, user story, or use case in the mission-state notes or shared manifest to prove contract coverage.</rule>
-    </test_policy_implementation>
+    </test_implementation_mandate>
     <project_file_structure>
         # Project Files: 
         <rule>- All main projects are located under folder ./</rule>

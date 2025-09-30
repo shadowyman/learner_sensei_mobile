@@ -7,15 +7,18 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "__tests__/**/*.ts",
+    "__tests__/**/*.tsx"
+  ],
   "exclude": [
     "dist",
     "coverage",
     "backup",
     "backup/**/*",
     "tmp",
-    "tmp/**/*",
-    "tests",
-    "tests/**/*"
+    "tmp/**/*"
   ]
 }

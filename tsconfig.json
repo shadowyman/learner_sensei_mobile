@@ -28,6 +28,10 @@
     "**/*.d.ts"
   ],
   "exclude": [
-    "tmp/**/*"
+    "tmp/**/*",
+    "__tests__/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "tests/**/*"
   ]
 }
