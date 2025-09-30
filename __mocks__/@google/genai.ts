@@ -46,6 +46,23 @@ export class GenerateContentResponse {
   }
 }
 
+class MockChatSession {
+  async sendMessage(_input: unknown) {
+    return new GenerateContentResponse(state.result)
+  }
+  async *sendMessageStream(_input: unknown) {
+    for (const chunk of state.chunks) {
+      if (chunk.delay) {
+        await sleep(chunk.delay)
+      }
+      yield new GenerateContentResponse(chunk.text)
+    }
+  }
+  async close() {}
+}
+
+export class Chat extends MockChatSession {}
+
 class MockGenerativeModel {
   async generateContent(_input: unknown) {
     return new GenerateContentResponse(state.result)
@@ -64,21 +81,7 @@ class MockGenerativeModel {
     }
   }
   startChat() {
-    const session = {
-      async sendMessage(_input: unknown) {
-        return new GenerateContentResponse(state.result)
-      },
-      async *sendMessageStream(_input: unknown) {
-        for (const chunk of state.chunks) {
-          if (chunk.delay) {
-            await sleep(chunk.delay)
-          }
-          yield new GenerateContentResponse(chunk.text)
-        }
-      },
-      async close() {}
-    }
-    return session
+    return new Chat()
   }
 }
 
@@ -94,10 +97,18 @@ class MockModels {
   }
 }
 
+class MockChats {
+  create(_options: unknown) {
+    return new Chat()
+  }
+}
+
 export class GoogleGenAI {
   models: MockModels
+  chats: MockChats
   constructor(_config: unknown) {
     this.models = new MockModels()
+    this.chats = new MockChats()
   }
   getGenerativeModel(_config: unknown) {
     return new MockGenerativeModel()

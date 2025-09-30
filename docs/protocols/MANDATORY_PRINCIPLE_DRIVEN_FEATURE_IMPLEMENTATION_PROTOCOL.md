@@ -56,6 +56,12 @@
                     *   *Implementation Details*: Provide detailed implementation details.
             *   **Action**: Use the analyzer-mapped functions/side effects as your starting coverage list while you reason through tasks; weave in risks, logs, and domain insight in the same pass so the plan already blends tool output with fresh judgment. Reflect the result in the mission-state document as you refine scope and risks.
         </step>
+        <step number="5.5">
+            **Functional Test Policy Alignment**:
+            *   **Trigger**: Execute this step whenever the mission scope contains functional test authoring or updates.
+            *   **Action**: Review the `functional_test_policy` in `AGENTS.md` and record how each rule (data sourcing, coverage breadth, determinism, negative paths, traceability, contract mapping) will be satisfied inside the mission-state plan.
+            *   **Action**: Adjust planned tasks, fixtures, and validation evidence so they explicitly enforce those rules before requesting Step 6 approval.
+        </step>
         <step number="6">
             **Stop and Await My Final Approval**: Present the full plan, including the trade-off matrix, risk analysis, and the detailed to-do list with its defined Validation Logs. **STOP** and do not proceed until you receive my final go-ahead.
         </step>
@@ -68,6 +74,7 @@
             *   **Action**: Utilize analyze tool for faster lookups and better understanding of dependencies in tandem with manual audit.
             *   **Action**: Do not add comments.
             *   **Action**: You MUST implement the code **AND** the exact corresponding Validation Logs as defined in the approved plan from Step 5.
+            *   **Action**: Before writing tests or fixtures, reaffirm compliance with the `functional_test_policy` (data sourcing, mocks, determinism, coverage) and adjust the implementation if gaps appear.
         </step>
         <step number="8">
             **Prompt for User Test**: Once all quality gates are passed, prompt me to run the code to generate the logs, and to let you know when the test is complete.

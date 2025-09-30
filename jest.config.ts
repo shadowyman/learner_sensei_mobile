@@ -4,8 +4,11 @@ let useSwc = true
 
 try {
   require('@swc/core')
+  console.info('[jest] Using @swc/jest transformer')
 } catch (error) {
   useSwc = false
+  const message = error instanceof Error ? error.message : String(error)
+  console.warn('[jest] Falling back to ts-jest transformer', message)
 }
 
 const transformConfig: [string, Record<string, unknown>] = useSwc

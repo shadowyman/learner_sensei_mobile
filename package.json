@@ -21,7 +21,8 @@
     "functional:analyzer": "ts-node tests/analyzer.integration.ts",
     "functional:review-cli": "ts-node tests/reviewEdit.functional.test.ts",
     "functional:adaptive-engine": "ts-node tests/adaptiveEngine.functional.test.ts",
-    "backup:create": "ts-node scripts/createBackup.ts"
+    "backup:create": "ts-node scripts/createBackup.ts",
+    "test:lint": "eslint --config config/eslint.config.cjs"
   },
   "keywords": [
     "education",
@@ -36,6 +37,9 @@
     "@types/node": "^24.5.2",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "eslint": "^9.36.0",
+    "eslint-plugin-jest": "^29.0.1",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "ts-jest": "^29.1.1",
