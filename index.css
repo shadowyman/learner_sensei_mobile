@@ -429,6 +429,14 @@ body::before {
     filter: drop-shadow(0 2px 4px rgba(196, 229, 56, 0.4));
 }
 
+.brand-logo {
+    display: block;
+    max-width: 64px;
+    width: 64px;
+    height: auto;
+    border-radius: 10px;
+}
+
 
 .chat-window-title {
     font-weight: 700;
@@ -557,75 +565,74 @@ body::before {
 
 .chat-window-controls {
     display: flex;
-    gap: 0; /* No gap initially to prevent space */
+    gap: 4px;
     justify-content: flex-end; /* Align to the right */
     align-items: center;
     position: relative;
     transition: gap 0.3s ease-in-out;
 }
 
-/* Add gap when hovering to show all buttons */
-.weighted-segment.controls:hover .chat-window-controls,
-.chat-window-controls:hover,
+#chat-container .chat-window-controls {
+    flex-direction: column;
+    align-items: flex-end;
+    --stagger-step-primary: 40ms; /* slight stagger */
+    --stagger-step-secondary: calc(var(--stagger-step-primary) * 1.5); /* primary 4 vs secondary 3 finish together */
+}
+
+#chat-container .chat-window-controls .controls-row.secondary {
+    align-self: center;
+}
+
+/* no special collapsing alignment; collapse is non-staggered */
+
+#chat-container .chat-window-controls .controls-splitter { display: none; }
+
+.controls-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-height: 22px;
+}
+
+#chat-container .chat-window-controls .controls-row.primary,
+#chat-container .chat-window-controls .controls-row.secondary {
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px dashed transparent; /* keep thickness, hide when collapsed */
+    background: transparent; /* hide pill when collapsed */
+}
+
+#chat-container .chat-window-controls[data-expanded="true"] .controls-row.primary,
+#chat-container .chat-window-controls[data-expanded="true"] .controls-row.secondary {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+}
+
 .chat-window-controls[data-expanded="true"] {
+}
+
+#chat-container .chat-window-controls[data-expanded="true"] {
+    padding: 0; /* remove horizontal padding when expanded so rows align precisely */
+}
+
+/*
+ * Collapsed state: center the ellipsis with equal L/R padding while preserving
+ * the original +7px overhang of the plus mark.
+ * - Container width = dots (22) + 8px left + 8px right + 7px overhang
+ * - Ellipsis positioned with right inset = 8px + 7px (accounts for overhang)
+ * - Plus SVG overhang restored to -7px (rule below)
+ */
+#chat-container .chat-window-controls:not([data-expanded="true"]) {
+    width: calc(22px + 16px + 7px);
+}
+#chat-container .chat-window-controls:not([data-expanded="true"]) .controls-ellipsis { right: calc(8px + 7px); }
+
+.chat-window-controls[data-expanded="true"] .controls-row {
     gap: 8px;
 }
 
-/* Keep font-size button always visible */
-.chat-window-controls #font-size-toggle {
-    opacity: 1 !important;
-    visibility: visible !important;
-    width: 28px !important;
-    height: 28px;
-    transform: none !important;
-    background: transparent;
-    border: 1px solid transparent;
-    box-shadow: none;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    color: var(--text-secondary);
-    font-size: 1.1em;
-    line-height: 1;
-    cursor: pointer;
-    border-radius: 10px;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    transition: color 0.2s ease-in-out, background 0.2s ease-in-out, border-color 0s ease-in-out;
-}
-
-.weighted-segment.controls:hover .chat-window-controls #font-size-toggle,
-.chat-window-controls:hover #font-size-toggle,
-.chat-window-controls[data-expanded="true"] #font-size-toggle {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-    border-radius: 10px;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-}
-
-.weighted-segment.controls:hover .chat-window-controls #font-size-toggle:hover,
-.weighted-segment.controls:hover .chat-window-controls #font-size-toggle:focus-visible,
-.chat-window-controls:hover #font-size-toggle:hover,
-.chat-window-controls:hover #font-size-toggle:focus-visible {
-    border: 1px solid rgba(96, 165, 250, 0.6);
-}
-
-.chat-window-controls #font-size-toggle:hover,
-#font-size-toggle:focus-visible {
-    border: 1px solid rgba(96, 165, 250, 0.6);
-    background: rgba(96, 165, 250, 0.12);
-    box-shadow: 0 8px 20px rgba(96, 165, 250, 0.2);
-}
-
-#font-size-toggle.font-toggle-hovered {
-    border: 1px solid rgba(96, 165, 250, 0.6);
-    background: rgba(96, 165, 250, 0.12);
-    box-shadow: 0 8px 20px rgba(96, 165, 250, 0.2);
-}
+/* Collapsed: all buttons hidden (ellipsis stands in); reveal on hover/expanded rules below control visibility */
+/* No special styles for #font-size-toggle; inherits from .chat-header-button/.control-btn */
 
 .theme-selector {
     position: relative;
@@ -687,7 +694,41 @@ body::before {
     box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
     transform: translateY(-2px);
 }
-#font-size-toggle::before {
+/* Removed legacy font-size toggle glow and embedded dots; handled by .controls-ellipsis instead */
+
+/* Standalone ellipsis control (separate from font-size) */
+.controls-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    background: transparent;
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, background 0.2s ease-in-out;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+.controls-ellipsis .ellipsis-svg { display: block; }
+.controls-ellipsis .ellipsis-dot { fill: currentColor; opacity: 1; transition: opacity 180ms ease; }
+.controls-ellipsis .ellipsis-plus-svg {
+    position: absolute;
+    top: 1px;
+    right: -7px;
+    stroke: currentColor;
+    opacity: 0; /* toggled by JS to sync with 3rd dot */
+    transition: opacity 180ms ease;
+}
+.controls-ellipsis .ellipsis-plus { stroke: currentColor; opacity: 1; transition: opacity 180ms ease; }
+.controls-ellipsis:hover {
+    transform: translateY(calc(-50% - 1px));
+}
+/* Glow effect similar to font-size toggle */
+.controls-ellipsis::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -701,50 +742,15 @@ body::before {
     transition: opacity 0.3s ease-in-out;
     pointer-events: none;
 }
-
-.chat-window-controls #font-size-toggle:hover::before,
-.chat-window-controls #font-size-toggle:focus-visible::before {
-    opacity: 0.25;
-}
-
-#font-size-toggle.ellipsis-glow::before {
+.controls-ellipsis.ellipsis-glow::before {
     opacity: 0.45;
 }
-
-#font-size-toggle.ellipsis-glow {
-    color: var(--text-secondary);
-}
-
-.ellipsis-dots {
-    display: block;
-    transform: translateY(-1px);
-    letter-spacing: 0.15em;
-}
-
-#font-size-toggle .font-size-icon {
-    display: none;
-    width: 1.1em;
-    height: 1.1em;
-    align-items: center;
-    justify-content: center;
-}
-
-.chat-window-controls:hover #font-size-toggle .font-size-icon,
-.weighted-segment.controls:hover #font-size-toggle .font-size-icon,
-.chat-window-controls[data-expanded="true"] #font-size-toggle .font-size-icon,
-#font-size-toggle:focus-visible .font-size-icon {
-    display: inline-flex;
-}
-
-.chat-window-controls:hover #font-size-toggle .ellipsis-dots,
-.weighted-segment.controls:hover #font-size-toggle .ellipsis-dots,
-.chat-window-controls[data-expanded="true"] #font-size-toggle .ellipsis-dots,
-#font-size-toggle:focus-visible .ellipsis-dots {
+.chat-window-controls[data-expanded="true"] .controls-ellipsis {
     display: none;
 }
 
-/* Hide other buttons initially */
-.chat-window-controls button:not(#font-size-toggle) {
+/* Hide all control buttons initially (collapsed); ellipsis stands alone */
+.chat-window-controls button {
     width: 0;
     opacity: 0;
     visibility: hidden;
@@ -753,39 +759,45 @@ body::before {
     transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out, visibility 0.3s ease-in-out, transform 0.3s ease-in-out;
 }
 
-/* Show all buttons on hover */
-.weighted-segment.controls:hover .chat-window-controls button:not(#font-size-toggle),
-.chat-window-controls:hover button:not(#font-size-toggle),
-.chat-window-controls[data-expanded="true"] button:not(#font-size-toggle) {
-    width: 28px;
+.chat-window-controls[data-expanded="true"] button {
+    width: 22px;
     opacity: 1;
     visibility: visible;
     transform: scale(1);
 }
 
+/* collapse: instant (no animation, no delay) */
+#chat-container .chat-window-controls:not([data-expanded="true"]) button {
+    transition: none !important;
+}
+
+#chat-container .chat-window-controls button { transition-delay: 0ms; }
+#chat-container .chat-window-controls[data-expanded="true"] #font-size-toggle { transition-delay: calc(var(--stagger-step-primary) * 0); }
+#chat-container .chat-window-controls[data-expanded="true"] #theme-button { transition-delay: calc(var(--stagger-step-primary) * 1); }
+#chat-container .chat-window-controls[data-expanded="true"] #debug-mode-button { transition-delay: calc(var(--stagger-step-primary) * 2); }
+#chat-container .chat-window-controls[data-expanded="true"] #main-chat-fullscreen-button { transition-delay: calc(var(--stagger-step-primary) * 3); }
+#chat-container .chat-window-controls[data-expanded="true"] #notepad-button { transition-delay: calc(var(--stagger-step-secondary) * 0); }
+#chat-container .chat-window-controls[data-expanded="true"] #save-button { transition-delay: calc(var(--stagger-step-secondary) * 1); }
+#chat-container .chat-window-controls[data-expanded="true"] #load-button { transition-delay: calc(var(--stagger-step-secondary) * 2); }
+
+
 /* Stagger the animation for each button on hover */
-.chat-window-controls:hover button:nth-of-type(2) { transition-delay: 0.05s; }
-.chat-window-controls:hover button:nth-of-type(3) { transition-delay: 0.1s; }
-.chat-window-controls:hover button:nth-of-type(4) { transition-delay: 0.15s; }
-.chat-window-controls:hover button:nth-of-type(5) { transition-delay: 0.2s; }
-.chat-window-controls:hover button:nth-of-type(6) { transition-delay: 0.25s; }
-.chat-window-controls:hover button:nth-of-type(7) { transition-delay: 0.3s; }
 
 /* Remove position relative from controls segment to avoid positioning issues */
 
 .control-btn {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     background: rgba(255, 255, 255, 0.05);
     color: rgba(226, 232, 240, 0.8);
-    border-radius: 10px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 0.8rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 0;
 }
 
 .control-btn:hover {
@@ -797,11 +809,11 @@ body::before {
 }
 
 .chat-header-button {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
-    border-radius: 10px;
+    border-radius: 8px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -809,7 +821,7 @@ body::before {
     align-items: center;
     justify-content: center;
     font-size: 1.1em;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 0;
     padding: 0;
 }
 
@@ -825,9 +837,101 @@ body::before {
     height: 1em;
 }
 
+/* Larger icons inside smaller header buttons for readability */
+.chat-window-controls .chat-header-button .icon-placeholder,
+.chat-window-controls .chat-header-button svg,
+.chat-window-controls .control-btn .icon-placeholder,
+.chat-window-controls .control-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="palette"] svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Ensure font-size icons remain stroke-only (no unintended fill)
+   Overrides the global `.icon-placeholder svg { fill: currentColor; }` */
+.chat-window-controls .icon-placeholder[data-icon="font_increase"] svg,
+.chat-window-controls .icon-placeholder[data-icon="font_decrease"] svg {
+    fill: none;
+}
+
+/* Icon color accents to differentiate similar actions */
+.chat-window-controls .icon-placeholder[data-icon="notepad"] { color: #fbbf24; }
+.chat-window-controls .icon-placeholder[data-icon="save"] { color: #38bdf8; }
+.chat-window-controls .icon-placeholder[data-icon="load"] { color: #a78bfa; }
+.chat-window-controls .icon-placeholder[data-icon="bug"] { color: #ef4444; }
+.chat-window-controls .icon-placeholder[data-icon="fullscreen"] { color: #a78bfa; }
+.chat-window-controls .icon-placeholder[data-icon="font_increase"] { color: #34d399; }
+.chat-window-controls .icon-placeholder[data-icon="font_decrease"] { color: #f87171; }
+.chat-window-controls .icon-placeholder[data-icon="palette"] { color: #f59e0b; }
+.chat-window-controls .icon-placeholder[data-icon="reload"] { color: #22c55e; }
+.chat-window-controls .icon-placeholder[data-icon="enhance"] { color: #facc15; }
+.chat-window-controls .icon-placeholder[data-icon="send"] { color: #38bdf8; }
+
+/* Slightly brighten on hover for feedback */
+.chat-window-controls button:hover .icon-placeholder[data-icon="notepad"] { color: #fde047; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="save"] { color: #60a5fa; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="load"] { color: #c4b5fd; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="bug"] { color: #f87171; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="fullscreen"] { color: #c4b5fd; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="font_increase"] { color: #4ade80; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="font_decrease"] { color: #fb7185; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="palette"] { color: #fbbf24; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="reload"] { color: #34d399; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="enhance"] { color: #fde047; }
+.chat-window-controls button:hover .icon-placeholder[data-icon="send"] { color: #60a5fa; }
+
+/* Multi-color SVG variables for richer icons */
+.chat-window-controls .icon-placeholder[data-icon="notepad"] svg {
+    --icon-notepad-base: #f59e0b;
+    --icon-notepad-fold: #fde68a;
+    --icon-notepad-lines: rgba(255,255,255,0.92);
+    --icon-notepad-rings: rgba(255,255,255,0.98);
+    --icon-notepad-pencil: #22c55e; /* green body */
+    --icon-notepad-ferrule: #9ca3af; /* metal */
+    --icon-notepad-tip: #bbf7d0; /* light green tip */
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="notepad"] svg {
+    --icon-notepad-base: #fbbf24;
+    --icon-notepad-fold: #fef3c7;
+    --icon-notepad-pencil: #34d399;
+    --icon-notepad-ferrule: #e5e7eb;
+    --icon-notepad-tip: #d1fae5;
+}
+
+/* Notepad icon uses default header icon size; content is scaled via SVG transform */
+.chat-window-controls .icon-placeholder[data-icon="notepad"] svg {
+    width: 18px;
+    height: 18px;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="save"] svg {
+    --icon-save-body: #0ea5e9;
+    --icon-save-label: #0b1220;
+    --icon-save-slot: #93c5fd;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="save"] svg {
+    --icon-save-body: #38bdf8;
+    --icon-save-slot: #bfdbfe;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="load"] svg {
+    --icon-load-folder: #8b5cf6;
+    --icon-load-tab: #a78bfa;
+    --icon-load-arrow: #22c55e;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="load"] svg {
+    --icon-load-folder: #9f7aea;
+    --icon-load-tab: #c4b5fd;
+    --icon-load-arrow: #34d399;
+}
+
 .chat-header-button:hover {
     background: rgba(0, 212, 255, 0.1);
-    border-color: rgba(0, 212, 255, 0.3);
+    border: 0;
     color: var(--accent);
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(0, 212, 255, 0.2);
@@ -836,19 +940,19 @@ body::before {
 /* Unique hover colors for each button */
 #debug-mode-button:hover {
     background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
+    border: 0;
     box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
 }
 
 #main-chat-fullscreen-button:hover {
     background: rgba(139, 92, 246, 0.1);
-    border-color: rgba(139, 92, 246, 0.3);
+    border: 0;
     box-shadow: 0 8px 20px rgba(139, 92, 246, 0.2);
 }
 
 #notepad-button:hover {
     background: rgba(251, 191, 36, 0.1);
-    border-color: rgba(251, 191, 36, 0.3);
+    border: 0;
     box-shadow: 0 8px 20px rgba(251, 191, 36, 0.2);
 }
 
@@ -4293,3 +4397,86 @@ svg[aria-roledescription="error"] {
     cursor: not-allowed;
     transform: none;
 }
+.chat-window-controls .icon-placeholder[data-icon="bug"] svg {
+    --icon-bug-body: #ef4444;
+    --icon-bug-stroke: #fecaca;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="bug"] svg {
+    --icon-bug-body: #f87171;
+    --icon-bug-stroke: #fee2e2;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="fullscreen"] svg {
+    --icon-fullscreen-stroke: #a78bfa;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="fullscreen"] svg {
+    --icon-fullscreen-stroke: #c4b5fd;
+}
+
+.chat-window-controls .icon-placeholder[data-icon^="font_"] svg {
+    --icon-font-stroke: #9ca3af;
+    --icon-font-plus: #34d399;
+    --icon-font-minus: #f87171;
+}
+.chat-window-controls:hover .icon-placeholder[data-icon^="font_"] svg,
+.chat-window-controls[data-expanded="true"] .icon-placeholder[data-icon^="font_"] svg {
+    --icon-font-stroke: #cbd5e1;
+    --icon-font-plus: #4ade80;
+    --icon-font-minus: #fb7185;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="palette"] svg {
+    --icon-palette-stroke: #f59e0b;
+    --icon-palette-s1: #60a5fa;
+    --icon-palette-s2: #f472b6;
+    --icon-palette-s3: #34d399;
+    --icon-palette-s4: #fde047;
+    --icon-palette-s5: #f97316;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="palette"] svg {
+    --icon-palette-stroke: #fbbf24;
+    --icon-palette-s1: #93c5fd;
+    --icon-palette-s2: #f9a8d4;
+    --icon-palette-s3: #86efac;
+    --icon-palette-s4: #fef08a;
+    --icon-palette-s5: #fdba74;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="reload"] svg {
+    --icon-reload-stroke: #22c55e;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="reload"] svg {
+    --icon-reload-stroke: #34d399;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="enhance"] svg {
+    --icon-enhance-wand: #60a5fa;
+    --icon-enhance-sparkle: #facc15;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="enhance"] svg {
+    --icon-enhance-wand: #93c5fd;
+    --icon-enhance-sparkle: #fde047;
+}
+
+.chat-window-controls .icon-placeholder[data-icon="send"] svg {
+    --icon-send-fill: #38bdf8;
+}
+.chat-window-controls button:hover .icon-placeholder[data-icon="send"] svg {
+    --icon-send-fill: #60a5fa;
+}
+#chat-container .chat-window-controls:not([data-expanded="true"]) .controls-ellipsis .ellipsis-plus-svg { right: -7px; }
+
+/* Collapsed-state stagger (reverse order) */
+/* collapse: staggered via [data-collapsing] (deprecated) */
+
+/* Collapse: keep rows from adding extra horizontal padding/border,
+   but allow children to animate out (no width/overflow clipping). */
+/* Collapsed: keep rows from adding extra horizontal width; buttons are hidden anyway */
+#chat-container .chat-window-controls:not([data-expanded="true"]) .controls-row.primary,
+#chat-container .chat-window-controls:not([data-expanded="true"]) .controls-row.secondary {
+    padding-left: 0;
+    padding-right: 0;
+    border-left: 0;
+    border-right: 0;
+}
+/* (cleanup) Removed legacy [data-collapsing] stagger rules; collapse is now instant. */

@@ -167,14 +167,103 @@ export function createMessageRegistry(): MessageRegistry {
 const FONT_SIZES = ['small', 'medium', 'large'];
 
 const ICONS: { [key: string]: string } = {
-    bug: `⚙`,
-    fullscreen: `⛶`,
-    font_decrease: `Aa`,
-    font_increase: `Aa`,
-    palette: `🎨`,
-    send: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.39 1.39L4.4 12l-2.4 7.4a1 1 0 0 0 1.4 1.4Z"/></svg>`,
-    reload: `↻`,
-    enhance: `✨`,
+    // Intricate inline SVG icons (stroke/fill use currentColor so they theme correctly)
+    bug: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-bug-stroke, currentColor)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 8h10"/>
+      <path d="M4 13h16"/>
+      <path d="M4 18h16"/>
+      <path d="M8 5l2 2"/>
+      <path d="M16 5l-2 2"/>
+      <rect x="7" y="7" width="10" height="10" rx="5" fill="var(--icon-bug-body, currentColor)"/>
+      <path d="M7 12l-3-2"/>
+      <path d="M17 12l3-2"/>
+      <path d="M12 7V5"/>
+    </svg>`,
+    fullscreen: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-fullscreen-stroke, currentColor)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9V5h4"/>
+      <path d="M20 9V5h-4"/>
+      <path d="M4 15v4h4"/>
+      <path d="M20 15v4h-4"/>
+    </svg>`,
+    font_increase: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-font-stroke, currentColor)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 18l4-12 4 12"/>
+      <path d="M6.8 13h6.4"/>
+      <path d="M17 7v4" stroke="var(--icon-font-plus, #34d399)"/>
+      <path d="M15 9h4" stroke="var(--icon-font-plus, #34d399)"/>
+    </svg>`,
+    font_decrease: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-font-stroke, currentColor)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 18l4-12 4 12"/>
+      <path d="M6.8 13h6.4"/>
+      <path d="M15 9h4" stroke="var(--icon-font-minus, #f87171)"/>
+    </svg>`,
+    palette: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-palette-stroke, currentColor)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3c-4.97 0-9 3.58-9 8 0 2.5 2 4 4 4h1c1.1 0 2 .9 2 2s.9 2 2 2c4.2 0 8-3.1 8-8s-4.03-8-9-8z"/>
+      <!-- Larger, repositioned swatches following palette curvature -->
+      <circle cx="8.5" cy="9" r="2.6" fill="var(--icon-palette-s1, #60a5fa)"/>
+      <circle cx="11.6" cy="7.6" r="2.6" fill="var(--icon-palette-s2, #f472b6)"/>
+      <circle cx="15.6" cy="10.6" r="2.6" fill="var(--icon-palette-s4, #fde047)"/>
+      <circle cx="9.4" cy="13.6" r="2.6" fill="var(--icon-palette-s3, #34d399)"/>
+      <circle cx="12.9" cy="12.9" r="2.2" fill="var(--icon-palette-s5, #f97316)"/>
+    </svg>`,
+    send: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--icon-send-fill, currentColor)"><path d="m3.4 20.4 17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.39 1.39L4.4 12l-2.4 7.4a1 1 0 0 0 1.4 1.4Z"/></svg>`,
+    reload: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-reload-stroke, #22c55e)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
+      <path d="M20 5v5h-5"/>
+    </svg>`,
+    enhance: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-enhance-sparkle, #facc15)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 14l6-6"/>
+      <rect x="5" y="13" width="8" height="2" transform="rotate(-45 9 14)" fill="var(--icon-enhance-wand, #60a5fa)"/>
+      <path d="M17 6l1.5-1.5"/>
+      <path d="M19 9l2 0"/>
+      <path d="M14 3l0 2"/>
+      <path d="M20.5 7.5l1.5-1.5"/>
+    </svg>`,
+    notepad: `
+    <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <g transform=\"translate(12,12) scale(1.28) translate(-12,-12)\">
+      <!-- Page base with fold -->
+      <path d=\"M8 5h7l3 3v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z\" fill=\"var(--icon-notepad-base, #f59e0b)\" stroke=\"currentColor\" stroke-width=\"0.6\"/>
+      <path d=\"M15 5v3h3\" fill=\"var(--icon-notepad-fold, #fde68a)\"/>
+      <!-- Ruled lines -->
+      <path d=\"M11 10h7M11 13h7M11 16h5\" stroke=\"var(--icon-notepad-lines, rgba(255,255,255,0.9))\" stroke-width=\"1.2\"/>
+      <!-- Ring holes -->
+      <circle cx=\"7\" cy=\"9\" r=\"0.7\" fill=\"var(--icon-notepad-rings, rgba(255,255,255,0.98))\"/>
+      <circle cx=\"7\" cy=\"12\" r=\"0.7\" fill=\"var(--icon-notepad-rings, rgba(255,255,255,0.98))\"/>
+      <circle cx=\"7\" cy=\"15\" r=\"0.7\" fill=\"var(--icon-notepad-rings, rgba(255,255,255,0.98))\"/>
+      <!-- Pencil overlay (rotated) -->
+      <g transform=\"rotate(-35 17 17)\">
+        <rect x=\"13.2\" y=\"16\" width=\"7.2\" height=\"2.1\" rx=\"0.6\" fill=\"var(--icon-notepad-pencil, #fb923c)\"/>
+        <rect x=\"20.4\" y=\"16\" width=\"1.2\" height=\"2.1\" fill=\"var(--icon-notepad-ferrule, #9ca3af)\"/>
+        <path d=\"M21.6 16l1.5 1.05-1.5 1.05-0.4-0.52z\" fill=\"var(--icon-notepad-tip, #fde68a)\"/>
+      </g>
+      </g>
+    </svg>`,
+    save: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Body -->
+      <path d="M5 5h11l3 3v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5z" fill="var(--icon-save-body, #0ea5e9)" stroke="currentColor" stroke-width="0.6"/>
+      <!-- Label area -->
+      <rect x="8" y="6" width="6" height="4" rx="0.8" fill="var(--icon-save-label, #1e293b)"/>
+      <!-- Slot / LED -->
+      <rect x="9" y="15" width="6" height="2.6" rx="0.8" fill="var(--icon-save-slot, #93c5fd)"/>
+      <circle cx="16.5" cy="8" r="0.9" fill="var(--icon-save-slot, #93c5fd)"/>
+    </svg>`,
+    load: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Folder base -->
+      <path d="M3.5 7.5h6l1.8 2H20a1.8 1.8 0 0 1 1.8 1.8v6.4A2.3 2.3 0 0 1 19.5 20H6.2A2.7 2.7 0 0 1 3.5 17.3V7.5z" fill="var(--icon-load-folder, #8b5cf6)" stroke="currentColor" stroke-width="0.6"/>
+      <!-- Tab -->
+      <path d="M3.5 7.5V6.6A2.1 2.1 0 0 1 5.6 4.5h4.2l1.4 1.8H20" fill="var(--icon-load-tab, #a78bfa)"/>
+      <!-- Down arrow -->
+      <path d="M12 9v6" stroke="var(--icon-load-arrow, #22c55e)" stroke-width="1.8"/>
+      <path d="M9.5 13.5L12 16l2.5-2.5" fill="none" stroke="var(--icon-load-arrow, #22c55e)" stroke-width="1.8"/>
+    </svg>`,
 };
 
 interface ThemeOption {
@@ -415,6 +504,9 @@ function setThemeVariables(option: ThemeOption): void {
     root.style.setProperty('--sensei-heading-gradient', option.senseiHeadingGradient);
 }
 
+// Contract: data-expanded is the single source of truth for controls visibility.
+//  - Expanded: CSS applies delayed transitions to buttons (staggered open).
+//  - Collapsed: CSS disables transitions for immediate close.
 function setControlsExpanded(expanded: boolean): void {
     if (!chatWindowControlsElement) return;
     if (expanded) {
@@ -2184,15 +2276,17 @@ function setupThemePalette() {
 }
 
 function setupHeaderEllipsisAnimation() {
-    const ellipsisButton = document.getElementById('font-size-toggle') as HTMLButtonElement;
-    if (!ellipsisButton) return;
-    const ellipsisDots = ellipsisButton.querySelector('.ellipsis-dots') as HTMLElement | null;
-    if (!ellipsisDots) return;
+    const ellipsis = document.getElementById('controls-ellipsis') as HTMLElement | null;
+    if (!ellipsis) return;
+    const dots = Array.from(ellipsis.querySelectorAll<SVGCircleElement>('.ellipsis-dot'));
+    const plusMark = ellipsis.querySelector<SVGElement>('.ellipsis-plus-svg');
+    if (dots.length === 0) return;
     const states = ['.', '..', '...'];
+    const cycleLen = 4; // three dots + plus as the 4th frame
     let intervalId: number | null = null;
     let timeoutId: number | null = null;
     let glowTimeoutId: number | null = null;
-    const controlsContainer = ellipsisButton.closest('.chat-window-controls') as HTMLElement | null;
+    const controlsContainer = ellipsis.closest('.chat-window-controls') as HTMLElement | null;
     let isInteractionPaused = false;
     const clearIntervalIfNeeded = () => {
         if (intervalId !== null) {
@@ -2211,7 +2305,7 @@ function setupHeaderEllipsisAnimation() {
             window.clearTimeout(glowTimeoutId);
             glowTimeoutId = null;
         }
-        ellipsisButton.classList.remove('ellipsis-glow');
+        ellipsis.classList.remove('ellipsis-glow');
     };
 
     const pauseForInteraction = () => {
@@ -2219,11 +2313,12 @@ function setupHeaderEllipsisAnimation() {
             return;
         }
         isInteractionPaused = true;
-        ellipsisButton.classList.add('font-toggle-hovered');
+        // Pause animation visuals when interacting
         clearIntervalIfNeeded();
         clearTimeoutIfNeeded();
         clearGlowIfNeeded();
-        ellipsisDots.textContent = '...';
+        dots.forEach((d) => d.style.opacity = '1');
+        if (plusMark) plusMark.style.opacity = '0.3';
     };
     const beginIdle = () => {
         clearTimeoutIfNeeded();
@@ -2243,17 +2338,14 @@ function setupHeaderEllipsisAnimation() {
             return;
         }
         isInteractionPaused = false;
-        ellipsisButton.classList.remove('font-toggle-hovered');
+        // Resume idle cycle after interaction
         beginIdle();
     };
     const triggerGlow = () => {
         clearGlowIfNeeded();
-        ellipsisButton.classList.add('ellipsis-glow');
-        glowTimeoutId = window.setTimeout(() => {
-            ellipsisButton.classList.remove('ellipsis-glow');
-            glowTimeoutId = null;
-            beginIdle();
-        }, 1000);
+        ellipsis.classList.add('ellipsis-glow');
+        // Keep the glow until the next cycle starts; start idle timer
+        beginIdle();
     };
     const startCycle = () => {
         clearIntervalIfNeeded();
@@ -2264,11 +2356,16 @@ function setupHeaderEllipsisAnimation() {
         }
         let position = 0;
         intervalId = window.setInterval(() => {
-            const state = states[position] ?? '...';
-            ellipsisDots.textContent = state;
+            const step = position % cycleLen; // 0,1,2,3
+            const count = step < 3 ? step + 1 : 3; // 1,2,3 dots; keep 3 on step 3
+            dots.forEach((d, i) => {
+                d.style.opacity = i < count ? '1' : '0.2';
+            });
+            if (plusMark) plusMark.style.opacity = step === 3 ? '0.6' : '0';
             position += 1;
-            if (position >= states.length) {
-                ellipsisDots.textContent = '...';
+            if (position >= cycleLen) {
+                dots.forEach((d) => d.style.opacity = '1');
+                if (plusMark) plusMark.style.opacity = '0.6';
                 clearIntervalIfNeeded();
                 triggerGlow();
             }
@@ -2278,10 +2375,11 @@ function setupHeaderEllipsisAnimation() {
     controlsContainer?.addEventListener('mouseleave', resumeFromInteraction);
     controlsContainer?.addEventListener('focusin', pauseForInteraction);
     controlsContainer?.addEventListener('focusout', resumeFromInteraction);
-    ellipsisButton.addEventListener('focusin', pauseForInteraction);
-    ellipsisButton.addEventListener('focusout', resumeFromInteraction);
+    ellipsis.addEventListener('focusin', pauseForInteraction);
+    ellipsis.addEventListener('focusout', resumeFromInteraction);
 
-    ellipsisDots.textContent = '...';
+    dots.forEach((d) => d.style.opacity = '1');
+    if (plusMark) plusMark.style.opacity = '0.3';
     clearIntervalIfNeeded();
     clearTimeoutIfNeeded();
     clearGlowIfNeeded();
@@ -2686,6 +2784,7 @@ export function initializeUI() {
     setupFontSizeControls();
     setupThemePalette();
     setupHeaderEllipsisAnimation();
+    setupControlsRevealPersistence();
     setupMermaidThemeControls();
     // Make mermaidManager, DEFAULT_MERMAID_THEME, and updateMermaidThemeClass available globally for mermaid-theme-integration.js
     (window as any).mermaidManager = mermaidManager;
@@ -2715,6 +2814,36 @@ export function initializeUI() {
     // Setup brand hover for meditation overlay
     setupBrandHoverMeditationOverlay();
     setupStatusClickMeditationOverlay();
+}
+
+function setupControlsRevealPersistence() {
+    const controls = document.querySelector('.chat-window-controls') as HTMLElement | null;
+    const segment = controls?.closest('.weighted-segment.controls') as HTMLElement | null;
+    if (!controls) return;
+    let hideTimer: number | null = null;
+    const open = () => {
+        if (hideTimer !== null) {
+            window.clearTimeout(hideTimer);
+            hideTimer = null;
+        }
+        controls.dataset.expanded = 'true';
+    };
+    const scheduleClose = () => {
+        if (hideTimer !== null) {
+            window.clearTimeout(hideTimer);
+        }
+        // Collapse immediately (no hold), buttons also have transition disabled via CSS
+        hideTimer = window.setTimeout(() => {
+            delete controls.dataset.expanded;
+            hideTimer = null;
+        }, 0);
+    };
+    controls.addEventListener('mouseenter', open);
+    // Do not close on controls mouseleave; let the segment own the lifecycle
+    if (segment) {
+        segment.addEventListener('mouseenter', open);
+        segment.addEventListener('mouseleave', scheduleClose);
+    }
 }
 
 function setupCollapsibleFooter() {
