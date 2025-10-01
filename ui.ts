@@ -1207,9 +1207,13 @@ export async function renderEnhancedMarkdown(messageId: string, markdown: string
     const sanitizedText = sanitizeCodeFences(markdown);
     messageText.innerHTML = marked.parse(sanitizedText) as string;
     renderIcons(messageText);
-    messageText.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
-        hljs.highlightElement(block as HTMLElement);
-    });
+            try {
+                messageText.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
+                    hljs.highlightElement(block as HTMLElement);
+                });
+            } catch (highlightError) {
+                logger.warn('[UI] Code highlighting failed; rendering without HLJS', { error: (highlightError as Error)?.message });
+            }
     if (options?.skipMermaidProcessing) {
         await processMermaidBlocks(messageId, { skipRecovery: true });
     } else {
@@ -1909,9 +1913,13 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
             const sanitizedHtml = sanitizeCodeFences(processedHTML);
             messageTextElement.innerHTML = sanitizedHtml;
 
-            messageTextElement.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
-                hljs.highlightElement(block as HTMLElement);
-            });
+            try {
+                messageTextElement.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
+                    hljs.highlightElement(block as HTMLElement);
+                });
+            } catch (highlightError) {
+                logger.warn('[UI] Code highlighting failed during stream update', { error: (highlightError as Error)?.message });
+            }
 
             addLanguageDisplayToCodeBlocks_internal(messageTextElement);
             const enhancementContext: CodeBlockEnhancementContext = { messageId };

@@ -169,6 +169,44 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
                 }
             }
         }
+        // Fallback: if no forward annotation found, also look backward once
+        if (!annotationElement) {
+            const prev = getNextElementSkippingArtifacts(figure.previousSibling);
+            if (prev instanceof HTMLElement) {
+                const tagName = prev.tagName.toLowerCase();
+                if (tagName === 'p') {
+                    const firstChild = prev.firstElementChild;
+                    const trimmed = prev.textContent ? prev.textContent.trim() : '';
+                    if (firstChild && firstChild.tagName.toLowerCase() === 'em' && prev.childElementCount === 1 && trimmed.length > 0) {
+                        annotationElement = prev;
+                    }
+                } else if (tagName === 'pre') {
+                    const codeChild = prev.firstElementChild;
+                    const codeTag = codeChild && codeChild.tagName ? codeChild.tagName.toLowerCase() : '';
+                    const rawCaption = codeChild && codeChild.textContent ? codeChild.textContent.trim() : '';
+                    const newlineCount = rawCaption ? (rawCaption.match(/\n/g) || []).length : 0;
+                    if (codeTag === 'code' && rawCaption && rawCaption.length <= 500 && newlineCount <= 1) {
+                        let cleaned = rawCaption.replace(/^```/, '').replace(/```$/, '').trim();
+                        let emphasizeText = cleaned;
+                        if (emphasizeText.startsWith('*') && emphasizeText.endsWith('*') && emphasizeText.length > 2) {
+                            emphasizeText = emphasizeText.slice(1, -1).trim();
+                        }
+                        const hasCodeIndicators = /[{};=<>]/.test(emphasizeText) || /\b(function|class|return)\b/i.test(emphasizeText);
+                        if (emphasizeText && !hasCodeIndicators) {
+                            const paragraph = document.createElement('p');
+                            const emphasis = document.createElement('em');
+                            emphasis.textContent = emphasizeText;
+                            paragraph.appendChild(emphasis);
+                            paragraph.classList.add('mermaid-annotation');
+                            prev.remove();
+                            figure.appendChild(paragraph);
+                            annotationElement = paragraph;
+                        }
+                    }
+                }
+            }
+        }
+
         if (annotationElement) {
             const sentenceCount = annotationElement.textContent
                 ? annotationElement.textContent.split(/[.!?]+/).map((segment) => segment.trim()).filter((segment) => segment.length > 0).length

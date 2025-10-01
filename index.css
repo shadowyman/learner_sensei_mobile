@@ -2092,7 +2092,7 @@ body::before {
     max-height: 85vh;
     min-height: 200px;
     padding: 24px 24px 12px;
-    background: rgba(15, 23, 42, 0.16);
+    background: rgba(15, 23, 42, 0.56);
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
     border: 1px solid var(--glass-border);
@@ -2171,6 +2171,11 @@ body::before {
 
 #selection-sensei-transcript .message-bubble[data-sender="user"] {
     margin-left: auto;
+}
+
+/* Center only Sensei bubbles inside the Selection Sensei transcript */
+#selection-sensei-transcript .message-bubble[data-sender="sensei"] {
+    align-self: center !important;
 }
 
 #selection-sensei-composer {
