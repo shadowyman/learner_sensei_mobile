@@ -3,7 +3,6 @@
 **Timestamp:** 2025-09-26T18:06:51Z
 **Triggering Protocol:** Mandatory Architectural Synthesis Protocol
 
-## Entry Points & Scope
 - `index.tsx`: application bootstrap driving curriculum loading, UI init, and AI integration.
 - `codeEditorModal.ts`: CodeMirror-based modal sourcing unlisted dependencies.
 - `debugMode.ts`, `enhancementManager.ts`, `geminiService.ts`, `moduleSelectionHandler.ts`, `selectionSensei.ts`, `ui.ts`, `notepad.ts`: consumers of @google/genai, marked, mermaid, etc.

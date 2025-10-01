@@ -26,7 +26,7 @@
         </step>
         <step number="2">
             **Static Execution Trace:**
-            *   Harvest call edges (`tmp/analysis/calls.json` or `focused_trace.txt`) and side-effect facts (`tmp/analysis/functions.json`) to populate the static execution trace and risk register.
+            *   Harvest call edges (`tmp/analysis/calls.json` or `focused_trace.txt`) and side-effect facts (`tmp/analysis/functions.json`) to populate the static execution trace for ALL entry points and risk register.
             *   USER VARIOUS RG CALL COMBINATIONS TO DISCOVER DIFFERENT CASES
             *   Document the reconciled sequence in the Static Execution Trace artifact so downstream validation knows exactly which functions must be covered.
             *   If a focused trace was generated, attach `focused_trace.txt` and use it as the baseline for downstream validation and test coverage.
@@ -48,6 +48,13 @@
             *   Deliverables for downstream protocols:
                 - **Risk Register**: extract all High-cost/High-blast side effects with owning function and file.
                 - **Coverage Checklist**: the list of function IDs from the (focused) Static Execution Trace to be validated by logs/tests during Implementation Step 10.
+        </step>
+        <step number="3.5">
+            **Ground Analysis in Source Files:**
+            *   For every function listed in the Static Execution Trace, open the corresponding source file and read the implementation in context. Use tools such as `sed -n '<start>,<end>p' <file>` or `rg -n "<functionName>" <file>` (followed by `sed`) to inspect the exact code block.
+            *   While reviewing, confirm the call sequence, data mutations, guard conditions, and logging so your mental model matches the real code (not just analyzer output).
+            *   Capture any surprises or uncertainties discovered during this source scan in the Unknowns Register (Step 3). Update dependencies/side-effect notes if your direct inspection reveals additional behavior.
+            *   Do not advance to Step 4 until you have personally inspected every function in the trace.
         </step>
         <step number="4">
             **Declare Initial Understanding:**

@@ -131,6 +131,7 @@ const conceptNavPrevButton = document.getElementById('concept-nav-prev') as HTML
 const conceptNavNextButton = document.getElementById('concept-nav-next') as HTMLButtonElement | null;
 const chunkNavPrevButton = document.getElementById('chunk-nav-prev') as HTMLButtonElement | null;
 const chunkNavNextButton = document.getElementById('chunk-nav-next') as HTMLButtonElement | null;
+const chatWindowControlsElement = document.querySelector('.chat-window-controls') as HTMLDivElement | null;
 
 const footerConfidence = document.getElementById('footer-confidence') as HTMLSpanElement;
 const footerConfusion = document.getElementById('footer-confusion') as HTMLSpanElement;
@@ -170,10 +171,172 @@ const ICONS: { [key: string]: string } = {
     fullscreen: `⛶`,
     font_decrease: `Aa`,
     font_increase: `Aa`,
+    palette: `🎨`,
     send: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.39 1.39L4.4 12l-2.4 7.4a1 1 0 0 0 1.4 1.4Z"/></svg>`,
     reload: `↻`,
     enhance: `✨`,
 };
+
+interface ThemeOption {
+    id: string;
+    label: string;
+    main: string;
+    radialPrimary: string;
+    radialSecondary: string;
+    overlayPrimary: string;
+    overlaySecondary: string;
+    overlayTertiary: string;
+    preview: string;
+}
+
+const THEME_STORAGE_KEY = 'sensei-theme-palette';
+
+const THEME_OPTIONS: ThemeOption[] = [
+    {
+        id: 'ocean-night',
+        label: 'Sensei Default',
+        main: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(196, 229, 56, 0.03) 0%, transparent 40%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 40%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%)',
+        preview: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)'
+    },
+    {
+        id: 'evergreen-haze',
+        label: 'Evergreen Haze',
+        main: 'linear-gradient(135deg, #08110a 0%, #0f2012 50%, #0b160d 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(34, 197, 94, 0.12) 0%, transparent 50%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(22, 163, 74, 0.08) 0%, transparent 50%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(134, 239, 172, 0.05) 0%, transparent 40%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(34, 197, 94, 0.04) 0%, transparent 40%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(52, 211, 153, 0.04) 0%, transparent 40%)',
+        preview: 'linear-gradient(135deg, #08110a 0%, #0f2012 50%, #0b160d 100%)'
+    },
+    {
+        id: 'ember-glow',
+        label: 'Ember Glow',
+        main: 'linear-gradient(135deg, #1b0f05 0%, #2c1a0a 50%, #3a1f0d 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(255, 149, 0, 0.14) 0%, transparent 50%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(255, 94, 0, 0.08) 0%, transparent 50%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(255, 214, 165, 0.06) 0%, transparent 40%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(255, 173, 109, 0.05) 0%, transparent 40%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(255, 140, 66, 0.05) 0%, transparent 40%)',
+        preview: 'linear-gradient(135deg, #1b0f05 0%, #2c1a0a 50%, #3a1f0d 100%)'
+    },
+    {
+        id: 'midnight-amethyst',
+        label: 'Midnight Amethyst',
+        main: 'linear-gradient(135deg, #100516 0%, #190b2a 50%, #1f1436 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(168, 85, 247, 0.12) 0%, transparent 50%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.08) 0%, transparent 50%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(192, 132, 252, 0.05) 0%, transparent 40%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(147, 197, 253, 0.05) 0%, transparent 40%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(167, 139, 250, 0.05) 0%, transparent 40%)',
+        preview: 'linear-gradient(135deg, #100516 0%, #190b2a 50%, #1f1436 100%)'
+    },
+    {
+        id: 'glacial-fjord',
+        label: 'Glacial Fjord',
+        main: 'linear-gradient(135deg, #03121a 0%, #05202c 50%, #07303f 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(45, 212, 191, 0.12) 0%, transparent 50%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(56, 189, 248, 0.08) 0%, transparent 50%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(34, 211, 238, 0.05) 0%, transparent 40%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 40%)',
+        preview: 'linear-gradient(135deg, #03121a 0%, #05202c 50%, #07303f 100%)'
+    },
+    {
+        id: 'aurora-field',
+        label: 'Aurora Field',
+        main: 'linear-gradient(135deg, #07140d 0%, #0c2915 50%, #12351d 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(190, 242, 100, 0.14) 0%, transparent 50%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(74, 222, 128, 0.1) 0%, transparent 50%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(217, 249, 157, 0.06) 0%, transparent 40%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(163, 230, 53, 0.05) 0%, transparent 40%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(101, 163, 13, 0.05) 0%, transparent 40%)',
+        preview: 'linear-gradient(135deg, #07140d 0%, #0c2915 50%, #12351d 100%)'
+    },
+    {
+        id: 'nebula-rose',
+        label: 'Nebula Rose',
+        main: 'linear-gradient(135deg, #180310 0%, #2b0521 50%, #3a0a2e 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(244, 114, 182, 0.12) 0%, transparent 50%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 50%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(249, 168, 212, 0.06) 0%, transparent 40%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(244, 114, 182, 0.05) 0%, transparent 40%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(217, 70, 239, 0.05) 0%, transparent 40%)',
+        preview: 'linear-gradient(135deg, #180310 0%, #2b0521 50%, #3a0a2e 100%)'
+    },
+    {
+        id: 'storm-forge',
+        label: 'Storm Forge',
+        main: 'linear-gradient(135deg, #041028 0%, #0a2242 45%, #14577a 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 55%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(56, 189, 248, 0.16) 0%, transparent 55%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(148, 163, 184, 0.1) 0%, transparent 45%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(96, 165, 250, 0.12) 0%, transparent 45%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.12) 0%, transparent 45%)',
+        preview: 'linear-gradient(135deg, #041028 0%, #0a2242 45%, #14577a 100%)'
+    },
+    {
+        id: 'dusk-harvest',
+        label: 'Dusk Harvest',
+        main: 'linear-gradient(135deg, #2e0618 0%, #5c142e 45%, #a23037 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(236, 72, 153, 0.24) 0%, transparent 55%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.2) 0%, transparent 55%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(255, 221, 199, 0.1) 0%, transparent 45%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(236, 72, 153, 0.12) 0%, transparent 45%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(251, 191, 36, 0.12) 0%, transparent 45%)',
+        preview: 'linear-gradient(135deg, #2e0618 0%, #5c142e 45%, #a23037 100%)'
+    },
+    {
+        id: 'bronze-mist',
+        label: 'Bronze Mist',
+        main: 'linear-gradient(135deg, #1d1203 0%, #3a2809 45%, #6f4c0c 100%)',
+        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(255, 193, 7, 0.26) 0%, transparent 55%)',
+        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(255, 145, 0, 0.2) 0%, transparent 55%)',
+        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(253, 224, 71, 0.14) 0%, transparent 45%)',
+        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(250, 204, 21, 0.12) 0%, transparent 45%)',
+        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(217, 119, 6, 0.12) 0%, transparent 45%)',
+        preview: 'linear-gradient(135deg, #1d1203 0%, #3a2809 45%, #6f4c0c 100%)'
+    }
+];
+
+
+function getThemeOptionById(id: string): ThemeOption | undefined {
+    return THEME_OPTIONS.find(option => option.id === id);
+}
+
+function setThemeVariables(option: ThemeOption): void {
+    const root = document.documentElement;
+    root.style.setProperty('--background-main', option.main);
+    root.style.setProperty('--background-body-radial-primary', option.radialPrimary);
+    root.style.setProperty('--background-body-radial-secondary', option.radialSecondary);
+    root.style.setProperty('--background-overlay-primary', option.overlayPrimary);
+    root.style.setProperty('--background-overlay-secondary', option.overlaySecondary);
+    root.style.setProperty('--background-overlay-tertiary', option.overlayTertiary);
+}
+
+function setControlsExpanded(expanded: boolean): void {
+    if (!chatWindowControlsElement) return;
+    if (expanded) {
+        chatWindowControlsElement.dataset.expanded = 'true';
+    } else {
+        delete chatWindowControlsElement.dataset.expanded;
+    }
+}
+
+let currentThemeId = THEME_OPTIONS[0].id;
+let themePalettePanel: HTMLDivElement | null = null;
+let themePaletteTrigger: HTMLButtonElement | null = null;
+let themePaletteVisible = false;
+let themePaletteSwatches: HTMLButtonElement[] = [];
+let themePaletteListenersRegistered = false;
+let themePaletteHideTimeout: number | null = null;
+let previewThemeId: string | null = null;
+
 
 
 export function getPhaseDisplayName(phase: Phase): string {
@@ -1709,6 +1872,213 @@ function setupFontSizeControls() {
     });
 }
 
+function applyTheme(option: ThemeOption) {
+    setThemeVariables(option);
+    currentThemeId = option.id;
+    try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, option.id);
+    } catch (_) {
+    }
+    previewThemeId = null;
+    if (themePaletteSwatches.length > 0) {
+        setActiveTheme(option.id, themePaletteSwatches);
+    }
+}
+
+function setActiveTheme(themeId: string, swatches: HTMLButtonElement[]) {
+    swatches.forEach(button => {
+        if (button.dataset.themeId === themeId) {
+            button.dataset.selected = 'true';
+        } else {
+            button.removeAttribute('data-selected');
+        }
+    });
+}
+
+function clearThemePaletteHideTimeout() {
+    if (themePaletteHideTimeout !== null) {
+        window.clearTimeout(themePaletteHideTimeout);
+        themePaletteHideTimeout = null;
+    }
+}
+
+function scheduleThemePaletteHide() {
+    clearThemePaletteHideTimeout();
+    themePaletteHideTimeout = window.setTimeout(() => {
+        hideThemePalette();
+    }, 150);
+}
+
+function positionThemePalette() {
+    if (!themePalettePanel || !themePaletteTrigger) return;
+    const triggerRect = themePaletteTrigger.getBoundingClientRect();
+    const panelRect = themePalettePanel.getBoundingClientRect();
+    const offset = 12;
+    const viewportMargin = 16;
+    const top = triggerRect.bottom + window.scrollY + offset;
+    let left = triggerRect.left + (triggerRect.width / 2) - (panelRect.width / 2) + window.scrollX;
+    const minLeft = window.scrollX + viewportMargin;
+    const maxLeft = window.scrollX + window.innerWidth - panelRect.width - viewportMargin;
+    if (left < minLeft) left = minLeft;
+    if (left > maxLeft) left = Math.max(minLeft, maxLeft);
+    themePalettePanel.style.top = `${top}px`;
+    themePalettePanel.style.left = `${left}px`;
+}
+
+function setThemePaletteVisibility(visible: boolean) {
+    if (!themePalettePanel || !themePaletteTrigger) return;
+    clearThemePaletteHideTimeout();
+    setControlsExpanded(visible);
+    themePalettePanel.dataset.visible = visible ? 'true' : 'false';
+    themePalettePanel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    themePaletteTrigger.setAttribute('aria-expanded', visible ? 'true' : 'false');
+    themePaletteVisible = visible;
+    if (visible) {
+        positionThemePalette();
+        const active = themePaletteSwatches.find(button => button.dataset.themeId === currentThemeId);
+        if (active) active.focus();
+    } else {
+        previewThemeId = null;
+        const activeTheme = getThemeOptionById(currentThemeId);
+        if (activeTheme) {
+            setThemeVariables(activeTheme);
+        }
+        const activeElement = document.activeElement as HTMLElement | null;
+        if (activeElement && themePalettePanel.contains(activeElement) && themePaletteTrigger) {
+            themePaletteTrigger.focus();
+        }
+    }
+}
+
+function showThemePalette() {
+    setThemePaletteVisibility(true);
+}
+
+function hideThemePalette() {
+    setThemePaletteVisibility(false);
+}
+
+function setupThemePalette() {
+    const trigger = document.getElementById('theme-button') as HTMLButtonElement | null;
+    if (!trigger) return;
+
+    themePaletteTrigger = trigger;
+
+    if (!themePalettePanel) {
+        themePalettePanel = document.createElement('div');
+        themePalettePanel.id = 'theme-palette-panel';
+        themePalettePanel.className = 'theme-palette-overlay';
+        document.body.appendChild(themePalettePanel);
+    }
+
+    const panel = themePalettePanel;
+    panel.innerHTML = '';
+    panel.dataset.visible = 'false';
+    panel.setAttribute('aria-hidden', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const grid = document.createElement('div');
+    grid.className = 'theme-palette-grid';
+    panel.appendChild(grid);
+
+    const swatches: HTMLButtonElement[] = [];
+    THEME_OPTIONS.forEach(option => {
+        const swatch = document.createElement('button');
+        swatch.type = 'button';
+        swatch.className = 'theme-swatch';
+        swatch.dataset.themeId = option.id;
+        swatch.style.setProperty('--swatch-preview', option.preview);
+        swatch.setAttribute('aria-label', option.label);
+        swatch.addEventListener('click', () => {
+            applyTheme(option);
+            hideThemePalette();
+        });
+        swatch.addEventListener('mouseenter', () => {
+            previewThemeId = option.id;
+            setThemeVariables(option);
+        });
+        swatch.addEventListener('mouseleave', () => {
+            if (previewThemeId === option.id) {
+                previewThemeId = null;
+                const activeTheme = getThemeOptionById(currentThemeId);
+                if (activeTheme) {
+                    setThemeVariables(activeTheme);
+                }
+            }
+        });
+        grid.appendChild(swatch);
+        swatches.push(swatch);
+    });
+
+    themePaletteSwatches = swatches;
+
+    let storedId: string | null = null;
+    try {
+        storedId = window.localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (_) {
+        storedId = null;
+    }
+    const storedOption = storedId ? THEME_OPTIONS.find(option => option.id === storedId) : undefined;
+    if (storedOption) {
+        applyTheme(storedOption);
+    }
+    currentThemeId = storedOption ? storedOption.id : currentThemeId;
+    setActiveTheme(currentThemeId, swatches);
+
+    trigger.onclick = event => {
+        event.stopPropagation();
+        if (themePaletteVisible) {
+            hideThemePalette();
+        } else {
+            showThemePalette();
+        }
+    };
+
+    trigger.addEventListener('mouseenter', () => {
+        if (themePaletteVisible) clearThemePaletteHideTimeout();
+    });
+    trigger.addEventListener('mouseleave', () => {
+        if (themePaletteVisible) scheduleThemePaletteHide();
+    });
+
+    panel.onclick = event => {
+        event.stopPropagation();
+    };
+
+    panel.addEventListener('mouseenter', () => {
+        if (themePaletteVisible) clearThemePaletteHideTimeout();
+    });
+    panel.addEventListener('mouseleave', () => {
+        if (themePaletteVisible) {
+            scheduleThemePaletteHide();
+            previewThemeId = null;
+            const activeTheme = getThemeOptionById(currentThemeId);
+            if (activeTheme) {
+                setThemeVariables(activeTheme);
+            }
+        }
+    });
+
+    if (!themePaletteListenersRegistered) {
+        document.addEventListener('click', () => {
+            if (themePaletteVisible) hideThemePalette();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && themePaletteVisible) {
+                hideThemePalette();
+                if (themePaletteTrigger) themePaletteTrigger.focus();
+            }
+        });
+        window.addEventListener('resize', () => {
+            if (themePaletteVisible) positionThemePalette();
+        });
+        window.addEventListener('scroll', () => {
+            if (themePaletteVisible) positionThemePalette();
+        }, { passive: true });
+        themePaletteListenersRegistered = true;
+    }
+}
+
 function setupHeaderEllipsisAnimation() {
     const ellipsisButton = document.getElementById('font-size-toggle') as HTMLButtonElement;
     if (!ellipsisButton) return;
@@ -2210,6 +2580,7 @@ export function initializeUI() {
     const mainUserInput = document.getElementById('user-input') as HTMLTextAreaElement;
     renderIcons();
     setupFontSizeControls();
+    setupThemePalette();
     setupHeaderEllipsisAnimation();
     setupMermaidThemeControls();
     // Make mermaidManager, DEFAULT_MERMAID_THEME, and updateMermaidThemeClass available globally for mermaid-theme-integration.js
