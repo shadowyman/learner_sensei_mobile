@@ -189,7 +189,7 @@ export async function llmExtractAndPlanTeachingOrder(
                         return point;
                     })
                 );
-                
+
                 return transformedPlan;
             } else {
                 logger.error('Sensei:[SOCRATIC_V4] Invalid Socratic teaching plan structure:', parsed);
@@ -232,35 +232,9 @@ export async function llmExtractAndPlanTeachingOrder(
                 const transformedPlan: TeachingPoint[][] = parsed.teaching_plan.map((chunk: any[]) =>
                     chunk.map((item: any) => ({
                         text: item.text,
-                        kcValue: uniformKcValue // Calculated uniform KC value
+                        kcValue: uniformKcValue
                     }))
                 );
-
-                // OPTION 2 FIX: Redistribute KC to exclude titles (first item in each chunk)
-                // The first teaching point in each chunk is the concept title by design
-                // Titles should not contribute to KC since they're duplicated across chunks
-
-                // Count non-title items (all items except first in each chunk)
-                const numTitles = totalNumChunks; // One title per chunk
-                const numNonTitlePoints = totalNumPoints - numTitles;
-
-                if (numNonTitlePoints > 0) {
-                    // Calculate new KC value for non-title items
-                    const adjustedKcValue = PHASE_KC_TOTAL / numNonTitlePoints;
-
-                    // Apply the redistribution
-                    transformedPlan.forEach((chunk, chunkIndex) => {
-                        chunk.forEach((item, itemIndex) => {
-                            if (itemIndex === 0) {
-                                // First item is the title - gets no KC
-                                item.kcValue = 0;
-                            } else {
-                                // Non-title items get the adjusted KC value
-                                item.kcValue = adjustedKcValue;
-                            }
-                        });
-                    });
-                }
 
                 return transformedPlan;
             } else {

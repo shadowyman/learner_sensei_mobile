@@ -252,3 +252,23 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Review Artifact**: `code_review/review_selection_sensei_modal_close_bug_v6.html`
 
 **Keywords for Future Reference**: selection sensei, modal cancellation, modalConversationToken, async guard, stale response, follow-up reset
+
+## Bug Fix #15: Teaching Plan Title Assumption Stalled Chunk KC Awards
+
+**Issue**: Standard-phase teaching plans treated the first action item in each chunk as a zero-KC "title," causing the first substantive teaching point to award no mastery and lowering KC coverage.
+
+**Root Cause**: `geminiService.llmExtractAndPlanTeachingOrder` redistributed the KC budget under the assumption that the first item was a non-instructional title, zeroing its `kcValue`. Downstream validation (`curriculum.ts::validateAndProcessTeachingPlan`) allowed the zero when `itemIndex === 0`, so the problem escaped detection and chunks advanced only because the remaining items were inflated to keep totals at `PHASE_KC_TOTAL`.
+
+**Discovery Method**: Manual investigation with temporary `[TEACHING_PLAN_RAW]` logging plus static analysis of advancement logic (`advanceCurriculumState`) and learner-model KC awarding.
+
+**Fix Applied**: Removed the redistribution block from `geminiService.ts` and tightened `validateAndProcessTeachingPlan` to require positive KC values for every action item, ensuring all teaching points contribute to mastery and eliminating the legacy title exemption.
+
+**Related Files**:
+- `geminiService.ts:226`
+- `curriculum.ts:277`
+
+**Backup**: `backup/sensei_backup_temp_logging_title_chunks_20251001_083357.zip`
+
+**Review Artifact**: N/A (hotfix logged directly)
+
+**Keywords for Future Reference**: teaching plan, KC normalization, chunk advancement, title assumption, PHASE_KC_TOTAL

@@ -60,6 +60,14 @@
     --border-primary: var(--glass-border);
     --accent-primary: var(--accent);
     --accent-primary-hover: #D4F548;
+    --sensei-text: #d1fae5;
+    --sensei-bubble-background: rgba(30, 41, 59, 0.32);
+    --sensei-bold-color: #a2ff9a;
+    --sensei-code-background: rgba(34, 197, 94, 0.12);
+    --sensei-code-text: #16a34a;
+    --sensei-code-border: rgba(34, 197, 94, 0.15);
+    --sensei-module-text: #86efac;
+    --sensei-heading-gradient: linear-gradient(135deg, #16a34a, #22c55e);
 
     /* Component-Specific Colors */
     --color-bubble-user-bg: #373e47;
@@ -924,10 +932,10 @@ body::before {
 
 .message-bubble[data-sender="sensei"] {
     align-self: flex-start;
-    background: rgba(30, 41, 59, 0.32);
+    background: var(--sensei-bubble-background, rgba(30, 41, 59, 0.32));
     border-color: rgba(34, 197, 94, 0.15);
     box-shadow: 0 0 16px rgba(0, 0, 0, 0.2);
-    color: #d1fae5;
+    color: var(--sensei-text, #d1fae5);
     font-size: var(--font-scale-sensei-message);
     padding: 15px 22px;
 }
@@ -1083,7 +1091,7 @@ body::before {
 /* Bold text styling for sensei messages - also add underline */
 .message-bubble[data-sender="sensei"] .markdown-content strong,
 .message-bubble[data-sender="sensei"] .markdown-content b {
-    color: #A2FF9A;
+    color: var(--sensei-bold-color, #a2ff9a);
     text-decoration: underline;
     text-decoration-color: currentColor;
     text-underline-offset: 2px;
@@ -1184,6 +1192,12 @@ body::before {
     font-size: 0.9em;
     border: 1px solid rgba(34, 197, 94, 0.15);
     text-decoration: none;
+}
+
+.message-bubble[data-sender="sensei"] .markdown-content code {
+    background: var(--sensei-code-background, rgba(34, 197, 94, 0.12));
+    color: var(--sensei-code-text, #16a34a);
+    border-color: var(--sensei-code-border, rgba(34, 197, 94, 0.15));
 }
 
 /* Reset styles for <code> inside a <pre> block */
@@ -1300,7 +1314,11 @@ body::before {
 .message-bubble[data-sender="sensei"] .markdown-content h1,
 .message-bubble[data-sender="sensei"] .markdown-content h2,
 .message-bubble[data-sender="sensei"] .markdown-content h3 {
-    color: var(--accent-primary);
+    background: var(--sensei-heading-gradient, linear-gradient(135deg, #16a34a, #22c55e));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--sensei-bold-color, var(--accent-primary));
 }
 
 
@@ -2627,7 +2645,7 @@ body::before {
 
 /* Module buttons within sensei messages */
 .message-bubble[data-sender="sensei"] .module-button {
-    color: #86efac;
+    color: var(--sensei-module-text, #86efac);
     background-color: rgba(134, 239, 172, 0.1);
     border-color: rgba(134, 239, 172, 0.2);
 }

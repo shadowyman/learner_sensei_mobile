@@ -274,8 +274,7 @@ function validateAndProcessTeachingPlan(teachingPlan: TeachingPoint[][] | null, 
                 throw new TeachingPlanValidationError(message, { ...planDetails, chunkIndex: chunkIndex + 1, itemIndex: itemIndex + 1 });
             }
 
-            const isTitleItem = itemIndex === 0;
-            const invalidKcValue = typeof kcValue !== 'number' || Number.isNaN(kcValue) || kcValue < 0 || (!isTitleItem && kcValue === 0);
+            const invalidKcValue = typeof kcValue !== 'number' || Number.isNaN(kcValue) || kcValue <= 0;
             if (invalidKcValue) {
                 const message = `Action item ${itemIndex + 1} in chunk ${chunkIndex + 1} has invalid kcValue.`;
                 logger.error('[TEACHING_PLAN_INVALID]', {
