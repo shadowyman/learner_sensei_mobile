@@ -79,10 +79,10 @@
         </step>
         <step number="9">
             **Evidence-Based Validation & Cleanup**:
-            *   **Action**: Run `npx tsc --noEmit` for all feature work. Additionally, if the mission adds or modifies functional tests, run `npx tsc --noEmit -p tsconfig.jest.json`. Resolve any reported issues before continuing.
-            *   **Action**: Access `./logs/console_logs.log`. These logs will be populated after user tests product.
+            *   **Action**: Run `npx tsc --noEmit` for all feature work. Additionally, if the mission adds or modifies functional tests, run `npx test:lint`. Resolve any reported issues before continuing.
+            *   **Action**: Access `./logs/console_logs.log`. These logs will be populated after user tests product in previous step.
             *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
-            *   **Action**: Ensure you run integrated functional tests by running the tests with --silent --bail --noStackTrace flags.
+            *   **Action**: Ensure you run integrated functional tests by running npm test <test_name>.
             *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
             *   *If Validation Fails*: Announce that the evidence in the logs does not match the expected outcome. Debug the issue with additional logs or by revising the code changes.
         </step>
