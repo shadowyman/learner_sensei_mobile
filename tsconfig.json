@@ -20,7 +20,11 @@
     "typeRoots": [
       "./types",
       "./node_modules/@types"
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "mocks/*": ["__mocks__/*"]
+    }
   },
   "include": [
     "**/*.ts",

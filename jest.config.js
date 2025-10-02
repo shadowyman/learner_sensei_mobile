@@ -46,6 +46,7 @@ const config = {
     '^\\./ui\\.js$': '<rootDir>/ui.ts',
     '^\\./curriculum\\.js$': '<rootDir>/curriculum.ts',
     '^\\./mermaidManager\\.js$': '<rootDir>/mermaidManager.ts',
+    '^mocks/(.*)$': '<rootDir>/__mocks__/$1',
     '^.+\\.(css|sass|scss|less)$': '<rootDir>/__mocks__/styleStub.js',
     '^.+\\.(gif|ttf|eot|svg|png|jpg|jpeg|webp)$': '<rootDir>/__mocks__/assetStub.js'
   },

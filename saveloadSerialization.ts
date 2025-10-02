@@ -7,33 +7,37 @@
  * Custom JSON replacer for serializing complex types
  * Converts Sets, Maps, Dates, and undefined values to JSON-compatible format
  */
-export function serializeForSave(key: string, value: any): any {
-    
-    if (value instanceof Set) {
-        return {
-            __type: 'Set',
-            data: Array.from(value)
-        };
-    }
-    
-    if (value instanceof Map) {
-        return {
-            __type: 'Map',
-            data: Array.from(value.entries())
-        };
-    }
-    
-    if (value instanceof Date) {
+export function serializeForSave(this: any, key: string, value: any): any {
+    const parentCandidate = typeof this === 'object' && this !== null ? (this as Record<string, unknown>)[key] : undefined;
+    const actualValue = parentCandidate instanceof Date || parentCandidate instanceof Set || parentCandidate instanceof Map
+        ? parentCandidate
+        : value;
+
+    if (actualValue instanceof Date) {
         return {
             __type: 'Date',
-            data: value.toISOString()
+            data: actualValue.toISOString()
         };
     }
-    
+
+    if (actualValue instanceof Set) {
+        return {
+            __type: 'Set',
+            data: Array.from(actualValue)
+        };
+    }
+
+    if (actualValue instanceof Map) {
+        return {
+            __type: 'Map',
+            data: Array.from(actualValue.entries())
+        };
+    }
+
     if (value === undefined) {
         return null;
     }
-    
+
     return value;
 }
 

@@ -138,11 +138,16 @@ export class SaveLoadProgressManager {
 
             // Re-initialize SelectionSensei after DOM has been rebuilt
             // Add a small delay to ensure DOM is fully settled
+            const w = window as any;
+            const loadSelectionSensei = w.__selectionSenseiLoader ?? (() => import('./selectionSensei.js'));
             setTimeout(async () => {
-                const { reinitializeSelectionSensei } = await import('./selectionSensei.js');
-                const w = window as any;
-                if (w.ai) {
-                    reinitializeSelectionSensei(w.ai);
+                try {
+                    const { reinitializeSelectionSensei } = await loadSelectionSensei();
+                    if (w.ai) {
+                        reinitializeSelectionSensei(w.ai);
+                    }
+                } catch (error) {
+                    logger.error('[SAVELOAD_SELECTION_SENSEI] Failed to reinitialize SelectionSensei', { error });
                 }
             }, 100);
 
