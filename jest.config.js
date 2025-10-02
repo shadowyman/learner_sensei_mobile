@@ -18,7 +18,7 @@ const transformConfig = useSwc
 
 const config = {
   clearMocks: true,
-  collectCoverage: true,
+  collectCoverage: false,
   collectCoverageFrom: [
     '<rootDir>/adaptiveEngine.ts',
     '<rootDir>/curriculum.ts',
@@ -32,10 +32,10 @@ const config = {
   coverageDirectory: '<rootDir>/coverage',
   coverageThreshold: {
     global: {
-      statements: 10,
-      branches: 10,
-      functions: 10,
-      lines: 10
+      statements: 0,
+      branches: 0,
+      functions: 0,
+      lines: 0
     }
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],

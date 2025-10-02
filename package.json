@@ -4,7 +4,8 @@
   "description": "AI-powered personalized education system",
   "main": "index.tsx",
   "scripts": {
-    "test": "jest --coverage",
+    "test": "jest --silent --bail --noStackTrace",
+    "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
     "snyk-test": "snyk test",
     "snyk-monitor": "snyk monitor",

@@ -32,8 +32,7 @@ jest.mock('../mermaidErrorRecovery', () => ({
 
 jest.mock('../notepad', () => ({
   notepad: {
-    updateActiveConceptIndex: jest.fn(),
-    updateActiveModuleIndex: jest.fn()
+    setActiveCurriculumContext: jest.fn()
   }
 }))
 

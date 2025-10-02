@@ -4401,7 +4401,7 @@ svg[aria-roledescription="error"] {
     gap: 12px;
 }
 
-.notepad-header-controls .notepad-export-btn {
+.notepad-export-btn {
     padding: 8px 16px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -4417,16 +4417,16 @@ svg[aria-roledescription="error"] {
     justify-content: center;
 }
 
-.notepad-header-controls .notepad-export-btn:hover {
+.notepad-export-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.notepad-header-controls .notepad-export-btn:active {
+.notepad-export-btn:active {
     transform: translateY(0);
 }
 
-.notepad-header-controls .notepad-export-btn:disabled {
+.notepad-export-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;

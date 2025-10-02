@@ -1,9 +1,7 @@
 <protocol name="MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL">
     # ====MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL====
     <initial_action>
-        Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol (including the Step 9 user-test prompt) and announce each phase as you begin.
-        Comply with the Main Directive main-only restriction before proceeding.
-        Prefer analyzer outputs for context gathering; only inspect files manually when the tooling cannot supply the necessary detail.
+        WARNING MUST Initialize `update_plan` with every step of this protocol, total 13 including step 5.5) and announce each phase as you begin.
     </initial_action>
     <step number="0">
         **Step 0: Core Analysis**
@@ -77,14 +75,14 @@
             *   **Action**: Before writing tests or fixtures, reaffirm compliance with the `functional_test_policy` (data sourcing, mocks, determinism, coverage) and adjust the implementation if gaps appear.
         </step>
         <step number="8">
-            **Prompt for User Test**: Once all quality gates are passed, prompt me to run the code to generate the logs, and to let you know when the test is complete.
+            **Prompt for User Test**: Once all quality gates are passed, prompt me to run the code to generate the logs, and to let you know when the test is complete. STOP AND WAIT
         </step>
         <step number="9">
             **Evidence-Based Validation & Cleanup**:
-            *   **Action**: Run `npx tsc --noEmit` and resolve any reported issues before continuing.
-            *   **Action**: Access `./logs/console_logs.log`.
+            *   **Action**: Run `npx tsc --noEmit` for all feature work. Additionally, if the mission adds or modifies functional tests, run `npx tsc --noEmit -p tsconfig.jest.json`. Resolve any reported issues before continuing.
+            *   **Action**: Access `./logs/console_logs.log`. These logs will be populated after user tests product.
             *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
-            *   **Action**: Walk the analyzer-mapped Static Execution Trace (`calls.json`/`functions.json`) as you review evidence; mark items complete the moment new logs, tests, or exploratory reasoning satisfy them, note any gaps immediately, and update the mission-state document with the reconciled results.
+            *   **Action**: Ensure you run integrated functional tests by running the tests with --silent --bail --noStackTrace flags.
             *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
             *   *If Validation Fails*: Announce that the evidence in the logs does not match the expected outcome. Debug the issue with additional logs or by revising the code changes.
         </step>

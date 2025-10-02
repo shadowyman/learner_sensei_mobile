@@ -76,6 +76,25 @@ function logCustomConcept(event: string, payload?: Record<string, unknown>): voi
     }
 }
 
+function parseTimestamp(value: any): Date {
+    if (value instanceof Date) {
+        return new Date(value.getTime());
+    }
+    if (typeof value === 'number') {
+        const fromNumber = new Date(value);
+        if (!Number.isNaN(fromNumber.getTime())) {
+            return fromNumber;
+        }
+    }
+    if (typeof value === 'string') {
+        const fromString = new Date(value);
+        if (!Number.isNaN(fromString.getTime())) {
+            return fromString;
+        }
+    }
+    return new Date();
+}
+
 export class Notepad {
     private state: NotepadState = {
         concepts: [],
@@ -111,10 +130,25 @@ export class Notepad {
     }
 
     public setActiveCurriculumContext(context: Partial<CurriculumContext>): void {
+        const providedConceptId = context.conceptId ?? null;
+        const providedConceptTitle = context.conceptTitle !== undefined ? context.conceptTitle : this.currentContext.conceptTitle;
+        const providedModuleTitle = context.moduleTitle !== undefined ? context.moduleTitle : this.currentContext.moduleTitle;
+
+        let resolvedConceptId = this.currentContext.conceptId;
+        if (providedConceptId !== null) {
+            resolvedConceptId = providedConceptId;
+        } else {
+            const conceptTitleChanged = context.conceptTitle !== undefined && context.conceptTitle !== this.currentContext.conceptTitle;
+            const moduleTitleChanged = context.moduleTitle !== undefined && context.moduleTitle !== this.currentContext.moduleTitle;
+            if (conceptTitleChanged || moduleTitleChanged) {
+                resolvedConceptId = null;
+            }
+        }
+
         this.currentContext = {
-            conceptId: context.conceptId ?? this.currentContext.conceptId,
-            conceptTitle: context.conceptTitle ?? this.currentContext.conceptTitle,
-            moduleTitle: context.moduleTitle ?? this.currentContext.moduleTitle
+            conceptId: resolvedConceptId,
+            conceptTitle: providedConceptTitle,
+            moduleTitle: providedModuleTitle
         };
     }
 
@@ -328,16 +362,17 @@ export class Notepad {
         for (const concept of this.state.concepts) {
             const isEditing = this.editingConceptId === concept.id;
             const escapedTitle = this.escapeHtml(concept.title);
-            html += `<div class="notepad-concept-section" data-concept-id="${concept.id}">`;
+            const conceptIdAttr = this.escapeHtml(concept.id);
+            html += `<div class="notepad-concept-section" data-concept-id="${conceptIdAttr}">`;
             html += '<div class="notepad-concept-header">';
             if (isEditing) {
-                html += `<input type="text" class="notepad-concept-title-input" value="${escapedTitle}" data-concept-id="${concept.id}" />`;
+                html += `<input type="text" class="notepad-concept-title-input" value="${escapedTitle}" data-concept-id="${conceptIdAttr}" />`;
             } else {
                 html += `<span class="notepad-concept-title-text">${escapedTitle}</span>`;
             }
             html += '<div class="notepad-concept-header-actions">';
-            html += `<button class="notepad-concept-add-note" title="Add note" data-concept-id="${concept.id}">📝</button>`;
-            html += `<button class="notepad-concept-rename" title="Rename concept" data-concept-id="${concept.id}">✏️</button>`;
+            html += `<button class="notepad-concept-add-note" title="Add note" data-concept-id="${conceptIdAttr}">📝</button>`;
+            html += `<button class="notepad-concept-rename" title="Rename concept" data-concept-id="${conceptIdAttr}">✏️</button>`;
             html += '</div>';
             html += '</div>';
             html += '<div class="notepad-notes-list">';
@@ -364,8 +399,9 @@ export class Notepad {
 
     private createNoteCard(note: Note): string {
         const renderedContent = note.htmlContent || marked(note.text);
+        const noteIdAttr = this.escapeHtml(note.id);
         return `
-            <div class="notepad-note-card" data-note-id="${note.id}">
+            <div class="notepad-note-card" data-note-id="${noteIdAttr}">
                 <div class="notepad-note-content" contenteditable="false">
                     ${renderedContent}
                 </div>
@@ -765,7 +801,7 @@ export class Notepad {
         const concept: ConceptGroup = {
             id: snapshot.id || crypto.randomUUID(),
             title: this.normalizeConceptTitle(snapshot.title),
-            createdAt: snapshot.createdAt ? new Date(snapshot.createdAt) : new Date(),
+            createdAt: snapshot.createdAt ? parseTimestamp(snapshot.createdAt) : new Date(),
             notes: []
         };
         snapshot.notes.forEach(noteSnapshot => {
@@ -780,7 +816,7 @@ export class Notepad {
             conceptId: concept.id,
             conceptTitle: concept.title,
             text: snapshot.text ?? '',
-            timestamp: snapshot.timestamp ? new Date(snapshot.timestamp) : new Date()
+            timestamp: snapshot.timestamp ? parseTimestamp(snapshot.timestamp) : new Date()
         };
         if (snapshot.htmlContent !== undefined) {
             note.htmlContent = snapshot.htmlContent;
@@ -812,7 +848,7 @@ export class Notepad {
                 conceptId: concept.id,
                 conceptTitle: concept.title,
                 text: item.text ?? '',
-                timestamp: item.timestamp ? new Date(item.timestamp) : new Date()
+                timestamp: item.timestamp ? parseTimestamp(item.timestamp) : new Date()
             };
             if (typeof item.htmlContent === 'string') {
                 note.htmlContent = item.htmlContent;
@@ -891,7 +927,7 @@ export class Notepad {
                 concept = {
                     id: group.id && !this.findConceptById(group.id) ? group.id : crypto.randomUUID(),
                     title,
-                    createdAt: group.createdAt ? new Date(group.createdAt) : new Date(),
+                    createdAt: group.createdAt ? parseTimestamp(group.createdAt) : new Date(),
                     notes: []
                 };
                 this.state.concepts.push(concept);
@@ -910,7 +946,7 @@ export class Notepad {
                     conceptId: concept!.id,
                     conceptTitle: concept!.title,
                     text: noteData.textContent,
-                    timestamp: noteData.timestamp ? new Date(noteData.timestamp) : new Date()
+                    timestamp: noteData.timestamp ? parseTimestamp(noteData.timestamp) : new Date()
                 };
                 if (noteData.htmlContent !== undefined) {
                     note.htmlContent = noteData.htmlContent;

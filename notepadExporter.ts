@@ -65,7 +65,8 @@ export class NotepadExporter {
 `;
         concepts.forEach(concept => {
             const escapedTitle = this.escapeHtml(concept.title);
-            html += `        <section class="notepad-export-concept" data-concept-id="${concept.id}">
+            const escapedConceptId = this.escapeHtml(concept.id);
+            html += `        <section class="notepad-export-concept" data-concept-id="${escapedConceptId}">
             <div class="notepad-export-concept-header">
                 <h2 class="notepad-export-concept-title">${escapedTitle}</h2>
                 <div class="notepad-export-note-count">${concept.notes.length} ${concept.notes.length === 1 ? 'note' : 'notes'}</div>
@@ -74,7 +75,8 @@ export class NotepadExporter {
             concept.notes.forEach(note => {
                 const timestamp = this.formatTimestamp(note.timestamp);
                 const content = note.htmlContent ?? this.convertToHTML(note.text);
-                html += `            <article class="notepad-export-note" data-note-id="${note.id}">
+                const escapedNoteId = this.escapeHtml(note.id);
+                html += `            <article class="notepad-export-note" data-note-id="${escapedNoteId}">
                 <div class="notepad-export-note-content">${content}</div>
                 <div class="notepad-export-note-meta">
                     <span class="notepad-export-note-timestamp">🕐 ${timestamp}</span>
