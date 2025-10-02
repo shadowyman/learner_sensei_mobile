@@ -89,3 +89,4 @@ Next sequenced protocols: **COMPREHENSIVE IMPACT ANALYSIS PROTOCOL** (already ex
 - Export control now uses 📤 to mirror the import tray icon direction.
 - Added defensive timestamp parsing to honor international date formats when restoring or importing notes, ensuring persistence remains functional after HTML merges.
 - setActiveCurriculumContext now honors explicit null/undefined semantics so context titles clear correctly; added regression test ensuring null conceptTitle yields a fresh group.
+- Adjusted selection Sensei response modal background alpha from 0.56 to 0.90 for clearer modal contrast.

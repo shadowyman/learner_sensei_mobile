@@ -2199,7 +2199,7 @@ body::before {
     max-height: 85vh;
     min-height: 200px;
     padding: 24px 24px 12px;
-    background: rgba(15, 23, 42, 0.56);
+    background: rgba(15, 23, 42, 0.9);
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
     border: 1px solid var(--glass-border);

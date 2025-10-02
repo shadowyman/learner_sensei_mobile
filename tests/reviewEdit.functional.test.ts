@@ -255,13 +255,35 @@ const testCases: TestCase[] = [
     }
   },
   {
-    name: 'review:result emits populated remark summary',
+    name: 'review:result prioritizes failing hunks',
     execute: () => {
-      const { artifactPath } = createFixture('case-result-success', { includeRealNote: true })
+      const { artifactPath } = createFixture('case-result-failing', { includeRealNote: true })
+      const failRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-2', '--body', 'FAIL: needs attention'])
+      assert.equal(failRemark.status, 0)
+      const verdictRes = runCli(['verdict', '--file', artifactPath, '--body', 'FAIL: unresolved issues'])
+      assert.equal(verdictRes.status, 0)
       const res = runCli(['result', '--file', artifactPath])
       assert.equal(res.status, 0)
-      assert.ok(res.stdout.includes('Block 2'))
-      assert.ok(res.stdout.includes('Review Note'))
+      assert.ok(res.stdout.includes('=== FAILED / NEUTRAL HUNKS ==='))
+      assert.ok(res.stdout.includes('Status: FAIL'))
+      assert.ok(res.stdout.includes('Diff:'))
+      assert.ok(res.stdout.includes('=== VERDICT ==='))
+    }
+  },
+  {
+    name: 'review:result emits verdict when hunks pass',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-verdict', { includeRealNote: true })
+      const passOne = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'PASS: looks good'])
+      assert.equal(passOne.status, 0)
+      const passTwo = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-2', '--body', 'PASS: cleared'])
+      assert.equal(passTwo.status, 0)
+      const verdictRes = runCli(['verdict', '--file', artifactPath, '--body', '<div><strong>PASS</strong></div>'])
+      assert.equal(verdictRes.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      assert.ok(res.stdout.includes('=== VERDICT ==='))
+      assert.ok(!res.stdout.includes('FAILED / NEUTRAL HUNKS'))
     }
   },
   {

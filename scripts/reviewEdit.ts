@@ -183,6 +183,68 @@ function isPlaceholderNote(text: string): boolean {
   return normalized === placeholder || normalized.includes(placeholder)
 }
 
+type ReviewNoteStatus = 'fail' | 'pass' | 'neutral'
+
+function normalizeVerdictToken(token: string): string {
+  return token.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '').toUpperCase()
+}
+
+function findLeadingVerdictToken(text: string): string {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+  const tokens = trimmed.split(/\s+/)
+  for (const rawToken of tokens) {
+    const normalized = normalizeVerdictToken(rawToken)
+    if (!normalized) continue
+    if (normalized === 'VERDICT') continue
+    return normalized
+  }
+  return ''
+}
+
+function classifyReviewNoteStatus(noteNode: P5Node, noteText: string): ReviewNoteStatus {
+  const token = findLeadingVerdictToken(noteText)
+  if (token === 'FAIL') return 'fail'
+  if (token === 'PASS') return 'pass'
+  const classAttr = attr(noteNode, 'class') || ''
+  const classTokens = classAttr.split(/\s+/)
+  if (classTokens.includes('is-fail')) return 'fail'
+  if (classTokens.includes('is-pass')) return 'pass'
+  return 'neutral'
+}
+
+function extractVerdictLines(section: P5Node): string[] {
+  const lines: string[] = []
+  const content = findChildBySelector(section, 'div', 'verdict-content') || section
+  const visit = (node: P5Node) => {
+    if (!node || typeof node !== 'object') return
+    if (node.tagName === 'p') {
+      const value = textContent(node).trim()
+      if (value) lines.push(value)
+      return
+    }
+    if (node.tagName === 'li') {
+      const value = textContent(node).trim()
+      if (value) lines.push(`- ${value}`)
+      return
+    }
+    if (node.tagName === 'pre') {
+      const value = textContent(node).replace(/\r/g, '').trim()
+      if (value) lines.push(value)
+      return
+    }
+    if (node.tagName === 'strong') {
+      const value = textContent(node).trim()
+      if (value) lines.push(value)
+      return
+    }
+    const children = node.childNodes || []
+    for (const child of children) visit(child)
+  }
+  const children = content.childNodes || []
+  for (const child of children) visit(child)
+  return lines
+}
 function stdout(s: string) { process.stdout.write(s) }
 function stderr(s: string) { process.stderr.write(s) }
 
@@ -213,7 +275,7 @@ function cmdListUuid(fileArg: string) {
   }
   const path = resolveArtifactPath(fileArg)
   let raw: string
-  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
+  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}. Verify the file name (including version suffix) and ensure the artifact was generated.\n`); process.exit(1) }
   const doc = parse5.parse(raw)
   const entries = findAllArticlesWithUuid(doc)
   if (entries.length === 0) {
@@ -243,7 +305,7 @@ function cmdShowDiff(fileArg: string, uuid: string) {
   if (!uuid) { stderr('Missing required --uuid <id>\n'); process.exit(1) }
   const path = resolveArtifactPath(fileArg)
   let raw: string
-  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
+  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}. Verify the file name (including version suffix) and ensure the artifact was generated.\n`); process.exit(1) }
   const doc = parse5.parse(raw)
   const entries = findAllArticlesWithUuid(doc)
   if (entries.length === 0) {
@@ -280,22 +342,29 @@ function cmdResult(fileArg: string) {
   }
   const path = resolveArtifactPath(fileArg)
   let raw: string
-  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
+  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}. Verify the file name (including version suffix) and ensure the artifact was generated.\n`); process.exit(1) }
   const doc = parse5.parse(raw)
   const entries = findAllArticlesWithUuid(doc)
-  const outputs: string[] = []
+  let hasRealNotes = false
+  const collected: string[] = []
   entries.forEach((entry, idx) => {
     const article = entry.article
     const notes = (article.childNodes || []).find((n: P5Node) => n.tagName === 'div' && hasClass(n, 'review-notes'))
     if (!notes) return
     const noteText = cleanReviewNoteText(notes)
     if (!noteText || isPlaceholderNote(noteText)) return
+    hasRealNotes = true
+    const status = classifyReviewNoteStatus(notes, noteText)
+    stderr(`[REVIEW_FILTER] classified ${status.toUpperCase()} for ${entry.uuid}\n`)
+    if (status === 'pass') return
     const header = findChildBySelector(article, 'header', 'hunk-header')
     const h3 = header ? findChildBySelector(header, 'h3') : null
     const label = h3 ? textContent(h3).trim() : `Block ${idx + 1}`
     const filePathLabel = resolveArticleFilePath(doc, article)
+    const statusLabel = status === 'fail' ? 'FAIL' : 'NEUTRAL'
     const sections: string[] = []
     sections.push(`${label} — ${filePathLabel || 'Unknown file'} (UUID ${entry.uuid})`)
+    sections.push(`Status: ${statusLabel}`)
     sections.push('Review Note:')
     sections.push(noteText)
     const pre = (article.childNodes || []).find((n: P5Node) => n.tagName === 'pre')
@@ -305,22 +374,42 @@ function cmdResult(fileArg: string) {
       sections.push('\nDiff:')
       sections.push(diff)
     }
-    outputs.push(sections.join('\n'))
+    collected.push(sections.join('\n'))
   })
-  if (!outputs.length) {
-    stderr(`No review notes found in ${fileArg}. Add remarks first.`)
+  if (!hasRealNotes) {
+    stderr(`No review notes found in ${fileArg}. Add remarks first.\n`)
     process.exit(1)
   }
+  const verdictSection = findSectionByClass(doc, 'section', 'verdict')
+  const verdictLines = verdictSection ? extractVerdictLines(verdictSection) : []
+  const verdictOutput = verdictLines.length ? verdictLines.join('\n') : (verdictSection ? textContent(verdictSection).trim() : '')
+  if (!collected.length) {
+    if (verdictOutput) {
+      stderr('[REVIEW_FILTER] emitting verdict only\n')
+      stdout('=== VERDICT ===\n')
+      stdout(verdictOutput + '\n')
+    } else {
+      stdout('No failing or neutral review hunks found.\n')
+    }
+    return
+  }
+  stderr(`[REVIEW_FILTER] emitting ${collected.length} hunks\n`)
   const separator = '\n' + '='.repeat(30) + '\n'
-  stdout(outputs.join(separator) + '\n')
+  stdout('=== FAILED / NEUTRAL HUNKS ===\n')
+  stdout(collected.join(separator) + '\n')
+  if (verdictOutput) {
+    stdout('\n=== VERDICT ===\n')
+    stdout(verdictOutput + '\n')
+  }
 }
+
 
 function cmdRemark(fileArg: string, uuid: string, bodyArg: string) {
   if (!fileArg) { stderr('Missing required --file <artifact>\n'); process.exit(1) }
   if (!uuid) { stderr('Missing required --uuid <id>\n'); process.exit(1) }
   const path = resolveArtifactPath(fileArg)
   let raw: string
-  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
+  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}. Verify the file name (including version suffix) and ensure the artifact was generated.\n`); process.exit(1) }
   let body = bodyArg
   const verdictArg = parseArg(process.argv.slice(2), 'verdict')
   if (verdictArg) {
@@ -502,7 +591,7 @@ function cmdVerdict(fileArg: string, bodyArg: string) {
   if (!body) { stderr('Missing required --body <html|code|->\n'); process.exit(1) }
   const path = resolveArtifactPath(fileArg)
   let raw: string
-  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}\n`); process.exit(1) }
+  try { raw = readFileSync(path, 'utf8') } catch { stderr(`Artifact not found: ${path}. Verify the file name (including version suffix) and ensure the artifact was generated.\n`); process.exit(1) }
   if (body === '-') {
     body = readFileSync(0, 'utf8')
   }
