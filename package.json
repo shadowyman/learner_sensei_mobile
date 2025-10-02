@@ -23,7 +23,8 @@
     "functional:review-cli": "ts-node tests/reviewEdit.functional.test.ts",
     "functional:adaptive-engine": "ts-node tests/adaptiveEngine.functional.test.ts",
     "backup:create": "ts-node scripts/createBackup.ts",
-    "test:lint": "eslint --config config/eslint.config.cjs"
+    "test:lint": "eslint --config config/eslint.config.cjs",
+    "review:mediate": "ts-node scripts/review_mediator.ts"
   },
   "keywords": [
     "education",

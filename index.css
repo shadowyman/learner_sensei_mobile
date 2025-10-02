@@ -867,7 +867,7 @@ body::before {
 .chat-window-controls .icon-placeholder[data-icon="font_increase"] { color: #34d399; }
 .chat-window-controls .icon-placeholder[data-icon="font_decrease"] { color: #f87171; }
 .chat-window-controls .icon-placeholder[data-icon="palette"] { color: #f59e0b; }
-.chat-window-controls .icon-placeholder[data-icon="reload"] { color: #22c55e; }
+.chat-window-controls .icon-placeholder[data-icon="reload"] { color: #3b82f6; }
 .chat-window-controls .icon-placeholder[data-icon="enhance"] { color: #facc15; }
 .chat-window-controls .icon-placeholder[data-icon="send"] { color: #38bdf8; }
 
@@ -2356,10 +2356,10 @@ body::before {
     width: 28px;
     height: 28px;
     border: none;
-    background: rgba(34, 197, 94, 0.15);
+    background: rgba(59, 130, 246, 0.15);
     backdrop-filter: blur(10px);
     border-radius: 50%;
-    color: #16a34a;
+    color: #2563eb;
     cursor: pointer;
     opacity: 0;
     transition: all 0.3s ease;
@@ -2384,9 +2384,9 @@ body::before {
 
 .reload-btn:hover,
 .reload-button:hover {
-    background: rgba(34, 197, 94, 0.25);
+    background: rgba(59, 130, 246, 0.25);
     transform: rotate(180deg) scale(1.1);
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 .reload-button:active {
@@ -2399,6 +2399,12 @@ body::before {
     font-size: 1.5em;
     width: 1.5em;
     height: 1.5em;
+}
+
+/* Ensure reload button SVG is stroke-only (no fill) */
+.reload-button .icon-placeholder[data-icon="reload"] svg {
+    fill: none;
+    --icon-reload-stroke: #3b82f6;
 }
 
 .enhance-button {
@@ -4477,10 +4483,11 @@ svg[aria-roledescription="error"] {
 }
 
 .chat-window-controls .icon-placeholder[data-icon="reload"] svg {
-    --icon-reload-stroke: #22c55e;
+    fill: none;
+    --icon-reload-stroke: #3b82f6;
 }
 .chat-window-controls button:hover .icon-placeholder[data-icon="reload"] svg {
-    --icon-reload-stroke: #34d399;
+    --icon-reload-stroke: #60a5fa;
 }
 
 .chat-window-controls .icon-placeholder[data-icon="enhance"] svg {

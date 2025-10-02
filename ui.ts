@@ -212,19 +212,11 @@ const ICONS: { [key: string]: string } = {
     </svg>`,
     send: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--icon-send-fill, currentColor)"><path d="m3.4 20.4 17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.39 1.39L4.4 12l-2.4 7.4a1 1 0 0 0 1.4 1.4Z"/></svg>`,
     reload: `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-reload-stroke, #22c55e)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
-      <path d="M20 5v5h-5"/>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-reload-stroke, #3b82f6)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.5 12C20.5 16.6944 16.6944 20.5 12 20.5C7.30558 20.5 3.5 16.6944 3.5 12C3.5 7.30558 7.30558 3.5 12 3.5C14.5 3.5 16.7 4.5 18.3 6.1"/>
+      <path d="M15.5 6L18.5 6L18.5 3"/>
     </svg>`,
-    enhance: `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-enhance-sparkle, #facc15)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11 14l6-6"/>
-      <rect x="5" y="13" width="8" height="2" transform="rotate(-45 9 14)" fill="var(--icon-enhance-wand, #60a5fa)"/>
-      <path d="M17 6l1.5-1.5"/>
-      <path d="M19 9l2 0"/>
-      <path d="M14 3l0 2"/>
-      <path d="M20.5 7.5l1.5-1.5"/>
-    </svg>`,
+    enhance: '&#x2728;',
     notepad: `
     <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <g transform=\"translate(12,12) scale(1.28) translate(-12,-12)\">
       <!-- Page base with fold -->
