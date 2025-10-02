@@ -283,6 +283,7 @@ def run_command_with_prompt(prompt: str) -> bool:
             [
                 "codex",
                 "exec",
+                "--experimental-json",
                 "--config",
                 "hide_agent_reasoning=true",
                 "--model",

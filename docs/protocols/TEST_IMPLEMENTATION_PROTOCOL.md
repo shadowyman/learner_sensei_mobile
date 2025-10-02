@@ -1,5 +1,8 @@
 # Functional Test Implementation Protocol
-
+CRITICAL:
+1.Ensure all mocks are created at, reused from, or improved existing ones at __mocks__ folder.
+2.You MUST cover ALL happy path and ALL negative test cases pertaining to your change.
+3.  Ensure you run integrated functional tests by running the tests with --silent --bail --noStackTrace flags.
 ## Mission
 Align every functional test with the production code path it represents so regressions surface as test failures, not silent drift—regardless of domain (curriculum, adaptive engine, UI state machines, etc.).
 

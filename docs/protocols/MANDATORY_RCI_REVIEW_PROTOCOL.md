@@ -15,12 +15,11 @@
             *   Ensure all non-documentation file changes are staged before executing the command (exclude files under `docs/`).
             *   Run `npm run review:create -- --feature <slug> --pr_request "<10+ sentence narrative>"` while checked out on `main`.
             *   If re-running after addressing review feedback, ensure the `--pr_request` narrative summarizes only the changes made since the previous review submission.
+            *   Capture the emitted path `code_review/review_<final_slug>.html` and retain it for later documentation steps in the parent protocol.
         </step>
         <step number="3">
             **Dispatch Review & Record Artifact Path**:
-            *   Run `npm run review:dispatch -- --file code_review/review_<final_slug>.html` using the artifact generated in Step 2.
-            *   Execute this command with elevated permissions by setting `with_escalated_permissions=true` when requesting shell execution.
-            *   Capture the emitted path `code_review/review_<final_slug>.html` and retain it for later documentation steps in the parent protocol.
+            *   ASK user to run `npm run review:dispatch -- --file code_review/review_<final_slug>.html` using the artifact generated in Step 2.
         </step>
         <step number="4">
             **Review Results & Iterate**:
