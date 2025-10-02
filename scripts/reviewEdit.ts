@@ -346,7 +346,8 @@ function cmdResult(fileArg: string) {
   const doc = parse5.parse(raw)
   const entries = findAllArticlesWithUuid(doc)
   let hasRealNotes = false
-  const collected: string[] = []
+  const failSections: string[] = []
+  const neutralSections: string[] = []
   entries.forEach((entry, idx) => {
     const article = entry.article
     const notes = (article.childNodes || []).find((n: P5Node) => n.tagName === 'div' && hasClass(n, 'review-notes'))
@@ -374,7 +375,11 @@ function cmdResult(fileArg: string) {
       sections.push('\nDiff:')
       sections.push(diff)
     }
-    collected.push(sections.join('\n'))
+    if (status === 'fail') {
+      failSections.push(sections.join('\n'))
+    } else {
+      neutralSections.push(sections.join('\n'))
+    }
   })
   if (!hasRealNotes) {
     stderr(`No review notes found in ${fileArg}. Add remarks first.\n`)
@@ -382,8 +387,15 @@ function cmdResult(fileArg: string) {
   }
   const verdictSection = findSectionByClass(doc, 'section', 'verdict')
   const verdictLines = verdictSection ? extractVerdictLines(verdictSection) : []
-  const verdictOutput = verdictLines.length ? verdictLines.join('\n') : (verdictSection ? textContent(verdictSection).trim() : '')
-  if (!collected.length) {
+  const verdictContentNode = verdictSection ? findChildBySelector(verdictSection, 'div', 'verdict-content') : null
+  let verdictOutput = ''
+  if (verdictLines.length) {
+    verdictOutput = verdictLines.join('\n')
+  } else if (!verdictContentNode && verdictSection) {
+    verdictOutput = textContent(verdictSection).trim()
+  }
+  const totalCollected = failSections.length + neutralSections.length
+  if (!totalCollected) {
     if (verdictOutput) {
       stderr('[REVIEW_FILTER] emitting verdict only\n')
       stdout('=== VERDICT ===\n')
@@ -393,10 +405,11 @@ function cmdResult(fileArg: string) {
     }
     return
   }
-  stderr(`[REVIEW_FILTER] emitting ${collected.length} hunks\n`)
+  stderr(`[REVIEW_FILTER] emitting ${totalCollected} hunks\n`)
   const separator = '\n' + '='.repeat(30) + '\n'
   stdout('=== FAILED / NEUTRAL HUNKS ===\n')
-  stdout(collected.join(separator) + '\n')
+  const ordered = [...failSections, ...neutralSections]
+  stdout(ordered.join(separator) + '\n')
   if (verdictOutput) {
     stdout('\n=== VERDICT ===\n')
     stdout(verdictOutput + '\n')

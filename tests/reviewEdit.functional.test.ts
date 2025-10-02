@@ -32,7 +32,25 @@ function cleanupAll() {
   }
 }
 
-function createFixture(caseName: string, options?: { includeRealNote?: boolean; removeReviewNotes?: boolean }) {
+type NoteOverride = {
+  className?: string
+  body?: string
+}
+
+type FixtureOptions = {
+  includeRealNote?: boolean
+  removeReviewNotes?: boolean
+  noteOverrides?: Record<string, NoteOverride>
+  verdictHtml?: string
+}
+
+function ensureHtml(body: string): string {
+  const trimmed = body.trim()
+  if (!trimmed) return '<p></p>'
+  return trimmed.startsWith('<') ? body : `<p>${body}</p>`
+}
+
+function createFixture(caseName: string, options?: FixtureOptions) {
   ensureTmpRoot()
   const caseDir = path.join(tmpRoot, caseName)
   fs.rmSync(caseDir, { recursive: true, force: true })
@@ -40,10 +58,18 @@ function createFixture(caseName: string, options?: { includeRealNote?: boolean; 
   const artifactPath = path.join(caseDir, 'artifact.html')
   const includeRealNote = options?.includeRealNote !== false
   const removeReviewNotes = options?.removeReviewNotes === true
-  const placeholderNote = `<div class="review-notes"><h4>Review Notes</h4><p>Review pending – document findings here during RCI.</p></div>`
-  const realNote = `<div class="review-notes"><h4>Review Notes</h4><p>Looks fine.</p></div>`
-  const reviewNotesSecond = removeReviewNotes ? '' : realNote
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Test</title></head><body><section class="pr-request" id="pr-request"><h2>PR Review Context</h2><p>Context for ${caseName}</p></section><section id="file-sample.ts" class="file-section"><header class="file-header"><h2>sample.ts</h2></header><article class="hunk" id="file-sample.ts-h1" data-uuid="uuid-1"><header class="hunk-header"><h3>Block 1</h3></header>${placeholderNote}<pre><code>@@ -1,2 +1,2@@\n- old\n+ new\n</code></pre></article><article class="hunk" id="file-sample.ts-h2" data-uuid="uuid-2"><header class="hunk-header"><h3>Block 2</h3></header>${includeRealNote ? reviewNotesSecond : placeholderNote}<pre><code>@@ -3,4 +3,4@@\n- old line\n+ new line\n</code></pre></article></section></body></html>`
+  const overrides = options?.noteOverrides ?? {}
+  const renderNote = (uuid: string, defaultBody: string): string => {
+    const override = overrides[uuid] ?? {}
+    const className = override.className ?? 'review-notes'
+    const body = ensureHtml(override.body ?? defaultBody)
+    return `<div class="${className}"><h4>Review Notes</h4>${body}</div>`
+  }
+  const placeholderNote = renderNote('uuid-1', 'Review pending – document findings here during RCI.')
+  const secondDefaultBody = includeRealNote ? 'Looks fine.' : 'Review pending – document findings here during RCI.'
+  const secondNote = removeReviewNotes ? '' : renderNote('uuid-2', secondDefaultBody)
+  const verdictSection = options?.verdictHtml ?? ''
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Test</title></head><body><section class="pr-request" id="pr-request"><h2>PR Review Context</h2><p>Context for ${caseName}</p></section>${verdictSection}<section id="file-sample.ts" class="file-section"><header class="file-header"><h2>sample.ts</h2></header><article class="hunk" id="file-sample.ts-h1" data-uuid="uuid-1"><header class="hunk-header"><h3>Block 1</h3></header>${placeholderNote}<pre><code>@@ -1,2 +1,2@@\n- old\n+ new\n</code></pre></article><article class="hunk" id="file-sample.ts-h2" data-uuid="uuid-2"><header class="hunk-header"><h3>Block 2</h3></header>${secondNote}<pre><code>@@ -3,4 +3,4@@\n- old line\n+ new line\n</code></pre></article></section></body></html>`
   fs.writeFileSync(artifactPath, html)
   activeDirs.push(caseDir)
   logValidation(`Created mock artifact for ${caseName}`)
@@ -95,6 +121,42 @@ function textOf(node: P5Node): string {
     for (const child of children) stack.push(child)
   }
   return out
+}
+
+function extractStatuses(stdout: string): string[] {
+  const statuses: string[] = []
+  const regex = /Status: ([A-Z]+)/g
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(stdout)) !== null) {
+    statuses.push(match[1])
+  }
+  return statuses
+}
+
+function expectStatuses(stdout: string, expected: string[]) {
+  const actual = extractStatuses(stdout)
+  assert.deepEqual(actual, expected, `Expected statuses ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}\nOutput:\n${stdout}`)
+}
+
+function expectHeadingPresence(stdout: string, heading: string, present: boolean) {
+  const found = stdout.includes(heading)
+  if (present) {
+    assert.ok(found, `Expected heading "${heading}" in output`) 
+  } else {
+    assert.ok(!found, `Heading "${heading}" should not appear in output`)
+  }
+}
+
+function expectNotContains(stdout: string, fragments: string[]) {
+  for (const fragment of fragments) {
+    assert.ok(!stdout.includes(fragment), `Output should not include "${fragment}"`)
+  }
+}
+
+function expectContains(stdout: string, fragments: string[]) {
+  for (const fragment of fragments) {
+    assert.ok(stdout.includes(fragment), `Output missing expected fragment "${fragment}"`)
+  }
 }
 
 function expectReviewNotesClass(doc: P5Node, uuid: string, expectedClass: string) {
@@ -264,10 +326,10 @@ const testCases: TestCase[] = [
       assert.equal(verdictRes.status, 0)
       const res = runCli(['result', '--file', artifactPath])
       assert.equal(res.status, 0)
-      assert.ok(res.stdout.includes('=== FAILED / NEUTRAL HUNKS ==='))
-      assert.ok(res.stdout.includes('Status: FAIL'))
-      assert.ok(res.stdout.includes('Diff:'))
-      assert.ok(res.stdout.includes('=== VERDICT ==='))
+      expectHeadingPresence(res.stdout, '=== FAILED / NEUTRAL HUNKS ===', true)
+      expectHeadingPresence(res.stdout, '=== VERDICT ===', true)
+      expectStatuses(res.stdout, ['FAIL'])
+      expectContains(res.stdout, ['UUID uuid-2', 'Diff:'])
     }
   },
   {
@@ -282,8 +344,132 @@ const testCases: TestCase[] = [
       assert.equal(verdictRes.status, 0)
       const res = runCli(['result', '--file', artifactPath])
       assert.equal(res.status, 0)
-      assert.ok(res.stdout.includes('=== VERDICT ==='))
-      assert.ok(!res.stdout.includes('FAILED / NEUTRAL HUNKS'))
+      expectHeadingPresence(res.stdout, '=== FAILED / NEUTRAL HUNKS ===', false)
+      expectHeadingPresence(res.stdout, '=== VERDICT ===', true)
+      expectStatuses(res.stdout, [])
+      expectContains(res.stdout, ['=== VERDICT ==='])
+      expectContains(res.stdout, ['PASS'])
+    }
+  },
+  {
+    name: 'review:result handles neutral classification',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-neutral', { includeRealNote: false })
+      const neutralRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'Needs clarification for reviewer'])
+      assert.equal(neutralRemark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectHeadingPresence(res.stdout, '=== FAILED / NEUTRAL HUNKS ===', true)
+      expectStatuses(res.stdout, ['NEUTRAL'])
+      expectNotContains(res.stdout, ['Status: FAIL'])
+    }
+  },
+  {
+    name: 'review:result orders fail before neutral',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-ordering', { includeRealNote: true })
+      const neutralRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'Needs clarification before approval'])
+      assert.equal(neutralRemark.status, 0)
+      const failRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-2', '--body', 'FAIL: regression detected'])
+      assert.equal(failRemark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectStatuses(res.stdout, ['FAIL', 'NEUTRAL'])
+    }
+  },
+  {
+    name: 'review:result uses CSS fallback when tokens are neutral',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-class-fallback', {
+        includeRealNote: false,
+        noteOverrides: {
+          'uuid-1': {
+            className: 'review-notes is-fail',
+            body: 'Needs attention from reviewer'
+          }
+        }
+      })
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectStatuses(res.stdout, ['FAIL'])
+      expectContains(res.stderr, ['[REVIEW_FILTER] classified FAIL'])
+    }
+  },
+  {
+    name: 'review:result handles punctuation wrapped fail tokens',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-punctuation', { includeRealNote: false })
+      const remark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-2', '--body', '***FAIL*** critical regression'])
+      assert.equal(remark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectStatuses(res.stdout, ['FAIL'])
+    }
+  },
+  {
+    name: 'review:result treats malformed token as neutral',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-malformed-token', { includeRealNote: false })
+      const neutralRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'FA1L token should remain neutral'])
+      assert.equal(neutralRemark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectStatuses(res.stdout, ['NEUTRAL'])
+      expectNotContains(res.stdout, ['Status: FAIL'])
+    }
+  },
+  {
+    name: 'review:result handles empty verdict content',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-empty-verdict', {
+        includeRealNote: false,
+        verdictHtml: '<section class="pr-request verdict"><h2>VERDICT</h2><div class="verdict-content"></div></section>'
+      })
+      const failRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'FAIL: missing verdict content'])
+      assert.equal(failRemark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectStatuses(res.stdout, ['FAIL'])
+      expectHeadingPresence(res.stdout, '=== VERDICT ===', false)
+    }
+  },
+  {
+    name: 'review:result extracts complex verdict html',
+    execute: () => {
+      const verdictHtml = `<section class=\"pr-request verdict\"><h2>VERDICT</h2><div class=\"verdict-content\"><strong>Verdict: PASS</strong><p>Analysis: All clear.</p><ul><li>✓ Token parsing</li><li>✓ CLI output</li></ul><pre><code>diff --stat</code></pre></div></section>`
+      const { artifactPath } = createFixture('case-result-complex-verdict', { includeRealNote: false, verdictHtml })
+      const failRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'FAIL: needs fix'])
+      assert.equal(failRemark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectHeadingPresence(res.stdout, '=== VERDICT ===', true)
+      expectContains(res.stdout, ['Verdict: PASS', 'Analysis: All clear.', '- ✓ Token parsing', 'diff --stat'])
+    }
+  },
+  {
+    name: 'review:result emits diagnostic stderr logs',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-diagnostics', { includeRealNote: true })
+      const failRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'FAIL: ensure logging visible'])
+      assert.equal(failRemark.status, 0)
+      const neutralRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-2', '--body', 'Needs more discussion'])
+      assert.equal(neutralRemark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectStatuses(res.stdout, ['FAIL', 'NEUTRAL'])
+      expectContains(res.stderr, ['[REVIEW_FILTER] classified FAIL', '[REVIEW_FILTER] classified NEUTRAL', '[REVIEW_FILTER] emitting'])
+    }
+  },
+  {
+    name: 'review:result tolerates missing verdict section',
+    execute: () => {
+      const { artifactPath } = createFixture('case-result-no-verdict', { includeRealNote: false, verdictHtml: '' })
+      const failRemark = runCli(['remark', '--file', artifactPath, '--uuid', 'uuid-1', '--body', 'FAIL: missing verdict scenario'])
+      assert.equal(failRemark.status, 0)
+      const res = runCli(['result', '--file', artifactPath])
+      assert.equal(res.status, 0)
+      expectStatuses(res.stdout, ['FAIL'])
+      expectHeadingPresence(res.stdout, '=== VERDICT ===', false)
     }
   },
   {
