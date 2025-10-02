@@ -85,6 +85,10 @@ function stripHtml(value: string): string {
     .trim();
 }
 
+function normalizeRequestBody(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
 function removeArtifacts(directory: string, artifacts: string[]): void {
   for (const name of artifacts) {
     try {
@@ -94,44 +98,70 @@ function removeArtifacts(directory: string, artifacts: string[]): void {
   }
 }
 
-function computeTargetFilename(directory: string, slug: string): { filename: string; finalSlug: string; previousFilename?: string; priorArtifacts: string[] } {
-  const baseFilename = `review_${slug}.html`;
+function computeTargetFilenames(directory: string, slug: string): {
+  finalSlug: string;
+  codexFilename: string;
+  claudeFilename: string;
+  previousFilename?: string;
+  priorArtifacts: string[];
+} {
   const entries = readdirSync(directory);
   const priorArtifacts: string[] = [];
-  const baseExists = existsSync(resolve(directory, baseFilename));
-  if (baseExists) {
-    priorArtifacts.push(baseFilename);
-  }
-  let versionsFound = false;
-  let highestVersion = 1;
-  const pattern = new RegExp(`^review_${slug}_v(\\d+)\\.html$`);
+  const legacyPattern = new RegExp(`^review_${slug}(?:_v(\\d+))?\\.html$`);
+  const personaPattern = new RegExp(`^review_${slug}_(codex|claude)(?:_v(\\d+))?\\.html$`);
+  let highestVersion = 0;
+  let latestCodex: { name: string; version: number } | null = null;
+  let latestArtifact: { name: string; version: number } | null = null;
 
   for (const name of entries) {
-    const match = name.match(pattern);
-    if (match) {
-      versionsFound = true;
+    const personaMatch = name.match(personaPattern);
+    if (personaMatch) {
       priorArtifacts.push(name);
-      const group = match[1];
-      if (group) {
-        const value = parseInt(group, 10);
-        if (!Number.isNaN(value) && value > highestVersion) {
-          highestVersion = value;
+      const versionRaw = personaMatch[2];
+      const version = versionRaw ? parseInt(versionRaw, 10) : 1;
+      if (!Number.isNaN(version)) {
+        if (version > highestVersion) {
+          highestVersion = version;
+        }
+        if (!latestArtifact || version >= latestArtifact.version) {
+          latestArtifact = { name, version };
+        }
+        if (personaMatch[1] === 'codex') {
+          if (!latestCodex || version >= latestCodex.version) {
+            latestCodex = { name, version };
+          }
+        }
+      }
+      continue;
+    }
+
+    const legacyMatch = name.match(legacyPattern);
+    if (legacyMatch) {
+      priorArtifacts.push(name);
+      const versionRaw = legacyMatch[1];
+      const version = versionRaw ? parseInt(versionRaw, 10) : 1;
+      if (!Number.isNaN(version)) {
+        if (version > highestVersion) {
+          highestVersion = version;
+        }
+        if (!latestArtifact || version >= latestArtifact.version) {
+          latestArtifact = { name, version };
+        }
+        if (!latestCodex || version >= latestCodex.version) {
+          latestCodex = { name, version };
         }
       }
     }
   }
 
-  if (!baseExists && !versionsFound) {
-    return { filename: baseFilename, finalSlug: slug, priorArtifacts };
-  }
+  const nextVersion = highestVersion === 0 ? 1 : highestVersion + 1;
+  const versionSuffix = nextVersion === 1 ? '' : `_v${nextVersion}`;
+  const finalSlug = nextVersion === 1 ? slug : `${slug}_v${nextVersion}`;
+  const codexFilename = `review_${slug}_codex${versionSuffix}.html`;
+  const claudeFilename = `review_${slug}_claude${versionSuffix}.html`;
+  const previousFilename = (latestCodex ?? latestArtifact)?.name;
 
-  const nextVersion = versionsFound ? highestVersion + 1 : 2;
-  const finalSlug = `${slug}_v${nextVersion}`;
-  const filename = `review_${finalSlug}.html`;
-  const previousFilename = versionsFound
-    ? `review_${slug}_v${highestVersion}.html`
-    : baseFilename;
-  return { filename, finalSlug, previousFilename, priorArtifacts };
+  return { finalSlug, codexFilename, claudeFilename, previousFilename, priorArtifacts };
 }
 
 function loadPreviousPrRequests(directory: string, filename?: string): string[] {
@@ -378,9 +408,16 @@ function generateReview(): void {
   const outputDir = resolve(repoRoot, 'code_review');
   ensureDirectory(outputDir);
   const diffCommand = 'git diff --staged';
-  const files = listWorkingTreeDiffFiles();
-  const { filename, finalSlug, previousFilename, priorArtifacts } = computeTargetFilename(outputDir, slug);
-  const targetPath = resolve(outputDir, filename);
+  const { finalSlug, codexFilename, claudeFilename, previousFilename } = computeTargetFilenames(outputDir, slug);
+  let files = listWorkingTreeDiffFiles();
+  const isVersioning = Boolean(previousFilename);
+  if (isVersioning && files.length > 0) {
+    runGit(['restore', '--staged', '--', ...files]);
+    runGit(['add', '--', ...files]);
+    files = listWorkingTreeDiffFiles();
+  }
+  const codexPath = resolve(outputDir, codexFilename);
+  const claudePath = resolve(outputDir, claudeFilename);
   const previousEntries = loadPreviousPrRequests(outputDir, previousFilename);
   const hasPrevious = previousEntries.length > 0;
 
@@ -404,7 +441,10 @@ function generateReview(): void {
         console.error('PR request updates must contain at least one sentence.');
         process.exit(1);
       }
-      prEntries.push(prRequestRaw);
+      const lastEntry = prEntries[prEntries.length - 1] ?? '';
+      if (normalizeRequestBody(lastEntry) !== normalizeRequestBody(prRequestRaw)) {
+        prEntries.push(prRequestRaw);
+      }
     }
     if (prEntries.length === 0) {
       console.error('Unable to recover previous PR review context. Please rerun with --pr_request providing at least 10 sentences.');
@@ -414,9 +454,10 @@ function generateReview(): void {
 
   const prMarkup = buildPrRequestMarkup(prEntries);
   if (files.length === 0) {
-    const content = buildNoDiffDocument(finalSlug, generated, targetPath, prMarkup, diffCommand);
-    writeFileSync(targetPath, content, 'utf8');
-    console.log(`No changes found. Review log saved to ${targetPath}`);
+    const content = buildNoDiffDocument(finalSlug, generated, codexPath, prMarkup, diffCommand);
+    writeFileSync(codexPath, content, 'utf8');
+    writeFileSync(claudePath, content, 'utf8');
+    console.log(`No changes found. Review logs saved to ${codexPath} and ${claudePath}`);
     return;
   }
 
@@ -459,9 +500,10 @@ function generateReview(): void {
   }
 
   if (sections.length === 0) {
-    const content = buildNoDiffDocument(finalSlug, generated, targetPath, prMarkup, diffCommand);
-    writeFileSync(targetPath, content, 'utf8');
-    console.log(`No diff content found. Review log saved to ${targetPath}`);
+    const content = buildNoDiffDocument(finalSlug, generated, codexPath, prMarkup, diffCommand);
+    writeFileSync(codexPath, content, 'utf8');
+    writeFileSync(claudePath, content, 'utf8');
+    console.log(`No diff content found. Review logs saved to ${codexPath} and ${claudePath}`);
     return;
   }
 
@@ -471,8 +513,9 @@ function generateReview(): void {
   }
 
   const html = buildDocument(finalSlug, generated, diffCommand, sections, checklist.html, prMarkup);
-  writeFileSync(targetPath, html, 'utf8');
-  console.log(`Code review generated at ${targetPath}`);
+  writeFileSync(codexPath, html, 'utf8');
+  writeFileSync(claudePath, html, 'utf8');
+  console.log(`Code review generated at ${codexPath} and ${claudePath}`);
 }
 
 generateReview();
