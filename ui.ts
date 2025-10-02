@@ -516,7 +516,8 @@ function setControlsExpanded(expanded: boolean): void {
     }
 }
 
-let currentThemeId = THEME_OPTIONS[0].id;
+const DEFAULT_THEME_ID = THEME_OPTIONS[0]?.id ?? '';
+let currentThemeId = DEFAULT_THEME_ID;
 let themePalettePanel: HTMLDivElement | null = null;
 let themePaletteTrigger: HTMLButtonElement | null = null;
 let themePaletteVisible = false;
@@ -1313,6 +1314,7 @@ export async function renderEnhancedMarkdown(messageId: string, markdown: string
     }
     addLanguageDisplayToCodeBlocks_internal(messageText);
     addCopyButtonsToCodeBlocks_internal(messageText, { sender: 'sensei', messageId });
+    attachSenseiBoldInteractions(messageText);
     if (highlights.length > 0) {
         applyEnhancementHighlights(messageText, highlights);
     }
@@ -1460,6 +1462,63 @@ type EnhancementRange = {
     startOffset: number;
     endOffset: number;
 };
+
+const touchEventSupported = typeof window !== 'undefined' && typeof TouchEvent !== 'undefined';
+const pointerEventSupported = typeof window !== 'undefined' && typeof PointerEvent !== 'undefined';
+
+function triggerSenseiBoldSelection(element: HTMLElement) {
+    const selection = window.getSelection();
+    if (!selection) {
+        return;
+    }
+    selection.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection.addRange(range);
+    if (selection.toString().length === 0 && typeof selection.selectAllChildren === 'function') {
+        selection.selectAllChildren(element);
+    }
+    const bubble = element.closest('.message-bubble') as HTMLElement | null;
+    const target = bubble ?? element;
+    window.setTimeout(() => {
+        const synthetic = new MouseEvent('mouseup', { bubbles: true });
+        target.dispatchEvent(synthetic);
+    }, 0);
+}
+
+function attachSenseiBoldInteractions(container: HTMLElement) {
+    const boldNodes = container.querySelectorAll('strong');
+    boldNodes.forEach((node) => {
+        const element = node as HTMLElement;
+        if (element.dataset.senseiBoldBound === 'true') {
+            return;
+        }
+        const handler = (event: Event) => {
+            let permitted = false;
+            if (pointerEventSupported && event instanceof PointerEvent) {
+                permitted = event.button === 0 && event.isPrimary;
+            } else if (event instanceof MouseEvent) {
+                permitted = event.button === 0;
+            } else if (touchEventSupported && typeof TouchEvent !== 'undefined' && event instanceof TouchEvent) {
+                permitted = true;
+            }
+            if (!permitted) {
+                return;
+            }
+            event.preventDefault();
+            triggerSenseiBoldSelection(element);
+        };
+        if (pointerEventSupported) {
+            element.addEventListener('pointerup', handler);
+        }
+        element.addEventListener('mouseup', handler);
+        if (touchEventSupported) {
+            element.addEventListener('touchend', handler);
+        }
+        element.dataset.senseiBoldBound = 'true';
+        element.classList.add('sensei-bold-selectable');
+    });
+}
 
 function locateEnhancementRange(root: HTMLElement, key: string, value: string, occurrence: number): EnhancementRange | null {
     const sanitizedValue = stripMarkdownInline(value.trim());
@@ -1869,7 +1928,10 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
         }
 
         addLanguageDisplayToCodeBlocks_internal(messageText);
-        addCopyButtonsToCodeBlocks_internal(messageText, { sender: message.sender, messageId: message.id }); // Add copy buttons
+        addCopyButtonsToCodeBlocks_internal(messageText, { sender: message.sender, messageId: message.id });
+        if (message.sender === 'sensei') {
+            attachSenseiBoldInteractions(messageText);
+        }
     }
     bubble.appendChild(messageText);
 
@@ -2020,6 +2082,9 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
                 enhancementContext.sender = bubbleSender;
             }
             addCopyButtonsToCodeBlocks_internal(messageTextElement, enhancementContext);
+            if (bubbleSender === 'sensei') {
+                attachSenseiBoldInteractions(messageTextElement);
+            }
 
             if (fullTextSoFar.length > 0) {
                 messageBubble.setAttribute('data-typing', 'true');

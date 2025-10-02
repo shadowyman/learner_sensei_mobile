@@ -1,129 +1,148 @@
-import { Curriculum } from './curriculum';
 import {
-    MODULE_SECTION_SELECTOR,
-    MODULE_HEADER_SELECTOR,
-    NOTE_CARD_SELECTOR,
+    CONCEPT_SECTION_SELECTOR,
     CONCEPT_TITLE_SELECTOR,
-    CONCEPT_ICON_SELECTOR,
+    NOTE_CARD_SELECTOR,
     NOTE_CONTENT_SELECTOR,
-    NOTE_METADATA_SELECTOR
+    NOTE_TIMESTAMP_SELECTOR
 } from './notepadExporter';
 
+const LEGACY_MODULE_SECTION_SELECTOR = '.module-section';
+const LEGACY_MODULE_HEADER_SELECTOR = '.module-header h2';
+const LEGACY_NOTE_CARD_SELECTOR = '.note-card';
+const LEGACY_CONCEPT_TITLE_SELECTOR = '.concept-title';
+const LEGACY_NOTE_CONTENT_SELECTOR = '.note-content';
+const LEGACY_NOTE_TIMESTAMP_SELECTOR = '.note-metadata .timestamp';
+
 export interface ImportedNoteData {
-    moduleTitle: string;
-    conceptTitle: string;
-    timestamp: Date;
+    id: string | null;
     htmlContent: string;
     textContent: string;
-    moduleMatchIndex: number | null;
-    conceptMatchIndex: number | null;
+    timestamp: string | null;
+    quillDelta?: any;
 }
 
-export interface ImportedBatch {
+export interface ImportedConceptGroup {
+    id: string | null;
+    title: string;
+    createdAt?: string | null;
     notes: ImportedNoteData[];
-    syntheticModuleRequired: boolean;
 }
 
 export class NotepadImportError extends Error {}
 
 export class NotepadImporter {
-    async importFromFile(file: File, curriculum: Curriculum | null): Promise<ImportedBatch> {
+    async importFromFile(file: File): Promise<ImportedConceptGroup[]> {
         const content = await file.text();
-        return this.parseHtml(content, curriculum);
+        return this.parseHtml(content);
     }
 
-    private parseHtml(content: string, curriculum: Curriculum | null): ImportedBatch {
+    private parseHtml(content: string): ImportedConceptGroup[] {
         const parser = new DOMParser();
         const doc = parser.parseFromString(content, 'text/html');
-        const moduleSections = Array.from(doc.querySelectorAll(MODULE_SECTION_SELECTOR));
-        if (moduleSections.length === 0) {
-            throw new NotepadImportError('No module sections detected.');
+
+        const modern = this.parseModernExport(doc);
+        if (modern.length > 0) {
+            return modern;
         }
-        const notes: ImportedNoteData[] = [];
-        let syntheticModuleRequired = false;
-        for (const section of moduleSections) {
-            const header = section.querySelector(MODULE_HEADER_SELECTOR);
-            const moduleTitle = header?.textContent?.trim() ?? '';
-            const moduleMatchIndex = this.findModuleIndex(moduleTitle, curriculum);
-            if (moduleMatchIndex === null) {
-                syntheticModuleRequired = true;
+
+        const legacy = this.parseLegacyExport(doc);
+        if (legacy.length > 0) {
+            return legacy;
+        }
+
+        throw new NotepadImportError('No notes found to import.');
+    }
+
+    private parseModernExport(doc: Document): ImportedConceptGroup[] {
+        const conceptSections = Array.from(doc.querySelectorAll(CONCEPT_SECTION_SELECTOR));
+        const concepts: ImportedConceptGroup[] = [];
+        conceptSections.forEach(section => {
+            const titleElement = section.querySelector(CONCEPT_TITLE_SELECTOR);
+            const title = titleElement?.textContent?.trim() ?? '';
+            const notes = Array.from(section.querySelectorAll(NOTE_CARD_SELECTOR));
+            if (notes.length === 0) {
+                return;
             }
-            const noteCards = Array.from(section.querySelectorAll(NOTE_CARD_SELECTOR));
-            if (noteCards.length === 0) {
-                continue;
-            }
-            for (const card of noteCards) {
-                const conceptElement = card.querySelector(CONCEPT_TITLE_SELECTOR) as HTMLElement | null;
-                if (!conceptElement) {
-                    throw new NotepadImportError('Missing concept title in note card.');
-                }
-                const conceptTitle = this.extractConceptTitle(conceptElement);
-                const conceptMatchIndex = this.findConceptIndex(moduleMatchIndex, conceptTitle, curriculum);
-                const contentElement = card.querySelector(NOTE_CONTENT_SELECTOR) as HTMLElement | null;
+            const noteData: ImportedNoteData[] = notes.map(note => {
+                const contentElement = note.querySelector(NOTE_CONTENT_SELECTOR) as HTMLElement | null;
                 if (!contentElement) {
                     throw new NotepadImportError('Missing note content.');
                 }
-                const htmlContent = contentElement.innerHTML.trim();
-                const textContent = contentElement.textContent?.trim() ?? '';
-                const timestampElement = card.querySelector(NOTE_METADATA_SELECTOR);
-                const timestamp = this.parseTimestamp(timestampElement?.textContent ?? '');
-                notes.push({
-                    moduleTitle,
-                    conceptTitle,
-                    timestamp,
-                    htmlContent,
-                    textContent,
-                    moduleMatchIndex,
-                    conceptMatchIndex
-                });
-            }
-        }
-        if (notes.length === 0) {
-            throw new NotepadImportError('No notes found to import.');
-        }
-        return { notes, syntheticModuleRequired };
+                const timestampElement = note.querySelector(NOTE_TIMESTAMP_SELECTOR);
+                const rawTimestamp = timestampElement?.textContent ?? '';
+                return {
+                    id: note.getAttribute('data-note-id'),
+                    htmlContent: contentElement.innerHTML.trim(),
+                    textContent: contentElement.textContent?.trim() ?? '',
+                    timestamp: this.normalizeTimestamp(rawTimestamp)
+                };
+            });
+            concepts.push({
+                id: section.getAttribute('data-concept-id'),
+                title,
+                createdAt: section.getAttribute('data-created-at'),
+                notes: noteData
+            });
+        });
+        return concepts;
     }
 
-    private extractConceptTitle(element: HTMLElement): string {
+    private parseLegacyExport(doc: Document): ImportedConceptGroup[] {
+        const moduleSections = Array.from(doc.querySelectorAll(LEGACY_MODULE_SECTION_SELECTOR));
+        const grouped = new Map<string, ImportedConceptGroup>();
+        moduleSections.forEach(section => {
+            const moduleTitle = section.querySelector(LEGACY_MODULE_HEADER_SELECTOR)?.textContent?.trim() ?? '';
+            const noteCards = Array.from(section.querySelectorAll(LEGACY_NOTE_CARD_SELECTOR));
+            noteCards.forEach(card => {
+                const conceptElement = card.querySelector(LEGACY_CONCEPT_TITLE_SELECTOR) as HTMLElement | null;
+                if (!conceptElement) {
+                    throw new NotepadImportError('Missing concept title in note card.');
+                }
+                const conceptTitle = this.extractLegacyConceptTitle(conceptElement);
+                const contentElement = card.querySelector(LEGACY_NOTE_CONTENT_SELECTOR) as HTMLElement | null;
+                if (!contentElement) {
+                    throw new NotepadImportError('Missing note content.');
+                }
+                const timestampElement = card.querySelector(LEGACY_NOTE_TIMESTAMP_SELECTOR);
+                const note: ImportedNoteData = {
+                    id: card.getAttribute('data-note-id'),
+                    htmlContent: contentElement.innerHTML.trim(),
+                    textContent: contentElement.textContent?.trim() ?? '',
+                    timestamp: this.normalizeTimestamp(timestampElement?.textContent ?? '')
+                };
+                const key = `${moduleTitle}::${conceptTitle}`;
+                if (!grouped.has(key)) {
+                    grouped.set(key, {
+                        id: null,
+                        title: conceptTitle || moduleTitle || 'Imported Notes',
+                        createdAt: null,
+                        notes: []
+                    });
+                }
+                grouped.get(key)!.notes.push(note);
+            });
+        });
+        return Array.from(grouped.values());
+    }
+
+    private extractLegacyConceptTitle(element: HTMLElement): string {
         const clone = element.cloneNode(true) as HTMLElement;
-        const icon = clone.querySelector(CONCEPT_ICON_SELECTOR);
+        const icon = clone.querySelector('.concept-icon');
         if (icon) {
             icon.remove();
         }
         return clone.textContent?.trim() ?? '';
     }
 
-    private parseTimestamp(raw: string): Date {
-        const normalized = raw.replace('🕐', '').trim();
-        if (!normalized) {
-            return new Date();
-        }
-        const parsed = new Date(normalized);
-        if (isNaN(parsed.getTime())) {
-            return new Date();
-        }
-        return parsed;
-    }
-
-    private findModuleIndex(title: string, curriculum: Curriculum | null): number | null {
-        if (!curriculum) {
+    private normalizeTimestamp(value: string): string | null {
+        const cleaned = value.replace('🕐', '').trim();
+        if (!cleaned) {
             return null;
         }
-        const target = title.toLowerCase();
-        const index = curriculum.modules.findIndex(module => module.title.toLowerCase() === target);
-        return index === -1 ? null : index;
-    }
-
-    private findConceptIndex(moduleIndex: number | null, title: string, curriculum: Curriculum | null): number | null {
-        if (moduleIndex === null || !curriculum) {
-            return null;
+        const parsed = new Date(cleaned);
+        if (Number.isNaN(parsed.getTime())) {
+            return cleaned;
         }
-        const module = curriculum.modules[moduleIndex];
-        if (!module) {
-            return null;
-        }
-        const target = title.toLowerCase();
-        const index = module.concepts.findIndex(concept => concept.title.toLowerCase() === target);
-        return index === -1 ? null : index;
+        return parsed.toISOString();
     }
 }

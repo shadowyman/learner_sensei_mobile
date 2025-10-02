@@ -331,11 +331,13 @@ Where would you like to begin your learning journey?`;
         logModuleSelectionValidation('active-concept-tracking-initialized', {
             activeConceptIndex: this.state.currentActiveConceptIndex
         });
-        notepad.updateActiveConceptIndex(this.state.currentActiveConceptIndex);
-        notepad.updateActiveModuleIndex(this.state.curriculumState.currentModuleIndex);
-        
         const currentItem = getCurrentCurriculumItem(this.state.curriculum, this.state.curriculumState);
         if (currentItem) {
+            const moduleTitle = this.state.curriculum?.modules?.[this.state.curriculumState.currentModuleIndex]?.title ?? null;
+            notepad.setActiveCurriculumContext({
+                conceptTitle: currentItem.concept?.title ?? null,
+                moduleTitle
+            });
             this.state.learnerModel.CurrentTask.ID = currentItem.curriculumPathId;
             this.state.learnerModel.CurrentTask.TargetKCs = [currentItem.curriculumPathId];
             if (!this.state.learnerModel.KCs[currentItem.curriculumPathId]) {

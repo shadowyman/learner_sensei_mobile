@@ -570,8 +570,11 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     const newCurrentItem = curriculum && curriculumState ? getCurrentCurriculumItem(curriculum, curriculumState) : null;
     if (newCurrentItem && curriculumState) {
         currentActiveConceptIndex = curriculumState.currentConceptIndex;
-        notepad.updateActiveConceptIndex(currentActiveConceptIndex);
-        notepad.updateActiveModuleIndex(curriculumState.currentModuleIndex);
+        const moduleTitle = curriculum?.modules?.[curriculumState.currentModuleIndex]?.title ?? null;
+        notepad.setActiveCurriculumContext({
+            conceptTitle: newCurrentItem.concept?.title ?? null,
+            moduleTitle
+        });
         
         updateCurriculumDisplay(newCurrentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
         learnerModel.CurrentTask.ID = newCurrentItem.curriculumPathId;
@@ -1274,7 +1277,11 @@ async function handleConceptNavigation(direction: 'prev' | 'next') {
             }
 
             // Update notepad
-            notepad.updateActiveConceptIndex(targetIndex);
+            const targetConcept = module.concepts[targetIndex] ?? null;
+            notepad.setActiveCurriculumContext({
+                conceptTitle: targetConcept?.title ?? null,
+                moduleTitle: module.title
+            });
 
             // Reset KC progress bar for new concept
             updateKCProgressBar(0);

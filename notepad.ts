@@ -7,30 +7,58 @@ import { logger } from './logger';
 import { marked } from 'marked';
 import { Curriculum } from './curriculum';
 import { NotepadExporter } from './notepadExporter';
-import { NotepadImporter, ImportedNoteData } from './notepadImporter';
+import { NotepadImporter, ImportedConceptGroup } from './notepadImporter';
 import { showImportFailureModal } from './ui';
 
-// Declare Quill for TypeScript
 declare var Quill: any;
 
 export interface Note {
     id: string;
-    moduleTitle: string;
+    conceptId: string;
     conceptTitle: string;
-    conceptIndex: number;
-    moduleIndex: number;
     text: string;
-    htmlContent?: string; // Store HTML content when available
-    quillDelta?: any; // Store Quill Delta format for rich text editing
+    htmlContent?: string;
+    quillDelta?: any;
     timestamp: Date;
 }
 
-interface NotepadState {
+interface ConceptGroup {
+    id: string;
+    title: string;
     notes: Note[];
+    createdAt: Date;
+}
+
+interface NotepadState {
+    concepts: ConceptGroup[];
     isOpen: boolean;
 }
 
+interface CurriculumContext {
+    conceptId: string | null;
+    conceptTitle: string | null;
+    moduleTitle: string | null;
+}
+
+interface NotepadSnapshotNote {
+    id: string;
+    conceptId: string;
+    conceptTitle: string;
+    text: string;
+    htmlContent?: string;
+    quillDelta?: any;
+    timestamp: string;
+}
+
+interface NotepadSnapshotConcept {
+    id: string;
+    title: string;
+    createdAt: string;
+    notes: NotepadSnapshotNote[];
+}
+
 const IMPORTED_NOTES_TITLE = 'Imported Notes';
+const UNTITLED_CONCEPT_LABEL = 'Untitled Concept';
 
 function logNotepadActivity(event: string, payload?: Record<string, unknown>): void {
     if (payload && Object.keys(payload).length > 0) {
@@ -40,100 +68,153 @@ function logNotepadActivity(event: string, payload?: Record<string, unknown>): v
     }
 }
 
+function logCustomConcept(event: string, payload?: Record<string, unknown>): void {
+    if (payload && Object.keys(payload).length > 0) {
+        logger.info('[NOTEPAD_CUSTOM_CONCEPTS]', { event, ...payload });
+    } else {
+        logger.info('[NOTEPAD_CUSTOM_CONCEPTS]', { event });
+    }
+}
+
 export class Notepad {
     private state: NotepadState = {
-        notes: [],
+        concepts: [],
         isOpen: false
     };
-    
+
     private modalElement: HTMLDivElement | null = null;
     private notepadButton: HTMLButtonElement | null = null;
     private curriculum: Curriculum | null = null;
-    private currentActiveConceptIndex: number | null = null;
-    private currentModuleIndex: number | null = null;
-    private activeQuillEditor: any = null; // Track active Quill instance
+    private activeQuillEditor: any = null;
     private exporter: NotepadExporter;
     private importer: NotepadImporter;
     private importInput: HTMLInputElement | null = null;
-    private handleNoteClick: ((e: Event) => void) | null = null; // Event handler reference
+    private handleNoteClick: ((e: Event) => void) | null = null;
+    private currentContext: CurriculumContext = {
+        conceptId: null,
+        conceptTitle: null,
+        moduleTitle: null
+    };
+    private editingConceptId: string | null = null;
+    private pendingConceptFocusId: string | null = null;
+    private pendingNoteEditId: string | null = null;
 
     constructor() {
         this.exporter = new NotepadExporter();
         this.importer = new NotepadImporter();
     }
-    
+
     public initialize(curriculum: Curriculum): void {
         this.curriculum = curriculum;
         this.createModal();
         this.attachEventListeners();
     }
-    
-    public updateActiveConceptIndex(index: number | null): void {
-        this.currentActiveConceptIndex = index;
+
+    public setActiveCurriculumContext(context: Partial<CurriculumContext>): void {
+        this.currentContext = {
+            conceptId: context.conceptId ?? this.currentContext.conceptId,
+            conceptTitle: context.conceptTitle ?? this.currentContext.conceptTitle,
+            moduleTitle: context.moduleTitle ?? this.currentContext.moduleTitle
+        };
     }
-    
-    public updateActiveModuleIndex(moduleIndex: number | null): void {
-        this.currentModuleIndex = moduleIndex;
-    }
-    
+
     public addNote(selectedText: string, markdownText: string, htmlContent?: string): void {
-        
-        if (this.currentActiveConceptIndex === null || this.currentModuleIndex === null || !this.curriculum) {
-            logger.warn('Cannot add note: no active concept or module');
-            return;
-        }
-        
-        const module = this.curriculum.modules[this.currentModuleIndex];
-        
-        if (!module || !module.concepts[this.currentActiveConceptIndex]) {
-            logger.warn('Cannot add note: concept not found in current module');
-            return;
-        }
-        
-        const concept = module.concepts[this.currentActiveConceptIndex];
+        const concept = this.ensureConceptForCurrentContext();
         if (!concept) {
-            logger.warn('Cannot add note: target concept missing');
+            logger.warn('Cannot add note: no active concept context');
             return;
         }
 
         const note: Note = {
             id: crypto.randomUUID(),
-            moduleTitle: module.title,
+            conceptId: concept.id,
             conceptTitle: concept.title,
-            conceptIndex: this.currentActiveConceptIndex,
-            moduleIndex: this.currentModuleIndex,
             text: markdownText,
             timestamp: new Date()
         };
+
         if (htmlContent !== undefined) {
             note.htmlContent = htmlContent;
         }
 
-        this.state.notes.push(note);
+        this.appendNote(concept, note);
         logNotepadActivity('note-added', {
-            moduleTitle: module.title,
             conceptTitle: concept.title,
-            totalNotes: this.state.notes.length
+            totalNotes: this.getTotalNoteCount()
+        });
+        logCustomConcept('note-added', {
+            conceptId: concept.id,
+            noteId: note.id
         });
 
         if (this.state.isOpen) {
             this.renderNotes();
         }
     }
-    
+
+    private ensureConceptForCurrentContext(): ConceptGroup | null {
+        if (this.currentContext.conceptId) {
+            const existing = this.findConceptById(this.currentContext.conceptId);
+            if (existing) {
+                return existing;
+            }
+        }
+
+        const titleSource = this.currentContext.conceptTitle ?? this.currentContext.moduleTitle;
+        const normalizedTitle = this.normalizeConceptTitle(titleSource);
+        const matched = this.state.concepts.find(group => group.title.toLowerCase() === normalizedTitle.toLowerCase());
+        if (matched) {
+            this.currentContext.conceptId = matched.id;
+            return matched;
+        }
+
+        const concept = this.createConceptGroup(normalizedTitle, { startEditing: false });
+        this.currentContext.conceptId = concept.id;
+        return concept;
+    }
+
+    private createConceptGroup(title: string, options?: { startEditing: boolean }): ConceptGroup {
+        const concept: ConceptGroup = {
+            id: crypto.randomUUID(),
+            title: this.normalizeConceptTitle(title),
+            notes: [],
+            createdAt: new Date()
+        };
+        this.state.concepts.push(concept);
+        logCustomConcept('concept-created', {
+            conceptId: concept.id,
+            title: concept.title,
+            order: this.state.concepts.length - 1
+        });
+        if (options?.startEditing) {
+            this.editingConceptId = concept.id;
+            this.pendingConceptFocusId = concept.id;
+        }
+        return concept;
+    }
+
+    private appendNote(concept: ConceptGroup, note: Note): void {
+        concept.notes.push(note);
+    }
+
+    private getTotalNoteCount(): number {
+        return this.state.concepts.reduce((total, group) => total + group.notes.length, 0);
+    }
+
     private createModal(): void {
         this.modalElement = document.createElement('div');
         this.modalElement.id = 'notepad-modal';
         this.modalElement.className = 'notepad-modal';
         this.modalElement.style.display = 'none';
-        
+
         this.modalElement.innerHTML = `
             <div class="notepad-modal-content">
                 <div class="notepad-modal-header">
                     <h2 class="notepad-modal-title">📓 My Notes</h2>
                     <div class="notepad-header-controls">
-                        <button id="notepad-import-button" class="notepad-export-btn" title="Import notes from HTML">📥 Import HTML</button>
-                        <button id="notepad-export-button" class="notepad-export-btn" title="Export notes as HTML">📄 Export HTML</button>
+                        <button id="notepad-add-concept-button" class="notepad-export-btn" title="Add new concept">➕</button>
+                        <button id="notepad-import-button" class="notepad-export-btn" title="Import notes from HTML">📥</button>
+                        <button id="notepad-export-button" class="notepad-export-btn" title="Export notes as HTML">📤</button>
                         <button class="notepad-modal-close" aria-label="Close notepad">&times;</button>
                     </div>
                 </div>
@@ -152,8 +233,18 @@ export class Notepad {
         if (this.notepadButton) {
             this.notepadButton.addEventListener('click', () => this.toggleModal());
         }
-        
-        // Export button listener
+
+        const addConceptButton = document.getElementById('notepad-add-concept-button') as HTMLButtonElement | null;
+        if (addConceptButton) {
+            addConceptButton.addEventListener('click', () => {
+                const concept = this.createConceptGroup('', { startEditing: true });
+                this.pendingConceptFocusId = concept.id;
+                if (this.state.isOpen) {
+                    this.renderNotes();
+                }
+            });
+        }
+
         const exportButton = document.getElementById('notepad-export-button');
         if (exportButton) {
             exportButton.addEventListener('click', () => this.exportToHTML());
@@ -166,18 +257,16 @@ export class Notepad {
 
         this.importInput = document.getElementById('notepad-import-input') as HTMLInputElement | null;
         if (this.importInput) {
-            this.importInput.addEventListener('change', async (event) => {
+            this.importInput.addEventListener('change', async event => {
                 const target = event.target as HTMLInputElement;
                 if (!target.files || target.files.length === 0) {
                     return;
                 }
                 const file = target.files.item(0);
-                if (!file) {
-                    target.value = '';
-                    return;
-                }
                 target.value = '';
-                await this.handleImport(file);
+                if (file) {
+                    await this.handleImport(file);
+                }
             });
         }
 
@@ -186,13 +275,13 @@ export class Notepad {
             closeButton.addEventListener('click', () => this.closeModal());
         }
 
-        this.modalElement?.addEventListener('click', (e) => {
+        this.modalElement?.addEventListener('click', e => {
             if (e.target === this.modalElement) {
                 this.closeModal();
             }
         });
     }
-    
+
     private toggleModal(): void {
         if (this.state.isOpen) {
             this.closeModal();
@@ -200,86 +289,80 @@ export class Notepad {
             this.openModal();
         }
     }
-    
+
     private openModal(): void {
-        if (!this.modalElement) return;
-        
+        if (!this.modalElement) {
+            return;
+        }
+
         this.state.isOpen = true;
         this.modalElement.style.display = 'flex';
         this.renderNotes();
-        logNotepadActivity('modal-opened', { totalNotes: this.state.notes.length });
+        logNotepadActivity('modal-opened', { totalNotes: this.getTotalNoteCount() });
     }
-    
-    private closeModal(): void {
-        if (!this.modalElement) return;
-        
-        this.state.isOpen = false;
-        this.modalElement.style.display = 'none';
-        logNotepadActivity('modal-closed', { totalNotes: this.state.notes.length });
-    }
-    
-    private renderNotes(): void {
-        const container = document.getElementById('notepad-notes-container');
-        if (!container) return;
 
-        if (this.state.notes.length === 0) {
-            container.innerHTML = '<p class="notepad-empty-message">No notes yet. Select text and click "Add to Notepad" to save notes.</p>';
+    private closeModal(): void {
+        if (!this.modalElement) {
             return;
         }
-        
-        // Group notes by module index first
-        const notesByModule = new Map<number, Map<number, Note[]>>();
-        for (const note of this.state.notes) {
-            const moduleNotes = notesByModule.get(note.moduleIndex) ?? new Map<number, Note[]>();
-            if (!notesByModule.has(note.moduleIndex)) {
-                notesByModule.set(note.moduleIndex, moduleNotes);
-            }
-            const conceptNotes = moduleNotes.get(note.conceptIndex) ?? [];
-            if (!moduleNotes.has(note.conceptIndex)) {
-                moduleNotes.set(note.conceptIndex, conceptNotes);
-            }
-            conceptNotes.push(note);
+
+        this.state.isOpen = false;
+        this.modalElement.style.display = 'none';
+        logNotepadActivity('modal-closed', { totalNotes: this.getTotalNoteCount() });
+    }
+
+    private renderNotes(): void {
+        const container = document.getElementById('notepad-notes-container');
+        if (!container) {
+            return;
+        }
+
+        if (this.state.concepts.length === 0) {
+            container.innerHTML = '<p class="notepad-empty-message">No notes yet. Select text and click "Add to Notepad" to save notes or create a concept to begin.</p>';
+            this.attachNoteEventListeners();
+            this.attachConceptInputListeners();
+            return;
         }
 
         let html = '';
-        for (const [moduleIndex, conceptsMap] of notesByModule.entries()) {
-            const conceptIterator = conceptsMap.values().next();
-            if (conceptIterator.done || conceptIterator.value.length === 0) {
-                continue;
+        for (const concept of this.state.concepts) {
+            const isEditing = this.editingConceptId === concept.id;
+            const escapedTitle = this.escapeHtml(concept.title);
+            html += `<div class="notepad-concept-section" data-concept-id="${concept.id}">`;
+            html += '<div class="notepad-concept-header">';
+            if (isEditing) {
+                html += `<input type="text" class="notepad-concept-title-input" value="${escapedTitle}" data-concept-id="${concept.id}" />`;
+            } else {
+                html += `<span class="notepad-concept-title-text">${escapedTitle}</span>`;
             }
-            const moduleTitle = conceptIterator.value[0]?.moduleTitle ?? `Module ${moduleIndex + 1}`;
-
-            html += `<div class="notepad-module-section">
-                <h2 class="notepad-module-header">Module: ${moduleTitle}</h2>`;
-
-            for (const notes of conceptsMap.values()) {
-                if (notes.length === 0) {
-                    continue;
-                }
-                const conceptTitle = notes[0]?.conceptTitle ?? 'Concept';
-                html += `<div class="notepad-concept-section">
-                    <h3 class="notepad-concept-header">${conceptTitle}</h3>
-                    <div class="notepad-notes-list">`;
-
-                notes.forEach((note, index) => {
+            html += '<div class="notepad-concept-header-actions">';
+            html += `<button class="notepad-concept-add-note" title="Add note" data-concept-id="${concept.id}">📝</button>`;
+            html += `<button class="notepad-concept-rename" title="Rename concept" data-concept-id="${concept.id}">✏️</button>`;
+            html += '</div>';
+            html += '</div>';
+            html += '<div class="notepad-notes-list">';
+            if (concept.notes.length === 0) {
+                html += '<div class="notepad-note-empty">No notes recorded for this concept.</div>';
+            } else {
+                concept.notes.forEach((note, index) => {
                     if (index > 0) {
                         html += '<hr class="notepad-note-separator">';
                     }
                     html += this.createNoteCard(note);
                 });
-
-                html += '</div></div>';
             }
-
+            html += '</div>';
             html += '</div>';
         }
-        
+
         container.innerHTML = html;
         this.attachNoteEventListeners();
+        this.attachConceptInputListeners();
+        this.focusPendingConceptInput();
+        this.focusPendingNoteEditor();
     }
-    
+
     private createNoteCard(note: Note): string {
-        // Use HTML content if available, otherwise render markdown
         const renderedContent = note.htmlContent || marked(note.text);
         return `
             <div class="notepad-note-card" data-note-id="${note.id}">
@@ -293,260 +376,497 @@ export class Notepad {
             </div>
         `;
     }
-    
+
     private attachNoteEventListeners(): void {
-        // Use event delegation to avoid memory leaks
         const container = document.getElementById('notepad-notes-container');
-        if (!container) return;
-        
-        // Remove any existing listeners first
+        if (!container) {
+            return;
+        }
+
         if (this.handleNoteClick) {
             container.removeEventListener('click', this.handleNoteClick);
         }
-        
-        // Create bound handler if not exists
-        if (!this.handleNoteClick) {
-            this.handleNoteClick = (e: Event) => {
-                const target = e.target as HTMLElement;
-                
-                // Handle edit button clicks
-                if (target.classList.contains('notepad-note-edit') || target.closest('.notepad-note-edit')) {
-                    const card = target.closest('.notepad-note-card');
-                    if (card) {
-                        this.toggleEditMode(card as HTMLElement);
-                    }
+
+        this.handleNoteClick = (event: Event) => {
+            const target = event.target as HTMLElement;
+            if (!target) {
+                return;
+            }
+
+            const conceptSection = target.closest('.notepad-concept-section') as HTMLElement | null;
+            const noteCard = target.closest('.notepad-note-card') as HTMLElement | null;
+
+            if (target.classList.contains('notepad-note-edit') || target.closest('.notepad-note-edit')) {
+                if (noteCard) {
+                    this.toggleEditMode(noteCard as HTMLElement);
                 }
-                
-                // Handle delete button clicks
-                if (target.classList.contains('notepad-note-delete') || target.closest('.notepad-note-delete')) {
-                    const card = target.closest('.notepad-note-card');
-                    const noteId = card?.getAttribute('data-note-id');
-                    if (noteId) {
-                        this.deleteNote(noteId);
-                    }
+                return;
+            }
+
+            if (target.classList.contains('notepad-note-delete') || target.closest('.notepad-note-delete')) {
+                const noteId = noteCard?.getAttribute('data-note-id');
+                if (noteId) {
+                    this.deleteNote(noteId);
                 }
-            };
+                return;
+            }
+
+            if (target.classList.contains('notepad-concept-add-note') || target.closest('.notepad-concept-add-note')) {
+                const conceptId = conceptSection?.getAttribute('data-concept-id');
+                if (conceptId) {
+                    this.handleConceptAddNote(conceptId);
+                }
+                return;
+            }
+
+            if (target.classList.contains('notepad-concept-rename') || target.closest('.notepad-concept-rename')) {
+                const conceptId = conceptSection?.getAttribute('data-concept-id');
+                if (conceptId) {
+                    this.editingConceptId = conceptId;
+                    this.pendingConceptFocusId = conceptId;
+                    this.renderNotes();
+                }
+            }
+        };
+
+        container.addEventListener('click', this.handleNoteClick);
+    }
+
+    private attachConceptInputListeners(): void {
+        const input = document.querySelector('.notepad-concept-title-input') as HTMLInputElement | null;
+        if (!input) {
+            return;
         }
-        
-        // Attach single delegated event listener
-        const handler = this.handleNoteClick;
-        if (handler) {
-            container.addEventListener('click', handler);
+
+        const conceptId = input.getAttribute('data-concept-id');
+        if (!conceptId) {
+            return;
+        }
+
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this.commitConceptRename(conceptId, input.value);
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                this.cancelConceptRename();
+            }
+        });
+
+        input.addEventListener('blur', () => {
+            if (this.editingConceptId === conceptId) {
+                this.commitConceptRename(conceptId, input.value);
+            }
+        });
+    }
+
+    private focusPendingConceptInput(): void {
+        if (!this.pendingConceptFocusId) {
+            return;
+        }
+        const input = document.querySelector('.notepad-concept-title-input') as HTMLInputElement | null;
+        if (input) {
+            requestAnimationFrame(() => {
+                input.focus();
+                input.select();
+            });
+        }
+        this.pendingConceptFocusId = null;
+    }
+
+    private focusPendingNoteEditor(): void {
+        if (!this.pendingNoteEditId) {
+            return;
+        }
+        const noteCard = document.querySelector(`.notepad-note-card[data-note-id="${this.pendingNoteEditId}"]`) as HTMLElement | null;
+        if (noteCard) {
+            requestAnimationFrame(() => {
+                this.toggleEditMode(noteCard);
+            });
+        }
+        this.pendingNoteEditId = null;
+    }
+
+    private handleConceptAddNote(conceptId: string): void {
+        const concept = this.findConceptById(conceptId);
+        if (!concept) {
+            return;
+        }
+        const note: Note = {
+            id: crypto.randomUUID(),
+            conceptId: concept.id,
+            conceptTitle: concept.title,
+            text: '',
+            timestamp: new Date()
+        };
+        this.appendNote(concept, note);
+        logCustomConcept('note-added', {
+            conceptId: concept.id,
+            noteId: note.id,
+            source: 'concept-button'
+        });
+        this.pendingNoteEditId = note.id;
+        if (this.state.isOpen) {
+            this.renderNotes();
         }
     }
-    
+
+    private commitConceptRename(conceptId: string, value: string): void {
+        const concept = this.findConceptById(conceptId);
+        if (!concept) {
+            return;
+        }
+        const normalized = this.normalizeConceptTitle(value);
+        if (concept.title !== normalized) {
+            concept.title = normalized;
+            concept.notes.forEach(note => {
+                note.conceptTitle = normalized;
+            });
+            if (this.currentContext.conceptId === concept.id) {
+                this.currentContext.conceptTitle = normalized;
+            }
+            logCustomConcept('concept-renamed', {
+                conceptId: concept.id,
+                title: normalized
+            });
+        }
+        this.editingConceptId = null;
+        if (this.state.isOpen) {
+            this.renderNotes();
+        }
+    }
+
+    private cancelConceptRename(): void {
+        this.editingConceptId = null;
+        if (this.state.isOpen) {
+            this.renderNotes();
+        }
+    }
+
+    private findConceptById(conceptId: string): ConceptGroup | undefined {
+        return this.state.concepts.find(group => group.id === conceptId);
+    }
+
+    private findNote(noteId: string): { note: Note; concept: ConceptGroup } | null {
+        for (const concept of this.state.concepts) {
+            const note = concept.notes.find(item => item.id === noteId);
+            if (note) {
+                return { note, concept };
+            }
+        }
+        return null;
+    }
+
     private toggleEditMode(card: HTMLElement): void {
         const content = card.querySelector('.notepad-note-content') as HTMLElement;
         const noteId = card.getAttribute('data-note-id');
-        
-        if (!content || !noteId) return;
-        
+        if (!content || !noteId) {
+            return;
+        }
         const isEditing = card.classList.contains('editing');
-        
         if (isEditing) {
             this.saveQuillContent(card, noteId);
         } else {
             this.initializeQuillEditor(card, noteId);
         }
     }
-    
+
     private initializeQuillEditor(card: HTMLElement, noteId: string): void {
-        const note = this.state.notes.find(n => n.id === noteId);
-        if (!note) return;
-        
-        const editButton = card.querySelector('.notepad-note-edit') as HTMLButtonElement | null;
-        if (!editButton) {
-            logger.warn('Edit button not found for note card', { noteId });
+        const found = this.findNote(noteId);
+        if (!found) {
             return;
         }
-        editButton.style.display = 'none';
-        
-        // Add editing class
+        const note = found.note;
+        const editButton = card.querySelector('.notepad-note-edit') as HTMLButtonElement | null;
+        if (editButton) {
+            editButton.style.display = 'none';
+        }
         card.classList.add('editing');
-        
-        // Create Quill container
         const quillContainer = document.createElement('div');
         quillContainer.className = 'notepad-quill-container';
-        
         const editorDiv = document.createElement('div');
         quillContainer.appendChild(editorDiv);
-        
-        // Create save/cancel buttons
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'notepad-save-cancel-buttons';
-        
         const saveButton = document.createElement('button');
         saveButton.textContent = '💾 Save';
         saveButton.className = 'notepad-note-edit';
         saveButton.onclick = () => this.saveQuillContent(card, noteId);
-        
         const cancelButton = document.createElement('button');
         cancelButton.textContent = '❌ Cancel';
         cancelButton.className = 'notepad-note-delete';
         cancelButton.onclick = () => this.cancelQuillEdit(card);
-        
         buttonContainer.appendChild(cancelButton);
         buttonContainer.appendChild(saveButton);
-        
         card.appendChild(quillContainer);
         card.appendChild(buttonContainer);
-        
-        // Initialize Quill
         this.activeQuillEditor = new Quill(editorDiv, {
             theme: 'snow',
             modules: {
                 toolbar: [
                     ['bold', 'italic', 'underline', 'strike'],
                     ['blockquote', 'code-block'],
-                    [{ 'header': 1 }, { 'header': 2 }],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ header: 1 }, { header: 2 }],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
                     ['link'],
                     ['clean']
                 ]
             }
         });
-        
-        // Set content - use Delta if available, otherwise convert HTML
         if (note.quillDelta) {
             this.activeQuillEditor.setContents(note.quillDelta);
         } else if (note.htmlContent) {
-            // Convert HTML to Quill format
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = note.htmlContent;
             this.activeQuillEditor.clipboard.dangerouslyPasteHTML(note.htmlContent);
         } else {
-            // Convert markdown to HTML first
             const html = marked(note.text) as string;
             this.activeQuillEditor.clipboard.dangerouslyPasteHTML(html);
         }
-        
         this.activeQuillEditor.focus();
     }
-    
+
     private saveQuillContent(card: HTMLElement, noteId: string): void {
-        if (!this.activeQuillEditor) return;
-        
-        const note = this.state.notes.find(n => n.id === noteId);
-        if (!note) return;
-        
-        // Save Delta format for future edits
-        note.quillDelta = this.activeQuillEditor.getContents();
-        
-        // Save HTML for display
+        if (!this.activeQuillEditor) {
+            return;
+        }
+        const found = this.findNote(noteId);
+        if (!found) {
+            return;
+        }
+        const note = found.note;
+        note.quillDelta = this.cloneDelta(this.activeQuillEditor.getContents());
         note.htmlContent = this.activeQuillEditor.root.innerHTML;
-        
-        // Update plain text for search/export
         note.text = this.activeQuillEditor.getText();
-        
         logNotepadActivity('note-edited', { noteId });
-        
-        // Clean up
         this.cancelQuillEdit(card);
-        
-        // Re-render to show updated content
-        this.renderNotes();
-    }
-    
-    private cancelQuillEdit(card: HTMLElement): void {
-        // Remove editing class
-        card.classList.remove('editing');
-        
-        // Remove Quill container and buttons
-        const quillContainer = card.querySelector('.notepad-quill-container');
-        const buttonContainer = card.querySelector('.notepad-save-cancel-buttons');
-        
-        if (quillContainer) quillContainer.remove();
-        if (buttonContainer) buttonContainer.remove();
-        
-        // Show edit button again
-        const editButton = card.querySelector('.notepad-note-edit') as HTMLButtonElement;
-        if (editButton) editButton.style.display = '';
-        
-        // Clean up Quill instance
-        this.activeQuillEditor = null;
-    }
-    
-    private deleteNote(noteId: string): void {
-        const index = this.state.notes.findIndex(n => n.id === noteId);
-        if (index !== -1) {
-            this.state.notes.splice(index, 1);
-            logNotepadActivity('note-deleted', {
-                noteId,
-                totalNotes: this.state.notes.length
-            });
+        if (this.state.isOpen) {
             this.renderNotes();
         }
     }
 
-    public getAllNotes(): Note[] {
-        return this.state.notes.map(note => this.cloneNote(note));
+    private cancelQuillEdit(card: HTMLElement): void {
+        card.classList.remove('editing');
+        const quillContainer = card.querySelector('.notepad-quill-container');
+        const buttonContainer = card.querySelector('.notepad-save-cancel-buttons');
+        if (quillContainer) {
+            quillContainer.remove();
+        }
+        if (buttonContainer) {
+            buttonContainer.remove();
+        }
+        const editButton = card.querySelector('.notepad-note-edit') as HTMLButtonElement;
+        if (editButton) {
+            editButton.style.display = '';
+        }
+        this.activeQuillEditor = null;
+    }
+
+    private deleteNote(noteId: string): void {
+        const found = this.findNote(noteId);
+        if (!found) {
+            return;
+        }
+        const { concept, note } = found;
+        concept.notes = concept.notes.filter(item => item.id !== noteId);
+        logNotepadActivity('note-deleted', {
+            noteId,
+            conceptTitle: concept.title,
+            totalNotes: this.getTotalNoteCount()
+        });
+        if (this.state.isOpen) {
+            this.renderNotes();
+        }
+    }
+
+    private escapeHtml(value: string): string {
+        const htmlEntities: Record<string, string> = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        };
+        return value.replace(/[&<>"']/g, match => htmlEntities[match] ?? match);
+    }
+
+    private normalizeConceptTitle(title: string | null | undefined): string {
+        const trimmed = (title ?? '').trim();
+        if (trimmed.length === 0) {
+            return UNTITLED_CONCEPT_LABEL;
+        }
+        return trimmed;
+    }
+
+    public getAllNotes(): NotepadSnapshotConcept[] {
+        const snapshot = this.state.concepts.map(concept => {
+            const notes = concept.notes.map(note => {
+                const snapshotNote: NotepadSnapshotNote = {
+                    id: note.id,
+                    conceptId: concept.id,
+                    conceptTitle: concept.title,
+                    text: note.text,
+                    timestamp: note.timestamp.toISOString()
+                };
+                if (note.htmlContent !== undefined) {
+                    snapshotNote.htmlContent = note.htmlContent;
+                }
+                if (note.quillDelta !== undefined) {
+                    snapshotNote.quillDelta = this.cloneDelta(note.quillDelta);
+                }
+                return snapshotNote;
+            });
+            return {
+                id: concept.id,
+                title: concept.title,
+                createdAt: concept.createdAt.toISOString(),
+                notes
+            };
+        });
+        logCustomConcept('persistence-snapshot', {
+            conceptCount: snapshot.length,
+            noteCount: this.getTotalNoteCount()
+        });
+        return snapshot;
     }
 
     public restoreNotes(rawNotes: any[]): void {
-        const normalized = this.normalizeRestoredNotes(rawNotes);
-        this.state.notes = normalized;
+        const result = this.deserializeSnapshot(rawNotes);
+        this.state.concepts = result.concepts;
         this.activeQuillEditor = null;
         if (this.state.isOpen) {
             this.renderNotes();
         }
-        logger.info('[NOTEPAD_SAVE_BUG] restoreNotes applied to notepad state', { restoredCount: this.state.notes.length });
+        logger.info('[NOTEPAD_SAVE_BUG] restoreNotes applied to notepad state', {
+            restoredConcepts: this.state.concepts.length,
+            restoredNotes: this.getTotalNoteCount()
+        });
+        if (result.migrated) {
+            logCustomConcept('migration-complete', {
+                upgradedConcepts: this.state.concepts.length,
+                upgradedNotes: this.getTotalNoteCount()
+            });
+        }
     }
-    
-    private exportToHTML(): void {
-        try {
-            logNotepadActivity('export-started', { totalNotes: this.state.notes.length });
 
-            // Show loading state on button
-            const exportButton = document.getElementById('notepad-export-button') as HTMLButtonElement;
-            if (exportButton) {
-                exportButton.disabled = true;
-                exportButton.textContent = '⏳ Generating HTML...';
+    private deserializeSnapshot(raw: any[]): { concepts: ConceptGroup[]; migrated: boolean } {
+        if (!Array.isArray(raw)) {
+            return { concepts: [], migrated: false };
+        }
+        const looksLikeConceptSnapshot = raw.every(item => item && typeof item === 'object' && Array.isArray(item.notes));
+        if (looksLikeConceptSnapshot) {
+            const concepts = raw.map(item => this.buildConceptFromSnapshot(item));
+            return { concepts, migrated: false };
+        }
+        const legacyConcepts = this.migrateLegacyNotes(raw);
+        return { concepts: legacyConcepts, migrated: true };
+    }
+
+    private buildConceptFromSnapshot(snapshot: NotepadSnapshotConcept): ConceptGroup {
+        const concept: ConceptGroup = {
+            id: snapshot.id || crypto.randomUUID(),
+            title: this.normalizeConceptTitle(snapshot.title),
+            createdAt: snapshot.createdAt ? new Date(snapshot.createdAt) : new Date(),
+            notes: []
+        };
+        snapshot.notes.forEach(noteSnapshot => {
+            concept.notes.push(this.buildNoteFromSnapshot(noteSnapshot, concept));
+        });
+        return concept;
+    }
+
+    private buildNoteFromSnapshot(snapshot: NotepadSnapshotNote, concept: ConceptGroup): Note {
+        const note: Note = {
+            id: snapshot.id || crypto.randomUUID(),
+            conceptId: concept.id,
+            conceptTitle: concept.title,
+            text: snapshot.text ?? '',
+            timestamp: snapshot.timestamp ? new Date(snapshot.timestamp) : new Date()
+        };
+        if (snapshot.htmlContent !== undefined) {
+            note.htmlContent = snapshot.htmlContent;
+        }
+        if (snapshot.quillDelta !== undefined) {
+            note.quillDelta = snapshot.quillDelta;
+        }
+        return note;
+    }
+
+    private migrateLegacyNotes(raw: any[]): ConceptGroup[] {
+        const grouped = new Map<string, ConceptGroup>();
+        raw.forEach(item => {
+            if (!item || typeof item !== 'object') {
+                return;
             }
-            
-            // Export to HTML
-            this.exporter.exportToHTML(this.state.notes);
-            
-            logNotepadActivity('export-completed', { totalNotes: this.state.notes.length });
+            const conceptTitle = this.normalizeConceptTitle(item.conceptTitle ?? item.moduleTitle ?? IMPORTED_NOTES_TITLE);
+            if (!grouped.has(conceptTitle)) {
+                grouped.set(conceptTitle, {
+                    id: crypto.randomUUID(),
+                    title: conceptTitle,
+                    createdAt: new Date(),
+                    notes: []
+                });
+            }
+            const concept = grouped.get(conceptTitle)!;
+            const note: Note = {
+                id: item.id ?? crypto.randomUUID(),
+                conceptId: concept.id,
+                conceptTitle: concept.title,
+                text: item.text ?? '',
+                timestamp: item.timestamp ? new Date(item.timestamp) : new Date()
+            };
+            if (typeof item.htmlContent === 'string') {
+                note.htmlContent = item.htmlContent;
+            }
+            if (item.quillDelta !== undefined) {
+                note.quillDelta = item.quillDelta;
+            }
+            concept.notes.push(note);
+        });
+        return Array.from(grouped.values());
+    }
+
+    public exportToHTML(): void {
+        try {
+            logNotepadActivity('export-started', { totalNotes: this.getTotalNoteCount() });
+            const concepts = this.state.concepts.map(concept => this.cloneConcept(concept));
+            this.exporter.exportToHTML(concepts);
+            logNotepadActivity('export-completed', { totalNotes: this.getTotalNoteCount() });
         } catch (error) {
             logger.error('Failed to export HTML:', error);
             alert('Failed to export HTML. Please try again.');
-        } finally {
-            // Restore button state
-            const exportButton = document.getElementById('notepad-export-button') as HTMLButtonElement;
-            if (exportButton) {
-                exportButton.disabled = false;
-                exportButton.textContent = '📄 Export HTML';
-            }
         }
     }
 
     private openImportPicker(): void {
-        const input = this.importInput;
-        if (!input) {
+        if (!this.importInput) {
             return;
         }
-        input.click();
+        this.importInput.click();
     }
 
     private async handleImport(file: File): Promise<void> {
         const importButton = document.getElementById('notepad-import-button') as HTMLButtonElement | null;
         if (importButton) {
             importButton.disabled = true;
-            importButton.textContent = '⏳ Importing...';
+            importButton.textContent = '⏳';
         }
         try {
             logger.info('[NOTEPAD_IMPORT] import-started', { fileName: file.name, fileSize: file.size });
-            const curriculum = this.curriculum ?? null;
-            const batch = await this.importer.importFromFile(file, curriculum);
-            const notes = this.transformImportedNotes(batch.notes);
-            if (notes.length > 0) {
-                this.state.notes.push(...notes);
-                logger.info('[NOTEPAD_IMPORT] notes-merged', { totalNotes: this.state.notes.length, addedCount: notes.length });
+            const imported = await this.importer.importFromFile(file);
+            if (imported.length > 0) {
+                this.mergeImportedConcepts(imported);
                 if (this.state.isOpen) {
                     this.renderNotes();
                 }
+                logCustomConcept('import-merged', {
+                    conceptCount: imported.length,
+                    noteCount: imported.reduce((sum, concept) => sum + concept.notes.length, 0)
+                });
             }
-            logger.info('[NOTEPAD_IMPORT] import-completed', { importedCount: notes.length, syntheticModuleUsed: batch.syntheticModuleRequired });
+            logger.info('[NOTEPAD_IMPORT] import-completed', {
+                conceptCount: imported.length,
+                noteCount: imported.reduce((sum, concept) => sum + concept.notes.length, 0)
+            });
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Import failed.';
             logger.error('[NOTEPAD_IMPORT] import-failed', { error: message });
@@ -555,85 +875,78 @@ export class Notepad {
         } finally {
             if (importButton) {
                 importButton.disabled = false;
-                importButton.textContent = '📥 Import HTML';
+                importButton.textContent = '📥';
             }
         }
     }
 
-    private transformImportedNotes(data: ImportedNoteData[]): Note[] {
-        const notes: Note[] = [];
-        const syntheticModuleIndex = this.resolveSyntheticModuleIndex();
-        const modulePending = new Map<number, Map<string, number>>();
-        const moduleNextIndex = new Map<number, number>();
-        for (const item of data) {
-            const moduleIndex = this.resolveModuleIndex(item.moduleMatchIndex, syntheticModuleIndex);
-            const moduleTitle = this.resolveModuleTitle(moduleIndex, item.moduleMatchIndex, item.moduleTitle, syntheticModuleIndex);
-            const conceptIndex = this.resolveConceptIndex(moduleIndex, item.conceptTitle, item.conceptMatchIndex, modulePending, moduleNextIndex);
-            const note = this.buildNote(item, moduleIndex, moduleTitle, conceptIndex);
-            notes.push(note);
-        }
-        return notes;
-    }
-
-    private normalizeRestoredNotes(rawNotes: any[]): Note[] {
-        if (!Array.isArray(rawNotes)) {
-            return [];
-        }
-        const normalized: Note[] = [];
-        for (const item of rawNotes) {
-            const note = this.normalizeRestoredNote(item);
-            if (note) {
-                normalized.push(note);
+    private mergeImportedConcepts(groups: ImportedConceptGroup[]): void {
+        groups.forEach(group => {
+            const title = this.normalizeConceptTitle(group.title ?? IMPORTED_NOTES_TITLE);
+            let concept = group.id ? this.findConceptById(group.id) : undefined;
+            if (!concept) {
+                concept = this.state.concepts.find(existing => existing.title.toLowerCase() === title.toLowerCase());
             }
-        }
-        return normalized;
+            if (!concept) {
+                concept = {
+                    id: group.id && !this.findConceptById(group.id) ? group.id : crypto.randomUUID(),
+                    title,
+                    createdAt: group.createdAt ? new Date(group.createdAt) : new Date(),
+                    notes: []
+                };
+                this.state.concepts.push(concept);
+            }
+
+            group.notes.forEach(noteData => {
+                if (noteData.id) {
+                    const duplicate = concept!.notes.find(existing => existing.id === noteData.id);
+                    if (duplicate) {
+                        return;
+                    }
+                }
+                const resolvedId = noteData.id && !this.findNote(noteData.id) ? noteData.id : crypto.randomUUID();
+                const note: Note = {
+                    id: resolvedId,
+                    conceptId: concept!.id,
+                    conceptTitle: concept!.title,
+                    text: noteData.textContent,
+                    timestamp: noteData.timestamp ? new Date(noteData.timestamp) : new Date()
+                };
+                if (noteData.htmlContent !== undefined) {
+                    note.htmlContent = noteData.htmlContent;
+                }
+                if (noteData.quillDelta !== undefined) {
+                    note.quillDelta = noteData.quillDelta;
+                }
+                this.appendNote(concept!, note);
+            });
+        });
     }
 
-    private normalizeRestoredNote(raw: any): Note | null {
-        if (!raw || typeof raw !== 'object') {
-            return null;
-        }
-        const moduleIndex = Number.isInteger(raw.moduleIndex) && raw.moduleIndex >= 0 ? raw.moduleIndex : 0;
-        const conceptIndex = Number.isInteger(raw.conceptIndex) && raw.conceptIndex >= 0 ? raw.conceptIndex : 0;
-        const moduleTitle = typeof raw.moduleTitle === 'string' ? raw.moduleTitle : '';
-        const conceptTitle = typeof raw.conceptTitle === 'string' ? raw.conceptTitle : '';
-        const text = typeof raw.text === 'string' ? raw.text : '';
-        const id = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : crypto.randomUUID();
-        const timestamp = this.resolveTimestamp(raw.timestamp);
-        const note: Note = {
-            id,
-            moduleTitle,
-            conceptTitle,
-            conceptIndex,
-            moduleIndex,
-            text,
-            timestamp
+    private cloneConcept(concept: ConceptGroup): ConceptGroup {
+        return {
+            id: concept.id,
+            title: concept.title,
+            createdAt: new Date(concept.createdAt.getTime()),
+            notes: concept.notes.map(note => this.cloneNote(note))
         };
-        if (raw.htmlContent !== undefined) {
-            note.htmlContent = typeof raw.htmlContent === 'string' ? raw.htmlContent : String(raw.htmlContent);
-        }
-        if (raw.quillDelta !== undefined) {
-            note.quillDelta = this.cloneDelta(raw.quillDelta);
-        }
-        return note;
     }
 
     private cloneNote(note: Note): Note {
-        const cloned: Note = {
-            ...note,
-            timestamp: this.resolveTimestamp(note.timestamp)
+        const clone: Note = {
+            id: note.id,
+            conceptId: note.conceptId,
+            conceptTitle: note.conceptTitle,
+            text: note.text,
+            timestamp: new Date(note.timestamp.getTime())
         };
         if (note.htmlContent !== undefined) {
-            cloned.htmlContent = note.htmlContent;
-        } else {
-            delete cloned.htmlContent;
+            clone.htmlContent = note.htmlContent;
         }
         if (note.quillDelta !== undefined) {
-            cloned.quillDelta = this.cloneDelta(note.quillDelta);
-        } else {
-            delete cloned.quillDelta;
+            clone.quillDelta = this.cloneDelta(note.quillDelta);
         }
-        return cloned;
+        return clone;
     }
 
     private cloneDelta(delta: any): any {
@@ -648,103 +961,6 @@ export class Notepad {
         } catch {
             return delta;
         }
-    }
-
-    private resolveTimestamp(value: any): Date {
-        if (value instanceof Date) {
-            return new Date(value.getTime());
-        }
-        if (typeof value === 'string' || typeof value === 'number') {
-            const candidate = new Date(value);
-            if (!Number.isNaN(candidate.getTime())) {
-                return candidate;
-            }
-        }
-        return new Date();
-    }
-
-    private resolveModuleIndex(matchIndex: number | null, syntheticModuleIndex: number): number {
-        if (matchIndex !== null && matchIndex >= 0) {
-            return matchIndex;
-        }
-        return syntheticModuleIndex;
-    }
-
-    private resolveModuleTitle(moduleIndex: number, matchIndex: number | null, fallbackTitle: string, syntheticModuleIndex: number): string {
-        if (matchIndex !== null && this.curriculum && this.curriculum.modules[matchIndex]) {
-            return this.curriculum.modules[matchIndex].title;
-        }
-        if (moduleIndex === syntheticModuleIndex) {
-            return IMPORTED_NOTES_TITLE;
-        }
-        return fallbackTitle || IMPORTED_NOTES_TITLE;
-    }
-
-    private resolveConceptIndex(moduleIndex: number, conceptTitle: string, matchIndex: number | null, modulePending: Map<number, Map<string, number>>, moduleNextIndex: Map<number, number>): number {
-        if (matchIndex !== null && matchIndex >= 0) {
-            return matchIndex;
-        }
-        if (!modulePending.has(moduleIndex)) {
-            modulePending.set(moduleIndex, new Map());
-        }
-        const pending = modulePending.get(moduleIndex)!;
-        if (pending.has(conceptTitle)) {
-            return pending.get(conceptTitle)!;
-        }
-        const existing = this.state.notes.find(note => note.moduleIndex === moduleIndex && note.conceptTitle === conceptTitle);
-        if (existing) {
-            const index = existing.conceptIndex;
-            pending.set(conceptTitle, index);
-            return index;
-        }
-        const index = this.nextConceptIndex(moduleIndex, moduleNextIndex);
-        pending.set(conceptTitle, index);
-        return index;
-    }
-
-    private nextConceptIndex(moduleIndex: number, moduleNextIndex: Map<number, number>): number {
-        if (!moduleNextIndex.has(moduleIndex)) {
-            const existing = this.state.notes.filter(note => note.moduleIndex === moduleIndex).map(note => note.conceptIndex);
-            let next = existing.length > 0 ? Math.max(...existing) + 1 : 0;
-            if (this.curriculum && moduleIndex < this.curriculum.modules.length) {
-                const baseline = this.curriculum.modules[moduleIndex]?.concepts.length ?? 0;
-                if (next < baseline) {
-                    next = baseline;
-                }
-            }
-            moduleNextIndex.set(moduleIndex, next);
-        }
-        const value = moduleNextIndex.get(moduleIndex)!;
-        moduleNextIndex.set(moduleIndex, value + 1);
-        return value;
-    }
-
-    private buildNote(item: ImportedNoteData, moduleIndex: number, moduleTitle: string, conceptIndex: number): Note {
-        return {
-            id: crypto.randomUUID(),
-            moduleTitle,
-            conceptTitle: item.conceptTitle,
-            conceptIndex,
-            moduleIndex,
-            text: item.textContent,
-            htmlContent: item.htmlContent,
-            timestamp: item.timestamp
-        };
-    }
-
-    private resolveSyntheticModuleIndex(): number {
-        const existing = this.state.notes.find(note => note.moduleTitle === IMPORTED_NOTES_TITLE);
-        if (existing) {
-            return existing.moduleIndex;
-        }
-        if (this.curriculum) {
-            return this.curriculum.modules.length;
-        }
-        if (this.state.notes.length === 0) {
-            return 0;
-        }
-        const maxIndex = Math.max(...this.state.notes.map(note => note.moduleIndex));
-        return maxIndex + 1;
     }
 }
 
