@@ -12,7 +12,7 @@
         </step>
         <step number="2">
             **Prepare Review Manifest**:
-            *   Run `npm run review:context -- assign --feature <slug> --files <list of changed non-doc files>` while on `main`. This command stages the listed paths and records them in the manifest so parallel work remains isolated. Do NOT include files under `docs/`.
+            *   Run WITH ELEVATED PERMISSIONS `npm run review:context -- assign --feature <slug> --files <list of changed non-doc files>` while on `main`. This command stages the listed paths and records them in the manifest so parallel work remains isolated. Do NOT include files under `docs/`.
             *   If nothing changed, you do not need to rerun the command; the manifest already reflects the current set. When the list changes, rerun with the complete updated set so the manifest stays accurate. Use `--append` only when you intentionally keep the existing entries and add more files without removing any.
             *   To delete specific files from the slug (without wiping everything), run `npm run review:context -- reset --feature <slug> --files <path1> <path2>` for the paths you want to drop. The command removes those paths and leaves the rest intact; follow up with `assign` only if you need to add or reorder files.
         </step>
@@ -23,7 +23,7 @@
         </step>
         <step number="4">
             **Dispatch Review & Record Artifact Path**:
-            *   ASK user to run `npm run review:dispatch -- --file code_review/review_<final_slug>.html` using the artifact generated in Step 3.
+            *   ASK user to run `npm run review:mediate -- --file code_review/review_<final_slug>.html` using the artifact generated in Step 3.
         </step>
         <step number="5">
             *   At this stage, system will review your changes and make corrections.
