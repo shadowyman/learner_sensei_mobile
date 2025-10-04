@@ -190,7 +190,7 @@ async function main(): Promise<void> {
         }
         record.lastUpdate = message.timestamp;
         statusRecords.set(key, record);
-        if (previousState !== message.state) {
+        if (!renderer.isInteractive() && previousState !== message.state) {
           console.info('[REVIEW_MEDIATOR] Status update received', { artifact: key, state: message.state });
         }
         break;

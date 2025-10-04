@@ -94,6 +94,9 @@ export interface ArtifactStatusRecord {
 export interface DashboardLogEntry {
   raw: string;
   visible: string;
+  artifactId?: string;
+  threadId?: number;
+  timestamp?: number;
 }
 
 export interface DashboardSnapshot {

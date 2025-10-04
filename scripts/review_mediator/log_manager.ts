@@ -12,8 +12,8 @@ export interface LogEntryPayload {
 export class LogManager {
   private readonly directory: string;
   private readonly latest: DashboardLogEntry[] = [];
-  private readonly maxVisible = 5;
-  private readonly maxEntryLength = 220;
+  private readonly maxVisible = 250;
+  private readonly maxEntryLength = 250;
   private readonly fileHandles = new Map<string, string>();
 
   constructor(directory: string) {
@@ -32,14 +32,14 @@ export class LogManager {
     const visible = this.sanitize(formatted);
     const filePath = this.getFilePath(entry.artifactId);
     await fs.appendFile(filePath, formatted + '\n', 'utf8');
-    this.latest.push({ raw: formatted, visible });
+    this.latest.push({ raw: formatted, visible, artifactId: entry.artifactId, threadId: entry.threadId, timestamp: entry.timestamp });
     if (this.latest.length > this.maxVisible) {
       this.latest.splice(0, this.latest.length - this.maxVisible);
     }
   }
 
   getVisibleLogs(): DashboardLogEntry[] {
-    return this.latest.map(entry => ({ raw: entry.raw, visible: entry.visible }));
+    return this.latest.map(entry => ({ ...entry }));
   }
 
   clearVisibleLogs(): void {

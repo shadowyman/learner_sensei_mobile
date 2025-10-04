@@ -73,6 +73,8 @@ if (messagePort) {
 
 const artifactId = basename(context.artifactPath);
 let lastDispatchAiText = '';
+let currentIteration = 1;
+let currentArtifactPath = context.artifactPath;
 
 void run();
 
@@ -84,6 +86,8 @@ function trackCommand(handle: ManagedCommand): ManagedCommand {
 
 async function run(): Promise<void> {
   try {
+    currentIteration = 1;
+    currentArtifactPath = context.artifactPath;
     postStatus('Pending', 'Queued for AI review', false);
     if (await runDispatchPhase(context.artifactPath)) {
       await reviewLoop(context.artifactPath, context.slug, false);
@@ -99,9 +103,10 @@ async function runDispatchPhase(currentArtifact: string): Promise<boolean> {
   if (shouldShutdown) {
     return false;
   }
+  currentArtifactPath = currentArtifact;
   lastDispatchAiText = '';
   postLog('[runDispatchPhase] review phase started');
-  postStatus('Dispatching', 'AI review in progress', true);
+  postStatus('Dispatching', reviewingText(currentArtifact), true);
   const handle = trackCommand(runDispatch(currentArtifact, dispatchListener));
   const result = await handle.result;
   postLog(`[runDispatchPhase] review phase exited {"code":${result.exitCode}}`);
@@ -151,6 +156,8 @@ async function reviewLoop(startArtifact: string, initialSlug: string, needsDispa
     postNewArtifact(context.originalArtifact, remediationResult.artifactPath);
     artifactPath = remediationResult.artifactPath;
     slug = remediationResult.slug;
+    currentIteration += 1;
+    currentArtifactPath = artifactPath;
     needsDispatch = true;
   }
 }
@@ -179,7 +186,8 @@ async function runRemediation(currentArtifact: string, currentSlug: string): Pro
   if (shouldShutdown) {
     return null;
   }
-  postStatus('Remediating', 'Review remarks being addressed', true);
+  currentArtifactPath = currentArtifact;
+  postStatus('Remediating', remediatingText(currentArtifact), true);
   postLog('[runRemediation] Remediation started');
   const aiOutcome = await runAgent(currentArtifact);
   if (!aiOutcome) {
@@ -220,17 +228,17 @@ async function runAgent(artifactPath: string): Promise<{ summary?: string } | nu
     }
     if (stream.latest && stream.latest !== lastBroadcast) {
       lastBroadcast = stream.latest;
-      postStatus('Remediating', 'Review remarks being addressed', true, stream.latest);
+      postStatus('Remediating', remediatingText(artifactPath), true, stream.latest);
       postLog(`[runAgent] ${stream.latest}`);
     }
   }, 2000);
   const result = await handle.result;
   clearInterval(ticker);
   if (stream.latest && stream.latest !== lastBroadcast) {
-    postStatus('Remediating', 'Review remarks being addressed', true, stream.latest);
+    postStatus('Remediating', remediatingText(artifactPath), true, stream.latest);
     postLog(`[runAgent] ${stream.latest}`);
   } else {
-    postStatus('Remediating', 'Review remarks being addressed', true);
+    postStatus('Remediating', remediatingText(artifactPath), true);
   }
   if (result.exitCode !== 0) {
     const summary = summarizeCommandFailure('Agent', result.exitCode, result.signal, result.output);
@@ -284,11 +292,12 @@ function postStatus(state: ArtifactState, text: string, spinner: boolean, aiLine
     currentState = state;
     postLog(`[postStatus] Worker phase transition {"state":"${state}"}`);
   }
+  const labelledText = applyIterationLabel(text);
   const message = {
     type: 'status:update',
     artifactId,
     state,
-    text,
+    text: labelledText,
     spinner,
     timestamp: Date.now(),
     ...(aiLine !== undefined ? { aiLine } : {}),
@@ -354,7 +363,7 @@ function dispatchListener(_channel: 'stdout' | 'stderr', chunk: string): void {
     const aiText = extractTextFromJson(line);
     if (aiText !== null && aiText !== lastDispatchAiText) {
       lastDispatchAiText = aiText;
-      postStatus('Dispatching', 'AI review in progress', true, line);
+      postStatus('Dispatching', reviewingText(currentArtifactPath), true, line);
     }
   }
 }
@@ -408,4 +417,20 @@ function truncateOutput(output: string, max = 160): string {
     return normalized;
   }
   return `${normalized.slice(0, max)}…`;
+}
+
+function reviewingText(path: string): string {
+  return `Reviewing ${basename(path)}`;
+}
+
+function remediatingText(path: string): string {
+  return `Remediating ${basename(path)}`;
+}
+
+function applyIterationLabel(text: string): string {
+  const normalized = text ?? '';
+  if (normalized.startsWith('[Iteration')) {
+    return normalized;
+  }
+  return `[Iteration ${currentIteration}] ${normalized}`;
 }

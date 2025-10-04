@@ -3,7 +3,8 @@
     "module": "nodenext",
     "target": "esnext",
     "types": [
-      "node"
+      "node",
+      "neo-blessed"
     ],
     "sourceMap": true,
     "declaration": true,
