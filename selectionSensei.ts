@@ -27,6 +27,8 @@ import {
 import { SELECTION_SENSEI_CONFIG } from './model_usage';
 import { notepad } from './notepad';
 
+const RESPONSE_MODAL_SENSEI_MESSAGE_ID = 'response-modal-sensei-bubble';
+
 type ContentStrategy = 'parsed-full' | 'explanation-only' | 'raw-fallback' | 'error';
 
 // Declare hljs for TypeScript if it's loaded globally from a CDN
@@ -66,6 +68,7 @@ class SelectionSensei {
     private responseModalComposerInput: HTMLTextAreaElement | null = null;
     private responseModalSendButton: HTMLButtonElement | null = null;
     private modalMessageRegistry: MessageRegistry = createMessageRegistry();
+    private modalResponseRawMarkdown: string = '';
     private followupInFlight = false;
     private modalMessageCounter = 0;
     private modalConversationToken = 0;
@@ -327,6 +330,7 @@ class SelectionSensei {
 
         const timersCleared = this.clearModalRegistry();
         this.modalMessageRegistry = createMessageRegistry();
+        this.modalResponseRawMarkdown = '';
         this.followupInFlight = false;
         this.modalMessageCounter = 0;
         this.selectionChat = null;
@@ -799,6 +803,7 @@ class SelectionSensei {
         try {
             // Trim the content to prevent accidental code block formatting
             const trimmedContent = htmlContent.trim();
+            this.modalResponseRawMarkdown = trimmedContent;
             const sanitizedContent = sanitizeCodeFences(trimmedContent);
             this.responseModalTitleElement.textContent = title;
             this.responseModalSpinner.style.display = 'none';
@@ -848,7 +853,7 @@ class SelectionSensei {
         }
 
         try {
-            await this.processMermaidDiagrams(this.responseModalTextContent);
+            await this.processMermaidDiagrams(this.responseModalTextContent, { messageId: RESPONSE_MODAL_SENSEI_MESSAGE_ID });
             mermaidProcessed = true;
         } catch (mermaidError) {
             logger.warn("[SENSEI_SELECTION] Error processing Mermaid diagrams:", mermaidError);
@@ -1070,6 +1075,10 @@ class SelectionSensei {
         const messageId = context?.messageId;
         const mermaidBlocks = container.querySelectorAll('pre code.language-mermaid');
 
+        if (messageId && this.modalResponseRawMarkdown) {
+            this.modalMessageRegistry.rawText.set(messageId, this.modalResponseRawMarkdown);
+        }
+
         // Process all Mermaid diagrams in parallel
         const mermaidPromises = Array.from(mermaidBlocks).map(async (block) => {
             const preElement = block.parentElement as HTMLElement;
@@ -1107,6 +1116,10 @@ class SelectionSensei {
                         if (messageId) {
                             const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
                             this.updateModalMermaidFence(messageId, rawMermaidCode, replacement);
+                            const updated = this.modalMessageRegistry.rawText.get(messageId);
+                            if (updated) {
+                                this.modalResponseRawMarkdown = updated;
+                            }
                         }
                         return;
                     }
@@ -1118,6 +1131,10 @@ class SelectionSensei {
                 logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
                 if (messageId) {
                     this.updateModalMermaidFence(messageId, rawMermaidCode, "[Diagram could not be rendered, and automatic fix failed]");
+                    const updated = this.modalMessageRegistry.rawText.get(messageId);
+                    if (updated) {
+                        this.modalResponseRawMarkdown = updated;
+                    }
                 }
                 errorDiv.className = 'mermaid-error';
                 errorDiv.textContent = "[Diagram could not be rendered, and automatic fix failed]";
