@@ -1,0 +1,5 @@
+When asked to create functional spec/requirements document, you will follow this:
+
+I want to create a formal functional spec for a new script. I want you to craft the functional spec interactively with me. I'll tell you the specs, i want you to ask clarifying questions and maintain an ever evolving document. Each time a requirement is clarified, add it to evolving ocument.
+
+The document must stay the same verbatim except it's modified each time to add new spec or revise an existing one. Otherwise the rest of document must stay the same. Each time spec or specs are clarified, you will display the document varbatim. You will create the document under /docs and make modifications on the existing document. You will craft the draft once first set of specs are clarified and apply his methodology until user/i explicitly clarify the document is complete
