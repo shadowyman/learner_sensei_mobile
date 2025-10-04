@@ -240,7 +240,19 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
         const content = document.createElement('div');
         content.className = 'mermaid-lightbox__content';
         content.tabIndex = 0;
+        content.setAttribute('role', 'dialog');
+        content.setAttribute('aria-modal', 'true');
+        content.setAttribute('aria-label', 'Fullscreen Mermaid diagram viewer');
         lightbox.appendChild(content);
+        const closeButton = document.createElement('button');
+        const closeButtonId = `mermaid-lightbox-close-${Date.now()}-${Math.random().toString(36).substring(2)}`;
+        closeButton.id = closeButtonId;
+        closeButton.type = 'button';
+        closeButton.className = 'mermaid-lightbox__close';
+        closeButton.setAttribute('aria-label', 'Close fullscreen diagram');
+        closeButton.setAttribute('title', 'Close diagram');
+        closeButton.innerHTML = '&times;';
+        content.appendChild(closeButton);
         const attachDiagram = (diagram) => {
             diagram.removeAttribute('width');
             diagram.removeAttribute('height');
@@ -250,6 +262,7 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
             diagram.classList.add('mermaid-lightbox__diagram');
             content.innerHTML = '';
             content.appendChild(diagram);
+            content.appendChild(closeButton);
         };
         const needsRerender = mermaidCode && window.mermaidManager && storedTheme !== currentTheme;
         if (needsRerender) {
@@ -274,6 +287,7 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
                         attachDiagram(clonedSvg);
                     } else {
                         content.innerHTML = thumbnail.innerHTML;
+                        content.appendChild(closeButton);
                     }
                 }
             } catch (error) {
@@ -284,6 +298,7 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
                     attachDiagram(clonedSvg);
                 } else {
                     content.innerHTML = thumbnail.innerHTML;
+                    content.appendChild(closeButton);
                 }
             }
         } else {
@@ -293,6 +308,7 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
                 attachDiagram(clonedSvg);
             } else {
                 content.innerHTML = thumbnail.innerHTML;
+                content.appendChild(closeButton);
             }
         }
         const diagram = content.querySelector('.mermaid-lightbox__diagram');
@@ -339,23 +355,78 @@ export function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, theme
                 setZoomState(nextZoom, diagramEvent);
             });
         }
-        content.addEventListener('click', (contentEvent) => {
-            if (contentEvent.target === content) {
-                document.body.removeChild(lightbox);
+        const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        let isLightboxActive = true;
+        function pointerDownHandler(event) {
+            if (!isLightboxActive) {
+                return;
             }
-        });
+            const targetNode = event.target;
+            if (!(targetNode instanceof Node)) {
+                return;
+            }
+            if (!lightbox.contains(targetNode)) {
+                return;
+            }
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+        }
+        function removeLightbox(trigger) {
+            if (!isLightboxActive) {
+                return;
+            }
+            isLightboxActive = false;
+            document.removeEventListener('keydown', handleKeydown, true);
+            window.removeEventListener('pointerdown', pointerDownHandler, true);
+            closeButton.removeEventListener('click', closeButtonHandler);
+            content.removeEventListener('click', contentClickHandler);
+            lightbox.removeEventListener('click', lightboxClickHandler);
+            if (lightbox.parentNode) {
+                lightbox.parentNode.removeChild(lightbox);
+            }
+            if (previouslyFocused && document.contains(previouslyFocused)) {
+                previouslyFocused.focus();
+            }
+        }
+        function handleKeydown(keyEvent) {
+            if (!isLightboxActive) {
+                return;
+            }
+            if (keyEvent.key === 'Escape') {
+                keyEvent.preventDefault();
+                removeLightbox('escape');
+            }
+        }
+        function closeButtonHandler(buttonEvent) {
+            buttonEvent.preventDefault();
+            buttonEvent.stopPropagation();
+            removeLightbox('button');
+        }
+        function contentClickHandler(contentEvent) {
+            if (contentEvent.target === content) {
+                contentEvent.stopPropagation();
+                removeLightbox('backdrop');
+            }
+        }
+        function lightboxClickHandler(closeEvent) {
+            if (closeEvent.target === lightbox) {
+                closeEvent.stopPropagation();
+                removeLightbox('backdrop');
+            }
+        }
         const handlePointerMove = (moveEvent) => {
             if (content.dataset.zoomed === 'true') {
                 updateZoomTransform(moveEvent);
             }
         };
         content.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerdown', pointerDownHandler, true);
+        document.addEventListener('keydown', handleKeydown, true);
+        closeButton.addEventListener('click', closeButtonHandler);
+        content.addEventListener('click', contentClickHandler);
+        lightbox.addEventListener('click', lightboxClickHandler);
         document.body.appendChild(lightbox);
-        lightbox.addEventListener('click', (closeEvent) => {
-            if (closeEvent.target === lightbox) {
-                document.body.removeChild(lightbox);
-            }
-        });
+        closeButton.focus();
     });
 }
 
