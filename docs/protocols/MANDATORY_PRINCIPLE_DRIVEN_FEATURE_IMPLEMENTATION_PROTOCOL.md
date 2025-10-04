@@ -46,8 +46,6 @@
             *   **Output Format**: The to-do list must follow this structure:
                 *   ☐ **Task 1**: Implement the data fetching logic.
                     *   *Validation Log*: `logger.info('[XXX] Fetching data for user:', userId)`
-                    *   *Validation Log*: `logger.info('[XXX] Successfully received data:' receivedData)`
-                    *   *Validation Log*: `logger.error('[XXX] Failed to fetch data:', error)`
                     *   *Implementation Details*: Provide detailed implementation details.
                 *   ☐ **Task 2**: Implement the UI rendering component.
                     *   *Validation Log*: `logger.debug('[XXX] Rendering component with props:', props)`
@@ -61,7 +59,8 @@
             *   **Action**: Adjust planned tasks, fixtures, and validation evidence so they explicitly enforce those rules before requesting Step 6 approval.
         </step>
         <step number="6">
-            **Stop and Await My Final Approval**: Present the full plan, including the trade-off matrix, risk analysis, and the detailed to-do list with its defined Validation Logs. **STOP** and do not proceed until you receive my final go-ahead.
+            **Stop and Await My Final Approval**: Present the full plan, including the trade-off matrix, risk analysis, and the detailed to-do list with its defined Validation Logs, planned functional test accompanying changes. 
+            **STOP** and do not proceed until you receive my final go-ahead.
         </step>
     </phase>
     <phase name="Phase 2: Implementation & Quality Assurance (The "Build")">

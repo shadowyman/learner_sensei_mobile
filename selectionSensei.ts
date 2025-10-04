@@ -27,6 +27,8 @@ import {
 import { SELECTION_SENSEI_CONFIG } from './model_usage';
 import { notepad } from './notepad';
 
+const RESPONSE_MODAL_SENSEI_MESSAGE_ID = 'response-modal-sensei-bubble';
+
 type ContentStrategy = 'parsed-full' | 'explanation-only' | 'raw-fallback' | 'error';
 
 // Declare hljs for TypeScript if it's loaded globally from a CDN
@@ -800,6 +802,7 @@ class SelectionSensei {
             // Trim the content to prevent accidental code block formatting
             const trimmedContent = htmlContent.trim();
             const sanitizedContent = sanitizeCodeFences(trimmedContent);
+            this.modalMessageRegistry.rawText.set(RESPONSE_MODAL_SENSEI_MESSAGE_ID, sanitizedContent);
             this.responseModalTitleElement.textContent = title;
             this.responseModalSpinner.style.display = 'none';
 
@@ -848,7 +851,7 @@ class SelectionSensei {
         }
 
         try {
-            await this.processMermaidDiagrams(this.responseModalTextContent);
+            await this.processMermaidDiagrams(this.responseModalTextContent, { messageId: RESPONSE_MODAL_SENSEI_MESSAGE_ID });
             mermaidProcessed = true;
         } catch (mermaidError) {
             logger.warn("[SENSEI_SELECTION] Error processing Mermaid diagrams:", mermaidError);

@@ -161,7 +161,24 @@ function computeTargetFilenames(directory: string, slug: string): {
   const claudeFilename = `review_${slug}_claude${versionSuffix}.html`;
   const previousFilename = (latestCodex ?? latestArtifact)?.name;
 
-  return { finalSlug, codexFilename, claudeFilename, previousFilename, priorArtifacts };
+  const result: {
+    finalSlug: string;
+    codexFilename: string;
+    claudeFilename: string;
+    priorArtifacts: string[];
+    previousFilename?: string;
+  } = {
+    finalSlug,
+    codexFilename,
+    claudeFilename,
+    priorArtifacts,
+  };
+
+  if (previousFilename) {
+    result.previousFilename = previousFilename;
+  }
+
+  return result;
 }
 
 function loadPreviousPrRequests(directory: string, filename?: string): string[] {
@@ -454,11 +471,8 @@ function generateReview(): void {
 
   const prMarkup = buildPrRequestMarkup(prEntries);
   if (files.length === 0) {
-    const content = buildNoDiffDocument(finalSlug, generated, codexPath, prMarkup, diffCommand);
-    writeFileSync(codexPath, content, 'utf8');
-    writeFileSync(claudePath, content, 'utf8');
-    console.log(`No changes found. Review logs saved to ${codexPath} and ${claudePath}`);
-    return;
+    console.error('No staged changes detected. Abort any pending operations that depend on this review artifact.');
+    process.exit(1);
   }
 
   const sections: FileSection[] = [];
@@ -500,11 +514,8 @@ function generateReview(): void {
   }
 
   if (sections.length === 0) {
-    const content = buildNoDiffDocument(finalSlug, generated, codexPath, prMarkup, diffCommand);
-    writeFileSync(codexPath, content, 'utf8');
-    writeFileSync(claudePath, content, 'utf8');
-    console.log(`No diff content found. Review logs saved to ${codexPath} and ${claudePath}`);
-    return;
+    console.error('No diff content could be generated. Abort any pending operations that depend on this review artifact.');
+    process.exit(1);
   }
 
   const checklist = buildChecklist(sections);
