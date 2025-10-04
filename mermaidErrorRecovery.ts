@@ -168,35 +168,15 @@ export function applyUniversalQuoteFix(diagram: string): string {
             if (endPos !== -1 && endPos >= startPos) {
                 // Extract content between delimiters
                 const content = line.substring(startPos, endPos);
-                const trimmedContent = content.trim();
 
                 // Add everything before the node
                 newLine += line.substring(lastIndex, match.index);
 
-                const isDirectlyQuoted = trimmedContent.length > 1 && ((trimmedContent.startsWith('"') && trimmedContent.endsWith('"')) || (trimmedContent.startsWith("'") && trimmedContent.endsWith("'")));
+                // Escape any existing quotes in the content
+                const escapedContent = content.replace(/"/g, '\\"');
 
-                let innerWrapperQuoted = false;
-                if (!isDirectlyQuoted && trimmedContent.length > 2) {
-                    const firstChar = trimmedContent[0];
-                    const lastChar = trimmedContent[trimmedContent.length - 1];
-                    const wrapperPairs: Record<string, string> = {
-                        '(': ')',
-                        '[': ']',
-                        '{': '}',
-                        '<': '>'
-                    };
-                    if (wrapperPairs[firstChar] && wrapperPairs[firstChar] === lastChar) {
-                        const inner = trimmedContent.slice(1, -1).trim();
-                        if (inner.length > 1 && ((inner.startsWith('"') && inner.endsWith('"')) || (inner.startsWith("'") && inner.endsWith("'")))) {
-                            innerWrapperQuoted = true;
-                        }
-                    }
-                }
-
-                const shouldWrap = trimmedContent.length > 0 && !isDirectlyQuoted && !innerWrapperQuoted;
-
-                if (shouldWrap) {
-                    const escapedContent = content.replace(/"/g, '\\"');
+                // Add the node with quotes if not already quoted
+                if (!content.startsWith('"') || !content.endsWith('"')) {
                     newLine += nodeId + openDelim + '"' + escapedContent + '"' + closeDelim;
                 } else {
                     newLine += nodeId + openDelim + content + closeDelim;
