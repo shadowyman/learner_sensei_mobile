@@ -376,11 +376,25 @@ class SelectionSensei {
         if (!this.responseModalTranscript) {
             return;
         }
-        await displayMessage(message, {
+        const shouldSkipGlobalMermaid = message.sender === 'sensei' && !!this.responseModalTranscript;
+        const modalMessage = shouldSkipGlobalMermaid ? { ...message, skipMermaid: true } : message;
+
+        await displayMessage(modalMessage, {
             container: this.responseModalTranscript,
             scrollTarget: this.responseModalTranscript,
             registry: this.modalMessageRegistry,
         });
+
+        if (shouldSkipGlobalMermaid) {
+            if (conversationToken !== undefined && conversationToken !== this.modalConversationToken) {
+                return;
+            }
+            const messageBubble = document.getElementById(modalMessage.id) as HTMLDivElement | null;
+            const messageContent = messageBubble?.querySelector('.message-text') as HTMLElement | null;
+            if (messageContent) {
+                await this.processMermaidDiagrams(messageContent, { messageId: modalMessage.id });
+            }
+        }
     }
 
     private handleComposerKeydown(event: KeyboardEvent): void {
@@ -1032,7 +1046,28 @@ class SelectionSensei {
         return value || undefined;
     }
 
-    private async processMermaidDiagrams(container: HTMLElement): Promise<void> {
+    private updateModalMermaidFence(messageId: string, originalCode: string, replacement: string): void {
+        const rawTextMap = this.modalMessageRegistry.rawText;
+        const current = rawTextMap.get(messageId) || '';
+        if (!current) {
+            return;
+        }
+        const escapeRe = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const exactFence = new RegExp('```\\s*mermaid\\s*\\n\\s*' + escapeRe(originalCode) + '\\s*\\n```', 's');
+        if (exactFence.test(current)) {
+            const updated = current.replace(exactFence, replacement);
+            rawTextMap.set(messageId, updated);
+            return;
+        }
+        const genericFence = /```\s*mermaid[\s\S]*?```/;
+        if (genericFence.test(current)) {
+            const updated = current.replace(genericFence, replacement);
+            rawTextMap.set(messageId, updated);
+        }
+    }
+
+    private async processMermaidDiagrams(container: HTMLElement, context?: { messageId?: string }): Promise<void> {
+        const messageId = context?.messageId;
         const mermaidBlocks = container.querySelectorAll('pre code.language-mermaid');
 
         // Process all Mermaid diagrams in parallel
@@ -1069,6 +1104,10 @@ class SelectionSensei {
                     });
                     if (recoveryResult) {
                         renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
+                        if (messageId) {
+                            const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
+                            this.updateModalMermaidFence(messageId, rawMermaidCode, replacement);
+                        }
                         return;
                     }
                 } catch (fixError) {
@@ -1077,6 +1116,9 @@ class SelectionSensei {
 
                 const errorDiv = document.createElement('div');
                 logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
+                if (messageId) {
+                    this.updateModalMermaidFence(messageId, rawMermaidCode, "[Diagram could not be rendered, and automatic fix failed]");
+                }
                 errorDiv.className = 'mermaid-error';
                 errorDiv.textContent = "[Diagram could not be rendered, and automatic fix failed]";
                 fixingDiv.replaceWith(errorDiv);

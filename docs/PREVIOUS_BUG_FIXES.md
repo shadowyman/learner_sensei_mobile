@@ -272,3 +272,27 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Review Artifact**: N/A (hotfix logged directly)
 
 **Keywords for Future Reference**: teaching plan, KC normalization, chunk advancement, title assumption, PHASE_KC_TOTAL
+
+## Bug Fix #16: Selection Sensei Follow-Up Mermaid Recovery Loop
+
+**Issue**: After Selection Sensei successfully repaired a broken mermaid diagram in the first modal response, every subsequent Sensei follow-up re-triggered mermaid recovery even when the new message rendered correctly, slowing responses and duplicating error banners.
+
+**Root Cause**: `SelectionSensei.appendModalMessage` still routed follow-up Sensei replies through `ui.displayMessage` without disabling the global mermaid pipeline, so recovery re-scanned prior bubbles and reused `window.ai`. The detour also skipped the registry updates performed by `replaceMermaidFenceInRaw`, leaving the modal transcript’s raw-text map stuck with broken diagrams after a recovery.
+
+**Discovery Method**: Adaptive Root Cause Analysis — Cycle 1 (Component Scope) and Cycle 5 (Historical) with DOM inspection of modal transcripts while tracing analyzer call graphs for follow-up paths.
+
+**Fix Applied**:
+1. Flagged modal Sensei messages with `skipMermaid` so `ui.displayMessage` bypasses the global recovery path.
+2. Invoked `processMermaidDiagrams` on the modal text container immediately after the bubble renders, ensuring only the active message undergoes rendering and recovery using the modal’s `this.ai` instance.
+3. Added conversation-token and container guards to prevent post-render processing when the modal session advances during async work.
+4. Replaced recovered or failed mermaid fences inside the modal message registry to keep persisted raw text aligned with the rendered bubble.
+
+**Related Files**:
+- `selectionSensei.ts:371-401`
+- `selectionSensei.ts:1078-1127`
+
+**Backup Artifact**: `backup/sensei_backup_selection_sensei_mermaid_followup_20251004_121449.zip`
+
+**Review Artifact**: `code_review/review_selection_sensei_mermaid_followup_codex_v2.html`
+
+**Keywords for Future Reference**: selection sensei, mermaid recovery, follow-up, skipMermaid, processMermaidDiagrams, modal transcript
