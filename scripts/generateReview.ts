@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, unlink
 import { resolve, isAbsolute } from 'path';
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
+import { loadManifest, partitionAssignedFiles } from './reviewContextLib';
 
 type DiffHunk = {
   header: string;
@@ -422,17 +423,45 @@ function generateReview(): void {
   const prRequestRaw = parseArgument(argv, 'pr_request').trim();
   const generated = timestamp();
   const repoRoot = getRepositoryRoot();
+  const manifest = loadManifest(repoRoot);
+  const slugEntry = manifest.slugs[slug];
+  if (!slugEntry || slugEntry.files.length === 0) {
+    console.error(`Manifest missing for slug ${slug}. Run npm run review:context -- assign --feature ${slug} --files <list of changed non-doc files> before review:create.`);
+    process.exit(1);
+  }
   const outputDir = resolve(repoRoot, 'code_review');
   ensureDirectory(outputDir);
   const diffCommand = 'git diff --staged';
   const { finalSlug, codexFilename, claudeFilename, previousFilename } = computeTargetFilenames(outputDir, slug);
   let files = listWorkingTreeDiffFiles();
-  const isVersioning = Boolean(previousFilename);
-  if (isVersioning && files.length > 0) {
-    runGit(['restore', '--staged', '--', ...files]);
-    runGit(['add', '--', ...files]);
-    files = listWorkingTreeDiffFiles();
+  let partitions = partitionAssignedFiles(slugEntry.files, files);
+  if (partitions.selected.length === 0) {
+    const missing = slugEntry.files.join(', ');
+    console.error(`No staged files matched manifest for slug ${slug}. Ensure files are staged: ${missing}`);
+    process.exit(1);
   }
+  const extras = files.filter(file => !partitions.selected.includes(file));
+  if (extras.length > 0) {
+    runGit(['restore', '--staged', '--', ...extras]);
+    files = listWorkingTreeDiffFiles();
+    partitions = partitionAssignedFiles(slugEntry.files, files);
+  }
+  if (partitions.selected.length === 0) {
+    console.error(`After filtering staged files, no files matched manifest for slug ${slug}.`);
+    process.exit(1);
+  }
+  const unexpected = files.filter(file => !partitions.selected.includes(file));
+  if (unexpected.length > 0) {
+    console.error(`[REVCTX] Unexpected staged files remain: ${unexpected.join(', ')}`);
+    process.exit(1);
+  }
+  const missingAssigned = partitions.missing;
+  if (missingAssigned.length > 0) {
+    console.error(`[REVCTX] Assigned files not staged: ${missingAssigned.join(', ')}`);
+    process.exit(1);
+  }
+  console.log('[REVCTX] Review files resolved', { slug, selected: partitions.selected.length, staged: files.length });
+  files = partitions.selected;
   const codexPath = resolve(outputDir, codexFilename);
   const claudePath = resolve(outputDir, claudeFilename);
   const previousEntries = loadPreviousPrRequests(outputDir, previousFilename);
