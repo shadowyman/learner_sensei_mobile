@@ -25,6 +25,7 @@ export class LogManager {
     await fs.mkdir(this.directory, { recursive: true });
     await fs.writeFile(filePath, '', 'utf8');
     this.fileHandles.set(artifactId, filePath);
+    this.dropVisibleLogs(artifactId);
   }
 
   async append(entry: LogEntryPayload): Promise<void> {
@@ -71,5 +72,13 @@ export class LogManager {
       return stripped;
     }
     return `${stripped.slice(0, this.maxEntryLength)}…`;
+  }
+
+  private dropVisibleLogs(artifactId: string): void {
+    for (let index = this.latest.length - 1; index >= 0; index -= 1) {
+      if (this.latest[index]?.artifactId === artifactId) {
+        this.latest.splice(index, 1);
+      }
+    }
   }
 }

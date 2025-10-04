@@ -31,35 +31,44 @@ const reviewDir = resolve(process.cwd(), 'code_review');
 const reviewProcessDir = resolve(reviewDir, 'review_process');
 
 async function main(): Promise<void> {
-  const artifacts = parseArtifacts(process.argv.slice(2));
-  if (artifacts.length === 0) {
+  const rawArgs = process.argv.slice(2);
+  if (rawArgs.some(arg => arg === '--help' || arg === '-h')) {
     printUsage();
-    process.exitCode = 1;
     return;
   }
+  const artifacts = parseArtifacts(rawArgs);
+  const interactiveSession = artifacts.length === 0;
   await fs.mkdir(reviewProcessDir, { recursive: true });
   const logManager = new LogManager(reviewProcessDir);
-  const renderer = new DashboardRenderer();
+  const renderer = new DashboardRenderer({
+    requestArtifact: requestArtifactFromUI
+  });
   const statusRecords = new Map<string, ArtifactStatusRecord>();
   const workerHandles = new Map<string, WorkerHandle>();
   const activeOriginals = new Map<string, { completed: boolean }>();
   let shutdownRequested = false;
   let encounteredFailure = false;
   let nextThreadId = 1;
+  const availableThreadIds: number[] = [];
   let lastRenderLog = 0;
 
   for (const job of artifacts) {
     const key = artifactKey(job.artifactPath);
+    const threadId = allocateThreadId();
     await logManager.resetLog(key);
-    statusRecords.set(key, createStatusRecord(key, 'Pending', 'Queued'));
+    statusRecords.set(key, createStatusRecord(key, 'Pending', 'Queued', threadId));
     activeOriginals.set(job.originalArtifact, { completed: false });
-    spawnWorker(job);
+    spawnWorker(job, threadId);
   }
   console.info('[REVIEW_MEDIATOR] CLI initialized with artifacts', { artifacts: artifacts.map(job => job.artifactPath) });
 
   const interval = setInterval(() => {
     render(renderer, statusRecords, logManager);
   }, 200);
+
+  if (interactiveSession) {
+    render(renderer, statusRecords, logManager);
+  }
 
   process.on('exit', () => renderer.dispose());
 
@@ -92,7 +101,25 @@ async function main(): Promise<void> {
     });
   });
 
-  function spawnWorker(job: ArtifactJob): void {
+  function allocateThreadId(): number {
+    if (availableThreadIds.length > 0) {
+      return availableThreadIds.shift() as number;
+    }
+    return nextThreadId++;
+  }
+
+  function releaseThreadId(id: number): void {
+    if (!Number.isFinite(id)) {
+      return;
+    }
+    if (availableThreadIds.includes(id)) {
+      return;
+    }
+    availableThreadIds.push(id);
+    availableThreadIds.sort((a, b) => a - b);
+  }
+
+  function spawnWorker(job: ArtifactJob, threadId: number): void {
     const key = artifactKey(job.artifactPath);
     const candidatePaths = ['worker.ts', 'worker.js'].map(file =>
       resolve(process.cwd(), 'scripts', 'review_mediator', file)
@@ -103,7 +130,6 @@ async function main(): Promise<void> {
       throw new Error('review mediator worker script missing');
     }
     const workerScript = pathToFileURL(chosenPath);
-    const threadId = nextThreadId++;
     const initMessage: WorkerInitMessage = {
       context: {
         artifactPath: job.artifactPath,
@@ -144,6 +170,7 @@ async function main(): Promise<void> {
     });
     worker.on('exit', () => {
       workerHandles.delete(key);
+      releaseThreadId(handle.threadId);
       const tracker = activeOriginals.get(handle.job.originalArtifact);
       if (tracker && !tracker.completed) {
         tracker.completed = true;
@@ -157,8 +184,9 @@ async function main(): Promise<void> {
     switch (message.type) {
       case 'status:update': {
         const key = message.artifactId;
-        const record = statusRecords.get(key) ?? createStatusRecord(key, message.state, message.text);
+        const record = statusRecords.get(key) ?? createStatusRecord(key, message.state, message.text, handle.threadId);
         const previousState = record.state;
+        record.threadId = handle.threadId;
         record.state = message.state;
         record.text = message.text;
         record.spinner = message.spinner;
@@ -213,6 +241,7 @@ async function main(): Promise<void> {
         if (record) {
           record.text = `Review craft:${message.newArtifactPath}`;
           record.lastUpdate = message.timestamp;
+          record.threadId = handle.threadId;
         }
         await logManager.append({ artifactId: key, threadId: handle.threadId, message: `[REVIEW_MEDIATOR] Review craft:${message.newArtifactPath}`, timestamp: message.timestamp });
         break;
@@ -224,6 +253,7 @@ async function main(): Promise<void> {
         record.spinner = false;
         record.lastUpdate = message.timestamp;
         delete record.aiLine;
+        delete record.threadId;
         statusRecords.set(message.artifactId, record);
         const tracker = activeOriginals.get(handle.job.originalArtifact);
         if (tracker) {
@@ -239,6 +269,7 @@ async function main(): Promise<void> {
         record.spinner = false;
         record.verdict = message.verdict;
         record.lastUpdate = message.timestamp;
+        delete record.threadId;
         statusRecords.set(message.artifactId, record);
         const tracker = activeOriginals.get(handle.job.originalArtifact);
         if (tracker) {
@@ -265,23 +296,31 @@ async function main(): Promise<void> {
       return;
     }
     const pending = [...activeOriginals.values()].some(entry => !entry.completed);
-    if (!pending) {
-      clearInterval(interval);
-      render(renderer, statusRecords, logManager);
-      console.info('[REVIEW_MEDIATOR] CLI entry complete');
-      renderer.dispose();
-      process.exitCode = encounteredFailure || shutdownRequested ? 1 : 0;
+    if (pending) {
+      return;
     }
+    render(renderer, statusRecords, logManager);
+    if (interactiveSession && !shutdownRequested) {
+      return;
+    }
+    clearInterval(interval);
+    console.info('[REVIEW_MEDIATOR] CLI entry complete');
+    renderer.dispose();
+    process.exitCode = encounteredFailure || shutdownRequested ? 1 : 0;
   }
 
-  function createStatusRecord(id: string, state: ArtifactState, text: string): ArtifactStatusRecord {
-    return {
+  function createStatusRecord(id: string, state: ArtifactState, text: string, threadId?: number): ArtifactStatusRecord {
+    const record: ArtifactStatusRecord = {
       artifactId: id,
       state,
       text,
       spinner: false,
       lastUpdate: Date.now()
     };
+    if (threadId !== undefined) {
+      record.threadId = threadId;
+    }
+    return record;
   }
 
   function artifactKey(artifactPath: string): string {
@@ -295,6 +334,37 @@ async function main(): Promise<void> {
     };
     rendererInstance.render(snapshot);
     lastRenderLog = Date.now();
+  }
+
+  async function requestArtifactFromUI(rawInput: string): Promise<{ ok: boolean; message?: string }> {
+    const candidate = rawInput.trim();
+    if (!candidate) {
+      return { ok: false, message: 'Artifact path required' };
+    }
+    if (candidate.includes('\n')) {
+      return { ok: false, message: 'Provide exactly one artifact path' };
+    }
+    const resolved = resolvePathInput(candidate);
+    if (!existsSync(resolved)) {
+      return { ok: false, message: 'Artifact not found on disk' };
+    }
+    const key = artifactKey(resolved);
+    if (workerHandles.has(key)) {
+      return { ok: false, message: 'Artifact already in progress' };
+    }
+    const job: ArtifactJob = {
+      artifactPath: resolved,
+      originalArtifact: resolved,
+      slug: deriveSlug(resolved),
+      narrative: defaultNarrative()
+    };
+    const threadId = allocateThreadId();
+    await logManager.resetLog(key);
+    statusRecords.set(key, createStatusRecord(key, 'Pending', 'Queued', threadId));
+    activeOriginals.set(job.originalArtifact, { completed: false });
+    spawnWorker(job, threadId);
+    render(renderer, statusRecords, logManager);
+    return { ok: true };
   }
 
   checkCompletion();

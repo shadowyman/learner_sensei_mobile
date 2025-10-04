@@ -86,6 +86,7 @@ export interface ArtifactStatusRecord {
   state: ArtifactState;
   text: string;
   spinner: boolean;
+  threadId?: number;
   aiLine?: string;
   verdict?: ReviewVerdict;
   lastUpdate: number;

@@ -13,6 +13,8 @@ interface Renderer {
 
 const LOG_SCOLLBACK = 1000;
 const LOG_TRUNCATE = 250;
+const LOG_SCROLL_STEP = 5;
+const HEADER_HISTORY_ALLOWANCE = 4;
 const SGR = {
   reset: '\u001b[0m',
   bold: '\u001b[1m',
@@ -31,6 +33,17 @@ const SGR = {
   yellowBg: '\u001b[43m',
   lightGreenBg: '\u001b[102m'
 } as const;
+
+interface DashboardRendererOptions {
+  requestArtifact?: (input: string) => Promise<{ ok: boolean; message?: string }>;
+}
+
+interface StatusContent {
+  lines: string[];
+  firstActiveLine: number;
+  activeLineCount: number;
+  activeKeys: string[];
+}
 
 function style(text: string, ...codes: string[]): string {
   if (text.length === 0) {
@@ -117,7 +130,7 @@ function stateTag(state: ArtifactStatusRecord['state']): string {
     case 'Pending':
       return '[PENDING]';
     case 'Dispatching':
-      return '[DISPATCH]';
+      return '[REVIEWING]';
     case 'AwaitingReview':
       return '[AWAITING]';
     case 'Remediating':
@@ -147,6 +160,7 @@ interface TabZone {
 export class DashboardRenderer implements Renderer {
   private readonly interactive: boolean;
   private readonly fallback: LegacyDashboardRenderer | null;
+  private readonly requestArtifact: ((input: string) => Promise<{ ok: boolean; message?: string }>) | undefined;
 
   private screen: Widgets.Screen | null = null;
   private header: Widgets.BoxElement | null = null;
@@ -160,12 +174,30 @@ export class DashboardRenderer implements Renderer {
   private selectedTab: string | null = null;
   private tabZones: TabZone[] = [];
   private logLines: string[] = [];
-  private logScroll = 0;
+  private logAnchor = 0;
   private logViewport = 0;
   private userScrolled = false;
   private lastSnapshot: DashboardSnapshot | null = null;
+  private logCacheWidth = 0;
+  private logCache = new Map<string, string[]>();
+  private logSeparator = '';
 
-  constructor() {
+  private statusLines: string[] = [];
+  private statusScroll = 0;
+  private statusViewport = 0;
+  private statusUserScrolled = false;
+  private lastActiveKeys = new Set<string>();
+
+  private readonly spinnerFrames = ['-', '\\', '|', '/'];
+  private spinnerIndex = 0;
+
+  private promptOverlay: Widgets.BoxElement | null = null;
+  private promptInput: Widgets.TextboxElement | null = null;
+  private promptError: Widgets.TextElement | null = null;
+  private promptPending = false;
+
+  constructor(options: DashboardRendererOptions = {}) {
+    this.requestArtifact = options.requestArtifact;
     this.interactive = Boolean(process.stdout.isTTY);
     if (this.interactive) {
       this.fallback = null;
@@ -189,19 +221,41 @@ export class DashboardRenderer implements Renderer {
     const width = Number(this.screen.width) || 80;
     if (width !== this.cachedWidth) {
       this.cachedWidth = width;
+      this.logCache.clear();
+      this.logCacheWidth = 0;
+      this.logSeparator = '';
       this.logBox.setContent('');
     }
 
-    const statuses = this.formatStatuses(snapshot.statuses, width - 4);
+    const contentWidth = Math.max(width - 4, 20);
+    const statusContent = this.buildStatusContent(snapshot.statuses, contentWidth);
+    this.statusLines = statusContent.lines;
+
     this.header.setContent(this.buildHeader(snapshot.statuses));
     this.ensureSelectedTab(snapshot.statuses);
     this.renderTabs(snapshot.statuses, width);
+
     const screenHeight = Number(this.screen.height) || 24;
-    const statusContentHeight = Math.min(Math.max(statuses.length || 1, 3), Math.max(3, screenHeight - 6));
-    const statusHeight = statusContentHeight + 2;
+    const footerHeight = Number(this.footer.height) || 1;
+    const statusBorder = 2;
+    const headerHeight = 1;
+    const tabHeight = 1;
+    const dividerHeight = 1;
+    const logMinHeight = 3;
+
+    const maxStatusContentLines = Math.max(1, screenHeight - (headerHeight + tabHeight + dividerHeight + footerHeight + logMinHeight) - statusBorder);
+    const activeHeight = Math.max(statusContent.activeLineCount, 1);
+    const desiredContentLines = Math.min(
+      statusContent.lines.length,
+      Math.max(activeHeight, Math.min(statusContent.lines.length, activeHeight + HEADER_HISTORY_ALLOWANCE))
+    );
+    const statusContentLines = Math.min(Math.max(desiredContentLines, 1), maxStatusContentLines);
+    this.statusViewport = statusContentLines;
+    const statusHeight = statusContentLines + statusBorder;
     this.statusBox.top = 1;
     this.statusBox.height = statusHeight;
-    this.statusBox.setContent(statuses.join('\n'));
+
+    this.syncStatusScroll(statusContent);
 
     const tabTop = (Number(this.statusBox.top) || 0) + statusHeight;
     if (this.tabBar) {
@@ -213,13 +267,12 @@ export class DashboardRenderer implements Renderer {
     this.divider.setContent(dividerLine);
 
     const logTop = dividerTop + 1;
-    const footerHeight = Number(this.footer.height) || 1;
-    const logHeight = Math.max(3, screenHeight - logTop - footerHeight);
+    const logHeight = Math.max(logMinHeight, screenHeight - logTop - footerHeight);
     this.logBox.top = logTop;
     this.logBox.height = logHeight;
     this.logViewport = Math.max(1, logHeight - 2);
 
-    this.renderLogs(snapshot.logs, width - 4);
+    this.renderLogs(snapshot.logs, contentWidth);
     this.screen.render();
   }
 
@@ -234,7 +287,9 @@ export class DashboardRenderer implements Renderer {
       badge(`ACTIVE ${active}`, SGR.white, active > 0 ? SGR.yellowBg : SGR.grayBg),
       badge(`DONE ${completed}`, SGR.white, completed > 0 ? SGR.greenBg : SGR.grayBg),
       badge(`ATTN ${failing}`, SGR.white, failing > 0 ? SGR.redBg : SGR.grayBg),
-      style('Shift+PgUp/PgDn scroll', SGR.cyan, SGR.bold),
+      style('Ctrl+A add artifact', SGR.cyan, SGR.bold),
+      style('W/S header history', SGR.cyan, SGR.bold),
+      style('Arrows scroll ×5', SGR.cyan, SGR.bold),
       style('q to exit', SGR.cyan, SGR.bold)
     ];
     return ` ${segments.join('  ')}`;
@@ -312,10 +367,10 @@ export class DashboardRenderer implements Renderer {
       this.shiftTab(1);
     });
     screen.key(['up'], () => {
-      this.scrollLogs(1);
+      this.scrollLogs(LOG_SCROLL_STEP);
     });
     screen.key(['down'], () => {
-      this.scrollLogs(-1);
+      this.scrollLogs(-LOG_SCROLL_STEP);
     });
   }
 
@@ -327,7 +382,7 @@ export class DashboardRenderer implements Renderer {
     }
     this.selectedTab = zone.artifactId;
     this.userScrolled = false;
-    this.logScroll = 0;
+    this.logAnchor = Math.max(0, this.logLines.length - this.logViewport);
     if (this.lastSnapshot) {
       this.render(this.lastSnapshot);
     }
@@ -344,7 +399,7 @@ export class DashboardRenderer implements Renderer {
     if (next && next.artifactId !== this.selectedTab) {
       this.selectedTab = next.artifactId;
       this.userScrolled = false;
-      this.logScroll = 0;
+      this.logAnchor = Math.max(0, this.logLines.length - this.logViewport);
       if (this.lastSnapshot) {
         this.render(this.lastSnapshot);
       }
@@ -367,17 +422,30 @@ export class DashboardRenderer implements Renderer {
   private initializeScreen(): void {
     const screen = blessed.screen({
       smartCSR: true,
+      useBCE: false,
       fullUnicode: true,
       title: 'Review Mediator Dashboard'
     });
 
     screen.enableMouse();
 
+    screen.key(['C-a'], () => {
+      this.openArtifactPrompt();
+    });
+
     screen.key(['q', 'C-c'], () => {
       if (!process.listenerCount('SIGINT')) {
         process.exit(0);
       }
       process.emit('SIGINT');
+    });
+
+    screen.key(['w', 'W'], () => {
+      this.scrollStatuses(-this.statusScrollStep());
+    });
+
+    screen.key(['s', 'S'], () => {
+      this.scrollStatuses(this.statusScrollStep());
     });
 
     const header = blessed.box({
@@ -452,7 +520,7 @@ export class DashboardRenderer implements Renderer {
       width: '100%',
       height: 1,
       style: { fg: 'black', bg: 'gray' },
-      content: '  Tabs filter logs by artifact • metadata dimmed • commands in cyan'
+      content: '  Ctrl+A add artifact • W/S header history • arrows scroll logs ×5 • Tabs filter logs'
     });
 
     screen.on('resize', () => {
@@ -479,64 +547,102 @@ export class DashboardRenderer implements Renderer {
     }
   }
 
-  private formatStatuses(statuses: ArtifactStatusRecord[], maxWidth: number): string[] {
-    const lines: string[] = [];
+  private buildStatusContent(statuses: ArtifactStatusRecord[], maxWidth: number): StatusContent {
     const width = Math.max(maxWidth, 20);
-
-    const sorted = [...statuses].sort((a, b) => a.artifactId.localeCompare(b.artifactId));
-    for (const status of sorted) {
-      const color = stateColor(status.state);
-      const artifactName = basename(status.artifactId).toUpperCase();
-      const headline = style(` ${artifactName} `, color, SGR.bold);
-      const banner = style('═'.repeat(Math.min(width, stringWidth(stripAnsi(headline)))), color);
-      lines.push(banner);
-      lines.push(headline);
-      lines.push(banner);
-
-      const description = status.text.trim();
-      if (description.length > 0) {
-        const wrapped = this.wrapPlain(this.truncate(description, LOG_TRUNCATE), width - 2).map(line => this.renderDescriptionLine(line));
-        lines.push(...wrapped);
-      }
-
-      if (status.aiLine) {
-        const aiWrapped = this.wrapPlain(this.truncate(status.aiLine, LOG_TRUNCATE), width - 2).map(line => `  ${style(line, SGR.cyan)}`);
-        lines.push(...aiWrapped);
-      }
-
-      lines.push('');
+    if (statuses.length === 0) {
+      const line = style('No artifacts queued', SGR.dim);
+      return {
+        lines: [line],
+        firstActiveLine: 0,
+        activeLineCount: 1,
+        activeKeys: []
+      };
     }
+
+    const sorted = [...statuses].sort((a, b) => {
+      const delta = (a.lastUpdate ?? 0) - (b.lastUpdate ?? 0);
+      if (delta !== 0) {
+        return delta;
+      }
+      return a.artifactId.localeCompare(b.artifactId);
+    });
+
+    const lines: string[] = [];
+    let firstActiveLine = sorted.length;
+    let activeLineCount = 0;
+    const activeKeys: string[] = [];
+    let spinnerUsed = false;
+
+    sorted.forEach((status, index) => {
+      const block = this.renderStatusBlock(status, width);
+      if (this.isActiveStatus(status)) {
+        if (firstActiveLine === sorted.length) {
+          firstActiveLine = lines.length;
+        }
+        activeLineCount += block.length;
+        activeKeys.push(status.artifactId);
+        if (status.spinner) {
+          spinnerUsed = true;
+        }
+      }
+      lines.push(...block);
+      if (index < sorted.length - 1) {
+        lines.push('');
+      }
+    });
 
     if (lines.length > 0 && lines[lines.length - 1] === '') {
       lines.pop();
     }
-    if (lines.length === 0) {
-      return [style('No active artifacts', SGR.dim)];
+    if (firstActiveLine === sorted.length) {
+      firstActiveLine = lines.length;
     }
-    return lines;
+    if (spinnerUsed) {
+      this.spinnerIndex = (this.spinnerIndex + 1) % this.spinnerFrames.length;
+    }
+
+    const payloadLines = lines.length > 0 ? lines : [style('No artifacts queued', SGR.dim)];
+
+    return {
+      lines: payloadLines,
+      firstActiveLine,
+      activeLineCount: activeLineCount > 0 ? activeLineCount : 1,
+      activeKeys
+    };
   }
 
   private renderLogs(entries: DashboardLogEntry[], maxWidth: number): void {
     if (!this.logBox) {
       return;
     }
+    if (this.logCacheWidth !== maxWidth) {
+      this.logCache.clear();
+      this.logCacheWidth = maxWidth;
+      this.logSeparator = style('─'.repeat(Math.max(maxWidth, 10)), SGR.gray);
+    }
     const activeArtifact = this.selectedTab;
     const filtered = entries.filter(entry => this.belongsToTab(entry, activeArtifact));
     const lines: string[] = [];
     filtered.forEach((entry, index) => {
-      const formatted = this.formatLogEntry(entry, maxWidth);
+      const formatted = this.getFormattedLog(entry, maxWidth);
       if (formatted.length > 0) {
         lines.push(...formatted);
         if (index < filtered.length - 1) {
-          lines.push(style('─'.repeat(Math.max(maxWidth, 10)), SGR.gray));
+          lines.push(this.logSeparator);
         }
       }
     });
     this.logLines = lines.length === 0
       ? [style('No logs yet for this artifact', SGR.dim)]
       : lines;
+    const maxStart = Math.max(0, this.logLines.length - this.logViewport);
+    if (maxStart === 0) {
+      this.userScrolled = false;
+    }
     if (!this.userScrolled) {
-      this.logScroll = 0;
+      this.logAnchor = maxStart;
+    } else if (this.logAnchor > maxStart) {
+      this.logAnchor = maxStart;
     }
     this.updateLogViewport();
   }
@@ -547,13 +653,82 @@ export class DashboardRenderer implements Renderer {
     }
     const viewport = Math.max(1, this.logViewport);
     const lines = this.logLines.length > 0 ? this.logLines : [style('No logs yet for this artifact', SGR.dim)];
-    const maxScroll = Math.max(0, lines.length - viewport);
-    if (this.logScroll > maxScroll) {
-      this.logScroll = maxScroll;
+    const maxStart = Math.max(0, lines.length - viewport);
+    if (this.logAnchor > maxStart) {
+      this.logAnchor = maxStart;
     }
-    const start = Math.max(0, lines.length - viewport - this.logScroll);
+    const start = Math.max(0, this.logAnchor);
     const slice = lines.slice(start, start + viewport);
     this.logBox.setContent(slice.join('\n'));
+  }
+
+  private syncStatusScroll(content: StatusContent): void {
+    if (!this.statusBox) {
+      return;
+    }
+    const maxScroll = Math.max(0, this.statusLines.length - this.statusViewport);
+    const activeSet = new Set(content.activeKeys);
+    if (!this.equalSets(activeSet, this.lastActiveKeys)) {
+      this.lastActiveKeys = activeSet;
+      this.statusUserScrolled = false;
+    }
+    if (!this.statusUserScrolled) {
+      const target = Math.min(content.firstActiveLine, maxScroll);
+      this.statusScroll = Math.max(0, target);
+    } else if (this.statusScroll > maxScroll) {
+      this.statusScroll = maxScroll;
+    }
+    this.updateStatusContent();
+  }
+
+  private updateStatusContent(): void {
+    if (!this.statusBox) {
+      return;
+    }
+    if (this.statusLines.length === 0) {
+      this.statusBox.setContent(style('No artifacts queued', SGR.dim));
+      return;
+    }
+    const maxScroll = Math.max(0, this.statusLines.length - this.statusViewport);
+    if (this.statusScroll > maxScroll) {
+      this.statusScroll = maxScroll;
+    }
+    const visible = this.statusLines.slice(this.statusScroll, this.statusScroll + this.statusViewport);
+    this.statusBox.setContent(visible.join('\n'));
+  }
+
+  private statusScrollStep(): number {
+    return Math.max(1, Math.floor(this.statusViewport / 2) || 1);
+  }
+
+  private scrollStatuses(delta: number): void {
+    if (!this.interactive || !this.statusBox || this.promptOverlay) {
+      return;
+    }
+    if (this.statusLines.length <= this.statusViewport) {
+      return;
+    }
+    const maxScroll = Math.max(0, this.statusLines.length - this.statusViewport);
+    const next = Math.max(0, Math.min(this.statusScroll + delta, maxScroll));
+    if (next === this.statusScroll) {
+      return;
+    }
+    this.statusScroll = next;
+    this.statusUserScrolled = true;
+    this.updateStatusContent();
+    this.screen?.render();
+  }
+
+  private equalSets(left: Set<string>, right: Set<string>): boolean {
+    if (left.size !== right.size) {
+      return false;
+    }
+    for (const value of left) {
+      if (!right.has(value)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private scrollLogs(delta: number): void {
@@ -562,14 +737,37 @@ export class DashboardRenderer implements Renderer {
     }
     const viewport = Math.max(1, this.logViewport);
     const lines = this.logLines.length > 0 ? this.logLines : [style('No logs yet for this artifact', SGR.dim)];
-    const maxScroll = Math.max(0, lines.length - viewport);
-    const next = Math.min(Math.max(0, this.logScroll + delta), maxScroll);
-    if (next === this.logScroll) {
+    const maxStart = Math.max(0, lines.length - viewport);
+    const target = this.logAnchor - delta;
+    const next = Math.max(0, Math.min(target, maxStart));
+    if (next === this.logAnchor) {
       return;
     }
-    this.logScroll = next;
-    this.userScrolled = this.logScroll > 0;
+    this.logAnchor = next;
+    this.userScrolled = this.logAnchor < maxStart;
     this.updateLogViewport();
+    this.screen?.render();
+  }
+
+  private getLogCacheKey(entry: DashboardLogEntry): string {
+    const parts = [
+      entry.timestamp?.toString() ?? '',
+      entry.threadId?.toString() ?? '',
+      entry.artifactId ?? '',
+      entry.raw ?? entry.visible ?? ''
+    ];
+    return parts.join('|');
+  }
+
+  private getFormattedLog(entry: DashboardLogEntry, maxWidth: number): string[] {
+    const key = this.getLogCacheKey(entry);
+    const cached = this.logCache.get(key);
+    if (cached) {
+      return cached;
+    }
+    const formatted = this.formatLogEntry(entry, maxWidth);
+    this.logCache.set(key, formatted);
+    return formatted;
   }
 
   private formatLogEntry(entry: DashboardLogEntry, maxWidth: number): string[] {
@@ -671,6 +869,187 @@ export class DashboardRenderer implements Renderer {
     const pattern = /\[Iteration\s+(\d+)\]/gi;
     const highlighted = line.replace(pattern, (_, num) => `${SGR.bold}[ITERATION ${num}]${SGR.reset}${SGR.gray}`);
     return `  ${SGR.gray}${highlighted}${SGR.reset}`;
+  }
+
+  private openArtifactPrompt(): void {
+    if (!this.interactive || !this.screen || this.promptOverlay) {
+      return;
+    }
+    const width = Math.max(60, Math.floor((Number(this.screen.width) || 80) * 0.6));
+    const overlay = blessed.box({
+      parent: this.screen,
+      width,
+      height: 7,
+      left: 'center',
+      top: 'center',
+      border: { type: 'line' },
+      style: {
+        fg: 'white',
+        bg: 'black',
+        border: { fg: 'green' }
+      },
+      ch: ' ',
+      label: ' Queue Artifact '
+    });
+
+    const body = blessed.box({
+      parent: overlay,
+      top: 1,
+      left: 1,
+      right: 1,
+      bottom: 1,
+      style: {
+        fg: 'white',
+        bg: 'black'
+      },
+      ch: ' '
+    });
+
+    blessed.text({
+      parent: body,
+      top: 0,
+      left: 0,
+      width: '100%',
+      content: 'Enter artifact path (Esc to cancel):',
+      style: { bold: true, bg: 'gray', fg: 'black' }
+    });
+
+    const input = blessed.textbox({
+      parent: body,
+      top: 1,
+      left: 0,
+      width: '100%',
+      height: 1,
+      keys: true,
+      mouse: true,
+      inputOnFocus: true,
+      style: {
+        fg: 'black',
+        bg: 'white',
+        focus: { bg: 'white' }
+      }
+    });
+
+    const error = blessed.text({
+      parent: body,
+      top: 3,
+      left: 0,
+      width: '100%',
+      style: { fg: 'red', bg: 'black' }
+    });
+
+    overlay.key(['escape'], () => {
+      this.closeArtifactPrompt();
+    });
+
+    input.on('submit', value => {
+      void this.handleArtifactSubmit(value);
+    });
+    input.on('cancel', () => {
+      this.closeArtifactPrompt();
+    });
+    input.key(['escape'], () => {
+      this.closeArtifactPrompt();
+    });
+
+    this.promptOverlay = overlay;
+    this.promptInput = input;
+    this.promptError = error;
+    this.promptPending = false;
+
+    this.screen.append(overlay);
+    this.screen.render();
+    input.focus();
+  }
+
+  private async handleArtifactSubmit(rawValue: string): Promise<void> {
+    if (!this.promptInput || !this.promptError) {
+      return;
+    }
+    if (!this.requestArtifact) {
+      this.closeArtifactPrompt();
+      return;
+    }
+    if (this.promptPending) {
+      return;
+    }
+    this.promptPending = true;
+    this.promptError.setContent(style('Validating…', SGR.cyan));
+    this.screen?.render();
+    try {
+      const result = await this.requestArtifact(rawValue);
+      if (!this.promptOverlay) {
+        return;
+      }
+      if (result.ok) {
+        this.closeArtifactPrompt();
+        return;
+      }
+      this.promptPending = false;
+      this.promptInput.setValue(rawValue);
+      this.promptError.setContent(style(result.message ?? 'Unable to queue artifact', SGR.red));
+      this.promptInput.focus();
+      this.screen?.render();
+    } catch (error) {
+      if (!this.promptOverlay) {
+        return;
+      }
+      this.promptPending = false;
+      const message = error instanceof Error ? error.message : 'Unexpected error';
+      this.promptInput.setValue(rawValue);
+      this.promptError.setContent(style(message, SGR.red));
+      this.promptInput.focus();
+      this.screen?.render();
+    }
+  }
+
+  private closeArtifactPrompt(): void {
+    this.promptPending = false;
+    if (this.promptOverlay) {
+      this.promptOverlay.destroy();
+    }
+    this.promptOverlay = null;
+    this.promptInput = null;
+    this.promptError = null;
+    this.screen?.render();
+  }
+
+  private renderStatusBlock(status: ArtifactStatusRecord, width: number): string[] {
+    const color = stateColor(status.state);
+    const artifactName = basename(status.artifactId).toUpperCase();
+    const tag = stateTag(status.state);
+    const headlineParts: string[] = [];
+    headlineParts.push(style(` ${artifactName}`, color, SGR.bold));
+    if (this.isActiveStatus(status)) {
+      headlineParts.push(` ${this.spinnerGlyph(Boolean(status.spinner))}`);
+    }
+    headlineParts.push(` ${style(tag, color, SGR.bold)}`);
+    const headline = headlineParts.join('');
+    const bannerWidth = Math.min(width, Math.max(stringWidth(stripAnsi(headline)), 10));
+    const banner = style('═'.repeat(bannerWidth), color);
+    const lines = [banner, headline, banner];
+
+    const description = status.text.trim();
+    if (description.length > 0) {
+      const wrapped = this.wrapPlain(this.truncate(description, LOG_TRUNCATE), width - 2).map(line => this.renderDescriptionLine(line));
+      lines.push(...wrapped);
+    }
+
+    if (status.aiLine) {
+      const aiWrapped = this.wrapPlain(this.truncate(status.aiLine, LOG_TRUNCATE), width - 2).map(line => `  ${style(line, SGR.cyan)}`);
+      lines.push(...aiWrapped);
+    }
+
+    return lines;
+  }
+
+  private spinnerGlyph(spinning: boolean): string {
+    const frame = this.spinnerFrames[this.spinnerIndex % this.spinnerFrames.length] ?? '-';
+    return spinning ? style(frame, SGR.cyan, SGR.bold) : style(frame, SGR.gray, SGR.dim);
+  }
+
+  private isActiveStatus(status: ArtifactStatusRecord): boolean {
+    return status.state !== 'Complete' && status.state !== 'Error';
   }
 }
 
