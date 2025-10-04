@@ -17,6 +17,8 @@
     "review:result": "ts-node scripts/reviewEdit.ts result",
     "review:dispatch": "python3 scripts/sync_review.py",
     "review:hook:prepush": "ts-node scripts/prePushCleanup.ts",
+    "hooks:install": "node scripts/installGitHooks.js",
+    "postinstall": "npm run hooks:install",
     "analysis:run": "ts-node scripts/analyze.ts",
     "analysis:dom": "npm run analysis:run -- --preset domsuite",
     "analysis:ui": "npm run analysis:run -- --preset ui",
