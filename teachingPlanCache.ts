@@ -1,0 +1,100 @@
+const STORAGE_KEY = 'teaching-plan-cache';
+const CACHE_VERSION = 1;
+
+interface TeachingPlanCacheEntry<T> {
+    plan: T;
+    savedAt: string;
+    version: number;
+}
+
+type CacheMap<T> = Record<string, TeachingPlanCacheEntry<T>>;
+
+function getStorage(): Storage | null {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            return window.localStorage;
+        }
+    } catch (_) {
+        return null;
+    }
+    return null;
+}
+
+function readCacheMap<T>(): CacheMap<T> {
+    const storage = getStorage();
+    if (!storage) {
+        return {};
+    }
+    try {
+        const raw = storage.getItem(STORAGE_KEY);
+        if (!raw) {
+            return {};
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return {};
+        }
+        return parsed as CacheMap<T>;
+    } catch (_) {
+        return {};
+    }
+}
+
+function writeCacheMap<T>(map: CacheMap<T>): void {
+    const storage = getStorage();
+    if (!storage) {
+        return;
+    }
+    try {
+        storage.setItem(STORAGE_KEY, JSON.stringify(map));
+    } catch (_) {
+    }
+}
+
+export function getCachedTeachingPlan<T>(cacheKey: string): T | null {
+    const map = readCacheMap<T>();
+    const entry = map[cacheKey];
+    if (!entry || entry.version !== CACHE_VERSION) {
+        return null;
+    }
+    const plan = entry.plan;
+    if (!Array.isArray(plan)) {
+        removeCachedTeachingPlan(cacheKey);
+        return null;
+    }
+    return plan;
+}
+
+export function setCachedTeachingPlan<T>(cacheKey: string, plan: T): void {
+    const map = readCacheMap<T>();
+    map[cacheKey] = {
+        plan,
+        savedAt: new Date().toISOString(),
+        version: CACHE_VERSION
+    };
+    writeCacheMap(map);
+}
+
+export function removeCachedTeachingPlan(cacheKey: string): void {
+    const map = readCacheMap<unknown>();
+    if (map[cacheKey]) {
+        delete map[cacheKey];
+        writeCacheMap(map);
+    }
+}
+
+export function clearTeachingPlanCache(): void {
+    const storage = getStorage();
+    if (!storage) {
+        return;
+    }
+    try {
+        storage.removeItem(STORAGE_KEY);
+    } catch (_) {
+    }
+}
+
+export function hasTeachingPlanCacheEntries(): boolean {
+    const map = readCacheMap<unknown>();
+    return Object.keys(map).length > 0;
+}
