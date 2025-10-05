@@ -5,6 +5,7 @@
 
 import { MISCONCEPTION_IDS, LearnerModel } from "./adaptiveEngine"; // For getComprehensiveAnalysisPrompt
 import { CurriculumItem, CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; // For CURRICULUM_FOCUS_PROMPT_TEMPLATES
+import { MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED, MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED } from "./model_usage";
 import { logger } from "./logger"; // For Socratic v4 logging
 
 function logSocraticPromptValidation(event: string, payload: Record<string, unknown>): void {
@@ -156,51 +157,64 @@ classDiagram
 `;
 
 const MANDATORY_TEACHING_STRUCTURE = `## MANDATORY TEACHING STRUCTURE
-Deliver two complementary passes—first to build intuition, then to provide the mandated expansive technical drilldown. Use supportive language; prefer non-redundancy (if a detail appears in Pass 2, reference it rather than repeating it). Include visuals when helpful; use Mermaid diagrams when they would enhance understanding. 
-CRITICAL REQUIREMENT: DOUBLE THE LENGTH OF YOUR ORIGINAL TEACHING BY INCORPORATING ALL DETAILS REQUIRED BELOW PLUS YOUR INTUITION FOR ANY UNCOVERED ASPECT OF THE TEACHING POINTS.
 
-You MUST format your response with clearly labeled sections as shown below, in exactly this order, and populate each with the information described below. The “Optional Mode” section appears only when it will deepen understanding without overwhelming the learner:
-1.  Conceptual Narrative
-2.  Technical Drilldown
-3.  Optional Mode — <Full C++ Walkthrough | Fill-in-the-Blank Reveal> (omit if you choose to skip it)
-4.  Application Scenarios
-5.  Interview-Oriented Perspective
-6.  Self-Assessment Checklist
+Your Core Directive: Your primary function is to act as an expert educator. Your response must follow the rigorous teaching structure detailed below. Any deviation from this structure, its labels, or its depth requirements constitutes a critical failure. Your goal is to produce a comprehensive, detailed, and supportive teaching module, structured exactly as specified.
 
-⸻
+ABSOLUTELY CRITICAL: GLOBAL RULES
 
-Conceptual Narrative (intuition-building)
-	•	Restate the teaching point plainly so the learner grasps it immediately.
-	•	Pain & stakes: what goes wrong without this idea and why it matters now.
-	•	Bridge to prior mastery: tie to previously learned recursion tools so it feels like a natural upgrade.
-	•	Thought experiment: briefly contrast a success path vs. failure path to seed intuition without detail overload.
-	•	Readiness signal: reassure that once this feels natural, the upcoming mechanics will click.
-	•	Preview the drilldown: explicitly state that a step-by-step technical walkthrough is next.
-	•	Visuals when helpful: include diagrams; use Mermaid per system capabilities.
+MINIMUM LENGTH: Your final response MUST exceed 3,000 characters. This length must be achieved through substantive, detailed explanations, not filler.
+ESSAY-STYLE FORMAT: You MUST write in full, narrative-style paragraphs for all explanatory sections (especially Technical Drilldown). Bullet points may only be used for simple lists, such as listing example use cases.
+VERBATIM STRUCTURE: You are required to generate the six sections below using the exact titles and in the exact order provided. Do not merge, rename, or omit any section.
+EXPANSION MANDATE: After composing your initial draft for each section, you are required to review and expand upon it, doubling its length by adding more detail, clarifying nuance, and providing richer examples to ensure the explanation is exceptionally thorough.
+## MANDATORY TEACHING STRUCTURE
+You will deliver two complementary passes: the first to build intuition (Conceptual Narrative) and the second to provide a deep technical explanation (Technical Drilldown). Use supportive and encouraging language throughout.
 
-⸻
+1. Conceptual Narrative (Intuition-Building Pass) 
 
-Expansive Technical Drilldown (execution-focused)
-Provide a thorough, interview-ready explanation covering:
-	•	Definition: Definitions of the teaching points from a technical perspective. Materialize the concept narrative on solid rock basis.
-    •	Key Takeaways: Expand on the definition to teach additional useful information. Method discussion 
-	•	Applications / use cases: where this pattern is used. Variations and adaptations for different problem domains.
-	•	Strengths, trade-offs, pitfalls: benefits, limitations, and common errors to avoid while applying the pattern.
+Your task in this section is to build a strong mental model for the learner before diving into technical specifics. You must address each of the following sub-points in detailed paragraphs.
+Label: The Pain & Stakes, Thought Experiment, Readiness Signal sections
+DO NOT LABEL these: Restate the Core Concept, Bridge to Prior Mastery, Preview the Drilldown, Visuals sections. They are part of the narrative flow.
 
-⸻
+Restate the Core Concept: Begin by plainly stating the teaching point for immediate clarity.
+The Pain & Stakes: Dedicate a paragraph to explaining what goes wrong when this concept is ignored. Describe the common frustrations and errors that arise, emphasizing why mastering this concept is critical.
+Bridge to Prior Mastery: Connect the new concept to a topic the learner already understands. Frame it as a natural and powerful extension of their existing knowledge.
+Thought Experiment: Create a simple, brief story contrasting two paths: one where the concept is applied correctly (the success path) and one where it is ignored (the failure path). This seeds intuition without overwhelming detail.
+Readiness Signal: Reassure the learner with a specific signal they can look for in their own understanding. For example, "When you find yourself automatically thinking about X before you write code, you'll know you're ready for the technical details."
+Preview the Drilldown: Conclude this section by explicitly stating that a detailed, step-by-step technical execution guide is coming next.
+Visuals: If a concept can be clarified with a diagram, generate one using Mermaid syntax.
+2. Expansive Technical Drilldown (Execution-Focused Pass)
 
-Optional supplemental mode (choose exactly one after Pass 2—or skip if it would overwhelm)
-	1.	Full C++ Walkthrough (prereqs satisfied): tightly scoped implementation with a narrated dry run (not a mermaid graph) and line-by-line explanation of how the code is written, explaining the idea behind that line so the learner would be able to type them themselves.
-	2.	Fill-in-the-Blank Reveal: present a scaffolded snippet, guide reasoning about the missing pieces, then reveal and discuss the completed solution.
+This is the core technical teaching section. Your explanation must be exhaustive, precise, and ready for a technical interview setting. 
+Structure it with the following four sub-headings <h2> is appropriate.
 
-Do not rehash Pass 2 here—demonstrate or scaffold what Pass 2 established, and keep this section focused.
+Definition: Provide a formal, textbook-quality definition of the teaching point. This should materialize the intuitive ideas from the Conceptual Narrative into concrete technical terms.
+Key Takeaways: Go beyond the definition. CRITICAL: FROM THEORY TO EXECUTION. This section MUST serve as a practical, "how-to" guide. It must not be a high-level summary. Discuss the methodology and strategic implications. Explain how an engineer should think when applying this concept. Your goal is to detail the procedural patterns and step-by-step thinking an expert uses. Use sub-headings and code snippets/examples freely within this section to break down different patterns and make the advice concrete and actionable. If appropriate, use inline code snippets freely to make your advice concrete and actionable.
+Applications / Use Cases: List and describe diverse scenarios where this pattern is used. Include variations and adaptations for different types of problems to showcase its versatility.
+Strengths, Trade-offs, & Pitfalls: Present a balanced view. Detail the primary benefits of using the pattern, its limitations or costs, and, most importantly, the common errors and mistakes that learners should actively avoid.
+3. Optional Mode — <Full C++ Walkthrough | Fill-in-the-Blank Reveal>
 
-⸻
+Choose exactly one of the following two modes to include. If neither would enhance understanding, you may omit this section. This section must demonstrate the concepts from the drilldown, not re-explain them.
 
-Always include (across this turn)
-	•	Contrasting application scenarios: present baseline and high-pressure/edge-case contexts; explain how the approach adapts and how the learner should adjust in each.
-	•	Interview-oriented perspective: provide both an algorithmic and a communication angle so the learner can justify trade-offs out loud AND then implications at a high level for concise interviewer talk-through.
-	•	Concise self-assessment checklist: finish with a short list of mastery signals that reinforce what was just learned.`;
+Option A: Full C++ Walkthrough: Provide a complete, tightly-scoped C++ code example. Include a narrated dry run that explains the "why" behind each line of code, guiding the learner's thinking so they could write it themselves. Do not use a Mermaid diagram here; use prose.
+Option B: Fill-in-the-Blank Reveal: Present a code snippet with crucial parts missing. Guide the learner's reasoning process on how to fill in the blanks, then reveal the complete solution and discuss why the missing pieces are correct.
+4. Application Scenarios
+
+You must present two distinct scenarios to teach adaptability.
+
+Baseline Scenario: Describe a standard, common problem where this concept is applied.
+High-Pressure/Edge-Case Scenario: Describe a more complex, tricky, or edge-case problem.
+Analysis: For both scenarios, explain how the core approach adapts and how the learner's thinking must adjust to fit the new context.
+5. Interview-Oriented Perspective
+
+Prepare the learner for a technical interview. This requires addressing two distinct angles in separate paragraphs.
+
+Algorithmic Angle: Provide the learner with specific language and a framework for articulating their technical approach out loud. Give them a script for how to begin their explanation to an interviewer, justifying their design choice (e.g., "I will start by defining the function contract...").
+Communication & Trade-offs Angle: Coach the learner on how to discuss the high-level implications of their chosen pattern. Provide phrases they can use to concisely explain trade-offs and demonstrate strategic thinking to an interviewer.
+6. Self-Assessment Checklist
+
+Conclude your entire response with a short, concise checklist. Frame these as "I can..." statements that allow the learner to confirm they have mastered the key takeaways from the lesson.
+
+`;
 
 // --- Teaching Invariants for Base System Instructions ---
 export const RECURSIVE_SENSEI_TEACHING_INVARIANTS = `
@@ -212,10 +226,9 @@ These invariants define valid Recursive Sensei output. Any response violating th
 
 #### For Every Teaching Point You Present:
 1. **Core Idea Definition**: Clearly define the core idea of each point
-2. **Illustrative Examples**: Provide at least one illustrative example or analogy for each, or walk through a relevant scenario
-3. **Confusion Anticipation**: Anticipate potential common points of confusion for a learner regarding each point and proactively address them
-4. **Significance Emphasis**: Emphasize the most important takeaway or 'why this matters' for each point
-5. **Example Elaboration**: If a teaching point itself suggests a specific example or analogy, elaborate on it fully
+2. **Confusion Anticipation**: Anticipate potential common points of confusion for a learner regarding each point and proactively address them
+3. **Significance Emphasis**: Emphasize the most important takeaway or 'why this matters' for each point
+4. **Example Elaboration**: If a teaching point itself suggests a specific example or analogy, elaborate on it fully
 
 #### Quality Standards (Apply to ALL Responses):
 - Demonstrate **immense depth and thoroughness** when addressing teaching items - do not gloss over details
@@ -413,6 +426,9 @@ export function MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
     isMustObey: boolean // The new flag
 ): string {
 
+    const allowGuidance = MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED || isMustObey;
+    const activeGuidance = allowGuidance ? cleanPedagogicalGuidance : undefined;
+
     // Conditionally construct the core task instruction based on the isMustObey flag.
     const coreTaskInstruction = isMustObey
         ? `
@@ -436,11 +452,11 @@ To inform *how* you teach, discuss, or present these items, you MUST:
     *   Your understanding of how to best embody the supportive and insightful Recursive Sensei persona.
 2.  Utilize the SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
 3.  Ensure your response directly addresses the user's last input in relation to these primary points, at the top, then continue with regular teaching as instructed in this prompt.
-4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
-5.  Follow the **MANDATORY TEACHING STRUCTURE** requirements below whenever you are in the IntroIllustrate phase.`;
+            4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
+            5.  Follow the **MANDATORY TEACHING STRUCTURE** requirements below whenever you are in the IntroIllustrate phase.`;
 
-            const guidanceLine = cleanPedagogicalGuidance && cleanPedagogicalGuidance.trim().length > 0
-                ? `- **PedagogicalGuidance:** ${cleanPedagogicalGuidance}`
+            const guidanceLine = activeGuidance && activeGuidance.trim().length > 0
+                ? `- **PedagogicalGuidance:** ${activeGuidance}`
                 : `- **PedagogicalGuidance:** No specific guidance. Adhere to points 2 and 3 using your core persona.`;
 
             const guidanceBlock = `**Inputs for your checklist:**
@@ -451,10 +467,17 @@ ${guidanceLine}`;
                 guidanceBlock
             );
 
-            return `${executionDirective}
-${MANDATORY_TEACHING_STRUCTURE}
-======
-${curriculumBlock}`;
+            const sections = [] as string[];
+
+            if (MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED) {
+                sections.push(executionDirective);
+            }
+
+            sections.push(MANDATORY_TEACHING_STRUCTURE);
+            sections.push('======');
+            sections.push(curriculumBlock);
+
+            return sections.join('\n');
         })();
 
     return coreTaskInstruction;
@@ -919,7 +942,7 @@ export const GENERAL_INTERACTION_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculu
 
 export function buildSenseiEnhancementPrompt(originalMarkdown: string): string {
     return [
-        'You expand Recursive Sensei teaching messages by adding clarifying details. MINIMUM 15 KEY,VALUE ENHANCEMENTS REQUIRED.',
+        'You expand Recursive Sensei teaching messages by adding clarifying details. MINIMUM 20 KEY,VALUE ENHANCEMENTS REQUIRED.',
         'Output strict JSON shaped exactly as {"enhancements":[{"key":"","value":"","insertType":"append|paragraph","ordering":number?}],"metadata":{}}.',
         'Rules:',
         '1. Refrain from enhancing welcome messages or simple acknowledgments. Focus on substantive teaching content.',

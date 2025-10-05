@@ -2889,14 +2889,12 @@ function setupControlsRevealPersistence() {
         if (hideTimer !== null) {
             window.clearTimeout(hideTimer);
         }
-        // Collapse immediately (no hold), buttons also have transition disabled via CSS
         hideTimer = window.setTimeout(() => {
             delete controls.dataset.expanded;
             hideTimer = null;
         }, 0);
     };
     controls.addEventListener('mouseenter', open);
-    // Do not close on controls mouseleave; let the segment own the lifecycle
     if (segment) {
         segment.addEventListener('mouseenter', open);
         segment.addEventListener('mouseleave', scheduleClose);

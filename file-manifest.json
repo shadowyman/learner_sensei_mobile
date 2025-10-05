@@ -43,6 +43,7 @@
   "scripts/vetUnusedExports.ts",
   "selectionSensei.ts",
   "test.ts",
+  "teachingPlanCache.ts",
   "testPrompt1.txt",
   "testPrompt2.txt",
   "ui.ts"

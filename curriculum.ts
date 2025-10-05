@@ -5,6 +5,7 @@
 
 import { logger } from './logger';
 import { LearnerModel } from "./adaptiveEngine";
+import { getCachedTeachingPlan, setCachedTeachingPlan, removeCachedTeachingPlan } from './teachingPlanCache';
 import { 
     initiateConsolidation,
     advanceConsolidationStage,
@@ -335,6 +336,16 @@ export async function generateTeachingPlanForPhase(
     phase: Phase,
     llmPlanner: LLMTeachingPlanGenerator
 ): Promise<TeachingPoint[][]> {
+    const cacheKey = item.curriculumPathId;
+    const cachedPlan = getCachedTeachingPlan<TeachingPoint[][]>(cacheKey);
+    if (cachedPlan) {
+        try {
+            return validateAndProcessTeachingPlan(cachedPlan, item, phase);
+        } catch (_) {
+            removeCachedTeachingPlan(cacheKey);
+        }
+    }
+
     const combinedText = buildCombinedContentText(curriculum, item, phase);
     if (combinedText.trim() === '') {
         const message = 'No source content available to generate teaching plan.';
@@ -367,7 +378,9 @@ export async function generateTeachingPlanForPhase(
         });
     }
 
-    return validateAndProcessTeachingPlan(rawPlan, item, phase);
+    const sanitizedPlan = validateAndProcessTeachingPlan(rawPlan, item, phase);
+    setCachedTeachingPlan(cacheKey, sanitizedPlan);
+    return sanitizedPlan;
 }
 
 

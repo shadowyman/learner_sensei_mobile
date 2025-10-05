@@ -9,6 +9,7 @@ import { marked } from "marked";
 import { setupFullscreenToggle, sanitizeCodeFences, setupTextareaAutosize } from './ui';
 import { DEBUG_MODE_CONFIG } from './model_usage';
 import JSZip from 'jszip';
+import { clearTeachingPlanCache, hasTeachingPlanCacheEntries } from './teachingPlanCache';
 
 declare var hljs: any;
 
@@ -32,6 +33,8 @@ let debugFileSelectionControlsElement: HTMLDivElement | null = null;
 let debugFileListElement: HTMLDivElement | null = null;
 let debugSelectAllCheckboxElement: HTMLInputElement | null = null;
 let debugFileToggleButtonElement: HTMLButtonElement | null = null;
+let debugClearPlanCacheButtonElement: HTMLButtonElement | null = null;
+let debugPlanCacheStatusElement: HTMLSpanElement | null = null;
 
 let debugChatInterfaceElement: HTMLDivElement | null = null;
 let debugMessageAreaElement: HTMLDivElement | null = null;
@@ -983,6 +986,8 @@ export function initializeDebugMode(
     debugChatTabElement = document.getElementById('debug-chat-tab') as HTMLButtonElement;
     debugConsoleTabElement = document.getElementById('debug-console-tab') as HTMLButtonElement;
     debugConsoleLogsAreaElement = document.getElementById('debug-console-logs-area') as HTMLDivElement;
+    debugClearPlanCacheButtonElement = document.getElementById('debug-clear-plan-cache-button') as HTMLButtonElement;
+    debugPlanCacheStatusElement = document.getElementById('debug-plan-cache-status') as HTMLSpanElement;
     
     exportLogsButtonElement = document.getElementById('export-logs-button') as HTMLButtonElement;
     exportStatusElement = document.getElementById('export-status') as HTMLSpanElement;
@@ -990,7 +995,7 @@ export function initializeDebugMode(
     if (!debugModalElement || !debugCloseButtonElement || !debugFullscreenButtonElement || 
         !debugFileSelectionAreaElement || !debugFileSelectionControlsElement || !debugFileListElement || !debugSelectAllCheckboxElement || !debugFileToggleButtonElement ||
         !debugChatInterfaceElement || !debugMessageAreaElement || !debugInputFormElement || !debugUserInputElement || !debugSendButtonElement || !debugExportContextButtonElement || !debugDownloadFilesButtonElement ||
-        !debugTabNavigationElement || !debugChatTabElement || !debugConsoleTabElement || !debugConsoleLogsAreaElement) {
+        !debugTabNavigationElement || !debugChatTabElement || !debugConsoleTabElement || !debugConsoleLogsAreaElement || !debugClearPlanCacheButtonElement || !debugPlanCacheStatusElement) {
         logger.error("One or more debug modal elements are missing from the DOM.");
         return;
     }
@@ -1074,7 +1079,21 @@ export function initializeDebugMode(
     debugConsoleTabElement.addEventListener('click', () => switchDebugTab('console'));
 
     initializeConsoleLogsDisplay();
-    
+
+    debugClearPlanCacheButtonElement.addEventListener('click', () => {
+        const hadEntries = hasTeachingPlanCacheEntries();
+        clearTeachingPlanCache();
+        logDebugValidation('teaching-plan-cache-cleared', { hadEntries });
+        if (debugPlanCacheStatusElement) {
+            debugPlanCacheStatusElement.textContent = hadEntries ? 'Teaching plan cache cleared' : 'No teaching plans cached';
+            setTimeout(() => {
+                if (debugPlanCacheStatusElement) {
+                    debugPlanCacheStatusElement.textContent = '';
+                }
+            }, 3000);
+        }
+    });
+
     // Export logs control
     if (exportLogsButtonElement) {
         exportLogsButtonElement.addEventListener('click', handleExportLogs);

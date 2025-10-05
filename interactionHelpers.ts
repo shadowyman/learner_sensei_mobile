@@ -38,10 +38,14 @@ export async function streamModuleIntroduction(
     const messageWithContext = `${introContext}
 
 Let's begin ${moduleTitleForPrompt}.`;
-    
+
     logSenseiPromptValidation('module-introduction', {
         moduleTitle: moduleTitleForPrompt,
         promptLength: messageWithContext.length
+    });
+
+    logSenseiPromptValidation('module-introduction-full-prompt', {
+        prompt: messageWithContext
     });
     
     const stream = await chat.sendMessageStream({ message: messageWithContext });
@@ -230,6 +234,10 @@ User: ${currentUserInput}`;
     logSenseiPromptValidation('main-response-requested', {
         userInputLength: currentUserInput.length,
         dynamicContextLength: dynamicContext.length
+    });
+
+    logSenseiPromptValidation('main-response-full-prompt', {
+        prompt: messageWithContext
     });
 
     // Start streaming from LLM

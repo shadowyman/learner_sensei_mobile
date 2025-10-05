@@ -5,7 +5,7 @@
 
 // Define model names as constants
 const GEMINI_PRO = 'gemini-2.5-pro'; // Main teaching, higher quality
-const GEMINI_FLASH = 'gemini-2.5-flash'; // Faster, for analysis/structured output
+const GEMINI_FLASH = 'gemini-flash-latest'; // Faster, for analysis/structured output
 
 /**
  * Configuration for the "Teaching Plan Generation" task.
@@ -58,6 +58,9 @@ export const MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG = {
     temperature: 0.7,
   },
 };
+
+export const MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED = true;
+export const MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED = true;
 
 /**
  * Configuration for the "Debug Mode Codebase Query" task.

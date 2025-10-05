@@ -264,14 +264,16 @@
                     </div>
                     <div class="weighted-segment status">
                         <div class="status-content">
+                            <button id="debug-clear-plan-cache-button" type="button" class="debug-status-button" title="Clear cached teaching plans">Clear Plan Cache</button>
+                            <span id="debug-plan-cache-status" class="debug-status-message" aria-live="polite"></span>
                             <div id="debug-tab-navigation">
                                 <button id="debug-chat-tab" class="debug-tab active" data-tab="chat" aria-selected="true">Chat</button>
                                 <button id="debug-console-tab" class="debug-tab" data-tab="console" aria-selected="false">Console Logs</button>
                             </div>
                         </div>
                     </div>
-                     <div class="weighted-segment controls">
-                        <div class="chat-window-controls">
+                    <div class="weighted-segment controls">
+                        <div class="debug-modal-controls">
                             <button id="debug-file-toggle-button" class="chat-header-button control-btn" title="Hide File Selection" aria-expanded="true">
                                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M6 2c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 2h12v7H6zm0 9h12v7H6z"/></svg>
                             </button>
