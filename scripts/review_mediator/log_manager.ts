@@ -64,7 +64,7 @@ export class LogManager {
 
   private sanitize(message: string): string {
     const stripped = message
-      .replace(/\u001b\[[0-9;]*[@-Z\\-_~]/g, '')
+      .replace(/\u001b(?:\][^\u0007\u001b]*(?:\u0007|\u001b\\)|\[[0-?]*[ -\/]*[@-~]|[@-Z\\-_])/g, '')
       .replace(/[\u0000-\u001f\u007f]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();

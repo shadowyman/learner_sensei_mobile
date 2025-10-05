@@ -91,6 +91,9 @@ async function run(): Promise<void> {
     postStatus('Pending', 'Queued for AI review', false);
     if (await runDispatchPhase(context.artifactPath)) {
       await reviewLoop(context.artifactPath, context.slug, false);
+    } else if (!shouldShutdown) {
+      postStatus('Error', 'Dispatch command failed', false);
+      postComplete('ERROR');
     }
   } catch (error) {
     postError(formatError(error));
@@ -135,13 +138,19 @@ async function reviewLoop(startArtifact: string, initialSlug: string, needsDispa
     if (shouldShutdown) {
       return;
     }
-      postLog(`[reviewLoop] Review result {"artifact":"${basename(artifactPath)}","verdict":"${verdictResult.verdict}"}`);
+    postLog(`[reviewLoop] Review result {"artifact":"${basename(artifactPath)}","verdict":"${verdictResult.verdict}"}`);
     if (verdictResult.verdict === 'PASS') {
       postStatus('Complete', 'Review process is complete', false, undefined, 'PASS');
       postComplete('PASS');
       return;
     }
-    if (verdictResult.verdict === 'ERROR') {
+    if (verdictResult.verdict === 'COMMAND_ERROR') {
+      postStatus('Error', 'Review result command failed', false);
+      postError('Review result command failed');
+      postComplete('ERROR');
+      return;
+    }
+    if (verdictResult.verdict === 'PARSE_ERROR') {
       postStatus('Error', 'Review result parsing failed', false);
       postComplete('ERROR');
       return;
@@ -166,7 +175,7 @@ async function evaluateArtifact(artifactPath: string): Promise<VerdictResult> {
   const handle = trackCommand(runReviewResult(artifactPath));
   const result = await handle.result;
   if (result.exitCode !== 0) {
-    return { verdict: 'ERROR', output: result.output };
+    return { verdict: 'COMMAND_ERROR', output: result.output };
   }
   const verdict = parseVerdict(result.output);
   return { verdict, output: result.output };
@@ -179,7 +188,7 @@ function parseVerdict(output: string): ReviewVerdict {
   if (/^Verdict:[\s\S]*?PASS\b/mi.test(output)) {
     return 'PASS';
   }
-  return 'ERROR';
+  return 'PARSE_ERROR';
 }
 
 async function runRemediation(currentArtifact: string, currentSlug: string): Promise<{ artifactPath: string; slug: string } | null> {
@@ -211,7 +220,6 @@ async function runRemediation(currentArtifact: string, currentSlug: string): Pro
 
 async function runAgent(artifactPath: string): Promise<{ summary?: string } | null> {
   const prompt = buildAgentPrompt(artifactPath, context.slug);
-  postLog(`[runAgent] Agent prompt ${JSON.stringify(prompt)}`);
   const stream: { latest: string } = { latest: '' };
   let lastBroadcast = '';
   const listener: OutputListener = (_channel, chunk) => {
@@ -224,6 +232,7 @@ async function runAgent(artifactPath: string): Promise<{ summary?: string } | nu
   const handle = trackCommand(runAgentCommand(prompt, artifactPath, listener));
   const ticker = setInterval(() => {
     if (shouldShutdown) {
+      clearInterval(ticker);
       return;
     }
     if (stream.latest && stream.latest !== lastBroadcast) {

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import { resolve } from 'node:path';
+import { setPriority } from 'node:os';
 
 export type OutputChannel = 'stdout' | 'stderr';
 
@@ -14,6 +15,10 @@ export interface CommandResult {
 export interface ManagedCommand {
   result: Promise<CommandResult>;
   terminate(signal?: NodeJS.Signals): void;
+}
+
+export interface ManagedCommandOptions {
+  boostPriority?: boolean;
 }
 
 export type OutputListener = (channel: OutputChannel, chunk: string) => void;
@@ -91,8 +96,11 @@ function resolveAgentCommandParts(override: string | undefined): string[] {
         if (filtered.length > 0) {
           return [...filtered];
         }
+        return [...defaultAgentCommand];
       }
     } catch {}
+  } else if (process.platform === 'win32') {
+    return [...defaultAgentCommand];
   }
   const tokens = tokenizeCommand(trimmed).filter(entry => entry.length > 0);
   if (tokens.length === 0) {
@@ -105,13 +113,43 @@ function repoRoot(): string {
   return resolve(process.cwd());
 }
 
-function runManagedCommand(command: string, args: string[], listener?: OutputListener, env?: NodeJS.ProcessEnv): ManagedCommand {
-  const child = spawn(command, args, {
+function runManagedCommand(
+  command: string,
+  args: string[],
+  listener?: OutputListener,
+  env?: NodeJS.ProcessEnv,
+  options?: ManagedCommandOptions
+): ManagedCommand {
+  const boostPriority = options?.boostPriority === true;
+  let spawnCommand = command;
+  let spawnArgs = args;
+  if (boostPriority && process.platform !== 'win32') {
+    spawnCommand = 'nice';
+    spawnArgs = ['-n', '-20', command, ...args];
+  }
+  const child = spawn(spawnCommand, spawnArgs, {
     cwd: repoRoot(),
     env: { ...process.env, ...env },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   const buffers: string[] = [];
+  if (boostPriority) {
+    child.once('spawn', () => {
+      if (typeof child.pid === 'number') {
+        try {
+          setPriority(child.pid, -20);
+        } catch (error) {
+          const message = `[REVIEW_MEDIATOR] os.setPriority failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`;
+          buffers.push(message);
+          if (listener) {
+            listener('stderr', message);
+          }
+        }
+      }
+    });
+  }
   child.stdout.on('data', data => {
     const chunk = data.toString();
     buffers.push(chunk);
@@ -135,7 +173,7 @@ function runManagedCommand(command: string, args: string[], listener?: OutputLis
       }
       resolve({ exitCode: null, signal: null, output: buffers.join('') });
     });
-    child.once('exit', (code, signal) => {
+    child.once('close', (code, signal) => {
       resolve({ exitCode: code, signal, output: buffers.join('') });
     });
   });
@@ -163,7 +201,7 @@ export function runAgentCommand(prompt: string, artifactPath: string, listener?:
   const parts = resolveAgentCommandParts(codexCmd);
   const [first, ...rest] = parts.length > 0 ? parts : ['codex'];
   const resolvedCommand = first ?? 'codex';
-  return runManagedCommand(resolvedCommand, [...rest, prompt], listener);
+  return runManagedCommand(resolvedCommand, [...rest, prompt], listener, undefined, { boostPriority: true });
 }
 
 export async function writeJsonReport(directory: string, artifactFileName: string, newArtifactPath: string): Promise<void> {

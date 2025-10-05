@@ -6,7 +6,7 @@ export type ArtifactState =
   | 'Complete'
   | 'Error';
 
-export type ReviewVerdict = 'PASS' | 'FAIL' | 'ERROR';
+export type ReviewVerdict = 'PASS' | 'FAIL' | 'ERROR' | 'COMMAND_ERROR' | 'PARSE_ERROR';
 
 export interface StatusUpdateMessage {
   readonly type: 'status:update';

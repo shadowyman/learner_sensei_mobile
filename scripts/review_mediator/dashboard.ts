@@ -11,7 +11,7 @@ interface Renderer {
   dispose(): void;
 }
 
-const LOG_SCOLLBACK = 1000;
+const LOG_SCROLLBACK = 1000;
 const LOG_TRUNCATE = 250;
 const LOG_SCROLL_STEP = 5;
 const HEADER_HISTORY_ALLOWANCE = 4;
@@ -132,7 +132,7 @@ function stateTag(state: ArtifactStatusRecord['state']): string {
     case 'Dispatching':
       return '[REVIEWING]';
     case 'AwaitingReview':
-      return '[AWAITING]';
+      return '[AWAITING REVIEW]';
     case 'Remediating':
       return '[REMEDIATING]';
     case 'Complete':
@@ -301,7 +301,8 @@ export class DashboardRenderer implements Renderer {
       return;
     }
     if (!this.selectedTab || !statuses.some(status => status.artifactId === this.selectedTab)) {
-      const first = statuses[0];
+      const sorted = [...statuses].sort((a, b) => a.artifactId.localeCompare(b.artifactId));
+      const first = sorted[0];
       this.selectedTab = first ? first.artifactId : null;
     }
   }
@@ -321,12 +322,12 @@ export class DashboardRenderer implements Renderer {
       const display = active
         ? style(` ${label} `, SGR.white, SGR.blueBg, SGR.bold)
         : style(` ${label} `, SGR.gray, SGR.bold);
-      const width = stringWidth(stripAnsi(display));
+      const tabWidth = stringWidth(stripAnsi(display));
       const zoneStart = cursor;
-      const zoneEnd = cursor + width;
+      const zoneEnd = cursor + tabWidth;
       this.tabZones.push({ artifactId: status.artifactId, label: display, start: zoneStart, end: zoneEnd });
       content += display;
-      cursor += width;
+      cursor += tabWidth;
       if (index < sorted.length - 1) {
         content += ' ';
         cursor += 1;
@@ -339,11 +340,7 @@ export class DashboardRenderer implements Renderer {
     if (!tab) {
       return true;
     }
-    if (entry.artifactId) {
-      return entry.artifactId === tab;
-    }
-    const source = entry.raw ?? entry.visible;
-    return source.includes(`[${tab}]`);
+    return entry.artifactId === tab;
   }
 
   private setupTabInteractions(screen: Widgets.Screen, tabBar: Widgets.BoxElement): void {
@@ -435,6 +432,7 @@ export class DashboardRenderer implements Renderer {
 
     screen.key(['q', 'C-c'], () => {
       if (!process.listenerCount('SIGINT')) {
+        this.dispose();
         process.exit(0);
       }
       process.emit('SIGINT');
@@ -498,11 +496,11 @@ export class DashboardRenderer implements Renderer {
       top: 4,
       left: 0,
       width: '100%',
-      bottom: 1,
+      height: 10,
       keys: true,
       vi: true,
       mouse: true,
-      scrollback: LOG_SCOLLBACK,
+      scrollback: LOG_SCROLLBACK,
       padding: { left: 1, right: 1, top: 0, bottom: 0 },
       style: {
         fg: 'white',
@@ -732,7 +730,7 @@ export class DashboardRenderer implements Renderer {
   }
 
   private scrollLogs(delta: number): void {
-    if (!this.interactive) {
+    if (!this.interactive || this.promptOverlay) {
       return;
     }
     const viewport = Math.max(1, this.logViewport);
@@ -807,6 +805,26 @@ export class DashboardRenderer implements Renderer {
     return base.length > 0 ? `${base}…` : '…';
   }
 
+  private truncateLabel(text: string, maxWidth: number): string {
+    if (maxWidth <= 0) {
+      return '…';
+    }
+    if (stringWidth(text) <= maxWidth) {
+      return text;
+    }
+    const ellipsis = '…';
+    const ellipsisWidth = stringWidth(ellipsis);
+    const available = Math.max(0, maxWidth - ellipsisWidth);
+    let candidate = text;
+    while (candidate.length > 0 && stringWidth(candidate) > available) {
+      candidate = candidate.slice(0, -1);
+    }
+    if (candidate.length === 0) {
+      return ellipsis;
+    }
+    return `${candidate.trimEnd()}${ellipsis}`;
+  }
+
   private formatLogDetails(message: string, width: number): string[] {
     const details: string[] = [];
     const trimmed = message.trim();
@@ -816,13 +834,17 @@ export class DashboardRenderer implements Renderer {
         const type = typeof parsed.type === 'string' ? parsed.type : undefined;
         const item = parsed.item as Record<string, unknown> | undefined;
         const itemType = item && typeof item.item_type === 'string' ? item.item_type : undefined;
-        const identifier = item && typeof item.id === 'string' ? item.id : typeof parsed.id === 'string' ? parsed.id : undefined;
+        const identifierSource = item && item.id !== undefined ? item.id : parsed.id;
+        const identifier = typeof identifierSource === 'string' || typeof identifierSource === 'number'
+          ? String(identifierSource)
+          : undefined;
         const itemText = (item && typeof item.text === 'string' ? item.text : undefined) ?? (typeof parsed.text === 'string' ? parsed.text : undefined);
         const commandRaw = (typeof parsed.command !== 'undefined' ? parsed.command : undefined)
           ?? (item && typeof item.command !== 'undefined' ? item.command : undefined);
         const command = normalizeCommand(commandRaw);
         const status = typeof parsed.status === 'string' ? parsed.status : typeof parsed.result === 'string' ? parsed.result : undefined;
-        const exit = parsed.exitCode ?? parsed.code ?? parsed.statusCode;
+        const exitSource = parsed.exitCode ?? parsed.code ?? parsed.statusCode;
+        const exit = typeof exitSource === 'string' ? Number(exitSource) : exitSource;
 
         const summaryParts: string[] = [];
         if (type) {
@@ -847,10 +869,10 @@ export class DashboardRenderer implements Renderer {
           details.push(...commandLines);
         }
         if (itemText && itemText.trim().length > 0) {
-          const textLines = this.wrapPlain(itemText, width).map(line => style(line, SGR.white, SGR.bold));
-          details.push(...applyBackground(textLines, SGR.lightGreenBg));
+          const textLines = this.wrapPlain(itemText, width).map(line => style(line, SGR.blueBg, SGR.white, SGR.bold));
+          details.push(...textLines);
         }
-        if (typeof exit === 'number') {
+        if (typeof exit === 'number' && Number.isFinite(exit)) {
           const exitColor = exit === 0 ? SGR.green : SGR.red;
           details.push(style(`exit ${exit}`, exitColor, SGR.bold));
         }
@@ -957,7 +979,6 @@ export class DashboardRenderer implements Renderer {
     this.promptError = error;
     this.promptPending = false;
 
-    this.screen.append(overlay);
     this.screen.render();
     input.focus();
   }
@@ -1018,12 +1039,18 @@ export class DashboardRenderer implements Renderer {
     const color = stateColor(status.state);
     const artifactName = basename(status.artifactId).toUpperCase();
     const tag = stateTag(status.state);
+    const spinnerActive = this.isActiveStatus(status);
+    const spinnerSegment = spinnerActive ? ` ${this.spinnerGlyph(Boolean(status.spinner))}` : '';
+    const tagSegment = ` ${style(tag, color, SGR.bold)}`;
+    const decorationWidth = stringWidth(stripAnsi(`${spinnerSegment}${tagSegment}`));
+    const availableNameWidth = Math.max(3, width - decorationWidth - 1);
+    const constrainedName = this.truncateLabel(artifactName, availableNameWidth);
     const headlineParts: string[] = [];
-    headlineParts.push(style(` ${artifactName}`, color, SGR.bold));
-    if (this.isActiveStatus(status)) {
-      headlineParts.push(` ${this.spinnerGlyph(Boolean(status.spinner))}`);
+    headlineParts.push(style(` ${constrainedName}`, color, SGR.bold));
+    if (spinnerActive) {
+      headlineParts.push(spinnerSegment);
     }
-    headlineParts.push(` ${style(tag, color, SGR.bold)}`);
+    headlineParts.push(tagSegment);
     const headline = headlineParts.join('');
     const bannerWidth = Math.min(width, Math.max(stringWidth(stripAnsi(headline)), 10));
     const banner = style('═'.repeat(bannerWidth), color);
