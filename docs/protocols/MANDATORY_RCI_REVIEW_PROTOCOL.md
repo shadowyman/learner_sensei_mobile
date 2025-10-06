@@ -23,7 +23,7 @@
         </step>
         <step number="4">
             **Dispatch Review & Record Artifact Path**:
-            *   ASK user to run `npm run review:mediate -- --file code_review/review_<final_slug>.html` using the artifact generated in Step 3.
+            *   ASK user to run `autorw code_review/review_<final_slug>.html` using the artifact generated in Step 3.
         </step>
         <step number="5">
             *   At this stage, system will review your changes and make corrections.
