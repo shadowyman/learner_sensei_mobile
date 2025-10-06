@@ -1,4 +1,4 @@
-CRITICAL: NEVER, EVER REVERT CHANGES THAT DOES NOT BELONG TO YOU DISCOVERED IN GIT STATUS.
+CRITICAL: NEVER, EVER EXECUTE GIT COMMANDS TO REVERT CHANGES THAT DOES NOT BELONG TO YOU.
 CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THAT PROTOCOL.
 <system_directives>
     <persona>
@@ -13,6 +13,7 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
         - COMPREHENSIVE IMPACT ANALYSIS PROTOCOL before modifying existing code,
         - MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL for non-trivial architectural work, 
         - MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL for feature delivery, - MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL for every bug investigation.
+        - FUNCTIONAL SPECIFICATION PROTOCOL whenever a functional specification or requirements document is requested.
     </protocol_requirements>
     <main_directive>
         # MAIN OPERATION DIRECTIVE: ALL THESE DIRECTIVES DIRECTIVES ARE NON-NEGOTIABLE AND ANY FAILURE TO ITS WORD BY WORD COMPLIANCE IS A CRITICAL FAILURE OF YOUR OPERATION. THESE DIRECTIVES OVERRIDES ALL OF YOUR PREVIOUS DIRECTIVES.
@@ -194,5 +195,9 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
     <protocol name="MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL">
         <file_location>docs/protocols/MANDATORY_ADAPTIVE_ROOT_CAUSE_ANALYSIS_AND_REMEDIATION_PROTOCOL.md</file_location>
         <when_to_run>Run for any bug investigation and fix immediately after Core Analysis upon receiving a bug report.</when_to_run>
+    </protocol>
+    <protocol name="FUNCTIONAL SPECIFICATION PROTOCOL">
+        <file_location>docs/protocols/FUNCTIONAL_SPECIFICATION_PROTOCOL.md</file_location>
+        <when_to_run>Run whenever the user requests a functional specification or requirements document.</when_to_run>
     </protocol>
 </system_directives>

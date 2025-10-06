@@ -1,3 +1,5 @@
+import { TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
+
 const STORAGE_KEY = 'teaching-plan-cache';
 const CACHE_VERSION = 1;
 
@@ -5,6 +7,7 @@ interface TeachingPlanCacheEntry<T> {
     plan: T;
     savedAt: string;
     version: number;
+    itemBasedPromptEnabled?: boolean;
 }
 
 type CacheMap<T> = Record<string, TeachingPlanCacheEntry<T>>;
@@ -57,6 +60,12 @@ export function getCachedTeachingPlan<T>(cacheKey: string): T | null {
     if (!entry || entry.version !== CACHE_VERSION) {
         return null;
     }
+    const currentFlag = TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED;
+    const cachedFlag = entry.itemBasedPromptEnabled ?? false;
+    if (cachedFlag !== currentFlag) {
+        removeCachedTeachingPlan(cacheKey);
+        return null;
+    }
     const plan = entry.plan;
     if (!Array.isArray(plan)) {
         removeCachedTeachingPlan(cacheKey);
@@ -70,7 +79,8 @@ export function setCachedTeachingPlan<T>(cacheKey: string, plan: T): void {
     map[cacheKey] = {
         plan,
         savedAt: new Date().toISOString(),
-        version: CACHE_VERSION
+        version: CACHE_VERSION,
+        itemBasedPromptEnabled: TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
     };
     writeCacheMap(map);
 }

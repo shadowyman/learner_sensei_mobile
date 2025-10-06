@@ -22,6 +22,7 @@ import {
     GENERAL_ENGAGEMENT_PROMPT_TEMPLATE,
     PEDAGOGICAL_GUIDANCE_PLACEHOLDER
 } from "./prompts";
+import { TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
 
 
 // Define TeachingPoint as the structure for items in the teaching plan
@@ -186,11 +187,16 @@ function buildCombinedContentText(curriculum: Curriculum, item: CurriculumItem, 
             }
         }
     } else if (item.concept) {
-        
-        if (phase === 'IntroIllustrate') {
+        if (phase === 'IntroIllustrate' && TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED) {
+            combinedText += `Module Title: ${module.title}\nModule Goal:\n${module.goal}\n\n`;
+            combinedText += `Concepts:\n`;
+            module.concepts.forEach((concept, idx) => {
+                combinedText += `\n${idx + 1}. ${concept.title}:\n${concept.text}\n`;
+            });
+            combinedText += `\n`;
+        } else {
+            combinedText += `Concept Title: ${item.concept.title}\nCore Concept Content:\n${item.concept.text}\n\n`;
         }
-        combinedText += `Concept Title: ${item.concept.title}\nCore Concept Content:\n${item.concept.text}\n\n`;
-        
         if (phase === 'Socratic') {
             if (module.socratic && module.socratic.trim()) {
                 combinedText += `Socratic Instructions for Phase '${phase}' (use these to inform actionable items):\n`;
@@ -1047,7 +1053,14 @@ function determinePhaseTransition(state: CurriculumState, curriculumData: Curric
 
     if (CONCEPT_PEDAGOGICAL_PHASES.includes(state.currentPhase)) {
         const previousConceptIndex = state.currentConceptIndex;
-        if (state.currentConceptIndex < module.concepts.length - 1) {
+        if (TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED && state.currentPhase === 'IntroIllustrate') {
+            state.currentPhase = firstModulePhase;
+            logAdvanceValidation('intro-illustrate-item-based-transition', {
+                moduleIndex: state.currentModuleIndex,
+                conceptIndex: state.currentConceptIndex,
+                nextPhase: state.currentPhase
+            });
+        } else if (state.currentConceptIndex < module.concepts.length - 1) {
             state.currentConceptIndex++;
             state.currentPhase = firstConceptPhase;
             logAdvanceValidation('concept-advanced', {

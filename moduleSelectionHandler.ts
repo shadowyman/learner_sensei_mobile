@@ -35,6 +35,7 @@ import {
 } from './interactionHelpers';
 import { Chat } from "@google/genai";
 import { notepad } from './notepad';
+import { showWrapUpAssessmentOverlay } from './wrapUpAssessment';
 
 interface ModuleSelectionState {
     pendingModuleSelection: number | null;
@@ -230,6 +231,23 @@ Where would you like to begin your learning journey?`;
                 phaseMessageId = bubbleId;
                 break;
             }
+        }
+
+        if (phase === 'Solidify') {
+            if (phaseMessageBubble) {
+                const dotAnimation = (phaseMessageBubble as any).dotAnimation;
+                if (dotAnimation) {
+                    clearInterval(dotAnimation);
+                }
+                const messageAnimation = (phaseMessageBubble as any).messageAnimation;
+                if (messageAnimation) {
+                    clearInterval(messageAnimation);
+                }
+                phaseMessageBubble.remove();
+            }
+            showWrapUpAssessmentOverlay();
+            this.state.pendingModuleSelection = null;
+            return;
         }
         
         if (phaseMessageBubble) {

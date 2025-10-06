@@ -60,7 +60,6 @@ async function main(): Promise<void> {
     activeOriginals.set(job.originalArtifact, { completed: false });
     spawnWorker(job, threadId);
   }
-  console.info('[REVIEW_MEDIATOR] CLI initialized with artifacts', { artifacts: artifacts.map(job => job.artifactPath) });
 
   const interval = setInterval(() => {
     render(renderer, statusRecords, logManager);

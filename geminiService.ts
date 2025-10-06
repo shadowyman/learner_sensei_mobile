@@ -10,13 +10,15 @@ import { TeachingPoint, PHASE_KC_TOTAL, Phase } from "./curriculum";
 import {
     GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
     GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION,
+    GET_ITEM_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
     GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT,
     buildSenseiEnhancementPrompt
 } from "./prompts";
 import {
     TEACHING_PLAN_GENERATION_CONFIG,
     COMPREHENSIVE_ANALYSIS_CONFIG,
-    PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG
+    PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG,
+    TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
 } from './model_usage';
 import * as ModelUsage from './model_usage';
 
@@ -128,7 +130,9 @@ export async function llmExtractAndPlanTeachingOrder(
         
         prompt = GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(textToProcess, extractedTitle || '', extractedGoal || '', extractedConcepts || '');
     } else {
-        prompt = GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess);
+        prompt = TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
+            ? GET_ITEM_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess)
+            : GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess);
     }
 
     try {

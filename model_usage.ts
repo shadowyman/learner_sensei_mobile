@@ -20,6 +20,8 @@ export const TEACHING_PLAN_GENERATION_CONFIG = {
   },
 };
 
+export const TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED = false;
+
 /**
  * Configuration for the "Comprehensive Analysis" task.
  * Used in geminiService.ts for getAnalysisFromGemini.

@@ -261,12 +261,6 @@ const ICONS: { [key: string]: string } = {
 interface ThemeOption {
     id: string;
     label: string;
-    main: string;
-    radialPrimary: string;
-    radialSecondary: string;
-    overlayPrimary: string;
-    overlaySecondary: string;
-    overlayTertiary: string;
     preview: string;
     senseiText: string;
     senseiBubbleBackground: string;
@@ -284,12 +278,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'ocean-night',
         label: 'Sensei Default',
-        main: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(196, 229, 56, 0.03) 0%, transparent 40%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 40%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%)',
         preview: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)',
         senseiText: '#d1fae5',
         senseiBubbleBackground: 'rgba(30, 41, 59, 0.32)',
@@ -303,12 +291,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'evergreen-haze',
         label: 'Evergreen Haze',
-        main: 'linear-gradient(135deg, #08110a 0%, #0f2012 50%, #0b160d 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(34, 197, 94, 0.12) 0%, transparent 50%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(22, 163, 74, 0.08) 0%, transparent 50%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(134, 239, 172, 0.05) 0%, transparent 40%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(34, 197, 94, 0.04) 0%, transparent 40%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(52, 211, 153, 0.04) 0%, transparent 40%)',
         preview: 'linear-gradient(135deg, #08110a 0%, #0f2012 50%, #0b160d 100%)',
         senseiText: '#bbf7d0',
         senseiBubbleBackground: 'rgba(20, 83, 45, 0.55)',
@@ -322,12 +304,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'ember-glow',
         label: 'Ember Glow',
-        main: 'linear-gradient(135deg, #1b0f05 0%, #2c1a0a 50%, #3a1f0d 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(255, 149, 0, 0.14) 0%, transparent 50%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(255, 94, 0, 0.08) 0%, transparent 50%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(255, 214, 165, 0.06) 0%, transparent 40%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(255, 173, 109, 0.05) 0%, transparent 40%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(255, 140, 66, 0.05) 0%, transparent 40%)',
         preview: 'linear-gradient(135deg, #1b0f05 0%, #2c1a0a 50%, #3a1f0d 100%)',
         senseiText: '#fde1c3',
         senseiBubbleBackground: 'rgba(96, 52, 24, 0.55)',
@@ -341,12 +317,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'midnight-amethyst',
         label: 'Midnight Amethyst',
-        main: 'linear-gradient(135deg, #100516 0%, #190b2a 50%, #1f1436 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(168, 85, 247, 0.12) 0%, transparent 50%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.08) 0%, transparent 50%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(192, 132, 252, 0.05) 0%, transparent 40%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(147, 197, 253, 0.05) 0%, transparent 40%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(167, 139, 250, 0.05) 0%, transparent 40%)',
         preview: 'linear-gradient(135deg, #100516 0%, #190b2a 50%, #1f1436 100%)',
         senseiText: '#e9d5ff',
         senseiBubbleBackground: 'rgba(64, 40, 92, 0.55)',
@@ -360,12 +330,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'glacial-fjord',
         label: 'Glacial Fjord',
-        main: 'linear-gradient(135deg, #03121a 0%, #05202c 50%, #07303f 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(45, 212, 191, 0.12) 0%, transparent 50%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(56, 189, 248, 0.08) 0%, transparent 50%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(34, 211, 238, 0.05) 0%, transparent 40%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 40%)',
         preview: 'linear-gradient(135deg, #03121a 0%, #05202c 50%, #07303f 100%)',
         senseiText: '#d1fae5',
         senseiBubbleBackground: 'rgba(30, 41, 59, 0.32)',
@@ -379,12 +343,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'aurora-field',
         label: 'Aurora Field',
-        main: 'linear-gradient(135deg, #07140d 0%, #0c2915 50%, #12351d 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(190, 242, 100, 0.14) 0%, transparent 50%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(74, 222, 128, 0.1) 0%, transparent 50%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(217, 249, 157, 0.06) 0%, transparent 40%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(163, 230, 53, 0.05) 0%, transparent 40%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(101, 163, 13, 0.05) 0%, transparent 40%)',
         preview: 'linear-gradient(135deg, #07140d 0%, #0c2915 50%, #12351d 100%)',
         senseiText: '#dcfce7',
         senseiBubbleBackground: 'rgba(40, 94, 52, 0.55)',
@@ -398,12 +356,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'nebula-rose',
         label: 'Nebula Rose',
-        main: 'linear-gradient(135deg, #180310 0%, #2b0521 50%, #3a0a2e 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(244, 114, 182, 0.12) 0%, transparent 50%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 50%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(249, 168, 212, 0.06) 0%, transparent 40%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(244, 114, 182, 0.05) 0%, transparent 40%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(217, 70, 239, 0.05) 0%, transparent 40%)',
         preview: 'linear-gradient(135deg, #180310 0%, #2b0521 50%, #3a0a2e 100%)',
         senseiText: '#fbcfe8',
         senseiBubbleBackground: 'rgba(112, 32, 70, 0.55)',
@@ -417,12 +369,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'storm-forge',
         label: 'Storm Forge',
-        main: 'linear-gradient(135deg, #041028 0%, #0a2242 45%, #14577a 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.2) 0%, transparent 55%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(56, 189, 248, 0.16) 0%, transparent 55%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(148, 163, 184, 0.1) 0%, transparent 45%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(96, 165, 250, 0.12) 0%, transparent 45%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.12) 0%, transparent 45%)',
         preview: 'linear-gradient(135deg, #041028 0%, #0a2242 45%, #14577a 100%)',
         senseiText: '#bfdbfe',
         senseiBubbleBackground: 'rgba(38, 74, 122, 0.55)',
@@ -436,12 +382,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'dusk-harvest',
         label: 'Dusk Harvest',
-        main: 'linear-gradient(135deg, #2e0618 0%, #5c142e 45%, #a23037 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(236, 72, 153, 0.24) 0%, transparent 55%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.2) 0%, transparent 55%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(255, 221, 199, 0.1) 0%, transparent 45%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(236, 72, 153, 0.12) 0%, transparent 45%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(251, 191, 36, 0.12) 0%, transparent 45%)',
         preview: 'linear-gradient(135deg, #2e0618 0%, #5c142e 45%, #a23037 100%)',
         senseiText: '#fed7aa',
         senseiBubbleBackground: 'rgba(140, 42, 68, 0.55)',
@@ -455,12 +395,6 @@ const THEME_OPTIONS: ThemeOption[] = [
     {
         id: 'sapphire-dawn',
         label: 'Sapphire Dawn',
-        main: 'linear-gradient(135deg, #030712 0%, #0f172a 45%, #1e293b 100%)',
-        radialPrimary: 'radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.18) 0%, transparent 55%)',
-        radialSecondary: 'radial-gradient(circle at 80% 80%, rgba(147, 197, 253, 0.12) 0%, transparent 55%)',
-        overlayPrimary: 'radial-gradient(circle at 30% 50%, rgba(14, 165, 233, 0.08) 0%, transparent 45%)',
-        overlaySecondary: 'radial-gradient(circle at 70% 20%, rgba(2, 132, 199, 0.07) 0%, transparent 45%)',
-        overlayTertiary: 'radial-gradient(circle at 50% 80%, rgba(217, 70, 239, 0.06) 0%, transparent 45%)',
         preview: 'linear-gradient(135deg, #030712 0%, #0f172a 45%, #1e293b 100%)',
         senseiText: '#e0f2fe',
         senseiBubbleBackground: 'rgba(24, 66, 117, 0.55)',
@@ -480,12 +414,6 @@ function getThemeOptionById(id: string): ThemeOption | undefined {
 
 function setThemeVariables(option: ThemeOption): void {
     const root = document.documentElement;
-    root.style.setProperty('--background-main', option.main);
-    root.style.setProperty('--background-body-radial-primary', option.radialPrimary);
-    root.style.setProperty('--background-body-radial-secondary', option.radialSecondary);
-    root.style.setProperty('--background-overlay-primary', option.overlayPrimary);
-    root.style.setProperty('--background-overlay-secondary', option.overlaySecondary);
-    root.style.setProperty('--background-overlay-tertiary', option.overlayTertiary);
     root.style.setProperty('--sensei-text', option.senseiText);
     root.style.setProperty('--sensei-bubble-background', option.senseiBubbleBackground);
     root.style.setProperty('--sensei-bold-color', option.senseiBold);
