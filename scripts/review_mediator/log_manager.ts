@@ -58,7 +58,10 @@ export class LogManager {
   }
 
   private format(entry: LogEntryPayload): string {
-    const date = new Date(entry.timestamp).toISOString();
+    const dateObject = new Date(entry.timestamp);
+    const date = Number.isNaN(dateObject.getTime())
+      ? String(entry.timestamp)
+      : dateObject.toLocaleString();
     return `${date} [${entry.artifactId}] [thread ${entry.threadId}] ${entry.message}`;
   }
 

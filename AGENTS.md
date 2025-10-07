@@ -47,7 +47,7 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
         <rule>- Mission state checkpoints must be stored under ./docs/mission_state/ with filenames following mission_state_<descriptive_title>_[timestamp].md</rule>
     </project_file_structure>
     <backup_policy>
-        <rule>Before modifying any non-doc project file, run `npm run backup:create -- --feature "<feature_slug>" --context "<custom context>"` to produce the required archive.</rule>
+        <rule>Before modifying any non-doc project file, run `npm run backup:create -- --feature "<feature_slug>" --context "<custom context>"` to produce the required archive. It's enough to take one backup before beginning main work, intermediate modifications don't need one</rule>
         <rule>`<feature_slug>` MUST be a clear, human-readable stub (e.g., `enhance_agentsmd_update_git_commit_message`) that conveys the backup’s purpose.</rule>
         <rule>Compose the context argument as 1-2 sentences that state the scope and the planned changes that will follow after the backup; the script stores the text verbatim.</rule>
     </backup_policy>

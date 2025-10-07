@@ -23,6 +23,8 @@ interface VerdictResult {
   output: string;
 }
 
+const MAX_REMEDIATION_ATTEMPTS = 3;
+
 const AGENT_PROMPT_TEMPLATE = `Skip all predating protocols and mandates of the project, no other rules apply and only follow this directive:
 You must remediate the review comments for a pending changelist.
 
@@ -196,26 +198,39 @@ async function runRemediation(currentArtifact: string, currentSlug: string): Pro
     return null;
   }
   currentArtifactPath = currentArtifact;
-  postStatus('Remediating', remediatingText(currentArtifact), true);
-  postLog('[runRemediation] Remediation started');
-  const aiOutcome = await runAgent(currentArtifact);
-  if (!aiOutcome) {
-    postError('Agent command unavailable or failed');
-    return null;
-  }
-  if (shouldShutdown) {
-    return null;
-  }
   const baseName = basename(currentArtifact);
-  const jsonResult = await waitForJsonReport(baseName, 120000);
-  if (!jsonResult) {
-    postLog('[runRemediation] JSON validation failed or timed out');
+  await removeJsonReport(baseName);
+  for (let attempt = 1; attempt <= MAX_REMEDIATION_ATTEMPTS; attempt += 1) {
+    if (shouldShutdown) {
+      return null;
+    }
+    postStatus('Remediating', remediatingText(currentArtifact), true);
+    postLog(
+      attempt === 1
+        ? '[runRemediation] Remediation started'
+        : `[runRemediation] Remediation retry ${attempt} started`
+    );
+    const aiOutcome = await runAgent(currentArtifact);
+    if (!aiOutcome) {
+      return null;
+    }
+    if (shouldShutdown) {
+      return null;
+    }
+    const jsonResult = await waitForJsonReport(baseName, 120000);
+    if (jsonResult) {
+      const resolvedArtifact = resolve(repoRoot(), jsonResult.newArtifact);
+      const nextSlug = deriveSlugFromFilename(basename(resolvedArtifact));
+      return { artifactPath: resolvedArtifact, slug: nextSlug };
+    }
+    postLog(`[runRemediation] JSON validation failed (attempt ${attempt})`);
     postError('JSON validation failed or timed out');
-    return null;
+    if (attempt === MAX_REMEDIATION_ATTEMPTS) {
+      return null;
+    }
+    await removeJsonReport(baseName);
   }
-  const resolvedArtifact = resolve(repoRoot(), jsonResult.newArtifact);
-  const nextSlug = deriveSlugFromFilename(basename(resolvedArtifact));
-  return { artifactPath: resolvedArtifact, slug: nextSlug };
+  return null;
 }
 
 async function runAgent(artifactPath: string): Promise<{ summary?: string } | null> {
@@ -284,6 +299,13 @@ async function waitForJsonReport(artifactFileName: string, timeoutMs: number): P
   return null;
 }
 
+async function removeJsonReport(artifactFileName: string): Promise<void> {
+  const target = resolve(context.reviewProcessDir, artifactFileName.replace(/\.html$/i, '.json'));
+  try {
+    await fs.unlink(target);
+  } catch {}
+}
+
 function buildAgentPrompt(artifactPath: string, slug: string): string {
   return AGENT_PROMPT_TEMPLATE
     .replace(/<artifact_path>/g, artifactPath)
@@ -327,6 +349,7 @@ function postLog(message: string): void {
 }
 
 function postError(message: string): void {
+  postStatus('Error', message, false);
   const payload: WorkerToMainMessage = {
     type: 'status:error',
     artifactId,

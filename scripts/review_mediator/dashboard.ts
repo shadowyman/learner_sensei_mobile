@@ -26,12 +26,14 @@ const SGR = {
   magenta: '\u001b[35m',
   gray: '\u001b[90m',
   white: '\u001b[97m',
+  orange: '\u001b[38;5;208m',
   blueBg: '\u001b[44m',
   grayBg: '\u001b[100m',
   greenBg: '\u001b[42m',
   redBg: '\u001b[41m',
   yellowBg: '\u001b[43m',
-  lightGreenBg: '\u001b[102m'
+  lightGreenBg: '\u001b[102m',
+  orangeBg: '\u001b[48;5;208m'
 } as const;
 
 interface DashboardRendererOptions {
@@ -780,9 +782,15 @@ export class DashboardRenderer implements Renderer {
     const timestamp = timestampRaw ?? '';
     const artifact = artifactRaw ?? '';
     const threadId = threadIdRaw ?? '';
-    const message = messageRaw ?? '';
+    let message = messageRaw ?? '';
+    let palette: 'dispatch' | 'remediation' = 'dispatch';
+    const runAgentPrefix = '[runAgent] ';
+    if (message.startsWith(runAgentPrefix)) {
+      palette = 'remediation';
+      message = message.slice(runAgentPrefix.length);
+    }
     const meta = `${style(timestamp, SGR.dim)} ${style(`[${artifact}]`, SGR.yellow)} ${style(`[thread ${threadId}]`, SGR.dim)}`;
-    const details = this.formatLogDetails(message, maxWidth - 2);
+    const details = this.formatLogDetails(message, maxWidth - 2, palette);
     return [meta, ...details];
   }
 
@@ -825,7 +833,7 @@ export class DashboardRenderer implements Renderer {
     return `${candidate.trimEnd()}${ellipsis}`;
   }
 
-  private formatLogDetails(message: string, width: number): string[] {
+  private formatLogDetails(message: string, width: number, palette: 'dispatch' | 'remediation' = 'dispatch'): string[] {
     const details: string[] = [];
     const trimmed = message.trim();
     try {
@@ -864,12 +872,19 @@ export class DashboardRenderer implements Renderer {
           : [];
         details.push(...summary);
 
+        const commandStyle = palette === 'remediation'
+          ? (line: string) => style(line, SGR.orange, SGR.bold)
+          : (line: string) => style(line, SGR.cyan, SGR.bold);
+        const textStyle = palette === 'remediation'
+          ? (line: string) => style(line, SGR.orangeBg, SGR.white, SGR.bold)
+          : (line: string) => style(line, SGR.blueBg, SGR.white, SGR.bold);
+
         if (command) {
-          const commandLines = this.wrapPlain(command, width).map(line => style(line, SGR.cyan, SGR.bold));
+          const commandLines = this.wrapPlain(command, width).map(line => commandStyle(line));
           details.push(...commandLines);
         }
         if (itemText && itemText.trim().length > 0) {
-          const textLines = this.wrapPlain(itemText, width).map(line => style(line, SGR.blueBg, SGR.white, SGR.bold));
+          const textLines = this.wrapPlain(itemText, width).map(line => textStyle(line));
           details.push(...textLines);
         }
         if (typeof exit === 'number' && Number.isFinite(exit)) {
