@@ -552,10 +552,20 @@ class SelectionSensei {
                     ? parentElement.closest('.message-bubble[data-sender="sensei"] .message-text')
                     : null;
                 if (senseiMessageTextElement) {
-                    const originalSenseiMessageText = senseiMessageTextElement.textContent || ""; 
-                    
+                    const originalSenseiMessageText = senseiMessageTextElement.textContent || "";
                     this.createAndShowSelectionToolbar(selection, originalSenseiMessageText);
-                    return; 
+                    return;
+                }
+
+                const contextCarrier = parentElement instanceof HTMLElement
+                    ? parentElement.closest('[data-selection-sensei-context]') as HTMLElement | null
+                    : null;
+                if (contextCarrier) {
+                    const contextText = contextCarrier.dataset.selectionSenseiContext;
+                    if (contextText && contextText.trim().length > 0) {
+                        this.createAndShowSelectionToolbar(selection, contextText);
+                        return;
+                    }
                 }
             }
         }

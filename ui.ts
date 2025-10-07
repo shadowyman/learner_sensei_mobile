@@ -484,32 +484,35 @@ export function updateCurriculumDisplay(
         curriculumStatusTopic.textContent = '';
         const moduleSpan = document.createElement('span');
         moduleSpan.className = 'status-module';
-        moduleSpan.textContent = moduleLine;
         if (options?.moduleTitleTooltip) {
             moduleSpan.title = options.moduleTitleTooltip;
+            moduleSpan.textContent = '';
+            const phaseLabelSpan = document.createElement('span');
+            phaseLabelSpan.className = 'status-module-phase';
+            phaseLabelSpan.textContent = phaseLabel;
+            const separatorSpan = document.createElement('span');
+            separatorSpan.className = 'status-module-separator';
+            separatorSpan.textContent = '–';
+            const moduleTitleSpan = document.createElement('span');
+            moduleTitleSpan.className = 'status-module-title';
+            moduleTitleSpan.textContent = moduleLine;
+            moduleSpan.appendChild(phaseLabelSpan);
+            moduleSpan.appendChild(separatorSpan);
+            moduleSpan.appendChild(moduleTitleSpan);
+        } else {
+            moduleSpan.textContent = moduleLine;
         }
         const conceptTitle = options?.conceptTitle;
         const chunkLabel = options?.chunkLabel ?? null;
         if (conceptTitle) {
             const phaseLine = document.createElement('span');
             phaseLine.className = 'status-phase-line';
-            const phaseSpan = document.createElement('span');
-            phaseSpan.className = 'status-phase';
-            phaseSpan.textContent = phaseLabel;
-            if (options?.phaseTooltip) {
-                phaseSpan.title = options.phaseTooltip;
-            }
-            const separatorSpan = document.createElement('span');
-            separatorSpan.className = 'status-phase-separator';
-            separatorSpan.textContent = '–';
             const conceptSpan = document.createElement('span');
             conceptSpan.className = 'status-concept';
             conceptSpan.textContent = conceptTitle;
             if (options?.conceptTooltip) {
                 conceptSpan.title = options.conceptTooltip;
             }
-            phaseLine.appendChild(phaseSpan);
-            phaseLine.appendChild(separatorSpan);
             phaseLine.appendChild(conceptSpan);
             if (chunkLabel) {
                 const chunkSpan = document.createElement('span');

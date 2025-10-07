@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+const WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
+
 import { logger } from './logger';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ComprehensiveAnalysisResultType, MISCONCEPTION_IDS } from "./adaptiveEngine";
@@ -12,13 +14,16 @@ import {
     GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION,
     GET_ITEM_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
     GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT,
-    buildSenseiEnhancementPrompt
+    buildSenseiEnhancementPrompt,
+    buildWrapUpAssessmentPrompt,
+    WrapUpAssessmentPromptContext
 } from "./prompts";
 import {
     TEACHING_PLAN_GENERATION_CONFIG,
     COMPREHENSIVE_ANALYSIS_CONFIG,
     PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG,
-    TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
+    TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED,
+    WRAP_UP_ASSESSMENT_GENERATION_CONFIG
 } from './model_usage';
 import * as ModelUsage from './model_usage';
 
@@ -39,6 +44,23 @@ export interface EnhancementPayload {
 export interface EnhancementRequest {
     originalMarkdown: string;
     wordCount: number;
+}
+
+export type WrapUpAssessmentQuestionType = 'snippet' | 'concept';
+
+export interface WrapUpAssessmentQuestion {
+    id: string;
+    type: WrapUpAssessmentQuestionType;
+    prompt: string;
+    code?: string;
+    choices: string[];
+    correct_choice: string;
+    explanation: string;
+    interviewer_insight: string;
+}
+
+export interface WrapUpAssessmentGenerationResult {
+    questions: WrapUpAssessmentQuestion[];
 }
 
 function logTeachingPlanRequest(event: string, payload: Record<string, unknown>): void {
@@ -314,6 +336,170 @@ export async function generateDirectiveFromMetaPrompt(ai: GoogleGenAI, metaPromp
         // Return a safe, generic fallback directive
         return "Gently guide the learner through the next logical step in the curriculum plan with a neutral, supportive tone.";
     }
+}
+
+function coerceString(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeWrapUpAssessmentQuestions(raw: unknown): WrapUpAssessmentQuestion[] {
+    const sourceArray = Array.isArray((raw as any)?.questions)
+        ? (raw as any).questions
+        : Array.isArray(raw) ? raw : [];
+
+    return sourceArray.map((entry: any, index: number) => {
+        const prompt = coerceString(entry?.prompt);
+        const choicesArray = Array.isArray(entry?.choices) ? entry.choices : [];
+        const choices = choicesArray.map((choice: any) => coerceString(choice));
+        const typeRaw = coerceString(entry?.type).toLowerCase();
+        const question: WrapUpAssessmentQuestion = {
+            id: coerceString(entry?.id) || `q${index + 1}`,
+            type: typeRaw === 'snippet' ? 'snippet' : 'concept',
+            prompt,
+            choices,
+            correct_choice: coerceString(entry?.correct_choice),
+            explanation: coerceString(entry?.explanation),
+            interviewer_insight: coerceString(entry?.interviewer_insight)
+        };
+        const code = coerceString(entry?.code);
+        if (code) {
+            question.code = code;
+        }
+        return question;
+    });
+}
+
+function isWrapUpDebugEnabled(): boolean {
+    if (typeof window !== 'undefined') {
+        if ((window as any).__WRAP_UP_DEBUG === true) {
+            return true;
+        }
+        if ((window as any).__WRAP_UP_DEBUG === false) {
+            return false;
+        }
+    }
+    if (typeof process !== 'undefined' && process.env) {
+        if (process.env.WRAP_UP_DEBUG === 'true') {
+            return true;
+        }
+        if (process.env.WRAP_UP_DEBUG === 'false') {
+            return false;
+        }
+    }
+    return WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
+}
+
+function buildDebugAssessment(moduleTitle: string): WrapUpAssessmentGenerationResult {
+    const snippetQuestions = Array.from({ length: 5 }, (_, idx) => {
+        const correctMarkdown = '**Correct:** It recomputes overlapping subproblems without memoization so runtime is exponential.';
+        const basePrompt = `**Debug Snippet ${idx + 1}** for _${moduleTitle}_`;
+        const demoAppendix = '\n\n> Blockquote demo\n\n1. Ordered item\n2. _Italic item_\n\n- Bullet with `inline` code\n- ![Alt text](https://dummyimage.com/120x60/0f172a/ffffff&text=Img)';
+        const prompt = idx === 0 ? `${basePrompt}${demoAppendix}` : basePrompt;
+        return {
+        id: `debug-snippet-${idx + 1}`,
+        type: 'snippet' as const,
+        prompt,
+        code: 'int fib(int n) {\n    if (n <= 1) return n;\n    return fib(n - 1) + fib(n - 2);\n}',
+        choices: [
+            correctMarkdown,
+            '_Incorrect_: It returns incorrect values for `n < 2` because the base case should return -1.',
+            'It uses tail recursion so stack depth remains constant.',
+            'It leaks memory because the recursion never hits a base case.'
+        ],
+        correct_choice: correctMarkdown,
+        explanation: 'The classic recursive Fibonacci implementation re-explores states; memoization or iteration eliminates exponential blowup.',
+        interviewer_insight: 'Interviewers expect you to contrast naive recursion with memoized or iterative variants.'
+    }; });
+
+    const conceptQuestions = Array.from({ length: 10 }, (_, idx) => {
+        const correctMarkdown = '**Answer:** It lets each branch restore shared state before siblings explore.';
+        return {
+        id: `debug-concept-${idx + 1}`,
+        type: 'concept' as const,
+        prompt: `Debug Concept ${idx + 1}: Why does **post-order** processing matter?`,
+        choices: [
+            correctMarkdown,
+            'It guarantees logarithmic complexity in balanced trees.',
+            'It converts recursion into iteration automatically.',
+            'It memoizes subproblems without extra storage.'
+        ],
+        correct_choice: correctMarkdown,
+        explanation: 'Post-order ensures temporary state is cleaned up, so other branches see a pristine context.',
+        interviewer_insight: 'This checks whether you can articulate branch-local state management under recursion.'
+    }; });
+
+    return { questions: [...snippetQuestions, ...conceptQuestions] };
+}
+
+export async function generateWrapUpAssessment(
+    ai: GoogleGenAI,
+    moduleId: string,
+    promptContext: WrapUpAssessmentPromptContext
+): Promise<WrapUpAssessmentGenerationResult | null> {
+    if (!ai) {
+        logger.error('[WRAP_UP_ASSESSMENT] request-fail', { moduleId, reason: 'GoogleGenAI instance missing' });
+        return null;
+    }
+
+    if (isWrapUpDebugEnabled()) {
+        const debugPayload = buildDebugAssessment(promptContext.moduleTitle);
+        logger.info('[WRAP_UP_ASSESSMENT] request-debug-skip', {
+            moduleId,
+            moduleTitle: promptContext.moduleTitle,
+            questionCount: debugPayload.questions.length
+        });
+        return debugPayload;
+    }
+
+    const prompt = buildWrapUpAssessmentPrompt(promptContext);
+    logger.info('[WRAP_UP_ASSESSMENT] request-start', {
+        moduleId,
+        moduleTitle: promptContext.moduleTitle
+    });
+
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+            const response: GenerateContentResponse = await ai.models.generateContent({
+                model: WRAP_UP_ASSESSMENT_GENERATION_CONFIG.modelName,
+                contents: [{ parts: [{ text: prompt }] }],
+                config: WRAP_UP_ASSESSMENT_GENERATION_CONFIG.config
+            });
+
+            const rawText = stripJsonFence(response.text ?? '');
+            const parsed = JSON.parse(rawText);
+            const normalized = normalizeWrapUpAssessmentQuestions(parsed);
+            const questionCount = normalized.length;
+            const snippetCount = normalized.filter(q => q.type === 'snippet').length;
+
+            logger.info('[WRAP_UP_ASSESSMENT] request-success', {
+                moduleId,
+                moduleTitle: promptContext.moduleTitle,
+                questionCount,
+                snippetCount
+            });
+
+            return { questions: normalized };
+        } catch (error) {
+            lastError = error;
+            logger.error('[WRAP_UP_ASSESSMENT] request-fail', {
+                moduleId,
+                moduleTitle: promptContext.moduleTitle,
+                attempt,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    if (lastError) {
+        logger.error('[WRAP_UP_ASSESSMENT] exhausted-retries', {
+            moduleId,
+            moduleTitle: promptContext.moduleTitle,
+            error: lastError instanceof Error ? lastError.message : String(lastError)
+        });
+    }
+
+    return null;
 }
 
 function stripJsonFence(text: string): string {

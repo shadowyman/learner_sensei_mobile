@@ -179,16 +179,19 @@ export function applyUniversalQuoteFix(diagram: string): string {
                 if (!isDirectlyQuoted && trimmedContent.length > 2) {
                     const firstChar = trimmedContent[0];
                     const lastChar = trimmedContent[trimmedContent.length - 1];
-                    const wrapperPairs: Record<string, string> = {
+                    const wrapperPairs = {
                         '(': ')',
                         '[': ']',
                         '{': '}',
                         '<': '>'
-                    };
-                    if (wrapperPairs[firstChar] && wrapperPairs[firstChar] === lastChar) {
-                        const inner = trimmedContent.slice(1, -1).trim();
-                        if (inner.length > 1 && ((inner.startsWith('"') && inner.endsWith('"')) || (inner.startsWith("'") && inner.endsWith("'")))) {
-                            innerWrapperQuoted = true;
+                    } as const;
+                    if (Object.prototype.hasOwnProperty.call(wrapperPairs, firstChar as PropertyKey)) {
+                        const opener = firstChar as keyof typeof wrapperPairs;
+                        if (wrapperPairs[opener] === lastChar) {
+                            const inner = trimmedContent.slice(1, -1).trim();
+                            if (inner.length > 1 && ((inner.startsWith('"') && inner.endsWith('"')) || (inner.startsWith("'") && inner.endsWith("'")))) {
+                                innerWrapperQuoted = true;
+                            }
                         }
                     }
                 }

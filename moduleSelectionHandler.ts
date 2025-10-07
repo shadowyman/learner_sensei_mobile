@@ -24,6 +24,8 @@ import {
 } from "./adaptiveEngine";
 import {
     llmExtractAndPlanTeachingOrder,
+    generateWrapUpAssessment,
+    WrapUpAssessmentGenerationResult,
 } from './geminiService';
 import {
     MODULE_INTRODUCTION_TASK_TEMPLATE,
@@ -35,7 +37,7 @@ import {
 } from './interactionHelpers';
 import { Chat } from "@google/genai";
 import { notepad } from './notepad';
-import { showWrapUpAssessmentOverlay } from './wrapUpAssessment';
+import { showWrapUpAssessmentOverlay, WrapUpAssessmentOverlayData, validateWrapUpAssessmentQuestions, unlockWrapUpChatControls } from './wrapUpAssessment';
 
 interface ModuleSelectionState {
     pendingModuleSelection: number | null;
@@ -60,6 +62,8 @@ function logModuleSelectionValidation(event: string, payload?: Record<string, un
 
 export class ModuleSelectionHandler {
     private state: ModuleSelectionState;
+    private pendingWrapUpAssessment: WrapUpAssessmentOverlayData | null = null;
+    private pendingWrapUpAssessmentFailed = false;
 
     constructor(state: ModuleSelectionState) {
         this.state = state;
@@ -233,23 +237,9 @@ Where would you like to begin your learning journey?`;
             }
         }
 
-        if (phase === 'Solidify') {
-            if (phaseMessageBubble) {
-                const dotAnimation = (phaseMessageBubble as any).dotAnimation;
-                if (dotAnimation) {
-                    clearInterval(dotAnimation);
-                }
-                const messageAnimation = (phaseMessageBubble as any).messageAnimation;
-                if (messageAnimation) {
-                    clearInterval(messageAnimation);
-                }
-                phaseMessageBubble.remove();
-            }
-            showWrapUpAssessmentOverlay();
-            this.state.pendingModuleSelection = null;
-            return;
-        }
-        
+        const isSolidify = phase === 'Solidify';
+        let cleanupPhaseBubble: (() => void) | null = null;
+
         if (phaseMessageBubble) {
             const messageText = phaseMessageBubble.querySelector<HTMLElement>('.message-text');
             if (messageText) {
@@ -260,74 +250,91 @@ Where would you like to begin your learning journey?`;
 
                 const spinner = document.createElement('div');
                 spinner.classList.add('phase-loading-spinner');
-                
+
                 const loadingText = document.createElement('div');
                 loadingText.classList.add('phase-loading-text');
-                
-                const loadingMessages: string[] = [
-                    'Sensei is generating a teaching plan and will be back with you shortly',
-                    'Analyzing your learning patterns to optimize the experience',
-                    'Crafting personalized examples based on your progress',
-                    'Selecting the most effective teaching strategies',
-                    'Preparing interactive exercises tailored to your needs',
-                    'Building cognitive bridges to deepen understanding'
-                ];
-                
+
+                const loadingMessages: string[] = isSolidify
+                    ? [
+                        'Sensei is assembling your FAANG-style wrap-up assessment',
+                        'Selecting interview-grade questions that mirror the module’s Solidify focus',
+                        'Balancing C++ snippets and conceptual traps for maximum coverage',
+                        'Double-checking explanations and interviewer insights',
+                        'Scouting high-signal topics to confirm mastery before remediation',
+                        'Tuning markdown formatting so every insight reads clearly'
+                    ]
+                    : [
+                        'Sensei is generating a teaching plan and will be back with you shortly',
+                        'Analyzing your learning patterns to optimize the experience',
+                        'Crafting personalized examples based on your progress',
+                        'Selecting the most effective teaching strategies',
+                        'Preparing interactive exercises tailored to your needs',
+                        'Building cognitive bridges to deepen understanding'
+                    ];
+
                 let messageIndex = 0;
                 const textSpan = document.createElement('span');
                 textSpan.textContent = loadingMessages[messageIndex] ?? '';
-                
+
                 const dots = document.createElement('span');
                 dots.classList.add('phase-loading-dots');
                 dots.textContent = '...';
-                
+
                 loadingText.appendChild(textSpan);
                 loadingText.appendChild(dots);
-                
+
                 loadingContainer.appendChild(spinner);
                 loadingContainer.appendChild(loadingText);
                 messageText.appendChild(loadingContainer);
-                
+
                 let dotCount = 1;
                 const dotAnimation = setInterval(() => {
                     dotCount = (dotCount % 3) + 1;
                     dots.textContent = '.'.repeat(dotCount);
                 }, 500);
-                
+
                 const messageAnimation = setInterval(() => {
                     messageIndex = (messageIndex + 1) % loadingMessages.length;
                     textSpan.textContent = loadingMessages[messageIndex] ?? '';
                 }, 5000);
-                
+
                 (phaseMessageBubble as any).dotAnimation = dotAnimation;
                 (phaseMessageBubble as any).messageAnimation = messageAnimation;
+
+                cleanupPhaseBubble = () => {
+                    clearInterval(dotAnimation);
+                    clearInterval(messageAnimation);
+                    phaseMessageBubble.remove();
+                };
             }
         }
-        
+
         this.state.curriculumState = await jumpToPhase(
             curriculum,
             moduleIndex,
             phase,
-            async (phaseForPlan, text) => {
-                const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-                const result = await llmExtractAndPlanTeachingOrder(
-                    ai,
-                    text,
-                    phaseForPlan,
-                    module.title,
-                    module.goal,
-                    conceptsSummary
-                );
-                if (!result || result.length === 0) {
-                    throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
-                        moduleId: module.id,
-                        phase: phaseForPlan
-                    });
+            isSolidify
+                ? async (phaseForPlan) => this.createSolidifyTeachingPlan(module, phaseForPlan, ai)
+                : async (phaseForPlan, text) => {
+                    const conceptsSummary = module.concepts.map(c => c.title).join(', ');
+                    const result = await llmExtractAndPlanTeachingOrder(
+                        ai,
+                        text,
+                        phaseForPlan,
+                        module.title,
+                        module.goal,
+                        conceptsSummary
+                    );
+                    if (!result || result.length === 0) {
+                        throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
+                            moduleId: module.id,
+                            phase: phaseForPlan
+                        });
+                    }
+                    return result;
                 }
-                return result;
-            }
         );
-        
+
         if (!this.state.curriculumState) {
             this.state.currentMessageId++;
             await displayMessage({
@@ -340,7 +347,25 @@ Where would you like to begin your learning journey?`;
             });
             return;
         }
-        
+
+        if (isSolidify) {
+            this.state.pendingModuleSelection = null;
+            const overlayData = this.pendingWrapUpAssessment;
+            const generationFailed = this.pendingWrapUpAssessmentFailed;
+            this.pendingWrapUpAssessment = null;
+            this.pendingWrapUpAssessmentFailed = false;
+
+            if (overlayData) {
+                showWrapUpAssessmentOverlay(overlayData);
+            } else if (generationFailed) {
+                await this.showWrapUpAssessmentApology(module.id, module.title);
+            }
+            if (cleanupPhaseBubble) {
+                cleanupPhaseBubble();
+            }
+            return;
+        }
+
         if (this.state.curriculumState.currentPhase === 'Socratic') {
             this.state.curriculumState.socraticTurnCount = 0;
         }
@@ -477,6 +502,72 @@ ${coreInstruction}
                 userInputElem.placeholder = "Phase selected. Ask questions or type your thoughts...";
             }
         }
+    }
+
+    private async createSolidifyTeachingPlan(
+        module: Curriculum['modules'][number],
+        phaseForPlan: Phase,
+        ai: GoogleGenAI
+    ): Promise<TeachingPoint[][]> {
+        this.pendingWrapUpAssessment = null;
+        this.pendingWrapUpAssessmentFailed = false;
+
+        const conceptSummaries = module.concepts.map(concept => `${concept.title}: ${concept.text}`);
+
+        try {
+            const result: WrapUpAssessmentGenerationResult | null = await generateWrapUpAssessment(ai, module.id, {
+                moduleTitle: module.title,
+                moduleGoal: module.goal ?? '',
+                solidifyContent: '',
+                conceptSummaries
+            });
+
+            if (result && result.questions.length > 0) {
+                const validatedQuestions = validateWrapUpAssessmentQuestions(result.questions);
+                this.pendingWrapUpAssessment = {
+                    moduleTitle: module.title,
+                    moduleGoal: module.goal ?? undefined,
+                    conceptSummaries,
+                    questions: validatedQuestions
+                };
+            } else {
+                this.pendingWrapUpAssessmentFailed = true;
+            }
+        } catch (error) {
+            logger.error('[WRAP_UP_ASSESSMENT] generation-error', {
+                moduleId: module.id,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            this.pendingWrapUpAssessmentFailed = true;
+        }
+
+        logger.info('[WRAP_UP_ASSESSMENT] jump-to-phase-stub', {
+            moduleId: module.id,
+            phase: phaseForPlan,
+            kcTotal: 0.65
+        });
+
+        const stubTeachingPoint: TeachingPoint = {
+            text: `Wrap Up assessment prepared for ${module.title}`,
+            kcValue: 0.65
+        };
+
+        return [[stubTeachingPoint]];
+    }
+
+    private async showWrapUpAssessmentApology(moduleId: string, moduleTitle: string): Promise<void> {
+        this.state.currentMessageId++;
+        await displayMessage({
+            id: `msg-${this.state.currentMessageId}`,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: `I'm sorry—the Wrap Up assessment for **${moduleTitle}** is temporarily unavailable. Please try again shortly.`,
+            timestamp: new Date(),
+            isLoading: false,
+            isReloadable: false
+        });
+        logger.warn('[WRAP_UP_ASSESSMENT] overlay-missing', { moduleId, moduleTitle });
+        unlockWrapUpChatControls();
     }
 
     private async sendSystemSocraticMessage(): Promise<void> {

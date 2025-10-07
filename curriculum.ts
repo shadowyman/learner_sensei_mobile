@@ -343,13 +343,17 @@ export async function generateTeachingPlanForPhase(
     llmPlanner: LLMTeachingPlanGenerator
 ): Promise<TeachingPoint[][]> {
     const cacheKey = item.curriculumPathId;
-    const cachedPlan = getCachedTeachingPlan<TeachingPoint[][]>(cacheKey);
-    if (cachedPlan) {
-        try {
-            return validateAndProcessTeachingPlan(cachedPlan, item, phase);
-        } catch (_) {
-            removeCachedTeachingPlan(cacheKey);
+    if (phase !== 'Solidify') {
+        const cachedPlan = getCachedTeachingPlan<TeachingPoint[][]>(cacheKey);
+        if (cachedPlan) {
+            try {
+                return validateAndProcessTeachingPlan(cachedPlan, item, phase);
+            } catch (_) {
+                removeCachedTeachingPlan(cacheKey);
+            }
         }
+    } else {
+        removeCachedTeachingPlan(cacheKey);
     }
 
     const combinedText = buildCombinedContentText(curriculum, item, phase);
@@ -385,7 +389,9 @@ export async function generateTeachingPlanForPhase(
     }
 
     const sanitizedPlan = validateAndProcessTeachingPlan(rawPlan, item, phase);
-    setCachedTeachingPlan(cacheKey, sanitizedPlan);
+    if (phase !== 'Solidify') {
+        setCachedTeachingPlan(cacheKey, sanitizedPlan);
+    }
     return sanitizedPlan;
 }
 

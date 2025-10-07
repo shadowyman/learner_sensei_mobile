@@ -34,6 +34,33 @@ function logAdvanceValidator(event: string, payload: Record<string, unknown>): v
     logger.info('[ADVANCE_VALIDATION]', { event, ...payload });
 }
 
+function consumeAutoWrapUpAssessmentPayload(): { payload: WrapUpAssessmentOverlayData | null; failed: boolean } {
+    if (typeof window === 'undefined') {
+        return { payload: null, failed: false };
+    }
+    const wrapWindow = window as unknown as { __wrapUpAssessmentPayload?: WrapUpAssessmentOverlayData | null; __wrapUpAssessmentFailed?: boolean };
+    const payload = wrapWindow.__wrapUpAssessmentPayload ?? null;
+    const failed = wrapWindow.__wrapUpAssessmentFailed ?? false;
+    wrapWindow.__wrapUpAssessmentPayload = null;
+    wrapWindow.__wrapUpAssessmentFailed = false;
+    return { payload, failed };
+}
+
+async function showWrapUpAssessmentApologyMessage(moduleTitle: string | null): Promise<void> {
+    const titleFragment = moduleTitle ? ` for **${moduleTitle}**` : '';
+    currentMessageId++;
+    await displayMessage({
+        id: `msg-${currentMessageId}`,
+        sender: 'sensei',
+        displayName: 'Recursive Sensei',
+        text: `I'm sorry—the Wrap Up assessment${titleFragment} is temporarily unavailable. Please try again shortly.`,
+        timestamp: new Date(),
+        isLoading: false,
+        isReloadable: false
+    });
+    unlockWrapUpChatControls();
+}
+
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import {
     LearnerModel,
@@ -85,8 +112,16 @@ import { SaveLoadProgressManager } from './saveloadProgressManager';
 import { ChatWindowController } from './chatWindowController';
 import {
     llmExtractAndPlanTeachingOrder, 
-    getAnalysisFromGemini
+    getAnalysisFromGemini,
+    generateWrapUpAssessment,
+    WrapUpAssessmentGenerationResult
 } from './geminiService';
+import {
+    showWrapUpAssessmentOverlay,
+    WrapUpAssessmentOverlayData,
+    validateWrapUpAssessmentQuestions,
+    unlockWrapUpChatControls
+} from './wrapUpAssessment';
 import { 
     SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS,
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
@@ -415,6 +450,51 @@ function createLLMPlannerCallback(
                 moduleId: module.id
             });
         }
+        if (phase === 'Solidify') {
+            const conceptSummaries = module.concepts.map(concept => `${concept.title}: ${concept.text}`);
+
+            let overlayPayload: WrapUpAssessmentOverlayData | null = null;
+            try {
+                const result: WrapUpAssessmentGenerationResult | null = await generateWrapUpAssessment(ai, module.id, {
+                    moduleTitle: module.title,
+                    moduleGoal: module.goal ?? '',
+                    solidifyContent: '',
+                    conceptSummaries
+                });
+                if (result && result.questions.length > 0) {
+                    const validatedQuestions = validateWrapUpAssessmentQuestions(result.questions);
+                    overlayPayload = {
+                        moduleTitle: module.title,
+                        moduleGoal: module.goal ?? undefined,
+                        conceptSummaries,
+                        questions: validatedQuestions
+                    };
+                }
+            } catch (error) {
+                logger.error('[WRAP_UP_ASSESSMENT] generation-error', {
+                    moduleId: module.id,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+
+            if (typeof window !== 'undefined') {
+                const wrapWindow = window as unknown as { __wrapUpAssessmentPayload?: WrapUpAssessmentOverlayData | null; __wrapUpAssessmentFailed?: boolean; };
+                wrapWindow.__wrapUpAssessmentPayload = overlayPayload ?? null;
+                wrapWindow.__wrapUpAssessmentFailed = !overlayPayload;
+            }
+
+            logger.info('[WRAP_UP_ASSESSMENT] jump-to-phase-stub', {
+                moduleId: module.id,
+                phase,
+                kcTotal: 0.65
+            });
+
+            const stubTeachingPoint: TeachingPoint = {
+                text: `Wrap Up assessment prepared for ${module.title}`,
+                kcValue: 0.65
+            };
+            return [[stubTeachingPoint]];
+        }
         const conceptsSummary = module.concepts.map(c => c.title).join(', ');
         const result = await llmExtractAndPlanTeachingOrder(
             ai,
@@ -588,6 +668,15 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
 
         if (curriculum && newCurrentItem) { 
             await ensureTeachingPlanExists(curriculum, curriculumState, newCurrentItem, ai!);
+        }
+
+        if (curriculumState.currentPhase === 'Solidify') {
+            const { payload, failed } = consumeAutoWrapUpAssessmentPayload();
+            if (payload) {
+                showWrapUpAssessmentOverlay(payload);
+            } else if (failed) {
+                await showWrapUpAssessmentApologyMessage(moduleTitle);
+            }
         }
     } else if (curriculumState?.isCompleted) {
         updateCurriculumDisplay(null, null, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
