@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { join, dirname, relative } from 'path';
 import { spawnSync } from 'child_process';
 
 function fail(message: string): never {
@@ -56,10 +56,16 @@ const normalizedFeature = featureSlug.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|
 if (!normalizedFeature) {
   fail('Feature slug did not contain any alphanumeric characters.');
 }
-const manifestPath = join(process.cwd(), 'file-manifest.json');
+const repoRoot = process.cwd();
+const srcManifestPath = join(repoRoot, 'src', 'file-manifest.json');
+let manifestPath = srcManifestPath;
+if (!existsSync(manifestPath)) {
+  manifestPath = join(repoRoot, 'file-manifest.json');
+}
 if (!existsSync(manifestPath)) {
   fail('file-manifest.json not found.');
 }
+const manifestDir = dirname(manifestPath);
 let manifestContent: string;
 try {
   manifestContent = readFileSync(manifestPath, 'utf8');
@@ -79,13 +85,21 @@ const manifestFiles = manifestEntries as string[];
 if (manifestFiles.length === 0) {
   fail('file-manifest.json is empty.');
 }
+const resolvedManifestFiles: string[] = [];
 manifestFiles.forEach(relativePath => {
-  const targetPath = join(process.cwd(), relativePath);
-  if (!existsSync(targetPath)) {
-    fail(`Manifest entry missing: ${relativePath}`);
+  const manifestRelativePath = join(manifestDir, relativePath);
+  if (existsSync(manifestRelativePath)) {
+    resolvedManifestFiles.push(manifestRelativePath);
+    return;
   }
+  const repoRelativePath = join(repoRoot, relativePath);
+  if (existsSync(repoRelativePath)) {
+    resolvedManifestFiles.push(repoRelativePath);
+    return;
+  }
+  fail(`Manifest entry missing: ${relativePath}`);
 });
-const backupDir = join(process.cwd(), 'backup');
+const backupDir = join(repoRoot, 'backup');
 if (!existsSync(backupDir)) {
   try {
     mkdirSync(backupDir, { recursive: true });
@@ -114,8 +128,9 @@ if (existsSync(zipPath)) {
   }
   fail('Backup archive already exists for this feature and timestamp.');
 }
-const zipArgs = ['-q', zipPath, 'backup/BACKUP_CONTEXT.md', ...manifestFiles];
-const zipResult = spawnSync('zip', zipArgs, { cwd: process.cwd() });
+const archiveFiles = resolvedManifestFiles.map(filePath => relative(repoRoot, filePath).replace(/\\/g, '/'));
+const zipArgs = ['-q', zipPath, 'backup/BACKUP_CONTEXT.md', ...archiveFiles];
+const zipResult = spawnSync('zip', zipArgs, { cwd: repoRoot });
 if (zipResult.error || typeof zipResult.status === 'number' && zipResult.status !== 0) {
   try {
     unlinkSync(contextPath);
