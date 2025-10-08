@@ -1063,14 +1063,14 @@ export function buildWrapUpAssessmentPrompt(context: WrapUpAssessmentPromptConte
 
     return [
         'You are an assessment author. Prepare a 15-question multiple-choice assessment that spans every concept in the provided material. Each question should feel tricky and creative—draw on implied knowledge within scope, not just verbatim details—so the set mirrors the rigor of FAANG-style interviews.',
+        'Deliver the finished assessment by invoking the submit_wrap_up_assessment tool with the questions array. Do not emit JSON, tool_code, or natural language outside of the tool invocation.',
         'Requirements:',
         '1. Exactly five questions must be C++ code-snippet items (`"type": "snippet"`) with a valid C++ `code` field; the remaining ten are conceptual (`"type": "concept"`).',
         '2. For code snippets, assume surrounding infrastructure already exists—show only the lines necessary to illustrate the bug or question.',
         '3. Every question must present four answer choices, and the `"correct_choice"` string must match one of those choices exactly.',
         '4. Provide both `"explanation"` (why the correct answer is right) and `"interviewer_insight"` (how a FAANG interviewer disguises the concept, the trap they set, and the weakness they are screening for).',
-        '5. Return ONLY the raw JSON object: {"questions": [ ... ]}.',
-        'Question schema:',
-        '{ "id": string, "type": "snippet" | "concept", "prompt": string, "code"?: string, "choices": [string, string, string, string], "correct_choice": string, "explanation": string, "interviewer_insight": string }',
+        '5. Ensure the questions are tricky and thought-provoking, requiring deep understanding rather than surface recall.',
+        'Each question object supplied to the tool must include these fields: id (string), type ("snippet" | "concept"), prompt (string), optional code (string for snippet questions), choices (array of four strings), correct_choice (string matching one choice), explanation (string), interviewer_insight (string).',
         `Module Title: ${moduleTitle}`,
         `Module Goal:\n${moduleGoal}`,
         'Concept Summaries:\n' + conceptSection,

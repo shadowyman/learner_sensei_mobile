@@ -6,7 +6,7 @@
 const WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
 
 import { logger } from './logger';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, FunctionCall } from "@google/genai";
 import { ComprehensiveAnalysisResultType, MISCONCEPTION_IDS } from "./adaptiveEngine";
 import { TeachingPoint, PHASE_KC_TOTAL, Phase } from "./curriculum";
 import {
@@ -23,7 +23,8 @@ import {
     COMPREHENSIVE_ANALYSIS_CONFIG,
     PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG,
     TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED,
-    WRAP_UP_ASSESSMENT_GENERATION_CONFIG
+    WRAP_UP_ASSESSMENT_GENERATION_CONFIG,
+    WRAP_UP_ASSESSMENT_TOOLS
 } from './model_usage';
 import * as ModelUsage from './model_usage';
 
@@ -459,18 +460,42 @@ export async function generateWrapUpAssessment(
 
     let lastError: unknown = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
+        logger.info('[WRAP_UP_ASSESSMENT] request-attempt', {
+            moduleId,
+            moduleTitle: promptContext.moduleTitle,
+            attempt
+        });
         try {
-            const response: GenerateContentResponse = await ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: WRAP_UP_ASSESSMENT_GENERATION_CONFIG.modelName,
-                contents: [{ parts: [{ text: prompt }] }],
-                config: WRAP_UP_ASSESSMENT_GENERATION_CONFIG.config
+                contents: prompt,
+                config: {
+                    ...WRAP_UP_ASSESSMENT_GENERATION_CONFIG.config,
+                    tools: WRAP_UP_ASSESSMENT_TOOLS
+                }
             });
 
-            const rawText = stripJsonFence(response.text ?? '');
-            const parsed = JSON.parse(rawText);
-            const normalized = normalizeWrapUpAssessmentQuestions(parsed);
-            const questionCount = normalized.length;
-            const snippetCount = normalized.filter(q => q.type === 'snippet').length;
+            const functionCall = extractFunctionCall(response);
+            let normalizedFromTool: WrapUpAssessmentQuestion[] | null = null;
+            if (functionCall && functionCall.args) {
+                logger.info('[WRAP_UP_ASSESSMENT] function-call-received', {
+                    moduleId,
+                    moduleTitle: promptContext.moduleTitle,
+                    attempt,
+                    functionName: functionCall.name
+                });
+                normalizedFromTool = normalizeWrapUpAssessmentQuestions(functionCall.args);
+            } else {
+                normalizedFromTool = extractQuestionsFromToolCode(response.text ?? '');
+            }
+
+            if (!normalizedFromTool || normalizedFromTool.length === 0) {
+                throw new Error('Model returned no function call payload');
+            }
+
+            const orderedQuestions = reorderWrapUpAssessmentQuestions(normalizedFromTool);
+            const questionCount = orderedQuestions.length;
+            const snippetCount = orderedQuestions.filter(q => q.type === 'snippet').length;
 
             logger.info('[WRAP_UP_ASSESSMENT] request-success', {
                 moduleId,
@@ -479,7 +504,7 @@ export async function generateWrapUpAssessment(
                 snippetCount
             });
 
-            return { questions: normalized };
+            return { questions: orderedQuestions };
         } catch (error) {
             lastError = error;
             logger.error('[WRAP_UP_ASSESSMENT] request-fail', {
@@ -512,6 +537,77 @@ function stripJsonFence(text: string): string {
         return fenceMatch[1].trim();
     }
     return trimmed;
+}
+
+type GeminiFunctionCallPayload = {
+    name?: string;
+    args?: unknown;
+};
+
+function extractFunctionCall(response: GenerateContentResponse): GeminiFunctionCallPayload | null {
+    const calls = response.functionCalls as FunctionCall[] | undefined;
+    if (Array.isArray(calls) && calls.length > 0) {
+        return calls[0] ?? null;
+    }
+    return null;
+}
+
+function extractQuestionsFromToolCode(raw: string): WrapUpAssessmentQuestion[] | null {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    try {
+        const parsed = JSON.parse(trimmed) as { tool_code?: string | null };
+        const toolCode = typeof parsed?.tool_code === 'string' ? parsed.tool_code : null;
+        if (!toolCode) {
+            return null;
+        }
+
+        const questionsIndex = toolCode.indexOf('questions=');
+        if (questionsIndex === -1) {
+            return null;
+        }
+        const arrayStart = toolCode.indexOf('[', questionsIndex);
+        if (arrayStart === -1) {
+            return null;
+        }
+        let depth = 0;
+        let arrayEnd = -1;
+        for (let i = arrayStart; i < toolCode.length; i += 1) {
+            const char = toolCode[i];
+            if (char === '[') {
+                depth += 1;
+            } else if (char === ']') {
+                depth -= 1;
+                if (depth === 0) {
+                    arrayEnd = i;
+                    break;
+                }
+            }
+        }
+        if (arrayEnd === -1) {
+            return null;
+        }
+
+        const arrayJson = toolCode.slice(arrayStart, arrayEnd + 1);
+        const parsedQuestions = JSON.parse(arrayJson);
+        return normalizeWrapUpAssessmentQuestions(parsedQuestions);
+    } catch (error) {
+        logger.warn('[WRAP_UP_ASSESSMENT] tool-code-parse-fail', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+        return null;
+    }
+}
+
+function reorderWrapUpAssessmentQuestions(
+    questions: WrapUpAssessmentQuestion[]
+): WrapUpAssessmentQuestion[] {
+    const concepts = questions.filter(question => question.type === 'concept');
+    const snippets = questions.filter(question => question.type === 'snippet');
+    return [...concepts, ...snippets];
 }
 
 function normalizeEnhancementEntries(raw: any): EnhancementPayload {

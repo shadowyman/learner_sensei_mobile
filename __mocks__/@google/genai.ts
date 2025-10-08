@@ -6,11 +6,16 @@ type StreamChunk = {
 type StreamState = {
   chunks: StreamChunk[]
   result: string
+  functionCall?: {
+    name?: string
+    args?: any
+  } | null
 }
 
 const defaultState = (): StreamState => ({
   chunks: [{ text: 'mock-chunk' }],
-  result: 'mock-result'
+  result: 'mock-result',
+  functionCall: null
 })
 
 let state = defaultState()
@@ -19,32 +24,54 @@ const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
 
 const cloneChunks = (chunks: StreamChunk[]) => chunks.map(chunk => ({ ...chunk }))
 
-const createResponsePayload = (text: string) => ({
-  response: {
-    text
-  },
-  candidates: [
-    {
-      content: {
-        parts: [
-          {
-            text
-          }
-        ]
+const createResponsePayload = (text: string) => {
+  const parts = [] as any[]
+  if (state.functionCall) {
+    parts.push({ functionCall: state.functionCall })
+  }
+  parts.push({ text })
+  return {
+    response: {
+      text
+    },
+    candidates: [
+      {
+        content: {
+          parts
+        }
       }
-    }
-  ]
-})
+    ],
+    functionCalls: state.functionCall ? [state.functionCall] : []
+  }
+}
 
 export class GenerateContentResponse {
   text: string
+  candidates: any[]
+  functionCalls: any[]
   constructor(value: string) {
     this.text = value
+    const payload = createResponsePayload(value)
+    this.candidates = payload.candidates
+    this.functionCalls = payload.functionCalls
   }
   toJSON() {
     return createResponsePayload(this.text)
   }
 }
+
+export const Type = {
+  OBJECT: 'object',
+  ARRAY: 'array',
+  STRING: 'string',
+  NUMBER: 'number',
+  BOOLEAN: 'boolean'
+} as const
+
+export type Type = typeof Type[keyof typeof Type]
+
+export type FunctionDeclaration = any
+export type Tool = any
 
 class MockChatSession {
   async sendMessage(_input: unknown) {
@@ -121,6 +148,9 @@ export const __setMockGenerativeContent = (override: Partial<StreamState>) => {
   }
   if (override.chunks !== undefined) {
     state.chunks = cloneChunks(override.chunks)
+  }
+  if (override.functionCall !== undefined) {
+    state.functionCall = override.functionCall
   }
 }
 

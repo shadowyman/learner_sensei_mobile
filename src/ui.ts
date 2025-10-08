@@ -1919,34 +1919,42 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
         targetContainer.appendChild(bubble);
     }
 
-    try {
-        if (typeof (window as any).anime === 'undefined') throw new Error("Anime.js not loaded.");
-        (window as any).anime({
-            targets: bubble,
-            opacity: [0, 1],
-            translateY: [10, 0],
-            duration: 400,
-            easing: 'easeOutQuad',
-            begin: () => {
-                if (isNewBubble) {
-                    if (scrollElement) {
-                        scrollElement.scrollTop = scrollElement.scrollHeight;
-                    }
-                }
-            },
-            complete: () => {
-                bubble.dataset.animationState = "idle";
-            }
-        });
-    } catch (e) {
-        bubble.style.opacity = '1'; // Fallback if anime.js fails
-        bubble.style.transform = 'translateY(0)'; // Fallback
-        bubble.dataset.animationState = "idle"; // Fallback
+    const applySenseiBubbleFallback = () => {
+        bubble.style.opacity = '1';
+        bubble.style.transform = 'translateY(0)';
+        bubble.dataset.animationState = "idle";
         if (isNewBubble) {
             if (scrollElement) {
                 scrollElement.scrollTop = scrollElement.scrollHeight;
             }
         }
+    };
+    const enableAnimateSenseiBubbles = false;
+    if (enableAnimateSenseiBubbles) {
+        try {
+            if (typeof (window as any).anime === 'undefined') throw new Error("Anime.js not loaded.");
+            (window as any).anime({
+                targets: bubble,
+                opacity: [0, 1],
+                translateY: [10, 0],
+                duration: 400,
+                easing: 'easeOutQuad',
+                begin: () => {
+                    if (isNewBubble) {
+                        if (scrollElement) {
+                            scrollElement.scrollTop = scrollElement.scrollHeight;
+                        }
+                    }
+                },
+                complete: () => {
+                    bubble.dataset.animationState = "idle";
+                }
+            });
+        } catch (e) {
+            applySenseiBubbleFallback();
+        }
+    } else {
+        applySenseiBubbleFallback();
     }
 }
 
