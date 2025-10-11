@@ -1216,13 +1216,24 @@ async function handlePhaseCompletion(
     };
 
     const currentPhaseKCId = currentItem.curriculumPathId;
-    const phaseKCMastery = learnerModel.KCs[currentPhaseKCId] || 0;
+    let phaseKCMastery = learnerModel.KCs[currentPhaseKCId] || 0;
     const KC_TOLERANCE = 0.001;
 
+    const allPointsUnderstood = state.teachingPlanForPhase.every(chunk =>
+        chunk.every(point => {
+            const score = learnerModel.contentPointsCoverage?.[point.text]?.understanding_score ?? 0;
+            return score >= 0.7;
+        })
+    );
+
+    if (allPointsUnderstood && phaseKCMastery < PHASE_MASTERY_THRESHOLD) {
+        learnerModel.KCs[currentPhaseKCId] = PHASE_MASTERY_THRESHOLD;
+        learnerModel.KCMasteryLastUpdated[currentPhaseKCId] = new Date().toISOString();
+        phaseKCMastery = PHASE_MASTERY_THRESHOLD;
+    }
 
     // Check if mastery achieved
     if (phaseKCMastery >= (PHASE_MASTERY_THRESHOLD - KC_TOLERANCE)) {
-        
         // Phase mastered - handle transitions
         cleanupCompletedPhase(state, learnerModel, currentItem);
         try {

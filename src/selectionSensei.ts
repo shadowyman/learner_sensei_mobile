@@ -19,6 +19,7 @@ import {
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { mermaidManager } from './mermaidManager';
 import { runMermaidRecovery } from './mermaidErrorRecovery';
+import { parseSelectionSenseiResponsePayload } from './selectionSenseiResponseParser';
 import { 
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
     SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION,
@@ -908,157 +909,7 @@ class SelectionSensei {
     
 
     private extractContentWithRegex(text: string): { suggestedTitle?: string; explanation?: string } {
-        const normalized = this.normalizeJsonPayload(text);
-
-        const parsed = this.tryParseStructuredPayload(normalized);
-        if (parsed.suggestedTitle || parsed.explanation) {
-            return parsed;
-        }
-
-        const repairedPayload = this.repairLooseJson(normalized);
-        if (repairedPayload !== normalized) {
-            const repairedParsed = this.tryParseStructuredPayload(repairedPayload, false);
-            if (repairedParsed.suggestedTitle || repairedParsed.explanation) {
-                return repairedParsed;
-            }
-        }
-
-        const fallbackTitle = this.extractStringField(normalized, 'suggestedTitle');
-        const fallbackExplanation = this.extractStringField(normalized, 'explanation');
-
-        const result: { suggestedTitle?: string; explanation?: string } = {};
-        if (fallbackTitle !== undefined) {
-            result.suggestedTitle = fallbackTitle;
-        }
-        if (fallbackExplanation !== undefined) {
-            result.explanation = fallbackExplanation;
-        }
-        return result;
-    }
-
-    private normalizeJsonPayload(payload: string): string {
-        return payload
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/[\u2018\u2019]/g, "'")
-            .trim();
-    }
-
-    private tryParseStructuredPayload(payload: string, logFailure: boolean = true): { suggestedTitle?: string; explanation?: string } {
-        try {
-            const parsed = JSON.parse(payload);
-            if (parsed && typeof parsed === 'object') {
-                const result: { suggestedTitle?: string; explanation?: string } = {};
-                if (typeof (parsed as any).suggestedTitle === 'string') {
-                    result.suggestedTitle = (parsed as any).suggestedTitle;
-                }
-                if (typeof (parsed as any).explanation === 'string') {
-                    result.explanation = (parsed as any).explanation;
-                }
-                return result;
-            }
-        } catch (error) {
-            if (logFailure) {
-                logger.debug('[SENSEI_SELECTION] JSON parse failed', {
-                    message: error instanceof Error ? error.message : String(error)
-                });
-            }
-        }
-        return {};
-    }
-
-    private repairLooseJson(payload: string): string {
-        let repaired = payload;
-        repaired = repaired.replace(/([{,]\s*)'([^']+?)'\s*:/g, '$1"$2":');
-        repaired = repaired.replace(/:\s*'([^']*?)'/g, ': "$1"');
-        repaired = repaired.replace(/,\s*}/g, '}');
-        repaired = repaired.replace(/,\s*]/g, ']');
-        return repaired;
-    }
-
-    private extractStringField(source: string, key: string): string | undefined {
-        const keyIndex = source.indexOf(`"${key}"`);
-        if (keyIndex === -1) {
-            return undefined;
-        }
-
-        let cursor = source.indexOf(':', keyIndex + key.length + 2);
-        if (cursor === -1) {
-            return undefined;
-        }
-
-        cursor += 1;
-        while (cursor < source.length && /\s/.test(source.charAt(cursor))) {
-            cursor += 1;
-        }
-
-        if (cursor >= source.length) {
-            return undefined;
-        }
-
-        const quoteChar = source.charAt(cursor);
-        if (quoteChar !== '"' && quoteChar !== "'") {
-            return undefined;
-        }
-
-        cursor += 1;
-        let escapeNext = false;
-        let value = '';
-
-        while (cursor < source.length) {
-            const ch = source.charAt(cursor);
-            cursor += 1;
-
-            if (escapeNext) {
-                switch (ch) {
-                    case 'n':
-                        value += '\n';
-                        break;
-                    case 'r':
-                        value += '\r';
-                        break;
-                    case 't':
-                        value += '\t';
-                        break;
-                    case '\\':
-                        value += '\\';
-                        break;
-                    case '"':
-                        value += '"';
-                        break;
-                    case "'":
-                        value += "'";
-                        break;
-                    case 'u': {
-                        const hex = source.slice(cursor, cursor + 4);
-                        if (/^[0-9a-fA-F]{4}$/.test(hex)) {
-                            value += String.fromCharCode(parseInt(hex, 16));
-                            cursor += 4;
-                        } else {
-                            value += 'u';
-                        }
-                        break;
-                    }
-                    default:
-                        value += ch;
-                        break;
-                }
-                escapeNext = false;
-                continue;
-            }
-
-            if (ch === '\\') {
-                escapeNext = true;
-                continue;
-            }
-
-            if (ch === quoteChar) {
-                return value;
-            }
-
-            value += ch;
-        }
-
-        return value || undefined;
+        return parseSelectionSenseiResponsePayload(text, { logger });
     }
 
     private updateModalMermaidFence(messageId: string, originalCode: string, replacement: string): void {
@@ -1103,6 +954,11 @@ class SelectionSensei {
                     logger.error("Selection Sensei: Mermaid rendering failed:", error);
                 }
 
+                logger.info('[SEL_MERMAID_RECOVERY] recovery-start', {
+                    messageId: messageId ?? null,
+                    diagram: rawMermaidCode
+                });
+
                 const fixingDiv = document.createElement('div');
                 fixingDiv.className = 'mermaid-error';
                 fixingDiv.style.color = '#f59e0b';
@@ -1122,6 +978,10 @@ class SelectionSensei {
                         }
                     });
                     if (recoveryResult) {
+                        logger.info('[SEL_MERMAID_RECOVERY] recovery-complete', {
+                            messageId: messageId ?? null,
+                            diagram: recoveryResult.diagram
+                        });
                         renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
                         if (messageId) {
                             const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
@@ -1236,7 +1096,11 @@ class SelectionSensei {
                 return;
             }
 
-            let jsonText = (response.text || '').trim();
+            const rawResponseText = (response.text || '').trim();
+            this.modalResponseRawMarkdown = rawResponseText;
+            this.modalMessageRegistry.rawText.set(RESPONSE_MODAL_SENSEI_MESSAGE_ID, rawResponseText);
+
+            let jsonText = rawResponseText;
             responseLength = jsonText.length;
 
             const startsWithBrace = jsonText.startsWith('{');

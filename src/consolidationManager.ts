@@ -8,6 +8,11 @@ import { LearnerModel } from "./adaptiveEngine";
 import { TeachingPoint, CurriculumItem, CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; // Changed import for TeachingPoint
 import { PEDAGOGICAL_GUIDANCE_PLACEHOLDER } from "./prompts";
 
+/*
+ TODO: Re-enable consolidation manager once remediation plans refresh after learner score updates
+       and diagnostic prompts align with profiler directives.
+*/
+
 /**
  * Defines the state of an active consolidation session.
  * This object is the single source of truth for the multi-stage remediation loop.
@@ -72,7 +77,9 @@ export function initiateConsolidation(
         weakPoints = lowestScoringPoints; // Assign directly
     }
     
-    if (weakPoints.length === 0) return null; // No points to remediate.
+    if (weakPoints.length === 0) {
+        return null;
+    }
 
     // Group the weak points by their original chunk index.
     const plan = new Map<number, TeachingPoint[]>();

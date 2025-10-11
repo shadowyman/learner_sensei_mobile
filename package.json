@@ -39,8 +39,8 @@
   "license": "ISC",
   "devDependencies": {
     "@swc/jest": "^0.2.36",
-    "@types/jest": "^29.5.12",
     "@types/blessed": "^0.1.25",
+    "@types/jest": "^29.5.12",
     "@types/node": "^24.5.2",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
@@ -55,6 +55,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "json5": "^2.2.3",
     "neo-blessed": "^0.2.0",
     "parse5": "^8.0.0",
     "react": "^18.0.0",

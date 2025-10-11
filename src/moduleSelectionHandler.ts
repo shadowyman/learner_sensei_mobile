@@ -355,6 +355,11 @@ Where would you like to begin your learning journey?`;
             this.pendingWrapUpAssessment = null;
             this.pendingWrapUpAssessmentFailed = false;
 
+            const currentItem = getCurrentCurriculumItem(this.state.curriculum, this.state.curriculumState);
+            if (currentItem) {
+                updateCurriculumDisplay(currentItem, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
+            }
+
             if (overlayData) {
                 showWrapUpAssessmentOverlay(overlayData);
             } else if (generationFailed) {

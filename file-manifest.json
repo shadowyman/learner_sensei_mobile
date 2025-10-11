@@ -22,6 +22,7 @@
   "metadata.json",
   "model_usage.ts",
   "moduleSelectionHandler.ts",
+  "selectionSenseiResponseParser.ts",
   "notepad.ts",
   "notepadImporter.ts",
   "notepadExporter.ts",

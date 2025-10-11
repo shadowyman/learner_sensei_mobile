@@ -158,6 +158,29 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 **Fix Applied**: Removed raw code exposure and standardized the red error box content. Added a debug log that records the full failed diagram code. Implemented save normalization: on recovery success, replace the original Mermaid fence in the in-memory raw text with the corrected diagram; on recovery exhaustion, replace the fence with a single bracketed error line so saves/restores match the UI.
 
+## Bug Fix #11: Selection Sensei Mermaid Recovery Truncated Diagrams
+
+**Issue**: When Selection Sensei displayed follow-up explanations with Mermaid diagrams, recovery either replaced them with stubs like `Start` or exhausted all attempts, logging `[MERMAID_FAILOVER]` while the modal showed incomplete diagrams.
+
+**Root Cause**: `SelectionSensei.extractStringField` terminated at the first unescaped double quote while parsing the fallback JSON payload, so any diagram containing `"..."` lost everything after the first quoted label. The truncated string propagated to DOM rendering and recovery, guaranteeing failure.
+
+**Discovery Method**: Cycle 1 (Current Component Scope) experiment against the parser using logs from 2025-10-10 reproduced the truncation exactly; subsequent cycles ruled out Mermaid renderer and recovery helpers.
+
+**Fix Applied**:
+1. Introduced `parseSelectionSenseiResponsePayload` using JSON5 as the forgiving fallback after strict JSON parsing, eliminating the need for manual string scanning.
+2. Updated `SelectionSensei.handleToolbarAction` to snapshot the raw Gemini reply before parsing so the registry always holds the canonical markdown.
+3. Added Jest coverage (`__tests__/selectionSenseiResponseParser.test.ts`) to ensure diagrams with embedded quotes survive parsing end-to-end.
+
+**Related Files**:
+- `src/selectionSensei.ts:900`
+- `src/selectionSensei.ts:1223`
+- `src/selectionSenseiResponseParser.ts`
+- `__tests__/selectionSenseiResponseParser.test.ts`
+
+**Backup Artifact**: `backup/sensei_backup_selection_sensei_json5_parser_20251011_004529.zip`
+
+**Keywords for Future Reference**: selection sensei, JSON5, fallback parser, mermaid recovery, quoted labels, modal markdown snapshot
+
 **Related Files**:
 - `ui.ts:1415`
 - `ui.ts:1433-1440`

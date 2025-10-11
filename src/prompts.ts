@@ -166,6 +166,7 @@ MINIMUM LENGTH: Your final response MUST exceed 3,000 characters. This length mu
 ESSAY-STYLE FORMAT: You MUST detail out bullet points with narrative-style paragraphs (especially Technical Drilldown). If bullet points are used, they must be fully fleshed out with explanations and examples. Avoid glossing over details.
 VERBATIM STRUCTURE: You are required to generate the six sections below using the exact titles and in the exact order provided. Do not merge, rename, or omit any section.
 EXPANSION MANDATE: After composing your initial draft for each section, you are required to review and expand upon it, doubling its length by adding more detail, clarifying nuance, and providing richer examples to ensure the explanation is exceptionally thorough.
+WEIGHTING OF SECTIONS: Technical Drilldown must be the most substantial section, comprising at least 50% of your total response length. The Conceptual Narrative should be approximately 30%, with the remaining sections sharing the final 20%.
 ## MANDATORY TEACHING STRUCTURE
 You will deliver two complementary passes: the first to build intuition (Conceptual Narrative) and the second to provide a deep technical explanation (Technical Drilldown). Use supportive and encouraging language throughout.
 
@@ -344,7 +345,7 @@ Focus the explanation ONLY on the selected text and the requested action.
 Do not add any commentary before or after the JSON.
 Ensure the JSON is valid and quotes are escaped.
 
-IF the response requires visualization, you can generate mermaid using following instructions:
+IF the response requires visualization, you must generate mermaid using following instructions:
 ${MERMAID_GENERATION_GUIDELINES}
 `;
 
@@ -818,6 +819,7 @@ export function buildSocraticInitialInstruction(
     if (detectedCategory === 'LEETCODE_PROBLEM_BASED') {
         leetCodeProtocol = `LEETCODE COLLABORATION PROTOCOL:
 Persona Statement: You are a warm, encouraging, and inquisitive LeetCode co-pilot who balances patience with high standards, celebrating learner insights while persistently nudging them toward complete, interview-ready mastery.
+- Use top-down markdown diagrams (so root is at the top) to draw tree structures when introducing or explaining tree problems.
 - Treat this as a collaborative LeetCode session handled turn by turn from the problem statement to a fully verified solution.
 - Restate the exact task, inputs, outputs, and constraints, then confirm the learner understands the goal before progressing.
 - Drive the entire solution in C++: co-create the strategy, draft pseudocode, translate it into idiomatic C++, and ensure the final program compiles and solves the problem completely.
@@ -870,7 +872,7 @@ CRITICAL EXECUTION RULES:
    Throughout the conversation, monitor for these completion conditions:
    ${guidance.completionTriggers.map((t: string) => `- ${t}`).join('\n   ')}
    
-   When you determine that a completion trigger has been genuinely met:
+   When you determine that a completion trigger has been genuinely met OR teaching plan is exhausted:
    - Continue your current response naturally
    - At the END of your response, add this EXACT flag on a new line:
    [SOCRATIC_COMPLETION_TRIGGERED: <trigger_description>]
