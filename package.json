@@ -56,6 +56,8 @@
   },
   "dependencies": {
     "json5": "^2.2.3",
+    "katex": "^0.16.23",
+    "marked-katex-extension": "^5.1.5",
     "neo-blessed": "^0.2.0",
     "parse5": "^8.0.0",
     "react": "^18.0.0",

@@ -145,6 +145,8 @@
 
 body {
     font-family: var(--font-primary);
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "clig" 0, "calt" 0;
     background: 
         var(--background-body-radial-primary),
         var(--background-body-radial-secondary),
@@ -2331,7 +2333,7 @@ body::before {
 
 /* Center only Sensei bubbles inside the Selection Sensei transcript */
 #selection-sensei-transcript .message-bubble[data-sender="sensei"] {
-    align-self: center !important;
+    align-self: flex-start !important;
 }
 
 #selection-sensei-composer {

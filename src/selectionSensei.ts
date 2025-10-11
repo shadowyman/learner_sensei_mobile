@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger, DEBUG_FLAGS } from './logger';
-import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
+import { logger } from './logger';
+import { GoogleGenAI, Chat } from "@google/genai";
 import { marked } from 'marked';
 import {
     sanitizeCodeFences,
@@ -16,9 +16,6 @@ import {
     MessageRegistry,
     Message,
 } from './ui';
-import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
-import { mermaidManager } from './mermaidManager';
-import { runMermaidRecovery } from './mermaidErrorRecovery';
 import { parseSelectionSenseiResponsePayload } from './selectionSenseiResponseParser';
 import { 
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
@@ -69,7 +66,6 @@ class SelectionSensei {
     private responseModalComposerInput: HTMLTextAreaElement | null = null;
     private responseModalSendButton: HTMLButtonElement | null = null;
     private modalMessageRegistry: MessageRegistry = createMessageRegistry();
-    private modalResponseRawMarkdown: string = '';
     private followupInFlight = false;
     private modalMessageCounter = 0;
     private modalConversationToken = 0;
@@ -293,6 +289,7 @@ class SelectionSensei {
                 },
                 history: [],
             });
+            logger.info('[SEL_MERMAID_DISABLE] selection chat initialized without mermaid directives');
         }
         return this.selectionChat;
     }
@@ -331,7 +328,6 @@ class SelectionSensei {
 
         const timersCleared = this.clearModalRegistry();
         this.modalMessageRegistry = createMessageRegistry();
-        this.modalResponseRawMarkdown = '';
         this.followupInFlight = false;
         this.modalMessageCounter = 0;
         this.selectionChat = null;
@@ -397,7 +393,7 @@ class SelectionSensei {
             const messageBubble = document.getElementById(modalMessage.id) as HTMLDivElement | null;
             const messageContent = messageBubble?.querySelector('.message-text') as HTMLElement | null;
             if (messageContent) {
-                await this.processMermaidDiagrams(messageContent, { messageId: modalMessage.id });
+                this.normalizeMermaidCodeBlocks(messageContent);
             }
         }
     }
@@ -809,12 +805,11 @@ class SelectionSensei {
 
         let highlightApplied = false;
         let uiEnhancementsApplied = false;
-        let mermaidProcessed = false;
+        let normalizedCount = 0;
 
         try {
             // Trim the content to prevent accidental code block formatting
             const trimmedContent = htmlContent.trim();
-            this.modalResponseRawMarkdown = trimmedContent;
             const sanitizedContent = sanitizeCodeFences(trimmedContent);
             this.responseModalTitleElement.textContent = title;
             this.responseModalSpinner.style.display = 'none';
@@ -839,6 +834,7 @@ class SelectionSensei {
             this.responseModalTextContent.style.display = 'block';
             this.responseModal.style.display = 'flex';
 
+            normalizedCount = this.normalizeMermaidCodeBlocks(this.responseModalTextContent);
         } catch (innerError) {
             logger.error("[SENSEI_SELECTION] Error in content update:", innerError);
             throw innerError;
@@ -863,18 +859,15 @@ class SelectionSensei {
             // Continue without these UI enhancements
         }
 
-        try {
-            await this.processMermaidDiagrams(this.responseModalTextContent, { messageId: RESPONSE_MODAL_SENSEI_MESSAGE_ID });
-            mermaidProcessed = true;
-        } catch (mermaidError) {
-            logger.warn("[SENSEI_SELECTION] Error processing Mermaid diagrams:", mermaidError);
-            // Continue without Mermaid rendering
-        }
-
         logSelectionSenseiValidation('content-postprocess', {
             highlightApplied,
             uiEnhancementsApplied,
-            mermaidProcessed
+            normalizedCount
+        });
+        logger.info('[SEL_MERMAID_DISABLE] modal content rendered without mermaid processing', {
+            highlightApplied,
+            uiEnhancementsApplied,
+            normalizedCount
         });
 
         this.setComposerEnabled(true);
@@ -912,107 +905,23 @@ class SelectionSensei {
         return parseSelectionSenseiResponsePayload(text, { logger });
     }
 
-    private updateModalMermaidFence(messageId: string, originalCode: string, replacement: string): void {
-        const rawTextMap = this.modalMessageRegistry.rawText;
-        const current = rawTextMap.get(messageId) || '';
-        if (!current) {
-            return;
-        }
-        const escapeRe = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const exactFence = new RegExp('```\\s*mermaid\\s*\\n\\s*' + escapeRe(originalCode) + '\\s*\\n```', 's');
-        if (exactFence.test(current)) {
-            const updated = current.replace(exactFence, replacement);
-            rawTextMap.set(messageId, updated);
-            return;
-        }
-        const genericFence = /```\s*mermaid[\s\S]*?```/;
-        if (genericFence.test(current)) {
-            const updated = current.replace(genericFence, replacement);
-            rawTextMap.set(messageId, updated);
-        }
-    }
-
-    private async processMermaidDiagrams(container: HTMLElement, context?: { messageId?: string }): Promise<void> {
-        const messageId = context?.messageId;
-        const mermaidBlocks = container.querySelectorAll('pre code.language-mermaid');
-
-        if (messageId && this.modalResponseRawMarkdown) {
-            this.modalMessageRegistry.rawText.set(messageId, this.modalResponseRawMarkdown);
-        }
-
-        // Process all Mermaid diagrams in parallel
-        const mermaidPromises = Array.from(mermaidBlocks).map(async (block) => {
-            const preElement = block.parentElement as HTMLElement;
-            const rawMermaidCode = block.textContent || '';
-
+    private normalizeMermaidCodeBlocks(container: HTMLElement): number {
+        const mermaidBlocks = Array.from(container.querySelectorAll('pre code.language-mermaid'));
+        mermaidBlocks.forEach((block) => {
+            block.classList.remove('language-mermaid');
+            if (![...block.classList].some((cls) => cls.startsWith('language-'))) {
+                block.classList.add('language-plaintext');
+            }
             try {
-                const uniqueId = `selection-mermaid-${crypto.randomUUID()}`;
-                const { svg } = await mermaidManager.render(uniqueId, rawMermaidCode);
-                renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
-            } catch (error: any) {
-                if (DEBUG_FLAGS.mermaid_debug) {
-                    logger.error("Selection Sensei: Mermaid rendering failed:", error);
+                if (hljs && typeof hljs.highlightElement === 'function') {
+                    hljs.highlightElement(block as HTMLElement);
                 }
-
-                logger.info('[SEL_MERMAID_RECOVERY] recovery-start', {
-                    messageId: messageId ?? null,
-                    diagram: rawMermaidCode
-                });
-
-                const fixingDiv = document.createElement('div');
-                fixingDiv.className = 'mermaid-error';
-                fixingDiv.style.color = '#f59e0b';
-                fixingDiv.innerHTML = `
-                    <span class="inline-spinner"></span> Attempting to fix diagram...
-                `;
-                preElement.replaceWith(fixingDiv);
-
-                try {
-                    const recoveryResult = await runMermaidRecovery({
-                        ai: this.ai || null,
-                        initialDiagram: rawMermaidCode,
-                        initialError: error?.message || 'Unknown error',
-                        renderAttempt: async (diagram: string) => {
-                            const uniqueId = `selection-mermaid-recovery-${crypto.randomUUID()}`;
-                            return mermaidManager.render(uniqueId, diagram);
-                        }
-                    });
-                    if (recoveryResult) {
-                        logger.info('[SEL_MERMAID_RECOVERY] recovery-complete', {
-                            messageId: messageId ?? null,
-                            diagram: recoveryResult.diagram
-                        });
-                        renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
-                        if (messageId) {
-                            const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
-                            this.updateModalMermaidFence(messageId, rawMermaidCode, replacement);
-                            const updated = this.modalMessageRegistry.rawText.get(messageId);
-                            if (updated) {
-                                this.modalResponseRawMarkdown = updated;
-                            }
-                        }
-                        return;
-                    }
-                } catch (fixError) {
-                    logger.error('Selection Sensei: Mermaid recovery failed:', fixError);
-                }
-
-                const errorDiv = document.createElement('div');
-                logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
-                if (messageId) {
-                    this.updateModalMermaidFence(messageId, rawMermaidCode, "[Diagram could not be rendered, and automatic fix failed]");
-                    const updated = this.modalMessageRegistry.rawText.get(messageId);
-                    if (updated) {
-                        this.modalResponseRawMarkdown = updated;
-                    }
-                }
-                errorDiv.className = 'mermaid-error';
-                errorDiv.textContent = "[Diagram could not be rendered, and automatic fix failed]";
-                fixingDiv.replaceWith(errorDiv);
+            } catch (error) {
+                logger.warn('[SEL_MERMAID_DISABLE] highlight failed', { message: error instanceof Error ? error.message : String(error) });
             }
         });
-
-        await Promise.all(mermaidPromises);
+        logger.info('[SEL_MERMAID_DISABLE] normalized code blocks', { count: mermaidBlocks.length });
+        return mermaidBlocks.length;
     }
 
     private async handleToolbarAction(selectedText: string, actionType: string, originalSenseiMessageText: string, actionLabel: string, userQuestion?: string): Promise<void> {
@@ -1097,8 +1006,6 @@ class SelectionSensei {
             }
 
             const rawResponseText = (response.text || '').trim();
-            this.modalResponseRawMarkdown = rawResponseText;
-            this.modalMessageRegistry.rawText.set(RESPONSE_MODAL_SENSEI_MESSAGE_ID, rawResponseText);
 
             let jsonText = rawResponseText;
             responseLength = jsonText.length;

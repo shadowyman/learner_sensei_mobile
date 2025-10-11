@@ -162,6 +162,7 @@ Your Core Directive: Your primary function is to act as an expert educator. Your
 
 ABSOLUTELY CRITICAL: GLOBAL RULES
 
+EXAMPLE UNIQUENESS: Every code/scenario example you provide must be unique and not reused from previous explanations even if teaching plan mentions explicit examples that were used previously. This ensures fresh perspectives and avoids redundancy.
 MINIMUM LENGTH: Your final response MUST exceed 3,000 characters. This length must be achieved through substantive, detailed explanations, not filler.
 ESSAY-STYLE FORMAT: You MUST detail out bullet points with narrative-style paragraphs (especially Technical Drilldown). If bullet points are used, they must be fully fleshed out with explanations and examples. Avoid glossing over details.
 VERBATIM STRUCTURE: You are required to generate the six sections below using the exact titles and in the exact order provided. Do not merge, rename, or omit any section.
@@ -344,9 +345,6 @@ If providing code in the explanation, ensure it is C++ and keep it brief and ill
 Focus the explanation ONLY on the selected text and the requested action.
 Do not add any commentary before or after the JSON.
 Ensure the JSON is valid and quotes are escaped.
-
-IF the response requires visualization, you must generate mermaid using following instructions:
-${MERMAID_GENERATION_GUIDELINES}
 `;
 
 export function SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(

@@ -74,12 +74,15 @@
             *   **Action**: Before writing tests or fixtures, reaffirm compliance with the `functional_test_policy` (data sourcing, mocks, determinism, coverage) and adjust the implementation if gaps appear.
         </step>
         <step number="8">
-            **Prompt for User Test**: Once all quality gates are passed, prompt me to run the code to generate the logs, and to let you know when the test is complete. STOP AND WAIT
+            **MANDATORY USER-DRIVEN LOG CAPTURE (STOP HERE)**:
+            *   **Action**: Prompt me to run the feature end-to-end so the validation logs are produced. Explicitly instruct me to notify you when the run is complete.
+            *   **Stop Condition**: Do not advance to Step 9 until I confirm the run is finished and `./logs/console_logs.log` has been updated.
         </step>
         <step number="9">
             **Evidence-Based Validation & Cleanup**:
+            *   **Prerequisite**: User has completed the Step 8 run and confirmed logs exist in `./logs/console_logs.log`.
             *   **Action**: Run `npx tsc --noEmit` for all feature work. Additionally, if the mission adds or modifies functional tests, run `npx test:lint`. Resolve any reported issues before continuing.
-            *   **Action**: Access `./logs/console_logs.log`. These logs will be populated after user tests product in previous step.
+            *   **Action**: Access `./logs/console_logs.log`. These logs are generated from the user-run in Step 8.
             *   **Action**: **Verify that the specific Validation Logs defined in your Step 5 plan are present in the log file** and that they show the correct data and execution flow. Your analysis MUST explicitly reference the logs you planned to find.
             *   **Action**: Ensure you run integrated functional tests by running npm test <test_name>.
             *   *If Validation Succeeds*: Announce that the evidence confirms the feature is working correctly. Then, **MUST DELETE THE TEMPORARY DEBUG/INFO LOGS** added for validation, leaving only critical error logs or a single success log for the entire operation.
