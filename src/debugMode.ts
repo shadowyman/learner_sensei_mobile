@@ -6,6 +6,13 @@
 import { logger, LogEntry, LogLevel } from './logger';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { marked } from "marked";
+import markedKatex from 'marked-katex-extension';
+
+const globalMarkedConfig = globalThis as typeof globalThis & { __markedKatexConfigured?: boolean };
+if (!globalMarkedConfig.__markedKatexConfigured) {
+    marked.use(markedKatex({ throwOnError: false, output: 'mathml', nonStandard: true }));
+    globalMarkedConfig.__markedKatexConfigured = true;
+}
 import { setupFullscreenToggle, sanitizeCodeFences, setupTextareaAutosize } from './ui';
 import { DEBUG_MODE_CONFIG } from './model_usage';
 import JSZip from 'jszip';

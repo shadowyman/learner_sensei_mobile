@@ -14,6 +14,13 @@ import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { mermaidManager, DEFAULT_MERMAID_THEME } from './mermaidManager.js';
 import { marked } from 'marked';
+import markedKatex from 'marked-katex-extension';
+
+const globalMarkedConfig = globalThis as typeof globalThis & { __markedKatexConfigured?: boolean };
+if (!globalMarkedConfig.__markedKatexConfigured) {
+    marked.use(markedKatex({ throwOnError: false, output: 'mathml', nonStandard: true }));
+    globalMarkedConfig.__markedKatexConfigured = true;
+}
 
 // Declare hljs for TypeScript if it's loaded globally from a CDN
 declare var hljs: any;

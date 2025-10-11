@@ -1373,6 +1373,41 @@ body::before {
     box-sizing: border-box;
 }
 
+.markdown-content .katex {
+    color: var(--text-primary);
+    font-size: 0.95em;
+    display: inline-block;
+    padding: 0 6px;
+    margin: 0 2px;
+    border-radius: 6px;
+    border: 1px solid var(--sensei-code-border, rgba(34, 197, 94, 0.15));
+    background: var(--sensei-code-background, rgba(34, 197, 94, 0.12));
+}
+
+.markdown-content .katex .katex-html,
+.markdown-content .katex .katex-mathml {
+    color: inherit;
+}
+
+.markdown-content .katex-display {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(30, 41, 59, 0.6);
+    overflow-x: auto;
+}
+
+.markdown-content .katex-display > .katex {
+    display: block;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+.markdown-content .katex-display > .katex .katex-html {
+    color: inherit;
+}
+
 #response-modal-text-content pre {
     max-height: 450px;
 }

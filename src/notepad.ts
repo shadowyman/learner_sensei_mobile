@@ -5,6 +5,13 @@
 
 import { logger } from './logger';
 import { marked } from 'marked';
+import markedKatex from 'marked-katex-extension';
+
+const globalMarkedConfig = globalThis as typeof globalThis & { __markedKatexConfigured?: boolean };
+if (!globalMarkedConfig.__markedKatexConfigured) {
+    marked.use(markedKatex({ throwOnError: false, output: 'mathml', nonStandard: true }));
+    globalMarkedConfig.__markedKatexConfigured = true;
+}
 import { Curriculum } from './curriculum';
 import { NotepadExporter } from './notepadExporter';
 import { NotepadImporter, ImportedConceptGroup } from './notepadImporter';

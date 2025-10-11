@@ -1,6 +1,13 @@
 import { sanitizeCodeFences, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks } from './ui';
 import { WrapUpAssessmentQuestion } from './geminiService';
 import { marked } from 'marked';
+import markedKatex from 'marked-katex-extension';
+
+const globalMarkedConfig = globalThis as typeof globalThis & { __markedKatexConfigured?: boolean };
+if (!globalMarkedConfig.__markedKatexConfigured) {
+    marked.use(markedKatex({ throwOnError: false, output: 'mathml', nonStandard: true }));
+    globalMarkedConfig.__markedKatexConfigured = true;
+}
 
 declare const hljs: any;
 

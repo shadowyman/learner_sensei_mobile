@@ -3,7 +3,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-
 import { logger } from './logger';
 
 function logManifestValidation(event: string, payload: Record<string, unknown>): void {
