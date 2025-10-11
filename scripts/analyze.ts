@@ -136,12 +136,20 @@ function createTsResolver(program: ts.Program, repoRoot: string): ImportResolver
 
 const repoRoot = process.cwd()
 const realRepoRoot = fs.realpathSync(repoRoot)
-const manifestPath = path.join(repoRoot, 'file-manifest.json')
+const manifestPath = path.join(repoRoot, 'src', 'file-manifest.json')
 let manifestSet: Set<string> | null = null
 {
   const manifestEntries = readJsonFile<string[]>(manifestPath, [])
   if (manifestEntries.length) {
-    manifestSet = new Set(manifestEntries.map(entry => path.normalize(entry).split(path.sep).join('/')))
+    const paths = new Set<string>()
+    for (const entry of manifestEntries) {
+      const normalized = path.normalize(entry).split(path.sep).join('/')
+      paths.add(normalized)
+      if (!normalized.includes('/')) {
+        paths.add(`src/${normalized}`)
+      }
+    }
+    manifestSet = paths
   }
 }
 const outDir = path.join(repoRoot, 'tmp', 'analysis')
