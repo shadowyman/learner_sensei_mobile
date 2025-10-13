@@ -67,6 +67,7 @@ class SelectionSensei {
     private responseModalTextContent: HTMLDivElement | null = null;
     private responseModalSpinner: HTMLDivElement | null = null;
     private responseModalCloseButton: HTMLButtonElement | null = null;
+    private responseModalFullscreenButton: HTMLButtonElement | null = null;
     private responseModalDragZone: HTMLDivElement | null = null;
     private responseModalTranscript: HTMLDivElement | null = null;
     private responseModalComposer: HTMLDivElement | null = null;
@@ -77,6 +78,17 @@ class SelectionSensei {
     private modalMessageCounter = 0;
     private modalConversationToken = 0;
     private selectionChat: Chat | null = null;
+    private isModalFullscreen = false;
+    private modalFullscreenRestore: {
+        top: string;
+        left: string;
+        right: string;
+        bottom: string;
+        width: string;
+        height: string;
+        transform: string;
+        resize: string;
+    } | null = null;
 
     private isAskModeActive = false; // Add this line
     private askInputContainer: HTMLDivElement | null = null; // Add this property
@@ -99,6 +111,7 @@ class SelectionSensei {
         this.boundOutsidePointerHandler = this.handleOutsidePointerDown.bind(this);
         this.handleFollowupSubmit = this.handleFollowupSubmit.bind(this);
         this.handleComposerKeydown = this.handleComposerKeydown.bind(this);
+        this.toggleModalFullscreen = this.toggleModalFullscreen.bind(this);
     }
 
     public initialize(): void {
@@ -119,6 +132,9 @@ class SelectionSensei {
 
         if (this.responseModalCloseButton) {
             this.responseModalCloseButton.removeEventListener('click', this.hideResponseModal);
+        }
+        if (this.responseModalFullscreenButton) {
+            this.responseModalFullscreenButton.removeEventListener('click', this.toggleModalFullscreen);
         }
 
         if (this.responseModalHeader) {
@@ -149,6 +165,7 @@ class SelectionSensei {
         if (this.responseModal) {
             this.responseModal.style.display = 'none';
         }
+        this.setModalFullscreen(false);
         this.hideSelectionToolbar();
 
         // Clear references
@@ -159,11 +176,14 @@ class SelectionSensei {
         this.responseModalTextContent = null;
         this.responseModalSpinner = null;
         this.responseModalCloseButton = null;
+        this.responseModalFullscreenButton = null;
         this.responseModalDragZone = null;
         this.responseModalTranscript = null;
         this.responseModalComposer = null;
         this.responseModalComposerInput = null;
         this.responseModalSendButton = null;
+        this.modalFullscreenRestore = null;
+        this.isModalFullscreen = false;
     }
 
     private getDOMElements(): void {
@@ -174,6 +194,7 @@ class SelectionSensei {
         this.responseModalTextContent = document.getElementById('response-modal-text-content') as HTMLDivElement;
         this.responseModalSpinner = document.getElementById('response-modal-spinner') as HTMLDivElement;
         this.responseModalCloseButton = document.getElementById('response-modal-close-button') as HTMLButtonElement;
+        this.responseModalFullscreenButton = document.getElementById('response-modal-fullscreen-button') as HTMLButtonElement;
         this.responseModalDragZone = document.getElementById('response-modal-drag-zone') as HTMLDivElement;
         this.responseModalTranscript = document.getElementById('selection-sensei-transcript') as HTMLDivElement;
         this.responseModalComposer = document.getElementById('selection-sensei-composer') as HTMLDivElement;
@@ -201,6 +222,10 @@ class SelectionSensei {
                 this.responseModalCloseButton.removeEventListener('click', this.hideResponseModal);
                 this.responseModalCloseButton.addEventListener('click', this.hideResponseModal);
             }
+            if (this.responseModalFullscreenButton) {
+                this.responseModalFullscreenButton.removeEventListener('click', this.toggleModalFullscreen);
+                this.responseModalFullscreenButton.addEventListener('click', this.toggleModalFullscreen);
+            }
 
             if (this.responseModalHeader) {
                 this.responseModalHeader.removeEventListener('mousedown', this.handleDragStart);
@@ -225,6 +250,9 @@ class SelectionSensei {
 
         if (this.responseModalCloseButton) {
             this.responseModalCloseButton.addEventListener('click', this.hideResponseModal);
+        }
+        if (this.responseModalFullscreenButton) {
+            this.responseModalFullscreenButton.addEventListener('click', this.toggleModalFullscreen);
         }
 
         if (this.responseModalHeader) {
@@ -283,6 +311,86 @@ class SelectionSensei {
         }
     }
 
+    private toggleModalFullscreen(): void {
+        this.ensureDOMElementsValid();
+        this.setModalFullscreen(!this.isModalFullscreen);
+    }
+
+    private setModalFullscreen(fullscreen: boolean): void {
+        if (!this.responseModal) {
+            this.isModalFullscreen = false;
+            this.modalFullscreenRestore = null;
+            if (this.responseModalFullscreenButton) {
+                this.responseModalFullscreenButton.setAttribute('aria-pressed', 'false');
+                this.responseModalFullscreenButton.setAttribute('aria-label', 'Enter fullscreen');
+                this.responseModalFullscreenButton.setAttribute('title', 'Enter fullscreen');
+            }
+            return;
+        }
+
+        if (fullscreen) {
+            if (!this.isModalFullscreen) {
+                this.modalFullscreenRestore = {
+                    top: this.responseModal.style.top,
+                    left: this.responseModal.style.left,
+                    right: this.responseModal.style.right,
+                    bottom: this.responseModal.style.bottom,
+                    width: this.responseModal.style.width,
+                    height: this.responseModal.style.height,
+                    transform: this.responseModal.style.transform,
+                    resize: this.responseModal.style.resize,
+                };
+                this.responseModal.dataset.fullscreen = 'true';
+                this.responseModal.style.top = '';
+                this.responseModal.style.left = '';
+                this.responseModal.style.right = '';
+                this.responseModal.style.bottom = '';
+                this.responseModal.style.width = '';
+                this.responseModal.style.height = '';
+                this.responseModal.style.transform = '';
+                this.responseModal.style.resize = '';
+                this.isDragging = false;
+            }
+            if (this.responseModalFullscreenButton) {
+                this.responseModalFullscreenButton.setAttribute('aria-pressed', 'true');
+                this.responseModalFullscreenButton.setAttribute('aria-label', 'Exit fullscreen');
+                this.responseModalFullscreenButton.setAttribute('title', 'Exit fullscreen');
+            }
+        } else {
+            if (this.responseModal.dataset.fullscreen) {
+                delete this.responseModal.dataset.fullscreen;
+            }
+            const previous = this.modalFullscreenRestore;
+            if (previous) {
+                this.responseModal.style.top = previous.top;
+                this.responseModal.style.left = previous.left;
+                this.responseModal.style.right = previous.right;
+                this.responseModal.style.bottom = previous.bottom;
+                this.responseModal.style.width = previous.width;
+                this.responseModal.style.height = previous.height;
+                this.responseModal.style.transform = previous.transform;
+                this.responseModal.style.resize = previous.resize;
+            } else {
+                this.responseModal.style.top = '';
+                this.responseModal.style.left = '';
+                this.responseModal.style.right = '';
+                this.responseModal.style.bottom = '';
+                this.responseModal.style.width = '';
+                this.responseModal.style.height = '';
+                this.responseModal.style.transform = '';
+                this.responseModal.style.resize = '';
+            }
+            this.modalFullscreenRestore = null;
+            if (this.responseModalFullscreenButton) {
+                this.responseModalFullscreenButton.setAttribute('aria-pressed', 'false');
+                this.responseModalFullscreenButton.setAttribute('aria-label', 'Enter fullscreen');
+                this.responseModalFullscreenButton.setAttribute('title', 'Enter fullscreen');
+            }
+        }
+
+        this.isModalFullscreen = fullscreen;
+    }
+
     private ensureSelectionChat(): Chat | null {
         if (!this.ai) {
             return null;
@@ -304,6 +412,7 @@ class SelectionSensei {
     private resetModalState(): void {
         this.modalConversationToken += 1;
         this.ensureDOMElementsValid();
+        this.setModalFullscreen(false);
         const transcript = this.responseModalTranscript;
         let removedMessages = 0;
         if (transcript) {
@@ -882,6 +991,7 @@ class SelectionSensei {
 
     private hideResponseModal(): void {
         this.ensureDOMElementsValid();
+        this.setModalFullscreen(false);
 
         const modalElement = this.responseModal;
         const wasHidden = modalElement ? modalElement.style.display === 'none' : true;
@@ -977,7 +1087,7 @@ class SelectionSensei {
                 case 'explainWithAnalogy': instructionText = "Provide a clear and concise analogy to help understand the 'SELECTED TEXT'."; break;
                 case 'explainInMoreDepth': instructionText = "Explain the 'SELECTED TEXT' in more depth, providing more details and context. Try to understand why someone would require more depth for 'SELECTED TEXT' and tailor your response accordingly. The goal is proactively making sure you cover everything for it."; break;
                 case 'showAnExample': instructionText = "Provide a new relevant and illustrative example for the concept in the 'SELECTED TEXT'. The example should be explained in detail."; break;
-                case 'showExampleCodeSnippet': instructionText = "Provide a complete, fully functional C++ code implementation that demonstrates the concept discussed in the 'SELECTED TEXT'. This must be a FULL implementation, not just a snippet. After the code, provide a LINE-BY-LINE explanation of the code, anticipating and addressing common questions or pitfalls a novice programmer might have about each part of the code. Make connections to the context throughout your explanation."; break;
+                case 'showExampleCodeSnippet': instructionText = "Provide a complete, fully functional C++ code implementation that demonstrates the concept discussed in the 'SELECTED TEXT'. This must be a FULL implementation, not just a snippet. For code snippets, assume surrounding non-essential auxiliary infrastructure already exists—show only the lines necessary to illustrate the bug or question. After the code, provide a LINE-BY-LINE explanation of the code, anticipating and addressing common questions or pitfalls a novice programmer might have about each part of the code. Make connections to the context throughout your explanation."; break;
                 default:
                     if (guardActive('unknown-action')) {
                         await this.updateResponseModalContentAndTitle("Error", "Unknown action type.", conversationToken);
@@ -1145,7 +1255,10 @@ class SelectionSensei {
     }
 
     private handleDragStart(e: MouseEvent): void {
-        if (!this.responseModal || (e.target as HTMLElement).closest('#response-modal-close-button')) return;
+        if (!this.responseModal) return;
+        const target = e.target as HTMLElement | null;
+        if (target && (target.closest('#response-modal-close-button') || target.closest('#response-modal-fullscreen-button'))) return;
+        if (this.isModalFullscreen) return;
 
         this.isDragging = true;
         const modalRect = this.responseModal.getBoundingClientRect();
@@ -1162,6 +1275,7 @@ class SelectionSensei {
 
     private handleDragMove(e: MouseEvent): void {
         if (!this.isDragging || !this.responseModal) return;
+        if (this.isModalFullscreen) return;
         let newX = e.clientX - this.offsetX;
         let newY = e.clientY - this.offsetY;
 

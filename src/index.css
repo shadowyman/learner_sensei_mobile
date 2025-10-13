@@ -1104,7 +1104,7 @@ body::before {
 }
 
 .message-bubble[data-sender="sensei"]:hover {
-    box-shadow: 0 0 29px rgba(34, 197, 94, 0.25);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
 }
 
 .message-bubble[data-animation-state="entering"] {
@@ -1328,7 +1328,7 @@ body::before {
     line-height: 1.65;
     display: flex;
     flex-direction: column;
-    overflow-x: auto;
+    overflow-x: visible;
     overflow-y: hidden;
     max-height: 450px;
     position: relative;
@@ -1359,7 +1359,7 @@ body::before {
 /* Reset styles for <code> inside a <pre> block */
 .markdown-content pre code {
     padding: 0;
-    font-size: inherit;
+    font-size: 0.9em;
     font-family: inherit;
     color: inherit;
     background-color: transparent;
@@ -1881,15 +1881,24 @@ body::before {
 .chat-input-textarea::-webkit-scrollbar,
 #debug-file-list::-webkit-scrollbar,
 #debug-modal-content::-webkit-scrollbar,
-.message-bubble .message-text::-webkit-scrollbar {
+.message-bubble .message-text::-webkit-scrollbar,
+.content pre::-webkit-scrollbar,
+.content pre code::-webkit-scrollbar,
+.markdown-content pre::-webkit-scrollbar,
+.markdown-content pre code::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
 .chat-messages::-webkit-scrollbar-track,
 .chat-input-textarea::-webkit-scrollbar-track,
 #debug-file-list::-webkit-scrollbar-track,
 #debug-modal-content::-webkit-scrollbar-track,
-.message-bubble .message-text::-webkit-scrollbar-track {
+.message-bubble .message-text::-webkit-scrollbar-track,
+.content pre::-webkit-scrollbar-track,
+.content pre code::-webkit-scrollbar-track,
+.markdown-content pre::-webkit-scrollbar-track,
+.markdown-content pre code::-webkit-scrollbar-track {
     background: transparent;
 }
 
@@ -1897,7 +1906,11 @@ body::before {
 .chat-input-textarea::-webkit-scrollbar-thumb,
 #debug-file-list::-webkit-scrollbar-thumb,
 #debug-modal-content::-webkit-scrollbar-thumb,
-.message-bubble .message-text::-webkit-scrollbar-thumb {
+.message-bubble .message-text::-webkit-scrollbar-thumb,
+.content pre::-webkit-scrollbar-thumb,
+.content pre code::-webkit-scrollbar-thumb,
+.markdown-content pre::-webkit-scrollbar-thumb,
+.markdown-content pre code::-webkit-scrollbar-thumb {
     background: rgba(0, 212, 255, 0.2);
     border-radius: 3px;
 }
@@ -1906,7 +1919,11 @@ body::before {
 .chat-input-textarea::-webkit-scrollbar-thumb:hover,
 #debug-file-list::-webkit-scrollbar-thumb:hover,
 #debug-modal-content::-webkit-scrollbar-thumb:hover,
-.message-bubble .message-text::-webkit-scrollbar-thumb:hover {
+.message-bubble .message-text::-webkit-scrollbar-thumb:hover,
+.content pre::-webkit-scrollbar-thumb:hover,
+.content pre code::-webkit-scrollbar-thumb:hover,
+.markdown-content pre::-webkit-scrollbar-thumb:hover,
+.markdown-content pre code::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 212, 255, 0.4);
 }
 
@@ -2285,9 +2302,7 @@ body::before {
     max-height: 85vh;
     min-height: 200px;
     padding: 24px 24px 12px;
-    background: rgba(15, 23, 42, 0.9);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    background: radial-gradient(circle at 20% 15%, rgba(74, 222, 128, 0.22), transparent 58%), radial-gradient(circle at 82% 18%, rgba(56, 189, 248, 0.28), transparent 55%), radial-gradient(circle at 50% 85%, rgba(129, 140, 248, 0.25), transparent 60%), rgb(15, 23, 42);
     border: 1px solid var(--glass-border);
     border-radius: var(--size-border-radius);
     box-shadow: 
@@ -2296,6 +2311,25 @@ body::before {
         0 0 0 1px rgba(0, 212, 255, 0.1);
     resize: both;
     overflow: auto;
+}
+#response-modal[data-fullscreen="true"] {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+    min-width: 0;
+    min-height: 0;
+    border-radius: 0;
+    padding: 32px 32px 20px;
+    resize: none;
+}
+#response-modal[data-fullscreen="true"] #response-modal-content-area {
+    flex-grow: 1;
 }
 #response-modal-header {
     display: flex;
@@ -2323,7 +2357,8 @@ body::before {
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
-#response-modal-close-button {
+#response-modal-close-button,
+#response-modal-fullscreen-button {
     width: 32px;
     height: 32px;
     display: flex;
@@ -2336,6 +2371,26 @@ body::before {
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
+}
+#response-modal-fullscreen-button {
+    margin-left: auto;
+    margin-right: 8px;
+    font-size: 1em;
+}
+#response-modal-fullscreen-button svg {
+    width: 18px;
+    height: 18px;
+}
+#response-modal-fullscreen-button:hover {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(96, 165, 250, 0.35);
+    color: #bfdbfe;
+    transform: scale(1.05);
+}
+#response-modal-fullscreen-button[aria-pressed="true"] {
+    background: rgba(59, 130, 246, 0.24);
+    border-color: rgba(96, 165, 250, 0.42);
+    color: #e0f2fe;
 }
 #response-modal-close-button:hover {
     background: rgba(255, 0, 0, 0.1);
@@ -2431,6 +2486,9 @@ body::before {
 #response-modal-sensei-bubble {
     background: rgba(30, 41, 59, 0.8) !important;
     border: 1px solid rgba(34, 197, 94, 0.15) !important;
+    margin-top: 20px !important;
+    margin-left: 20px !important;
+    margin-bottom: 15px !important;
 }
 
 /* Floating reload button */

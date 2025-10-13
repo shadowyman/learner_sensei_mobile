@@ -16,10 +16,37 @@ import { mermaidManager, DEFAULT_MERMAID_THEME } from './mermaidManager.js';
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
 
-const globalMarkedConfig = globalThis as typeof globalThis & { __markedKatexConfigured?: boolean };
+const globalMarkedConfig = globalThis as typeof globalThis & { __markedKatexConfigured?: boolean; __markedNoIndentedCode?: boolean };
 if (!globalMarkedConfig.__markedKatexConfigured) {
     marked.use(markedKatex({ throwOnError: false, output: 'mathml', nonStandard: true }));
-    globalMarkedConfig.__markedKatexConfigured = true;
+    globalMarkedConfig.__markedKatexConfigured = true; 
+}
+if (!globalMarkedConfig.__markedNoIndentedCode) {
+    const originalCodeTokenizer = marked.defaults?.tokenizer?.code;
+    marked.use({
+        tokenizer: {
+            code(src) {
+                if (/^( {4,}|\t)/.test(src) && !/^ {0,3}(```|~~~)/.test(src)) {
+                    const match = src.match(/^((?: {4,}|\t).*(?:\n|$))+?/);
+                    if (match) {
+                        const raw = match[0];
+                        const text = raw.replace(/^(?: {4}|\t)/gm, '');
+                        if (/^([*+-]|\d+\.)\s/.test(text.trimStart())) {
+                            return originalCodeTokenizer ? originalCodeTokenizer.call(this, src) : false;
+                        }
+                        return {
+                            type: 'paragraph',
+                            raw,
+                            text,
+                            tokens: this.lexer.inlineTokens(text)
+                        };
+                    }
+                }
+                return originalCodeTokenizer ? originalCodeTokenizer.call(this, src) : false;
+            }
+        }
+    });
+    globalMarkedConfig.__markedNoIndentedCode = true;
 }
 
 // Declare hljs for TypeScript if it's loaded globally from a CDN
@@ -74,6 +101,37 @@ export function sanitizeCodeFences(text: string): string {
     return text.replace(/^\s+(```)/gm, '$1');
 }
 
+function sanitizeClosingBackticksOnly(text: string): string {
+    const lines = text.split(/\r?\n/);
+    let inFence = false;
+    let fenceChar: '`' | '~' | '' = '';
+    let fenceLen = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!inFence) {
+            const m = line.match(/^[ \t\u00A0]*([`~]{3,})([^\r\n]*)$/);
+            if (m) {
+                inFence = true;
+                fenceChar = m[1][0] as '`' | '~';
+                fenceLen = m[1].length;
+            }
+            continue;
+        }
+        const close = line.match(/^[ \t\u00A0]*([`~]{3,})[ \t\u00A0]*$/);
+        if (close && close[1][0] === fenceChar && close[1].length >= fenceLen) {
+            lines[i] = line.replace(/^[ \t\u00A0]+(?=[`~]{3,}[ \t\u00A0]*$)/, '');
+            inFence = false;
+            fenceChar = '';
+            fenceLen = 0;
+        }
+    }
+    return lines.join('\n');
+}
+
+function sanitizeMarkdownFences(text: string): string {
+    return sanitizeCodeFences(sanitizeClosingBackticksOnly(text));
+}
+
 function escapeHtml(text: string): string {
     return text
         .replace(/&/g, '&amp;')
@@ -111,7 +169,7 @@ function renderUserMessageHtml(rawText: string): { html: string; segments: numbe
     let codeBlockCount = 0;
     for (const part of parts) {
         if (part.trim().startsWith('```')) {
-            html += marked.parse(sanitizeCodeFences(part)) as string;
+            html += marked.parse(sanitizeMarkdownFences(part)) as string;
             codeBlockCount += 1;
         } else if (part.length > 0) {
             html += escapeHtml(part);
@@ -1226,7 +1284,7 @@ export async function renderEnhancedMarkdown(messageId: string, markdown: string
         return;
     }
     streamingMessagesRawText.set(messageId, markdown);
-    const sanitizedText = sanitizeCodeFences(markdown);
+    const sanitizedText = sanitizeMarkdownFences(markdown);
     messageText.innerHTML = marked.parse(sanitizedText) as string;
     renderIcons(messageText);
             try {
@@ -1620,7 +1678,7 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
         if (message.sender === 'sensei' && message.text.includes("**Available Modules:**") && appCurriculum && appCurriculum.modules) {
             const parts = message.text.split("**Available Modules:**");
             const introTextPart = parts[0] + "**Available Modules:**";
-            const introHtml = marked.parse(sanitizeCodeFences(introTextPart.trim())) as string;
+            const introHtml = marked.parse(sanitizeMarkdownFences(introTextPart.trim())) as string;
 
             const introDiv = document.createElement('div');
             introDiv.innerHTML = introHtml;
@@ -1657,17 +1715,17 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
                                 moduleListContainer.appendChild(button);
                             } else {
                                 const p = document.createElement('p');
-                                p.innerHTML = marked.parse(sanitizeCodeFences(line)) as string;
+                                p.innerHTML = marked.parse(sanitizeMarkdownFences(line)) as string;
                                 moduleListContainer.appendChild(p);
                             }
                         } else {
                             const p = document.createElement('p');
-                            p.innerHTML = marked.parse(sanitizeCodeFences(line)) as string;
+                            p.innerHTML = marked.parse(sanitizeMarkdownFences(line)) as string;
                             moduleListContainer.appendChild(p);
                         }
                     } else if (line.trim().length > 0) {
                         const p = document.createElement('p');
-                        p.innerHTML = marked.parse(sanitizeCodeFences(line)) as string;
+                        p.innerHTML = marked.parse(sanitizeMarkdownFences(line)) as string;
                         moduleListContainer.appendChild(p);
                     }
                 });
@@ -1683,7 +1741,7 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
             ];
             
             // Display the message text
-            const sanitizedText = sanitizeCodeFences(message.text);
+            const sanitizedText = sanitizeMarkdownFences(message.text);
             messageText.innerHTML = marked.parse(sanitizedText) as string;
             
             // Create phase buttons container
@@ -1774,7 +1832,7 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
                  if (!registry.rawText.has(message.id) || registry.rawText.get(message.id) !== message.text) {
                     registry.rawText.set(message.id, message.text);
                 }
-                const sanitizedText = sanitizeCodeFences(message.text);
+                const sanitizedText = sanitizeMarkdownFences(message.text);
                 messageText.innerHTML = marked.parse(sanitizedText) as string;
             } else {
                 registry.rawText.set(message.id, message.text);
@@ -1980,7 +2038,8 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
             }
             streamingMessagesRawText.set(messageId, fullTextSoFar);
 
-            const parts = fullTextSoFar.split(/(```[\s\S]*?```)/g);
+            const fullySanitized = sanitizeMarkdownFences(fullTextSoFar);
+            const parts = fullySanitized.split(/(```[\s\S]*?```)/g);
 
             let processedHTML = '';
             let textToAnimate = '';
@@ -2001,8 +2060,7 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
                  processedHTML += marked.parse(textToAnimate) as string;
             }
 
-            const sanitizedHtml = sanitizeCodeFences(processedHTML);
-            messageTextElement.innerHTML = sanitizedHtml;
+            messageTextElement.innerHTML = processedHTML;
 
             try {
                 messageTextElement.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
