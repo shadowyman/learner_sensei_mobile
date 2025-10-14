@@ -128,12 +128,144 @@ function sanitizeClosingBackticksOnly(text: string): string {
     return lines.join('\n');
 }
 
+const INLINE_PIPE_PLACEHOLDER = '__SENSEI_INLINE_PIPE__';
+const TABLE_ALIGNMENT_REGEX = /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*$/;
+
+function replaceInlinePipesInCodeSpans(line: string): string {
+    return line.replace(/(`+)([^`]+?)(\1)/g, (_m, ticks: string, content: string, closing: string) => {
+        if (content.includes('\n') || content.includes(INLINE_PIPE_PLACEHOLDER)) {
+            return `${ticks}${content}${closing}`;
+        }
+        let replaced = '';
+        for (let idx = 0; idx < content.length; idx++) {
+            const ch = content[idx];
+            if (ch === '|' && (idx === 0 || content[idx - 1] !== '\\')) {
+                replaced += INLINE_PIPE_PLACEHOLDER;
+            } else {
+                replaced += ch;
+            }
+        }
+        return `${ticks}${replaced}${closing}`;
+    });
+}
+
+function escapePipesInInlineCode(text: string): string {
+    const lines = text.split(/\r?\n/);
+    let inFence = false;
+    let fenceChar: '`' | '~' | '' = '';
+    let fenceLen = 0;
+    let tableMode = false;
+    let pendingHeaderIndex = -1;
+
+    const applyToLine = (index: number) => {
+        lines[index] = replaceInlinePipesInCodeSpans(lines[index]);
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (!inFence) {
+            const open = line.match(/^[ \t\u00A0]*([`~]{3,})([^\r\n]*)$/);
+            if (open) {
+                inFence = true;
+                fenceChar = open[1][0] as '`' | '~';
+                fenceLen = open[1].length;
+                continue;
+            }
+        } else {
+            const close = line.match(/^[ \t\u00A0]*([`~]{3,})[ \t\u00A0]*$/);
+            if (close && close[1][0] === fenceChar && close[1].length >= fenceLen) {
+                inFence = false;
+                fenceChar = '';
+                fenceLen = 0;
+            }
+            continue;
+        }
+
+        const pipeCount = (line.match(/\|/g) || []).length;
+        const isAlignmentLine = TABLE_ALIGNMENT_REGEX.test(trimmed);
+
+        if (isAlignmentLine) {
+            if (pendingHeaderIndex >= 0) {
+                applyToLine(pendingHeaderIndex);
+                pendingHeaderIndex = -1;
+            }
+            tableMode = true;
+            continue;
+        }
+
+        if (tableMode) {
+            if (trimmed === '' || pipeCount < 2) {
+                tableMode = false;
+                pendingHeaderIndex = -1;
+                continue;
+            }
+            applyToLine(i);
+            continue;
+        }
+
+        if (pipeCount >= 2 && trimmed.length > 0) {
+            pendingHeaderIndex = i;
+        } else {
+            pendingHeaderIndex = -1;
+        }
+    }
+
+    return lines.join('\n');
+}
+
 function sanitizeIndentedListItems(text: string): string {
-    return text.replace(/(^|\n)[ \t]{4,}([*+-]|\d+\.)\s/g, '$1$2 ');
+    const lines = text.split(/\r?\n/);
+    let inFence = false;
+    let fenceChar: '`' | '~' | '' = '';
+    let fenceLen = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (!inFence) {
+            const open = line.match(/^[ \t\u00A0]*([`~]{3,})([^\r\n]*)$/);
+            if (open) {
+                inFence = true;
+                fenceChar = open[1][0] as '`' | '~';
+                fenceLen = open[1].length;
+            }
+            continue;
+        }
+
+        const close = line.match(/^[ \t\u00A0]*([`~]{3,})[ \t\u00A0]*$/);
+        if (close && close[1][0] === fenceChar && close[1].length >= fenceLen) {
+            inFence = false;
+            fenceChar = '';
+            fenceLen = 0;
+
+            const nextIndex = i + 1;
+            if (nextIndex < lines.length) {
+                lines[nextIndex] = lines[nextIndex].replace(/^[ \t]{4,}([*+-]|\d+\.)\s/, '$1 ');
+            }
+        }
+    }
+
+    return lines.join('\n');
 }
 
 export function sanitizeMarkdownFences(text: string): string {
-    return sanitizeIndentedListItems(sanitizeCodeFences(sanitizeClosingBackticksOnly(text)));
+    return sanitizeIndentedListItems(escapePipesInInlineCode(sanitizeCodeFences(sanitizeClosingBackticksOnly(text))));
+}
+
+function restoreInlinePipePlaceholders(html: string): string {
+    return html.includes(INLINE_PIPE_PLACEHOLDER)
+        ? html.split(INLINE_PIPE_PLACEHOLDER).join('|')
+        : html;
+}
+
+export function parseSanitizedMarkdown(sanitized: string): string {
+    return restoreInlinePipePlaceholders(marked.parse(sanitized) as string);
+}
+
+export function parseSenseiMarkdown(markdown: string): string {
+    return parseSanitizedMarkdown(sanitizeMarkdownFences(markdown));
 }
 
 function escapeHtml(text: string): string {
@@ -173,7 +305,7 @@ function renderUserMessageHtml(rawText: string): { html: string; segments: numbe
     let codeBlockCount = 0;
     for (const part of parts) {
         if (part.trim().startsWith('```')) {
-            html += marked.parse(sanitizeMarkdownFences(part)) as string;
+            html += parseSenseiMarkdown(part);
             codeBlockCount += 1;
         } else if (part.length > 0) {
             html += escapeHtml(part);
@@ -1289,7 +1421,7 @@ export async function renderEnhancedMarkdown(messageId: string, markdown: string
     }
     streamingMessagesRawText.set(messageId, markdown);
     const sanitizedText = sanitizeMarkdownFences(markdown);
-    messageText.innerHTML = marked.parse(sanitizedText) as string;
+    messageText.innerHTML = parseSanitizedMarkdown(sanitizedText);
     renderIcons(messageText);
             try {
                 messageText.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
@@ -1682,7 +1814,7 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
         if (message.sender === 'sensei' && message.text.includes("**Available Modules:**") && appCurriculum && appCurriculum.modules) {
             const parts = message.text.split("**Available Modules:**");
             const introTextPart = parts[0] + "**Available Modules:**";
-            const introHtml = marked.parse(sanitizeMarkdownFences(introTextPart.trim())) as string;
+            const introHtml = parseSenseiMarkdown(introTextPart.trim());
 
             const introDiv = document.createElement('div');
             introDiv.innerHTML = introHtml;
@@ -1719,17 +1851,17 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
                                 moduleListContainer.appendChild(button);
                             } else {
                                 const p = document.createElement('p');
-                                p.innerHTML = marked.parse(sanitizeMarkdownFences(line)) as string;
+                                p.innerHTML = parseSenseiMarkdown(line);
                                 moduleListContainer.appendChild(p);
                             }
                         } else {
                             const p = document.createElement('p');
-                            p.innerHTML = marked.parse(sanitizeMarkdownFences(line)) as string;
+                            p.innerHTML = parseSenseiMarkdown(line);
                             moduleListContainer.appendChild(p);
                         }
                     } else if (line.trim().length > 0) {
                         const p = document.createElement('p');
-                        p.innerHTML = marked.parse(sanitizeMarkdownFences(line)) as string;
+                        p.innerHTML = parseSenseiMarkdown(line);
                         moduleListContainer.appendChild(p);
                     }
                 });
@@ -1746,7 +1878,7 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
             
             // Display the message text
             const sanitizedText = sanitizeMarkdownFences(message.text);
-            messageText.innerHTML = marked.parse(sanitizedText) as string;
+            messageText.innerHTML = parseSanitizedMarkdown(sanitizedText);
             
             // Create phase buttons container
             const phaseButtonsContainer = document.createElement('div');
@@ -1833,11 +1965,11 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
         } else {
             if (message.sender === 'sensei') {
                 // Store raw text for potential selection action later
-                 if (!registry.rawText.has(message.id) || registry.rawText.get(message.id) !== message.text) {
-                    registry.rawText.set(message.id, message.text);
-                }
-                const sanitizedText = sanitizeMarkdownFences(message.text);
-                messageText.innerHTML = marked.parse(sanitizedText) as string;
+                if (!registry.rawText.has(message.id) || registry.rawText.get(message.id) !== message.text) {
+                   registry.rawText.set(message.id, message.text);
+               }
+               const sanitizedText = sanitizeMarkdownFences(message.text);
+                messageText.innerHTML = parseSanitizedMarkdown(sanitizedText);
             } else {
                 registry.rawText.set(message.id, message.text);
                 const renderedUserMessage = renderUserMessageHtml(message.text);
@@ -2051,17 +2183,17 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
             parts.forEach(part => {
                 if (part.trim().startsWith('```')) {
                     if (textToAnimate) {
-                        processedHTML += marked.parse(textToAnimate) as string;
+                        processedHTML += parseSanitizedMarkdown(textToAnimate);
                         textToAnimate = '';
                     }
-                    processedHTML += marked.parse(part) as string;
+                    processedHTML += parseSanitizedMarkdown(part);
                 } else {
                     textToAnimate += part;
                 }
             });
 
             if (textToAnimate) {
-                 processedHTML += marked.parse(textToAnimate) as string;
+                 processedHTML += parseSanitizedMarkdown(textToAnimate);
             }
 
             messageTextElement.innerHTML = processedHTML;

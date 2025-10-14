@@ -13,7 +13,7 @@ if (!globalMarkedConfig.__markedKatexConfigured) {
     marked.use(markedKatex({ throwOnError: false, output: 'mathml', nonStandard: true }));
     globalMarkedConfig.__markedKatexConfigured = true;
 }
-import { setupFullscreenToggle, sanitizeMarkdownFences, setupTextareaAutosize } from './ui';
+import { setupFullscreenToggle, sanitizeMarkdownFences, parseSanitizedMarkdown, setupTextareaAutosize } from './ui';
 import { DEBUG_MODE_CONFIG } from './model_usage';
 import JSZip from 'jszip';
 import { clearTeachingPlanCache, hasTeachingPlanCacheEntries } from './teachingPlanCache';
@@ -473,7 +473,7 @@ function displayDebugMessage(message: DebugMessage) {
         const sanitizedText = sanitizeMarkdownFences(rawText);
         const markdownContentWrapper = document.createElement('div');
         markdownContentWrapper.classList.add('markdown-content');
-        markdownContentWrapper.innerHTML = marked.parse(sanitizedText) as string;
+        markdownContentWrapper.innerHTML = parseSanitizedMarkdown(sanitizedText);
         messageTextElement.appendChild(markdownContentWrapper);
 
         messageTextElement.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
@@ -517,7 +517,7 @@ function updateDebugMessageStream(messageId: string, fullTextSoFar: string) {
             }
             
             const sanitizedText = sanitizeMarkdownFences(fullTextSoFar);
-            markdownContentWrapper.innerHTML = marked.parse(sanitizedText) as string;
+            markdownContentWrapper.innerHTML = parseSanitizedMarkdown(sanitizedText);
 
             markdownContentWrapper.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
                 hljs.highlightElement(block as HTMLElement);

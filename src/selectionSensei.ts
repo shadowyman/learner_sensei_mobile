@@ -15,6 +15,7 @@ if (!globalMarkedConfig.__markedKatexConfigured) {
 }
 import {
     sanitizeMarkdownFences,
+    parseSanitizedMarkdown,
     addLanguageDisplayToCodeBlocks,
     addCopyButtonsToCodeBlocks,
     setupTextareaAutosize,
@@ -930,7 +931,7 @@ class SelectionSensei {
             this.responseModalTitleElement.textContent = title;
             this.responseModalSpinner.style.display = 'none';
 
-            const parsedMarkdown = marked.parse(sanitizedContent) as string;
+            const parsedMarkdown = parseSanitizedMarkdown(sanitizedContent);
 
             // Complete nuclear option: remove all children and set new content
             while (this.responseModalTextContent.firstChild) {
@@ -1087,7 +1088,7 @@ class SelectionSensei {
                 case 'explainWithAnalogy': instructionText = "Provide a clear and concise analogy to help understand the 'SELECTED TEXT'."; break;
                 case 'explainInMoreDepth': instructionText = "Explain the 'SELECTED TEXT' in more depth, providing more details and context. Try to understand why someone would require more depth for 'SELECTED TEXT' and tailor your response accordingly. The goal is proactively making sure you cover everything for it."; break;
                 case 'showAnExample': instructionText = "Provide a new relevant and illustrative example for the concept in the 'SELECTED TEXT'. The example should be explained in detail."; break;
-                case 'showExampleCodeSnippet': instructionText = "Provide a complete, fully functional C++ code implementation that demonstrates the concept discussed in the 'SELECTED TEXT'. This must be a FULL implementation, not just a snippet. For code snippets, assume surrounding non-essential auxiliary infrastructure already exists—show only the lines necessary to illustrate the bug or question. After the code, provide a LINE-BY-LINE explanation of the code, anticipating and addressing common questions or pitfalls a novice programmer might have about each part of the code. Make connections to the context throughout your explanation."; break;
+                case 'showExampleCodeSnippet': instructionText = "Provide a fully functional C++ code implementation that demonstrates the concept discussed in the 'SELECTED TEXT'. For code snippets, assume surrounding non-essential auxiliary infrastructure already exists—show only the lines necessary to illustrate the 'SELECTED TEXT'. After the code, provide a LINE-BY-LINE explanation of the code in a table. Then, anticipate and address common questions or pitfalls a novice or seasoned programmer might have about each part of the code. Make connections to the context throughout your explanation."; break;
                 default:
                     if (guardActive('unknown-action')) {
                         await this.updateResponseModalContentAndTitle("Error", "Unknown action type.", conversationToken);

@@ -336,23 +336,27 @@ You will be given:
 Your task is to:
 1.  Generate a concise, descriptive, and user-friendly title for a pop-up modal. This title should summarize the action being performed on the selected text. It should incorporate or be inspired by the provided user-friendly action label. The title should be engaging and clearly indicate the content of the pop-up.
 2.  Provide a fully compliant execution of the given instruction for the SELECTED TEXT snippet, using the FULL ORIGINAL EXPLANATION for context.
-3.  CRITICAL VISUALIZATION CHECK: YOU MUST USE simple, pure text-based ASCII art (e.g., using slashes and dashes) for explanations that involve tree and graph structures (for example display a sample tree where code can be referred along with). Avoid structured visualization languages (like Mermaid) or complex graphics. The visualization must be easily interpretable in plain text format.
-4.  Do NOT include any other text within the visualization block. All accompanying text for the visualization must be outside the visualization code block.
-5.  Constraint: When generating ASCII art for tree or graph structures, only display the static structure of the input data; do not include recursion flow, call stack tracing, or computational paths. ENSURE slashes and dashes are perfectly intended and aligned.
 
-Return your response as a single JSON object with two keys:
+### RESPONSE FORMAT:
 - "suggestedTitle": A string for the modal title.
-- "explanation": A string containing the full response in Markdown format.
+- "explanation": A string containing the full response in Markdown format. The explanation should be suitable for a pop-up window but can be detailed.
+- Focus the explanation ONLY on the selected text AND the requested action.
+- Do not add any commentary before or after the JSON.
+- Ensure the JSON is valid and quotes are escaped.
 
-The explanation should be suitable for a pop-up window but can be detailed.
-If providing code in the explanation:
-0. Your primary goal is logical correctness. Do not oversimplify an explanation if doing so introduces any ambiguity or logical flaw. It is better to be slightly more verbose and complex than to be simple and wrong.
-1. Ensure it is C++.
-2. Your C++ code must be correct, runnable, and free of syntax errors. It must reflect industry best practices, interview completeness, and efficiency.
-3. Double check your code for correctness and completeness before including it. Test your code with edge cases in mind. 
-Focus the explanation ONLY on the selected text and the requested action.
-Do not add any commentary before or after the JSON.
-Ensure the JSON is valid and quotes are escaped.
+### C++ CODE REQUIREMENTS:
+If explicitly asked to generate C++ code, follow these rules:
+1. Your primary goal is logical correctness. Do not oversimplify an explanation if doing so introduces any ambiguity or logical flaw. It is better to be slightly more verbose and complex than to be simple and wrong.
+2. Ensure it is C++.
+3. Your C++ code must be correct, runnable, and free of syntax errors. It must reflect industry best practices, interview completeness, and efficiency.
+4. Double check your code for correctness and completeness before including it. Test your code with edge cases in mind. 
+
+
+### ASCII ART VISUALIZATION CONSTRAINTS:
+1.  CRITICAL VISUALIZATION CHECK: YOU MUST USE simple, pure text-based ASCII art (e.g., using slashes and dashes) in a markdown codeblock ONLY for explanations that involve tree and graph structures (for example display a sample tree or graph where code can be referred along with). 2.  Avoid structured visualization languages (like Mermaid). The visualization must be easily interpretable in plain text format.
+3.  Do NOT include any other text within the visualization block. All accompanying text for the visualization must be outside the visualization markdown code block.
+4.  Constraint: When generating ASCII art for tree or graph structures, only display the static structure of the input data; do not include recursion flow, call stack tracing, or computational paths. 
+5.  Ensure the slash and dashes appear correctly aligned in the code block. For example, calculate the center of the nodes to horizontally and vertically align the slashes and dashes.
 `;
 
 export function SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(
@@ -362,7 +366,7 @@ export function SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(
     actionLabel: string
 ): string {
     return `
-Here is your original full explanation:
+Here is your original full explanation (where the selected text came from):
 --- ORIGINAL EXPLANATION START ---
 ${originalSenseiMessageText}
 --- ORIGINAL EXPLANATION END ---
@@ -372,7 +376,7 @@ From that explanation, I selected the following text:
 ${selectedText}
 --- SELECTED TEXT END ---
 
-Please perform the following action on the "SELECTED TEXT" only, using the "ORIGINAL EXPLANATION" for context:
+Please perform the following instruction on the "SELECTED TEXT" only, using the "ORIGINAL EXPLANATION" for context while adhering to the requirements:
 Instruction: ${instructionText}
 User-friendly Action Label (use this to inspire the title): "${actionLabel}"
 
