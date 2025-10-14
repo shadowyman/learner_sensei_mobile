@@ -607,8 +607,9 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     let analysisResult = null;
     const trimmedInput = inputText.trim();
     const hasUserInput = trimmedInput.length > 0;
-    const navigationContext = skipPedagogicalIntervention && !hasUserInput
-        ? 'The learner navigated to a different teaching chunk without submitting an answer. Restart the instructional sequence for the new chunk without assuming mastery of the previous questions.'
+    const isNavigationTurn = skipPedagogicalIntervention && !hasUserInput;
+    const navigationContext = isNavigationTurn
+        ? 'The learner navigated to a different teaching chunk without submitting an answer. Restart the instructional sequence for the new chunk without assuming mastery of the previous questions.\nThe user didn\'t provide any input to your last message.'
         : null;
     if (navigationContext) {
         logChunkNavValidation('navigation-context-applied', {
@@ -764,10 +765,14 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     const senseiMessageId = `msg-${currentMessageId}`;
     let senseiResponseText = "Sensei is generating response...";
     
+    const effectiveUserInput = isNavigationTurn
+        ? "The user didn't provide any input to your last message."
+        : inputText;
+
     const reloadContext: ReloadContext = {
         type: 'mainResponse',
         dynamicSystemInstruction: dynamicContext,
-        userInput: inputText
+        userInput: effectiveUserInput
     };
 
     await displayMessage({
@@ -798,7 +803,7 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     }
     
     try {
-        senseiResponseText = await streamMainSenseiResponse(mainSenseiChat!, dynamicContext, inputText, senseiMessageId);
+        senseiResponseText = await streamMainSenseiResponse(mainSenseiChat!, dynamicContext, effectiveUserInput, senseiMessageId);
         
         // Check for Socratic completion
        if (curriculumState && curriculumState.currentPhase === 'Socratic') {

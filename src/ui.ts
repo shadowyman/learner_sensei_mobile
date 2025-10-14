@@ -32,7 +32,7 @@ if (!globalMarkedConfig.__markedNoIndentedCode) {
                         const raw = match[0];
                         const text = raw.replace(/^(?: {4}|\t)/gm, '');
                         if (/^([*+-]|\d+\.)\s/.test(text.trimStart())) {
-                            return originalCodeTokenizer ? originalCodeTokenizer.call(this, src) : false;
+                            return false;
                         }
                         return {
                             type: 'paragraph',
@@ -128,8 +128,12 @@ function sanitizeClosingBackticksOnly(text: string): string {
     return lines.join('\n');
 }
 
-function sanitizeMarkdownFences(text: string): string {
-    return sanitizeCodeFences(sanitizeClosingBackticksOnly(text));
+function sanitizeIndentedListItems(text: string): string {
+    return text.replace(/(^|\n)[ \t]{4,}([*+-]|\d+\.)\s/g, '$1$2 ');
+}
+
+export function sanitizeMarkdownFences(text: string): string {
+    return sanitizeIndentedListItems(sanitizeCodeFences(sanitizeClosingBackticksOnly(text)));
 }
 
 function escapeHtml(text: string): string {

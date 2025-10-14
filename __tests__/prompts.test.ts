@@ -30,7 +30,7 @@ describe('prompts scaffolds', () => {
 
   test('sensei enhancement prompt', () => {
     const output = buildSenseiEnhancementPrompt('# Topic\nContent.')
-    expect(output).toContain('MINIMUM 15 KEY,VALUE ENHANCEMENTS REQUIRED')
+    expect(output).toContain('MINIMUM 20 KEY,VALUE ENHANCEMENTS REQUIRED')
     expect(output).toContain('Output strict JSON shaped exactly as')
     expect(output).toContain('# Topic')
   })

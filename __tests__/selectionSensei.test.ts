@@ -36,25 +36,29 @@ jest.mock('../notepad', () => ({
   }
 }))
 
-jest.mock('@google/genai', () => ({
-  GoogleGenAI: class {
-    chats = {
-      create: () => ({
-        sendMessage: jest.fn(() => Promise.resolve({})),
-        sendMessageStream: jest.fn(() => ({
-          async *[Symbol.asyncIterator]() {
-            yield { text: 'Selection response' }
-          }
-        })),
-        close: jest.fn(() => Promise.resolve())
-      })
+jest.mock('@google/genai', () => {
+  const manual = jest.requireActual('../__mocks__/@google/genai.js') as Record<string, any>
+  class MockGoogleGenAI extends manual.GoogleGenAI {
+    constructor(config: unknown) {
+      super(config)
+      this.chats = {
+        create: () => ({
+          sendMessage: jest.fn(() => Promise.resolve({})),
+          sendMessageStream: jest.fn(() => ({
+            async *[Symbol.asyncIterator]() {
+              yield { text: 'Selection response' }
+            }
+          })),
+          close: jest.fn(() => Promise.resolve())
+        })
+      }
     }
-  },
-  GenerateContentResponse: class {
-    text = 'Selection response'
-  },
-  Chat: class {}
-}))
+  }
+  return {
+    ...manual,
+    GoogleGenAI: MockGoogleGenAI
+  }
+})
 
 const setupDom = () => {
   document.body.innerHTML = `

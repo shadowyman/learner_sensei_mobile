@@ -17,11 +17,17 @@ jest.mock('../geminiService', () => ({
   llmExtractAndPlanTeachingOrder: jest.fn(() => Promise.resolve(null))
 }))
 
-jest.mock('@google/genai', () => ({
-  GoogleGenAI: class {
-    models = {}
+jest.mock('@google/genai', () => {
+  const manual = jest.requireActual('../__mocks__/@google/genai.js') as Record<string, any>
+  return {
+    ...manual,
+    GoogleGenAI: class {
+      models = {}
+    },
+    Chat: class {},
+    Type: manual.Type
   }
-}))
+})
 
 const buildState = (overrides: Partial<ConstructorParameters<typeof ModuleSelectionHandler>[0]> = {}) => {
   const curriculum: Curriculum = {

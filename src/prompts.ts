@@ -454,19 +454,20 @@ High-Priority Directive: ${cleanPedagogicalGuidance || "A critical situation was
 ]`
         : (() => {
             const executionDirective = `## 🎯 EXECUTION DIRECTIVE
-Your paramount task is to execute the ⭐ PRIMARY ACTION ⭐ items listed below.
+Your paramount task is to execute the ⭐ PRIMARY ACTION FOR THIS TURN ⭐ items listed below using following constraints.
 Your response must demonstrate **immense depth and thoroughness** when addressing these primary action items. Do not gloss over details. Aim to preempt common learner questions and provide rich context.
 To inform *how* you teach, discuss, or present these items, you MUST:
 1.  Leverage your extensive internal knowledge base:
     *   Core principles of recursion and recursive thinking.
     *   Effective pedagogical strategies for computer science education.
-    *   Common analogies, examples (including from areas like LeetCode), and visualizations for recursion.
+    *   Analogies, examples (LeetCode style), and visualizations for recursion.
     *   Details of C++ syntax and best practices relevant to recursion, when appropriate for the problem.
     *   Your understanding of how to best embody the supportive and insightful Recursive Sensei persona.
-2.  Utilize the SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE provided above (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
+2.  Utilize the SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE provided below (Module Goal, Concept details, Phase Signal) to ensure your explanation aligns with the curriculum's specific learning objectives for this stage.
 3.  Ensure your response directly addresses the user's last input in relation to these primary points, at the top, then continue with regular teaching as instructed in this prompt.
-            4.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
-            5.  Follow the **MANDATORY TEACHING STRUCTURE** requirements below whenever you are in the IntroIllustrate phase.`;
+4.  CRITICAL: When choosing examples, ensure they are new and unique in the chat history, not reused/repeated from previous explanations even if teaching plan mentions explicit examples that were used previously. Except when the example is a new variation or extension of a prior example. This ensures fresh perspectives and avoids redundancy.
+5.  Provide visuals where appropriate: Use your Mermaid diagram creation capabilities as outlined in your system instructions when visual aids would enhance understanding.
+6.  Follow the **MANDATORY TEACHING STRUCTURE** requirements below exactly.`;
 
             const guidanceLine = activeGuidance && activeGuidance.trim().length > 0
                 ? `- **PedagogicalGuidance:** ${activeGuidance}`
@@ -563,20 +564,18 @@ For each \`Core Topic\` from Phase 1, you will apply the corresponding **Bluepri
 
 1.  **Directive for Multi-Part Topics:** When a \`Core Topic\` is classified as \`Toolbox/Mechanism\`, the designated **\`[Iterative Chunk]\`** in its blueprint will be generated **once for each item** in the toolbox.
 2.  **Directive for Contrasting Patterns:** When a \`Pattern Definition\` topic contains multiple patterns, the generated plan **MUST** follow this structure:
-    * **First:** One chunk that fulfills \`[The Hook]\` goal for the overall topic.
-    * **For EACH pattern in the topic:** Generate 2 chunks:
-        * One chunk that fulfills \`[The Grounding]\` goal for that specific pattern.
-        * One chunk that fulfills \`[The Validated Example Bridge]\` goal for that specific pattern.
-    * **Last:** One chunk that fulfills \`[Comparative Analysis]\` goal.
-    
-    For example: A topic with 3 patterns would generate 8 chunks total (1 Hook + 6 pattern chunks + 1 Analysis).
+    * **[The Hook]:** Generate Action Items that introduce the overall topic and the existence of a core dichotomy or pattern.
+    * **[The Grounding]:** Generate Action Items that deconstruct a simple, canonical LeetCode exemplar for the pattern. This example must isolate the core concept with minimal confounding logic. The action items MUST deconstruct its function contract and data flow.
+    * **[The Validated Example Bridge]:** Generate Action Items that connect the pattern to a FAANG-level problem. You WILL select a high-quality LeetCode Medium/Hard problem that is a classic application of the pattern. The action items MUST include your Justification for the choice and explicitly state the "Crux Connection"—how the core insight from the Grounding example directly applies to solving the complex problem.
+    * **[Comparative Analysis]:** Generate Action Items that synthesize and compare the patterns discussed.
 
 **Generation & Assembly Process:**
 For each \`Core Topic\`, you WILL follow this process to construct the \`teaching_plan\`:
 1.  Select the appropriate **Blueprint Variant**.
 2.  Check the **Dynamic Generation Directives** to determine the final number and sequence of chunks.
 3.  For each chunk in the determined sequence, generate 3-5 Action Items that fulfill that chunk's specific pedagogical goal and adhere to the Bill of Rights.
-4.  Assemble the action items into a JSON chunk and append it to the \`teaching_plan\`.
+4.  When choosing examples, avoid overly simplistic ones and examples from the provided text. Instead, select canonical, high-quality examples that best illustrate the concept.
+5.  Assemble the action items into a JSON chunk and append it to the \`teaching_plan\`.
 
 **Pedagogical Progression:** Within each blueprint, chunks should generally progress from foundational understanding (Hook) through mechanical comprehension (Mechanism/Grounding) to application and synthesis (Impact/Bridge).
 
@@ -591,13 +590,13 @@ For each \`Core Topic\`, you WILL follow this process to construct the \`teachin
 
 #### **Blueprint for \`Pattern Definition\`**
 * **[The Hook]:** Generate Action Items that introduce the overall topic and the existence of a core dichotomy or pattern.
-* **[The Grounding]:** Generate Action Items that deconstruct a simple, canonical example. **You WILL select the most simple and direct illustrative example mentioned or strongly implied in the \`educationalText\`.** This example must isolate the core concept with minimal confounding logic. The action items MUST deconstruct its function contract and data flow.
-* **[The Validated Example Bridge]:** Generate Action Items that connect the pattern to a FAANG-level problem. **You WILL select a high-quality LeetCode Medium/Hard problem that is a classic application of the pattern.** The action items MUST include your Justification for the choice and explicitly state the "Crux Connection"—how the core insight from the Grounding example directly applies to solving the complex problem.
+* **[The Grounding]:** Generate Action Items that deconstruct a simple, canonical LeetCode exemplar for the pattern (examples in educationalText is too simple, so avoid them). This example must isolate the core concept with minimal confounding logic. The action items MUST deconstruct its function contract and data flow.
+* **[The Validated Example Bridge]:** Generate Action Items that connect the pattern to a FAANG-level problem. You WILL select a high-quality LeetCode Medium/Hard problem that is a classic application of the pattern. The action items MUST include your Justification for the choice and explicitly state the "Crux Connection"—how the core insight from the Grounding example directly applies to solving the complex problem.
 * **[Comparative Analysis]:** Generate Action Items that synthesize and compare the patterns discussed.
 
 #### **Blueprint for \`Toolbox/Mechanism\`**
 * **[Chunk 1] The Premise:** Generate Action Items that **(1)** Introduce the general problem that the 'toolbox' of techniques is designed to solve, and **(2)** Frame the need for having multiple distinct tools for this problem area.
-* **[Iterative Chunk] Tool Card:** Generate Action Items that, for a single tool from the text, **(1)** State the tool's specific name, **(2)** Define its precise purpose, **(3)** Explain its mechanism of action, and **(4)** Provide a minimal, clear code snippet or diagram illustrating its use case. *(This chunk is repeated for each tool).*
+* **[Iterative Chunk] Tool Card:** Generate Action Items that, for a single tool from the text, **(1)** State the tool's specific name, **(2)** Define its precise purpose, **(3)** Explain its mechanism of action, and **(4)** Provide a FAANG-level Leetcode code snippet illustrating its use case (not from the educational text). *(This chunk is repeated for each tool).*
 * **[Final Chunk] Strategic Choice:** Generate Action Items that **(1)** Create a summary table or list comparing/contrasting all the tools in the toolbox, and **(2)** Provide a clear decision framework or heuristic to guide the student on when to select each tool.
 
 #### **Blueprint for \`Strategic Heuristic\` & \`Synthesis/Application\`**

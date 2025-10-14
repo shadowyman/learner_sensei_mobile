@@ -3,6 +3,9 @@ import { TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
 const STORAGE_KEY = 'teaching-plan-cache';
 const CACHE_VERSION = 1;
 
+const isCacheDisabled = (): boolean =>
+    typeof process !== 'undefined' && (process.env.JEST_WORKER_ID !== undefined || process.env.NODE_ENV === 'test');
+
 interface TeachingPlanCacheEntry<T> {
     plan: T;
     savedAt: string;
@@ -13,6 +16,9 @@ interface TeachingPlanCacheEntry<T> {
 type CacheMap<T> = Record<string, TeachingPlanCacheEntry<T>>;
 
 function getStorage(): Storage | null {
+    if (isCacheDisabled()) {
+        return null;
+    }
     try {
         if (typeof window !== 'undefined' && window.localStorage) {
             return window.localStorage;
@@ -24,6 +30,9 @@ function getStorage(): Storage | null {
 }
 
 function readCacheMap<T>(): CacheMap<T> {
+    if (isCacheDisabled()) {
+        return {};
+    }
     const storage = getStorage();
     if (!storage) {
         return {};
@@ -44,6 +53,9 @@ function readCacheMap<T>(): CacheMap<T> {
 }
 
 function writeCacheMap<T>(map: CacheMap<T>): void {
+    if (isCacheDisabled()) {
+        return;
+    }
     const storage = getStorage();
     if (!storage) {
         return;
@@ -55,6 +67,9 @@ function writeCacheMap<T>(map: CacheMap<T>): void {
 }
 
 export function getCachedTeachingPlan<T>(cacheKey: string): T | null {
+    if (isCacheDisabled()) {
+        return null;
+    }
     const map = readCacheMap<T>();
     const entry = map[cacheKey];
     if (!entry || entry.version !== CACHE_VERSION) {
@@ -75,6 +90,9 @@ export function getCachedTeachingPlan<T>(cacheKey: string): T | null {
 }
 
 export function setCachedTeachingPlan<T>(cacheKey: string, plan: T): void {
+    if (isCacheDisabled()) {
+        return;
+    }
     const map = readCacheMap<T>();
     map[cacheKey] = {
         plan,
@@ -86,6 +104,9 @@ export function setCachedTeachingPlan<T>(cacheKey: string, plan: T): void {
 }
 
 export function removeCachedTeachingPlan(cacheKey: string): void {
+    if (isCacheDisabled()) {
+        return;
+    }
     const map = readCacheMap<unknown>();
     if (map[cacheKey]) {
         delete map[cacheKey];
@@ -94,6 +115,9 @@ export function removeCachedTeachingPlan(cacheKey: string): void {
 }
 
 export function clearTeachingPlanCache(): void {
+    if (isCacheDisabled()) {
+        return;
+    }
     const storage = getStorage();
     if (!storage) {
         return;
@@ -105,6 +129,9 @@ export function clearTeachingPlanCache(): void {
 }
 
 export function hasTeachingPlanCacheEntries(): boolean {
+    if (isCacheDisabled()) {
+        return false;
+    }
     const map = readCacheMap<unknown>();
     return Object.keys(map).length > 0;
 }

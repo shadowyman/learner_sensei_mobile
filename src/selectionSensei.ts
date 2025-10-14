@@ -14,7 +14,7 @@ if (!globalMarkedConfig.__markedKatexConfigured) {
     globalMarkedConfig.__markedKatexConfigured = true;
 }
 import {
-    sanitizeCodeFences,
+    sanitizeMarkdownFences,
     addLanguageDisplayToCodeBlocks,
     addCopyButtonsToCodeBlocks,
     setupTextareaAutosize,
@@ -926,7 +926,7 @@ class SelectionSensei {
         try {
             // Trim the content to prevent accidental code block formatting
             const trimmedContent = htmlContent.trim();
-            const sanitizedContent = sanitizeCodeFences(trimmedContent);
+            const sanitizedContent = sanitizeMarkdownFences(trimmedContent);
             this.responseModalTitleElement.textContent = title;
             this.responseModalSpinner.style.display = 'none';
 

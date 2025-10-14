@@ -5,5 +5,6 @@ function marked(input) {
 }
 
 marked.parse = (input) => render(input)
+marked.use = () => {}
 
 module.exports = { marked }

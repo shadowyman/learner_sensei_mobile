@@ -4,8 +4,8 @@ import {
 } from '../src/prompts';
 
 describe('Selection Sensei prompts sans Mermaid', () => {
-    it('system instruction omits Mermaid directives', () => {
-        expect(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION.toLowerCase()).not.toContain('mermaid');
+    it('system instruction explicitly discourages Mermaid diagrams', () => {
+        expect(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION).toContain('Avoid structured visualization languages (like Mermaid)');
     });
 
     it('user prompt template omits Mermaid directives', () => {
@@ -15,6 +15,6 @@ describe('Selection Sensei prompts sans Mermaid', () => {
             'Explain the concept',
             'Simpler'
         );
-        expect(prompt.toLowerCase()).not.toContain('mermaid');
+        expect(prompt.toLowerCase()).not.toContain('```mermaid');
     });
 });

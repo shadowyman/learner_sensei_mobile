@@ -18,7 +18,6 @@ import {
   GENERAL_ENGAGEMENT_PROMPT_TEMPLATE
 } from '../prompts'
 import { logger } from '../logger'
-
 const consolidationManager = require('../consolidationManager') as typeof import('../consolidationManager')
 
 const SAMPLE_CURRICULUM_TEXT = `
@@ -40,6 +39,12 @@ Solidify & Prepare:
 Summarize recursion strategies.
 `
 
+const resetTeachingPlanCache = () => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.removeItem('teaching-plan-cache')
+  }
+}
+
 const setupIntroIllustrateItem = async () => {
   const { parseModulesTxt, initializeCurriculumState, getCurrentCurriculumItem } = await loadCurriculumModule()
   const curriculum = parseModulesTxt(SAMPLE_CURRICULUM_TEXT)
@@ -50,6 +55,7 @@ const setupIntroIllustrateItem = async () => {
   if (!state) {
     throw new Error('Failed to initialize curriculum state for tests')
   }
+  resetTeachingPlanCache()
   const item = getCurrentCurriculumItem(curriculum, state)
   if (!item) {
     throw new Error('Failed to resolve curriculum item for tests')

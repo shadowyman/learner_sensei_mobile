@@ -1,4 +1,4 @@
-import { sanitizeCodeFences, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks } from './ui';
+import { sanitizeMarkdownFences, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks } from './ui';
 import { WrapUpAssessmentQuestion } from './geminiService';
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
@@ -572,6 +572,6 @@ function applyCodeBlockEnhancements(root: HTMLElement): void {
 }
 
 function setMarkdown(target: HTMLElement, markdown: string): void {
-    const sanitized = sanitizeCodeFences(markdown ?? '');
+    const sanitized = sanitizeMarkdownFences(markdown ?? '');
     target.innerHTML = marked.parse(sanitized) as string;
 }

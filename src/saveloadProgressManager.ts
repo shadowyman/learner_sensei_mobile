@@ -14,7 +14,7 @@ import {
     validateSerializedData
 } from './saveloadSerialization';
 import { logger } from './logger';
-import { CurriculumState, Curriculum } from './curriculum';
+import { CurriculumState, Curriculum, getCurrentCurriculumItem } from './curriculum';
 import { LearnerModel } from './adaptiveEngine';
 import { displayMessage } from './ui';
 import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG } from './model_usage';
@@ -236,6 +236,9 @@ export class SaveLoadProgressManager {
         await this.recreateChatSession(session.chatSession);
         
         await this.restoreUIState(session.ui);
+
+        this.restoreNotepadContext();
+        this.syncModuleSelectionState();
         
         if (session.notepad?.notes && w.notepad?.restoreNotes) {
             w.notepad.restoreNotes(session.notepad.notes);
@@ -578,6 +581,53 @@ export class SaveLoadProgressManager {
             messageArea.scrollTop = messageArea.scrollHeight;
         }
         
+    }
+
+    private static restoreNotepadContext(): void {
+        const w = window as any;
+
+        if (!w.notepad || typeof w.notepad.setActiveCurriculumContext !== 'function') {
+            return;
+        }
+        if (!w.curriculum || !w.curriculumState) {
+            return;
+        }
+
+        try {
+            const currentItem = getCurrentCurriculumItem(w.curriculum, w.curriculumState);
+            if (!currentItem) {
+                return;
+            }
+
+            const moduleTitle =
+                currentItem.moduleTitle ??
+                w.curriculum.modules?.[w.curriculumState.currentModuleIndex]?.title ??
+                null;
+
+            w.notepad.setActiveCurriculumContext({
+                conceptTitle: currentItem.concept?.title ?? null,
+                moduleTitle
+            });
+        } catch (error) {
+            logger.warn('[SAVELOAD] Failed to restore notepad active context', { error });
+        }
+    }
+
+    private static syncModuleSelectionState(): void {
+        const w = window as any;
+        const handler = w.moduleSelectionHandler;
+
+        if (!handler || typeof handler.updateState !== 'function') {
+            return;
+        }
+
+        try {
+            handler.updateState({
+                lastSenseiResponses: Array.isArray(w.lastSenseiResponses) ? [...w.lastSenseiResponses] : []
+            });
+        } catch (error) {
+            logger.warn('[SAVELOAD] Unable to sync module selection handler state', { error });
+        }
     }
     
     /**

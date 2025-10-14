@@ -13,7 +13,7 @@ if (!globalMarkedConfig.__markedKatexConfigured) {
     marked.use(markedKatex({ throwOnError: false, output: 'mathml', nonStandard: true }));
     globalMarkedConfig.__markedKatexConfigured = true;
 }
-import { setupFullscreenToggle, sanitizeCodeFences, setupTextareaAutosize } from './ui';
+import { setupFullscreenToggle, sanitizeMarkdownFences, setupTextareaAutosize } from './ui';
 import { DEBUG_MODE_CONFIG } from './model_usage';
 import JSZip from 'jszip';
 import { clearTeachingPlanCache, hasTeachingPlanCacheEntries } from './teachingPlanCache';
@@ -470,7 +470,7 @@ function displayDebugMessage(message: DebugMessage) {
             delete (bubble as any).dotAnimation;
         }
         const rawText = debugStreamingMessagesRawText.get(message.id) || message.text;
-        const sanitizedText = sanitizeCodeFences(rawText);
+        const sanitizedText = sanitizeMarkdownFences(rawText);
         const markdownContentWrapper = document.createElement('div');
         markdownContentWrapper.classList.add('markdown-content');
         markdownContentWrapper.innerHTML = marked.parse(sanitizedText) as string;
@@ -516,7 +516,7 @@ function updateDebugMessageStream(messageId: string, fullTextSoFar: string) {
                 messageTextElement.appendChild(markdownContentWrapper);
             }
             
-            const sanitizedText = sanitizeCodeFences(fullTextSoFar);
+            const sanitizedText = sanitizeMarkdownFences(fullTextSoFar);
             markdownContentWrapper.innerHTML = marked.parse(sanitizedText) as string;
 
             markdownContentWrapper.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {

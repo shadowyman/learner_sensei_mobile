@@ -107,10 +107,10 @@ export function buildSenseiDynamicSystemInstruction(
         return coreInstruction;
     }
 
-    return `${coreInstruction}
+    return `[NavigationContext]
+${navigationContext}
 
-[NavigationContext]
-${navigationContext}`;
+${coreInstruction}`;
 }
 
 export function buildSocraticExecutionInstruction(
@@ -140,10 +140,10 @@ export function buildSocraticExecutionInstruction(
             return initialInstruction;
         }
 
-        return `${initialInstruction}
+        return `[NavigationContext]
+${navigationContext}
 
-[NavigationContext]
-${navigationContext}`;
+${initialInstruction}`;
     }
     
     // Check if MUST_OBEY
@@ -171,10 +171,10 @@ You will continue with this plan in the next turn after addressing the current c
             return overrideInstruction;
         }
 
-        return `${overrideInstruction}
+        return `[NavigationContext]
+${navigationContext}
 
-[NavigationContext]
-${navigationContext}`;
+${overrideInstruction}`;
     }
 
     // Normal Socratic turn with pedagogical guidance
@@ -203,10 +203,10 @@ COMPLETION MONITORING: If any completion trigger is met, add [SOCRATIC_COMPLETIO
         return subsequentTurnInstruction;
     }
 
-    return `${subsequentTurnInstruction}
+    return `[NavigationContext]
+${navigationContext}
 
-[NavigationContext]
-${navigationContext}`;
+${subsequentTurnInstruction}`;
 }
 
 /**
