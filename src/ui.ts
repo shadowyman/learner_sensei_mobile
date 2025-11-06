@@ -250,8 +250,60 @@ function sanitizeIndentedListItems(text: string): string {
     return lines.join('\n');
 }
 
+function ensureBlankLineAfterHtmlBlocks(text: string): string {
+    const lines = text.split(/\r?\n/);
+    let inFence = false;
+    let fenceChar: '`' | '~' | '' = '';
+    let fenceLen = 0;
+    const output: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        output.push(line);
+        if (!inFence) {
+            const open = line.match(/^[ \t\u00A0]*([`~]{3,})([^\r\n]*)$/);
+            if (open) {
+                inFence = true;
+                fenceChar = open[1][0] as '`' | '~';
+                fenceLen = open[1].length;
+                continue;
+            }
+        } else {
+            const close = line.match(/^[ \t\u00A0]*([`~]{3,})[ \t\u00A0]*$/);
+            if (close && close[1][0] === fenceChar && close[1].length >= fenceLen) {
+                inFence = false;
+                fenceChar = '';
+                fenceLen = 0;
+            }
+            continue;
+        }
+        const trimmed = line.trim();
+        if (!trimmed) {
+            continue;
+        }
+        if (!/^<h[1-6][^>]*>.*<\/h[1-6]>$/.test(trimmed)) {
+            continue;
+        }
+        const nextLine = lines[i + 1];
+        if (nextLine === undefined) {
+            continue;
+        }
+        if (!nextLine.trim()) {
+            continue;
+        }
+        const nextTrimmed = nextLine.trim();
+        if (nextTrimmed.startsWith('<')) {
+            continue;
+        }
+        if (/^[`~]{3,}/.test(nextTrimmed)) {
+            continue;
+        }
+        output.push('');
+    }
+    return output.join('\n');
+}
+
 export function sanitizeMarkdownFences(text: string): string {
-    return sanitizeIndentedListItems(escapePipesInInlineCode(sanitizeCodeFences(sanitizeClosingBackticksOnly(text))));
+    return ensureBlankLineAfterHtmlBlocks(sanitizeIndentedListItems(escapePipesInInlineCode(sanitizeCodeFences(sanitizeClosingBackticksOnly(text)))));
 }
 
 function restoreInlinePipePlaceholders(html: string): string {

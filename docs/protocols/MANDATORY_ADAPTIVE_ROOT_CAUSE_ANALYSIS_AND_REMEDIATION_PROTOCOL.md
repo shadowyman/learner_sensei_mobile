@@ -36,6 +36,13 @@
             *   **Gate**: Do not advance any hypothesis into evidence gathering until all three ledger fields are populated.
             *   **Output**: Present hypothesis set organized by discovery cycle (should have 12+ hypotheses total).
         </step>
+        <step number="2.5">
+            **Deterministic Harness Assessment & Build**:
+            *   **Action**: Inspect the current hypothesis ledger and flag every hypothesis that implicates a deterministic transform or pure helper (examples: string/markdown sanitizers, serializers/deserializers, parsers, math utilities).
+            *   **Action**: For each flagged hypothesis, decide whether a focused harness can reproduce the symptom outside the full app. When feasible, create a Node-based repro script under `tmp/` that imports the production code, feeds it the exact payload captured from the bug report, and logs both intermediate and final outputs (e.g., sanitized markdown, parsed HTML).
+            *   **Action**: Store harness outputs (text/JSON/HTML files) beside the script so later steps can diff behavior as fixes land.
+            *   **Gate**: Do not rely on eyeballing alone for these hypotheses—if the helper is deterministic and a harness is viable, you MUST build and run it before moving to Step 3. Document harness paths and collected evidence in the hypothesis ledger. If Steps 3–4 surface additional deterministic hypotheses, loop back and execute this harness step for each newcomer.
+        </step>
         <step number="3">
             **Contrarian Hypothesis Injection**:
             *   **Action**: Generate "mental model breaker" hypotheses by asking:
@@ -58,6 +65,7 @@
             Repeat the following substeps until a stopping condition is met.
             *   **5a. Hypothesis Prioritization** — Rank every hypothesis by evidence accessibility (how quickly code paths, logs, or data can confirm or refute it), ignoring intuitive likelihood.
             *   **5b. Define Decisive Evidence** — Consult the hypothesis ledger entry for the top-ranked hypothesis, then select the next confirming or falsifying observation to test.
+            *   **5b.1 Harness Execution (if deterministic)** — If the prioritized hypothesis is tagged as deterministic (Step 2.5), build or rerun the associated Node harness before gathering wider evidence. Capture fresh input/output artifacts and link them in the ledger; if no harness exists yet, create it now per Step 2.5.
             *   **5c. Gather Evidence** — Re-check the relevant code, tests, runtime artefacts, and Core Analysis call paths tied to that confirming or falsifying observation, capturing concrete proof that supports or contradicts the hypothesized bug mechanism.
             *   **5c.1 Unknowns Check** — Each cycle, revisit the mission-state unknowns; retire entries your new evidence resolves and flag any that now require different verification.
             *   **5d. Score Evidence** — Record three ratings (0–10 each):
@@ -69,7 +77,7 @@
                 *   One hypothesis exceeds 90% confidence with strong supporting evidence, **OR**
                 *   Three consecutive cycles produce no decisive evidence, **OR**
                 *   No viable hypotheses remain.
-            *   **5g. Iterate** — If continuing, return to 5a with the revised hypothesis list and repeat the cycle.
+            *   **5g. Iterate** — If continuing, return to 5a with the revised hypothesis list, re-run Step 2.5 for any newly surfaced deterministic hypotheses, and repeat the cycle.
         </step>
         <step number="6">
             **Declare Root Cause**:

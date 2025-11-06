@@ -218,6 +218,27 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 **Root Cause**: `renderEnhancedMarkdown` always awaited `processMermaidBlocks`, and that routine immediately invoked the multi-attempt `runMermaidRecovery` whenever a render failed. Because `applyEnhancements` awaited the injected renderer promise, the enhancement toggle could not resolve until the recovery loop exhausted its attempts.
 
+## Bug Fix #13: Sensei Markdown Lost Formatting After HTML Headings
+
+**Issue**: Sensei replies that included generated HTML headings (for example `<h4>Definition</h4>`) rendered the very next paragraph and bullet lists as raw markdown text in the chat UI, exposing `**bold**`, `` `code` ``, and list markers instead of formatted content.
+
+**Root Cause**: The markdown sanitization pipeline left HTML heading lines adjacent to markdown text with no intervening blank line. Marked inherits the CommonMark rule that markdown immediately following block-level HTML is treated as literal text unless separated by a blank line, so inline emphasis and list tokens never parsed.
+
+**Discovery Method**: Phase 1 Cycle 1 harness reproduction (`tmp/run_sensei_markdown_repro.js`) demonstrated that `parseSanitizedMarkdown` preserved raw markdown when `<hN>` tags touched subsequent content; injecting a synthetic newline restored rendering.
+
+**Fix Applied**:
+1. Added `ensureBlankLineAfterHtmlBlocks` to insert a blank line after each `<h1-6>…</h1-6>` line when the next non-empty line begins with markdown.
+2. Threaded the helper into `sanitizeMarkdownFences` so both streaming renders and enhancement re-renders normalize Sensei output.
+3. Extended the repro harness to assert the sanitized transcript contains the corrective newline and that parsed HTML now yields `<p>` and `<ul>` elements.
+
+**Related Files**:
+- `src/ui.ts:218-307`
+- `tmp/run_sensei_markdown_repro.js:1-160`
+
+**Backup Artifact**: `backup/sensei_backup_fix_markdown_html_spacing_20251014_221627.zip`
+
+**Keywords for Future Reference**: marked blank line, html heading, markdown sanitization, Sensei formatting, inline emphasis, bullet lists
+
 **Discovery Method**: Adaptive Root Cause Analysis — Cycle 2 (Direct Dependencies) identified unconditional Mermaid recovery as the blocking dependency.
 
 **Fix Applied**: Threaded an optional `skipMermaidProcessing` flag through the enhancement render dependency so both enhancement apply and removal call `renderEnhancedMarkdown(..., { skipMermaidProcessing: true })`. The renderer now passes `{ skipRecovery: true }` to `processMermaidBlocks`, which renders once and, on failure, swaps in the existing error block without starting recovery, allowing the enhancement toggle to finish promptly.
