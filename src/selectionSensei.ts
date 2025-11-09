@@ -391,11 +391,13 @@ class SelectionSensei {
                 this.responseModalFullscreenButton.setAttribute('title', 'Exit fullscreen');
             }
         } else {
-            if (this.responseModal.dataset.fullscreen) {
-                delete this.responseModal.dataset.fullscreen;
+            if (this.isModalFullscreen) {
+                if (this.responseModal.dataset.fullscreen) {
+                    delete this.responseModal.dataset.fullscreen;
+                }
+                this.applyModalBoxMetrics(this.modalFullscreenRestore);
+                this.modalFullscreenRestore = null;
             }
-            this.applyModalBoxMetrics(this.modalFullscreenRestore);
-            this.modalFullscreenRestore = null;
             if (this.responseModalFullscreenButton) {
                 this.responseModalFullscreenButton.setAttribute('aria-pressed', 'false');
                 this.responseModalFullscreenButton.setAttribute('aria-label', 'Enter fullscreen');
