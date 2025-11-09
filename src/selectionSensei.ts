@@ -1642,6 +1642,9 @@ class SelectionSensei {
         let newX = e.clientX - this.offsetX;
         let newY = e.clientY - this.offsetY;
 
+        const viewportHeight = window.innerHeight;
+        newY = Math.min(newY, viewportHeight - 40);
+
         this.responseModal.style.transform = 'none';
         this.responseModal.style.left = `${newX}px`;
         this.responseModal.style.top = `${newY}px`;
