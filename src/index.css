@@ -2348,11 +2348,12 @@ body::before {
     margin-bottom: 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     cursor: move;
+    position: relative;
 }
 
 #response-modal-drag-zone {
     position: absolute;
-    inset: -12px -24px 0 -24px;
+    inset: 0;
     cursor: move;
     z-index: -1;
 }
