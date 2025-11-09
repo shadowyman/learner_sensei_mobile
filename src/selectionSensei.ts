@@ -622,7 +622,7 @@ class SelectionSensei {
         const baseTransform = this.responseModal.style.transform;
         const hasBase = baseTransform && baseTransform !== 'none';
         const fromTransform = hasBase ? baseTransform : 'none';
-        const scaleFactor = 1.35;
+        const scaleFactor = 2.0;
         const toTransform = hasBase ? `${baseTransform} scaleX(${scaleFactor})` : `scaleX(${scaleFactor})`;
         this.responseModal.animate([
             { transform: fromTransform },
