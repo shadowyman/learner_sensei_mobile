@@ -612,6 +612,27 @@ class SelectionSensei {
         this.updateMinimizeButtonState(false);
     }
 
+    private pulseModalWidthExpansion(): void {
+        if (!this.responseModal || this.isModalFullscreen || this.isModalMinimized) {
+            return;
+        }
+        if (typeof this.responseModal.animate !== 'function') {
+            return;
+        }
+        const baseTransform = this.responseModal.style.transform;
+        const hasBase = baseTransform && baseTransform !== 'none';
+        const fromTransform = hasBase ? baseTransform : 'none';
+        const toTransform = hasBase ? `${baseTransform} scaleX(1.2)` : 'scaleX(1.2)';
+        this.responseModal.animate([
+            { transform: fromTransform },
+            { transform: toTransform },
+            { transform: fromTransform }
+        ], {
+            duration: 320,
+            easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+        });
+    }
+
     private measureOverlayButtonRect(): DOMRect | null {
         if (!this.overlayButton) {
             return null;
@@ -1333,6 +1354,7 @@ class SelectionSensei {
         });
 
         this.setComposerEnabled(true);
+        this.pulseModalWidthExpansion();
     }
 
     private hideResponseModal(): void {
