@@ -45,6 +45,7 @@ describe('Notepad custom concepts', () => {
       {
         id: 'module-1',
         title: 'Module 1',
+        summary: 'Module summary',
         goal: 'Goal',
         concepts: [
           { id: 'concept-1', title: 'Concept 1', description: '', overview: '', motivation: '', examples: [], checkpoints: [] }

@@ -151,7 +151,12 @@ export async function llmExtractAndPlanTeachingOrder(
             });
         }
         
-        prompt = GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(textToProcess, extractedTitle || '', extractedGoal || '', extractedConcepts || '');
+        prompt = GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT(
+            textToProcess,
+            extractedTitle || '',
+            extractedGoal || '',
+            extractedConcepts || ''
+        );
     } else {
         prompt = TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
             ? GET_ITEM_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess)

@@ -82,6 +82,7 @@ const createTeachingPlan = (chunks: ChunkTexts, kcValue = 0.1): TeachingPoint[][
 const createModuleDefinition = ({
   id = 'Module1',
   title = 'Recursion Module',
+  summary = 'Module summary',
   goal = 'Understand recursion basics',
   concepts = [createConcept('Concept 1', 'Recursion depends on base cases.')],
   methodology = [
@@ -93,6 +94,7 @@ const createModuleDefinition = ({
 }: Partial<Curriculum['modules'][number]> = {}): Curriculum['modules'][number] => ({
   id,
   title,
+  summary,
   goal,
   concepts,
   methodology,

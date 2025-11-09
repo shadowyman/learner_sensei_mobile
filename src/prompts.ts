@@ -507,6 +507,10 @@ export function GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION(textToProcess: stri
 
 Your output MUST be a single, valid JSON object and nothing else.
 
+### **Domain Fidelity Directive**
+
+All examples, analogies, and scenarios MUST stay within the module’s stated domain. Treat the module summary and goal inside the educational text as hard guardrails. If you cannot find a suitable example that fits that domain, adapt or recombine the provided source material; never introduce unrelated settings or metaphors.
+
 ### **0. The Primary Mandate of Topic Cohesion**
 
 This is the absolute first principle you MUST apply. Before decomposing the text, you will analyze it for thematic unity. If multiple concepts are presented as part of a single, unified design process, you MUST treat them as a **single \`Core Topic\`**.

@@ -35,6 +35,7 @@ const buildState = (overrides: Partial<ConstructorParameters<typeof ModuleSelect
       {
         id: 'Module1',
         title: 'Adaptive Module',
+        summary: 'Module summary',
         goal: 'Understand recursion',
         concepts: [
           {

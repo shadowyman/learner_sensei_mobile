@@ -55,6 +55,7 @@ export interface MethodologyStep {
 export interface Module {
     id: string;
     title: string;
+    summary: string;
     goal: string;
     concepts: Concept[];
     methodology: MethodologyStep[]; // Common methodologies for the module (steps 1., 2.)
@@ -161,9 +162,11 @@ function buildCombinedContentText(curriculum: Curriculum, item: CurriculumItem, 
         return "";
     }
 
+    combinedText += `Module Title: ${module.title}\n`;
+    combinedText += `Module Summary:\n${module.summary}\n\n`;
+    combinedText += `Module Goal:\n${module.goal}\n\n`;
+
     if (item.isModuleWidePhase) {
-        combinedText += `Module Title: ${module.title}\nModule Goal:\n${module.goal}\n\n`;
-        
         combinedText += `All Module Concepts:\n`;
         module.concepts.forEach((concept, idx) => {
             combinedText += `\nConcept ${idx + 1}: ${concept.title}\n${concept.text}\n`;
@@ -188,7 +191,6 @@ function buildCombinedContentText(curriculum: Curriculum, item: CurriculumItem, 
         }
     } else if (item.concept) {
         if (phase === 'IntroIllustrate' && TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED) {
-            combinedText += `Module Title: ${module.title}\nModule Goal:\n${module.goal}\n\n`;
             combinedText += `Concepts:\n`;
             module.concepts.forEach((concept, idx) => {
                 combinedText += `\n${idx + 1}. ${concept.title}:\n${concept.text}\n`;
@@ -398,9 +400,10 @@ export async function generateTeachingPlanForPhase(
 
 // Improved regex patterns for Goal and Concepts sections only
 const IMPROVED_REGEX_PATTERNS = {
+    summary: /\nSummary:\s*([\s\S]*?)(?=\nGoal:|\nConcepts:|\nMethodology:|\nModule|$)/,
     goal: /\nGoal:\s*([\s\S]*?)(?=\nConcepts:|\nModule|$)/,
     conceptsSection: /\nConcepts:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/,
-    individualConcept: /(?:^|\n)\s*(\d+)\.\s+([^:]+?):\s*([\s\S]*?)(?=\n\s*\d+\.\s+[^:]+:|\nMethodology:|$)/g
+    individualConceptHeader: /(?:^|\n)\s*(\d+)\.\s+([^\n]+)/g
 };
 
 interface ModuleSegment {
@@ -453,6 +456,19 @@ function extractModuleSegments(txt: string): ModuleSegment[] {
     return segments;
 }
 
+function parseModuleSummary(moduleContent: string, moduleId: string): string {
+    const summary = IMPROVED_REGEX_PATTERNS.summary.exec(moduleContent)?.[1]?.trim();
+    if (!summary) {
+        const details = {
+            moduleId,
+            snippet: moduleContent.slice(0, 200)
+        };
+        logger.error('[CURRICULUM_PARSE] Missing module summary.', details);
+        throw new CurriculumParsingError('Missing module summary', details);
+    }
+    return summary;
+}
+
 function parseModuleGoal(moduleContent: string, moduleId: string): string {
     const goal = IMPROVED_REGEX_PATTERNS.goal.exec(moduleContent)?.[1]?.trim();
     if (!goal) {
@@ -477,10 +493,11 @@ function parseModuleConcepts(moduleContent: string, moduleId: string): Concept[]
         throw new CurriculumParsingError('Missing concepts section', details);
     }
 
-    const concepts: Concept[] = [];
-    const matches = Array.from(conceptsSectionMatch[1].matchAll(IMPROVED_REGEX_PATTERNS.individualConcept));
+    const conceptsSection = conceptsSectionMatch[1];
+    IMPROVED_REGEX_PATTERNS.individualConceptHeader.lastIndex = 0;
+    const headerMatches = Array.from(conceptsSection.matchAll(IMPROVED_REGEX_PATTERNS.individualConceptHeader));
 
-    if (matches.length === 0) {
+    if (headerMatches.length === 0) {
         const details = {
             moduleId,
             snippet: conceptsSectionMatch[1].slice(0, 200)
@@ -489,13 +506,26 @@ function parseModuleConcepts(moduleContent: string, moduleId: string): Concept[]
         throw new CurriculumParsingError('No valid concepts found', details);
     }
 
-    for (const match of matches) {
-        const title = match[2]?.trim();
-        const text = match[3]?.trim();
+    const concepts: Concept[] = [];
+    for (let i = 0; i < headerMatches.length; i++) {
+        const match = headerMatches[i];
+        if (!match) {
+            continue;
+        }
+        const rawTitle = match[2]?.trim();
+        const title = rawTitle && rawTitle.endsWith(':') ? rawTitle.slice(0, -1).trim() : rawTitle;
+        const startIndex = (match.index ?? 0) + match[0].length;
+        const endIndex = i + 1 < headerMatches.length
+            ? headerMatches[i + 1].index ?? conceptsSection.length
+            : conceptsSection.length;
+        const text = conceptsSection.slice(startIndex, endIndex).trim();
         if (!title || !text) {
             const details = {
                 moduleId,
-                raw: match[0]
+                raw: match[0],
+                title: rawTitle ?? null,
+                startIndex,
+                endIndex
             };
             logger.error('[CURRICULUM_PARSE] Malformed concept entry.', details);
             throw new CurriculumParsingError('Malformed concept entry', details);
@@ -595,6 +625,7 @@ export function parseModulesTxt(txt: string): Curriculum {
         const currentModule: Module = {
             id: segment.moduleId,
             title: segment.title,
+            summary: parseModuleSummary(segment.content, segment.moduleId),
             goal: parseModuleGoal(segment.content, segment.moduleId),
             concepts: parseModuleConcepts(segment.content, segment.moduleId),
             methodology: parseModuleMethodology(segment.content),

@@ -73,6 +73,7 @@ function createCurriculum(): Curriculum {
       {
         id: 'module-1',
         title: 'Module One',
+        summary: 'Summary for module one.',
         goal: 'Understand recursion',
         concepts: [
           { title: 'Concept One', text: 'Concept One Text' },
@@ -88,6 +89,7 @@ function createCurriculum(): Curriculum {
       {
         id: 'module-2',
         title: 'Module Two',
+        summary: 'Summary for module two.',
         goal: 'Apply recursion',
         concepts: [
           { title: 'Concept Three', text: 'Concept Three Text' }

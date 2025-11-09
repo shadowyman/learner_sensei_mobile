@@ -548,6 +548,7 @@ Solidify & Prepare:
 	Check understanding ("Design the function signature and explain the combination/state update step for generating permutations, considering it's a generative task.", NEW: "For the Tree Diameter problem, explain one way to design the recursion to correctly calculate both the height needed by the caller and update the overall maximum diameter found."). Conclude by stating that once the core recursive architecture is designed considering the goal (M4) and data flow (M3), the next crucial step is rigorously defining the corresponding base cases (Module 5) to ensure correctness and termination.
 
 Module 6: Bedrock of Correctness - Mastering Base Cases (Version 1.2 - Updated)
+Summary: Base cases are the non-negotiable anchors that ensure recursive algorithms terminate, supply correct seed values, and distinguish valid progress from failure states. This module turns designing those base cases into a disciplined process, so every recursive solution remains stable, accurate, and free of runaway execution.
 Goal: Achieve mastery in identifying, implementing, and validating all necessary and sufficient base cases, ensuring recursive functions terminate correctly and provide the foundational values or actions for the computation or generation.
 Concepts:
 	1. The "Why": Purpose and Criticality of Base Cases
@@ -654,6 +655,7 @@ Solidify & Prepare:
 	Check understanding ("Explain why the base case return value for recursive summation is 0 by showing how the combination step current + recursive_sum relies on it.", "For checking tree validity with &&, what happens if the nullptr base case returns false?"). Conclude by emphasizing that with a solid recursive step design (Module 4) and correct, terminating base cases (Module 5) whose return values/actions mesh perfectly with the combination logic/generative goal, the user now has the tools to build complete recursive functions. The next step (Module 6) is recognizing recurring structures (patterns) in these designs.
 
 Module 7: Recognizing the Recurring - Recursive Patterns & Strategies (Version 1.1)
+Summary: Pattern fluency turns ad-hoc recursive hacking into deliberate design. This module trains you to spot the archetypal shapes—linear, branching, divide-and-conquer, backtracking—that keep reappearing, so you can map new problems onto proven templates instead of starting from scratch.
 Goal: Develop the ability to recognize, understand, and apply common recursive algorithms and problem-solving paradigms (patterns) as templates, accelerating the design and implementation of solutions for typical algorithmic problems.
 Introduction: Explain that while every problem is unique, many recursive solutions share underlying structural similarities or patterns. Recognizing these patterns helps in quickly choosing an appropriate strategy, structuring the code, and communicating the approach. This module focuses on discovering these patterns through guided problem-solving before formalizing them.
 Concepts:
@@ -752,6 +754,7 @@ Solidify & Prepare:
 	Check understanding ("Describe the 'Divide' step for LC 108."). Conclude by stating that recognizing these patterns provides powerful starting points for solving problems and analyzing their efficiency, which is the focus of Module 7. Before Module 7, we want to acclimate the learner with Module 6.5 where we will discuss pattern detection/selection for user.
 
 Module 8: Strategic Pattern Selection - Decoding the Problem (Version 1.1 - Updated)
+Summary: Pattern knowledge only matters if you can choose the right one under pressure. This module instruments a fast diagnostic checklist for reading problem statements, spotting the key signals, and forming a justified hypothesis about which recursive archetype to deploy before you start detailed design.
 Goal: Develop heuristic skills to analyze algorithmic problem descriptions and identify clues that suggest which recursive pattern(s) (Linear, Tree/Multiple, Divide & Conquer, Backtracking) might be the most promising initial approach, thereby accelerating the design process (Module 4) and informing the choice of data flow strategy (Module 3).
 Prerequisites: Module 1 (Core Concepts), Module 3 (Data Flow), Module 4 (Design), Module 5 (Base Cases), Module 6 (Pattern Definitions).
 Introduction: Explain that while designing a solution (Module 4) is key, experienced developers often quickly categorize problems based on keywords, input/output types, and constraints, leaning towards certain recursive structures. This module focuses on developing that "intuition" by looking for common signals in problem statements typical of LeetCode/interviews. Emphasize this provides a starting point or hypothesis; the detailed design (M4) and verification (M5) are still essential. Linking the hypothesized pattern to typical data flow strategies (Module 3) can further streamline the design process.
@@ -835,6 +838,7 @@ Solidify & Prepare:
 	Check understanding ("For a problem asking to check if a path sum exists in a tree, what pattern does that initially suggest? Why? Is the goal Comp or Gen? What data flow would you expect?"). Conclude by emphasizing that this module provides heuristics for the crucial first step of approaching a recursive problem. This strategic selection, linked with anticipated data flow, directly feeds into the detailed design (M4), implementation (M6+), optimization (M7), and ultimately solving complex problems (M8).
 
 Module 9: Recursive Performance - Analysis & Optimization (Version 1.1)
+Summary: Great recursive designs still fail if they explode in time or stack depth. Module 9 trains you to read recursion trees, quantify time/space costs, spot overlapping subproblems, and apply memoization or other optimizations so elegant solutions also meet performance constraints.
 Goal: Develop the ability to analyze the time and space efficiency of recursive algorithms and apply standard optimization techniques, primarily memoization, to address performance issues caused by redundant computations.
 Concepts:
 	1. Asymptotic Analysis for Recursive Algorithms:
@@ -947,6 +951,7 @@ Solidify & Prepare:
 	Check understanding ("Explain why memoization doesn't improve the asymptotic time complexity of Merge Sort." Hint: Are there overlapping subproblems?). Conclude by emphasizing that understanding performance is crucial for writing effective code and that these optimization techniques are vital for tackling harder problems, leading into Module 8 where complex problems requiring optimization might appear.
 
 Module 10: Recursive Mastery - Synthesis & Interview Readiness (Version 1.2 - Updated)
+Summary: The capstone integrates everything—pattern selection, data flow, base cases, optimization—so you can tackle complex interview-grade recursion problems, debug under pressure, and articulate trade-offs confidently. It’s about demonstrating mastery, not just getting solutions to work.
 Goal: Integrate all acquired recursive knowledge and skills to confidently solve complex algorithmic problems, effectively compare recursive and iterative approaches, debug implementations, and articulate solutions clearly and comprehensively in an interview context.
 Concepts:
 	1. Advanced Problem Solving & Pattern Synthesis:
