@@ -37,6 +37,17 @@ const RESPONSE_MODAL_SENSEI_MESSAGE_ID = 'response-modal-sensei-bubble';
 
 type ContentStrategy = 'parsed-full' | 'explanation-only' | 'raw-fallback' | 'error';
 
+type ModalBoxMetrics = {
+    top: string;
+    left: string;
+    right: string;
+    bottom: string;
+    width: string;
+    height: string;
+    transform: string;
+    resize: string;
+};
+
 // Declare hljs for TypeScript if it's loaded globally from a CDN
 declare var hljs: any;
 
@@ -69,27 +80,25 @@ class SelectionSensei {
     private responseModalSpinner: HTMLDivElement | null = null;
     private responseModalCloseButton: HTMLButtonElement | null = null;
     private responseModalFullscreenButton: HTMLButtonElement | null = null;
+    private responseModalMinimizeButton: HTMLButtonElement | null = null;
     private responseModalDragZone: HTMLDivElement | null = null;
     private responseModalTranscript: HTMLDivElement | null = null;
     private responseModalComposer: HTMLDivElement | null = null;
     private responseModalComposerInput: HTMLTextAreaElement | null = null;
     private responseModalSendButton: HTMLButtonElement | null = null;
+    private overlayContainer: HTMLDivElement | null = null;
+    private overlayButton: HTMLButtonElement | null = null;
     private modalMessageRegistry: MessageRegistry = createMessageRegistry();
     private followupInFlight = false;
     private modalMessageCounter = 0;
     private modalConversationToken = 0;
     private selectionChat: Chat | null = null;
     private isModalFullscreen = false;
-    private modalFullscreenRestore: {
-        top: string;
-        left: string;
-        right: string;
-        bottom: string;
-        width: string;
-        height: string;
-        transform: string;
-        resize: string;
-    } | null = null;
+    private modalFullscreenRestore: ModalBoxMetrics | null = null;
+    private isModalMinimized = false;
+    private modalMinimizeRestore: ModalBoxMetrics | null = null;
+    private isMinimizeAnimationInFlight = false;
+    private isRestoreAnimationInFlight = false;
 
     private isAskModeActive = false; // Add this line
     private askInputContainer: HTMLDivElement | null = null; // Add this property
@@ -113,6 +122,8 @@ class SelectionSensei {
         this.handleFollowupSubmit = this.handleFollowupSubmit.bind(this);
         this.handleComposerKeydown = this.handleComposerKeydown.bind(this);
         this.toggleModalFullscreen = this.toggleModalFullscreen.bind(this);
+        this.minimizeModal = this.minimizeModal.bind(this);
+        this.restoreFromOverlay = this.restoreFromOverlay.bind(this);
     }
 
     public initialize(): void {
@@ -120,6 +131,10 @@ class SelectionSensei {
         this.attachEventListeners();
         this.initializeModalComposer();
         this.resetModalState();
+        this.ensureOverlayMounted();
+        this.updateMinimizeButtonState(false);
+        this.setOverlayVisibility(false);
+        this.updateOverlayAria(true);
     }
 
     public cleanup(): void {
@@ -136,6 +151,9 @@ class SelectionSensei {
         }
         if (this.responseModalFullscreenButton) {
             this.responseModalFullscreenButton.removeEventListener('click', this.toggleModalFullscreen);
+        }
+        if (this.responseModalMinimizeButton) {
+            this.responseModalMinimizeButton.removeEventListener('click', this.minimizeModal);
         }
 
         if (this.responseModalHeader) {
@@ -178,6 +196,7 @@ class SelectionSensei {
         this.responseModalSpinner = null;
         this.responseModalCloseButton = null;
         this.responseModalFullscreenButton = null;
+        this.responseModalMinimizeButton = null;
         this.responseModalDragZone = null;
         this.responseModalTranscript = null;
         this.responseModalComposer = null;
@@ -185,6 +204,15 @@ class SelectionSensei {
         this.responseModalSendButton = null;
         this.modalFullscreenRestore = null;
         this.isModalFullscreen = false;
+        this.modalMinimizeRestore = null;
+        this.isModalMinimized = false;
+        if (this.overlayButton) {
+            this.overlayButton.removeEventListener('click', this.restoreFromOverlay);
+        }
+        this.setOverlayVisibility(false);
+        this.updateOverlayAria(true);
+        this.overlayContainer = null;
+        this.overlayButton = null;
     }
 
     private getDOMElements(): void {
@@ -196,11 +224,16 @@ class SelectionSensei {
         this.responseModalSpinner = document.getElementById('response-modal-spinner') as HTMLDivElement;
         this.responseModalCloseButton = document.getElementById('response-modal-close-button') as HTMLButtonElement;
         this.responseModalFullscreenButton = document.getElementById('response-modal-fullscreen-button') as HTMLButtonElement;
+        this.responseModalMinimizeButton = document.getElementById('response-modal-minimize-button') as HTMLButtonElement;
         this.responseModalDragZone = document.getElementById('response-modal-drag-zone') as HTMLDivElement;
         this.responseModalTranscript = document.getElementById('selection-sensei-transcript') as HTMLDivElement;
         this.responseModalComposer = document.getElementById('selection-sensei-composer') as HTMLDivElement;
         this.responseModalComposerInput = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement;
         this.responseModalSendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement;
+
+        if (this.responseModalHeader && !this.responseModalHeader.hasAttribute('tabindex')) {
+            this.responseModalHeader.setAttribute('tabindex', '-1');
+        }
 
         if (!this.responseModal || !this.responseModalTextContent) {
             logger.warn("[SENSEI_SELECTION] Modal elements not yet available in DOM - will retry on first use");
@@ -227,6 +260,10 @@ class SelectionSensei {
                 this.responseModalFullscreenButton.removeEventListener('click', this.toggleModalFullscreen);
                 this.responseModalFullscreenButton.addEventListener('click', this.toggleModalFullscreen);
             }
+            if (this.responseModalMinimizeButton) {
+                this.responseModalMinimizeButton.removeEventListener('click', this.minimizeModal);
+                this.responseModalMinimizeButton.addEventListener('click', this.minimizeModal);
+            }
 
             if (this.responseModalHeader) {
                 this.responseModalHeader.removeEventListener('mousedown', this.handleDragStart);
@@ -241,6 +278,8 @@ class SelectionSensei {
                 this.responseModalDragZone.removeEventListener('touchstart', this.handleDragStart as any);
                 this.responseModalDragZone.addEventListener('touchstart', this.handleDragStart as any);
             }
+
+            this.ensureOverlayMounted();
         }
     }
 
@@ -254,6 +293,9 @@ class SelectionSensei {
         }
         if (this.responseModalFullscreenButton) {
             this.responseModalFullscreenButton.addEventListener('click', this.toggleModalFullscreen);
+        }
+        if (this.responseModalMinimizeButton) {
+            this.responseModalMinimizeButton.addEventListener('click', this.minimizeModal);
         }
 
         if (this.responseModalHeader) {
@@ -331,16 +373,7 @@ class SelectionSensei {
 
         if (fullscreen) {
             if (!this.isModalFullscreen) {
-                this.modalFullscreenRestore = {
-                    top: this.responseModal.style.top,
-                    left: this.responseModal.style.left,
-                    right: this.responseModal.style.right,
-                    bottom: this.responseModal.style.bottom,
-                    width: this.responseModal.style.width,
-                    height: this.responseModal.style.height,
-                    transform: this.responseModal.style.transform,
-                    resize: this.responseModal.style.resize,
-                };
+                this.modalFullscreenRestore = this.captureModalBoxMetrics();
                 this.responseModal.dataset.fullscreen = 'true';
                 this.responseModal.style.top = '';
                 this.responseModal.style.left = '';
@@ -361,26 +394,7 @@ class SelectionSensei {
             if (this.responseModal.dataset.fullscreen) {
                 delete this.responseModal.dataset.fullscreen;
             }
-            const previous = this.modalFullscreenRestore;
-            if (previous) {
-                this.responseModal.style.top = previous.top;
-                this.responseModal.style.left = previous.left;
-                this.responseModal.style.right = previous.right;
-                this.responseModal.style.bottom = previous.bottom;
-                this.responseModal.style.width = previous.width;
-                this.responseModal.style.height = previous.height;
-                this.responseModal.style.transform = previous.transform;
-                this.responseModal.style.resize = previous.resize;
-            } else {
-                this.responseModal.style.top = '';
-                this.responseModal.style.left = '';
-                this.responseModal.style.right = '';
-                this.responseModal.style.bottom = '';
-                this.responseModal.style.width = '';
-                this.responseModal.style.height = '';
-                this.responseModal.style.transform = '';
-                this.responseModal.style.resize = '';
-            }
+            this.applyModalBoxMetrics(this.modalFullscreenRestore);
             this.modalFullscreenRestore = null;
             if (this.responseModalFullscreenButton) {
                 this.responseModalFullscreenButton.setAttribute('aria-pressed', 'false');
@@ -390,6 +404,332 @@ class SelectionSensei {
         }
 
         this.isModalFullscreen = fullscreen;
+    }
+
+    private captureModalBoxMetrics(): ModalBoxMetrics | null {
+        if (!this.responseModal) {
+            return null;
+        }
+        return {
+            top: this.responseModal.style.top,
+            left: this.responseModal.style.left,
+            right: this.responseModal.style.right,
+            bottom: this.responseModal.style.bottom,
+            width: this.responseModal.style.width,
+            height: this.responseModal.style.height,
+            transform: this.responseModal.style.transform,
+            resize: this.responseModal.style.resize,
+        };
+    }
+
+    private applyModalBoxMetrics(metrics: ModalBoxMetrics | null): void {
+        if (!this.responseModal) {
+            return;
+        }
+        if (metrics) {
+            this.responseModal.style.top = metrics.top;
+            this.responseModal.style.left = metrics.left;
+            this.responseModal.style.right = metrics.right;
+            this.responseModal.style.bottom = metrics.bottom;
+            this.responseModal.style.width = metrics.width;
+            this.responseModal.style.height = metrics.height;
+            this.responseModal.style.transform = metrics.transform;
+            this.responseModal.style.resize = metrics.resize;
+        } else {
+            this.responseModal.style.top = '';
+            this.responseModal.style.left = '';
+            this.responseModal.style.right = '';
+            this.responseModal.style.bottom = '';
+            this.responseModal.style.width = '';
+            this.responseModal.style.height = '';
+            this.responseModal.style.transform = '';
+            this.responseModal.style.resize = '';
+        }
+    }
+
+    private async minimizeModal(): Promise<void> {
+        this.ensureDOMElementsValid();
+        if (!this.responseModal || this.responseModal.style.display === 'none' || this.isModalMinimized || this.isMinimizeAnimationInFlight) {
+            return;
+        }
+        this.isMinimizeAnimationInFlight = true;
+        try {
+            this.setModalFullscreen(false);
+            this.ensureOverlayMounted();
+            if (!this.overlayContainer || !this.overlayButton) {
+                logger.error('[SENSEI_SELECTION] Cannot minimize modal - overlay elements missing');
+                return;
+            }
+
+            const targetRect = this.measureOverlayButtonRect();
+            this.modalMinimizeRestore = this.captureModalBoxMetrics();
+
+            const animation = this.playMinimizeAnimation(targetRect || null);
+            if (animation) {
+                try {
+                    await animation;
+                } catch {
+                    // ignore animation cancellation errors
+                }
+            }
+
+            this.responseModal.style.display = 'none';
+            this.isModalMinimized = true;
+            this.setOverlayVisibility(true);
+            this.updateOverlayAria(false);
+            this.updateMinimizeButtonState(true);
+            this.overlayButton.focus();
+            logSelectionSenseiValidation('modal-minimized', {
+                conversationToken: this.modalConversationToken,
+            });
+        } finally {
+            this.isMinimizeAnimationInFlight = false;
+        }
+    }
+
+    private async restoreFromOverlay(): Promise<void> {
+        this.ensureDOMElementsValid();
+        if (!this.responseModal || !this.isModalMinimized || this.isRestoreAnimationInFlight) {
+            return;
+        }
+        this.isRestoreAnimationInFlight = true;
+        try {
+            logSelectionSenseiValidation('overlay-clicked', {
+                conversationToken: this.modalConversationToken,
+            });
+            const overlayRect = this.measureOverlayButtonRect();
+            this.setOverlayVisibility(false);
+            this.updateOverlayAria(true);
+            this.applyModalBoxMetrics(this.modalMinimizeRestore);
+            this.responseModal.style.visibility = 'hidden';
+            this.responseModal.style.display = 'flex';
+
+            const animation = this.playRestoreAnimation(overlayRect || null);
+            if (animation) {
+                try {
+                    await animation;
+                } catch {
+                    // ignore animation cancellation errors
+                }
+            }
+
+            this.responseModal.style.visibility = '';
+            this.modalMinimizeRestore = null;
+            this.isModalMinimized = false;
+            this.updateMinimizeButtonState(false);
+            this.focusModalHeader();
+            this.scrollModalTranscriptToLatest();
+            logSelectionSenseiValidation('modal-restored', {
+                conversationToken: this.modalConversationToken,
+            });
+        } finally {
+            this.isRestoreAnimationInFlight = false;
+        }
+    }
+
+    private ensureOverlayMounted(): void {
+        if (!this.messageArea) {
+            return;
+        }
+        if (!this.overlayContainer || !this.overlayContainer.isConnected) {
+            let container = document.getElementById('selection-sensei-overlay') as HTMLDivElement | null;
+            if (!container && this.messageArea) {
+                container = document.createElement('div');
+                container.id = 'selection-sensei-overlay';
+                container.setAttribute('aria-hidden', 'true');
+                const button = document.createElement('button');
+                button.id = 'selection-sensei-overlay-button';
+                container.appendChild(button);
+                this.messageArea.insertBefore(container, this.messageArea.firstChild);
+            }
+            this.overlayContainer = container;
+        }
+
+        if (!this.overlayButton || !this.overlayButton.isConnected) {
+            let button = document.getElementById('selection-sensei-overlay-button') as HTMLButtonElement | null;
+            if (!button && this.overlayContainer) {
+                button = this.overlayContainer.querySelector('#selection-sensei-overlay-button') as HTMLButtonElement | null;
+            }
+            if (!button && this.overlayContainer) {
+                button = document.createElement('button');
+                button.id = 'selection-sensei-overlay-button';
+                this.overlayContainer.appendChild(button);
+            }
+            this.overlayButton = button;
+        }
+
+        if (this.overlayButton) {
+            this.overlayButton.type = 'button';
+            this.overlayButton.textContent = '🧠';
+            this.overlayButton.setAttribute('aria-label', 'Open Selection Sensei');
+            this.overlayButton.setAttribute('title', 'Open Selection Sensei');
+            this.overlayButton.setAttribute('aria-controls', 'response-modal');
+            this.overlayButton.setAttribute('aria-expanded', this.isModalMinimized ? 'false' : 'true');
+            this.overlayButton.removeEventListener('click', this.restoreFromOverlay);
+            this.overlayButton.addEventListener('click', this.restoreFromOverlay);
+        }
+        this.setOverlayVisibility(this.isModalMinimized);
+    }
+
+    private setOverlayVisibility(visible: boolean): void {
+        if (!this.overlayContainer) {
+            return;
+        }
+        this.overlayContainer.style.display = visible ? 'block' : 'none';
+        this.overlayContainer.style.visibility = visible ? 'visible' : 'hidden';
+        this.overlayContainer.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+
+    private updateOverlayAria(expanded: boolean): void {
+        if (this.overlayButton) {
+            this.overlayButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+    }
+
+    private updateMinimizeButtonState(minimized: boolean): void {
+        if (!this.responseModalMinimizeButton) {
+            return;
+        }
+        this.responseModalMinimizeButton.setAttribute('aria-pressed', minimized ? 'true' : 'false');
+        this.responseModalMinimizeButton.setAttribute('aria-label', minimized ? 'Restore Selection Sensei' : 'Minimize Selection Sensei');
+        this.responseModalMinimizeButton.setAttribute('title', minimized ? 'Restore Selection Sensei' : 'Minimize Selection Sensei');
+    }
+
+    private focusModalHeader(): void {
+        if (!this.responseModalHeader) {
+            return;
+        }
+        this.responseModalHeader.focus();
+    }
+
+    private clearMinimizeState(): void {
+        this.isModalMinimized = false;
+        this.modalMinimizeRestore = null;
+        this.setOverlayVisibility(false);
+        this.updateOverlayAria(true);
+        this.updateMinimizeButtonState(false);
+    }
+
+    private measureOverlayButtonRect(): DOMRect | null {
+        if (!this.overlayButton) {
+            return null;
+        }
+        const container = this.overlayContainer;
+        if (!container) {
+            return this.overlayButton.getBoundingClientRect();
+        }
+        const previousDisplay = container.style.display;
+        const previousVisibility = container.style.visibility;
+        if (previousDisplay === 'none') {
+            container.style.display = 'block';
+            container.style.visibility = 'hidden';
+            const rect = this.overlayButton.getBoundingClientRect();
+            container.style.display = previousDisplay;
+            container.style.visibility = previousVisibility;
+            return rect;
+        }
+        return this.overlayButton.getBoundingClientRect();
+    }
+
+    private playMinimizeAnimation(targetRect: DOMRect | null): Promise<void> | null {
+        if (!this.responseModal || !this.overlayButton) {
+            return null;
+        }
+        const modalRect = this.responseModal.getBoundingClientRect();
+        const overlayRect = targetRect || this.overlayButton.getBoundingClientRect();
+        if (overlayRect.width === 0 || overlayRect.height === 0) {
+            return null;
+        }
+        const ghost = this.createAnimationGhost(modalRect);
+        document.body.appendChild(ghost);
+        const modalCenter = this.getRectCenter(modalRect);
+        const overlayCenter = this.getRectCenter(overlayRect);
+        const deltaX = overlayCenter.x - modalCenter.x;
+        const deltaY = overlayCenter.y - modalCenter.y;
+        const scaleX = Math.max(overlayRect.width / modalRect.width, 0.2);
+        const scaleY = Math.max(overlayRect.height / modalRect.height, 0.2);
+        const keyframes: Keyframe[] = [
+            { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 0.95 },
+            { transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`, opacity: 0.2 }
+        ];
+        return this.runGhostAnimation(ghost, keyframes, {
+            duration: 320,
+            easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+        });
+    }
+
+    private playRestoreAnimation(sourceRect: DOMRect | null): Promise<void> | null {
+        if (!this.responseModal || !sourceRect) {
+            return null;
+        }
+        const overlayRect = sourceRect;
+        if (overlayRect.width === 0 || overlayRect.height === 0) {
+            return null;
+        }
+        const modalRect = this.responseModal.getBoundingClientRect();
+        const ghost = this.createAnimationGhost(modalRect);
+        document.body.appendChild(ghost);
+        const overlayCenter = this.getRectCenter(overlayRect);
+        const modalCenter = this.getRectCenter(modalRect);
+        const startDeltaX = overlayCenter.x - modalCenter.x;
+        const startDeltaY = overlayCenter.y - modalCenter.y;
+        const scaleX = Math.max(overlayRect.width / modalRect.width, 0.2);
+        const scaleY = Math.max(overlayRect.height / modalRect.height, 0.2);
+        const keyframes: Keyframe[] = [
+            { transform: `translate(${startDeltaX}px, ${startDeltaY}px) scale(${scaleX}, ${scaleY})`, opacity: 0.2 },
+            { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 0.95 }
+        ];
+        return this.runGhostAnimation(ghost, keyframes, {
+            duration: 320,
+            easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+        });
+    }
+
+    private createAnimationGhost(rect: DOMRect): HTMLDivElement {
+        const ghost = document.createElement('div');
+        ghost.className = 'selection-sensei-minimize-ghost';
+        ghost.style.top = `${rect.top}px`;
+        ghost.style.left = `${rect.left}px`;
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.height = `${rect.height}px`;
+        const borderRadius = this.responseModal ? window.getComputedStyle(this.responseModal).borderRadius : '24px';
+        ghost.style.borderRadius = borderRadius;
+        ghost.style.transformOrigin = 'center center';
+        return ghost;
+    }
+
+    private runGhostAnimation(
+        ghost: HTMLDivElement,
+        keyframes: Keyframe[],
+        options: KeyframeAnimationOptions
+    ): Promise<void> {
+        if (typeof ghost.animate !== 'function') {
+            ghost.remove();
+            return Promise.resolve();
+        }
+        const animation = ghost.animate(keyframes, options);
+        return new Promise(resolve => {
+            const cleanup = (): void => {
+                ghost.remove();
+                resolve();
+            };
+            animation.addEventListener('finish', cleanup, { once: true });
+            animation.addEventListener('cancel', cleanup, { once: true });
+        });
+    }
+
+    private getRectCenter(rect: DOMRect): { x: number; y: number } {
+        return {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+        };
+    }
+
+    private scrollModalTranscriptToLatest(): void {
+        if (!this.responseModalTranscript) {
+            return;
+        }
+        this.responseModalTranscript.scrollTop = this.responseModalTranscript.scrollHeight;
     }
 
     private ensureSelectionChat(): Chat | null {
@@ -414,6 +754,7 @@ class SelectionSensei {
         this.modalConversationToken += 1;
         this.ensureDOMElementsValid();
         this.setModalFullscreen(false);
+        this.clearMinimizeState();
         const transcript = this.responseModalTranscript;
         let removedMessages = 0;
         if (transcript) {
@@ -877,6 +1218,8 @@ class SelectionSensei {
             return;
         }
 
+        this.clearMinimizeState();
+
         // Log what's currently in the modal before we change it
 
         // CRITICAL: Clear content BEFORE showing the modal to prevent flash of old content
@@ -1258,7 +1601,7 @@ class SelectionSensei {
     private handleDragStart(e: MouseEvent): void {
         if (!this.responseModal) return;
         const target = e.target as HTMLElement | null;
-        if (target && (target.closest('#response-modal-close-button') || target.closest('#response-modal-fullscreen-button'))) return;
+        if (target && (target.closest('#response-modal-close-button') || target.closest('#response-modal-fullscreen-button') || target.closest('#response-modal-minimize-button'))) return;
         if (this.isModalFullscreen) return;
 
         this.isDragging = true;
@@ -1280,12 +1623,6 @@ class SelectionSensei {
         let newX = e.clientX - this.offsetX;
         let newY = e.clientY - this.offsetY;
 
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        newX = Math.max(0, Math.min(newX, viewportWidth - this.responseModal.offsetWidth));
-        newY = Math.max(0, Math.min(newY, viewportHeight - this.responseModal.offsetHeight));
-
         this.responseModal.style.transform = 'none';
         this.responseModal.style.left = `${newX}px`;
         this.responseModal.style.top = `${newY}px`;
@@ -1298,25 +1635,8 @@ class SelectionSensei {
         }
     }
 
-    private handleOutsidePointerDown(event: PointerEvent): void {
-        if (!this.responseModal) {
-            return;
-        }
-
-        if (this.isDragging) {
-            return;
-        }
-
-        if (this.responseModal.style.display === 'none') {
-            return;
-        }
-
-        const target = event.target as Node | null;
-        if (target && this.responseModal.contains(target)) {
-            return;
-        }
-
-        this.hideResponseModal();
+    private handleOutsidePointerDown(): void {
+        return;
     }
 }
 

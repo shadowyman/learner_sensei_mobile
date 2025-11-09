@@ -107,7 +107,7 @@ describe('selectionSensei initializeSelectionSensei', () => {
     spy.mockRestore()
   })
 
-  test('dragging updates modal coordinates and pointerdown hides modal', async () => {
+  test('dragging updates modal coordinates and pointerdown no longer hides modal', async () => {
     const messageArea = document.getElementById('message-area') as HTMLDivElement
     initializeSelectionSensei(new GoogleGenAI({}), messageArea)
     const header = document.getElementById('response-modal-header') as HTMLDivElement
@@ -117,7 +117,7 @@ describe('selectionSensei initializeSelectionSensei', () => {
     expect(modal.style.left).not.toBe('')
     document.dispatchEvent(new MouseEvent('mouseup'))
     document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
-    expect(modal.style.display).toBe('none')
+    expect(modal.style.display).toBe('block')
   })
 
   test('reinitializeSelectionSensei redraws instance when message area exists', () => {
