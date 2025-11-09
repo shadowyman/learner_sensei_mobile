@@ -6,7 +6,7 @@
 import { logger } from './logger';
 import { LearnerModel } from "./adaptiveEngine";
 import { TeachingPoint, CurriculumItem, CurriculumState, PHASE_MASTERY_THRESHOLD } from "./curriculum"; // Changed import for TeachingPoint
-import { PEDAGOGICAL_GUIDANCE_PLACEHOLDER } from "./prompts";
+import { PEDAGOGICAL_GUIDANCE_PLACEHOLDER, USER_LAST_INPUT_PLACEHOLDER } from "./prompts";
 
 /*
  TODO: Re-enable consolidation manager once remediation plans refresh after learner score updates
@@ -227,17 +227,18 @@ ${pointsToRemediate.map(p => `    - "${p.text}"`).join('\n')}`; // Access p.text
 
     const sections: string[] = [];
     sections.push([
+        `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
+        primaryActionInstruction,
+        USER_LAST_INPUT_PLACEHOLDER
+    ].join('\n'));
+
+    sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
+
+    sections.push([
         '## Curriculum Focus',
         `Current Module: ${item.moduleTitle}`,
         `Current Pedagogical Phase: ${item.isModuleWidePhase ? 'Module-Wide Consolidation' : 'Concept Consolidation'}`
     ].join('\n'));
-
-    sections.push([
-        `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
-        primaryActionInstruction
-    ].join('\n'));
-
-    sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
 
     const supportingLines: string[] = [`- Module Goal: "${item.moduleGoal}"`];
     if (item.concept) {

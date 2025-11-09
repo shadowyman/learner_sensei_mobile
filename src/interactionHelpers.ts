@@ -6,11 +6,16 @@
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { LearnerModel } from "./adaptiveEngine";
 import { updateMessageStream } from './ui';
-import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION, buildSocraticInitialInstruction } from './prompts';
+import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION, buildSocraticInitialInstruction, USER_LAST_INPUT_PLACEHOLDER } from './prompts';
 import { logger } from './logger';
 
 function logSenseiPromptValidation(event: string, payload: Record<string, unknown>): void {
-    logger.info('[SENSEI_PROMPT_VALIDATION]', { event, ...payload });
+    const normalizedPayload: Record<string, unknown> = { ...payload };
+    if (typeof normalizedPayload.prompt === 'string') {
+        normalizedPayload.promptLines = normalizedPayload.prompt.split('\n');
+        delete normalizedPayload.prompt;
+    }
+    logger.info('[SENSEI_PROMPT_VALIDATION]', { event, ...normalizedPayload });
 }
 import { 
     MODULE_INTRODUCTION_CHAT_MODEL_CONFIG,
@@ -226,10 +231,12 @@ export async function streamMainSenseiResponse(
 ): Promise<string> {
     let fullResponseText = "";
 
-    // Combine context with user input in the message
-    const messageWithContext = `${dynamicContext}
+    const userLine = `User: ${currentUserInput}`;
+    const messageWithContext = dynamicContext.includes(USER_LAST_INPUT_PLACEHOLDER)
+        ? dynamicContext.replace(USER_LAST_INPUT_PLACEHOLDER, userLine)
+        : `${dynamicContext}
 
-User: ${currentUserInput}`;
+${userLine}`;
 
     logSenseiPromptValidation('main-response-requested', {
         userInputLength: currentUserInput.length,

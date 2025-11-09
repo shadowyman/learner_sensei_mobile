@@ -20,7 +20,8 @@ import {
     TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE,
     REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE,
     GENERAL_ENGAGEMENT_PROMPT_TEMPLATE,
-    PEDAGOGICAL_GUIDANCE_PLACEHOLDER
+    PEDAGOGICAL_GUIDANCE_PLACEHOLDER,
+    USER_LAST_INPUT_PLACEHOLDER
 } from "./prompts";
 import { TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
 
@@ -1539,17 +1540,18 @@ function buildContextualInstruction(
     phaseLineParts.push(`(${chunkProgress})`);
 
     sections.push([
+        `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
+        primaryActionResult.instruction,
+        USER_LAST_INPUT_PLACEHOLDER
+    ].join('\n'));
+
+    sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
+
+    sections.push([
         '## Curriculum Focus',
         `Current Module: ${item.moduleTitle}`,
         phaseLineParts.join(' ')
     ].join('\n'));
-
-    sections.push([
-        `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
-        primaryActionResult.instruction
-    ].join('\n'));
-
-    sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
 
     if (primaryActionResult.includeCheck) {
         sections.push([
