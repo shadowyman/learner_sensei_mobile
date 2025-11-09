@@ -628,6 +628,43 @@ class SelectionSensei {
         this.responseModal.style.width = `${finalWidth}px`;
     }
 
+    private tryShowToolbarForActiveSelection(): boolean {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+            return false;
+        }
+        const selectedText = selection.toString().trim();
+        if (selectedText.length === 0) {
+            return false;
+        }
+        const range = selection.getRangeAt(0);
+        let parentElement: Node | null = range.commonAncestorContainer;
+        if (parentElement.nodeType === Node.TEXT_NODE) {
+            parentElement = parentElement.parentElement ?? parentElement;
+        }
+
+        const senseiMessageTextElement = parentElement instanceof HTMLElement
+            ? parentElement.closest('.message-bubble[data-sender="sensei"] .message-text')
+            : null;
+        if (senseiMessageTextElement) {
+            const originalSenseiMessageText = senseiMessageTextElement.textContent || '';
+            this.createAndShowSelectionToolbar(selection, originalSenseiMessageText);
+            return true;
+        }
+
+        const contextCarrier = parentElement instanceof HTMLElement
+            ? parentElement.closest('[data-selection-sensei-context]') as HTMLElement | null
+            : null;
+        if (contextCarrier) {
+            const contextText = contextCarrier.dataset.selectionSenseiContext;
+            if (contextText && contextText.trim().length > 0) {
+                this.createAndShowSelectionToolbar(selection, contextText);
+                return true;
+            }
+        }
+        return false;
+    }
+
     private measureOverlayButtonRect(): DOMRect | null {
         if (!this.overlayButton) {
             return null;
@@ -1011,38 +1048,9 @@ class SelectionSensei {
     }
 
     private handleTextSelection(event: MouseEvent | TouchEvent): void {
-        const selection = window.getSelection();
-        if (selection && !selection.isCollapsed) {
-            const selectedText = selection.toString().trim();
-            if (selectedText.length > 0) {
-                const range = selection.getRangeAt(0);
-                let parentElement: Node | null = range.commonAncestorContainer;
-                if (parentElement.nodeType === Node.TEXT_NODE) {
-                    parentElement = parentElement.parentElement ?? parentElement;
-                }
-
-                const senseiMessageTextElement = parentElement instanceof HTMLElement
-                    ? parentElement.closest('.message-bubble[data-sender="sensei"] .message-text')
-                    : null;
-                if (senseiMessageTextElement) {
-                    const originalSenseiMessageText = senseiMessageTextElement.textContent || "";
-                    this.createAndShowSelectionToolbar(selection, originalSenseiMessageText);
-                    return;
-                }
-
-                const contextCarrier = parentElement instanceof HTMLElement
-                    ? parentElement.closest('[data-selection-sensei-context]') as HTMLElement | null
-                    : null;
-                if (contextCarrier) {
-                    const contextText = contextCarrier.dataset.selectionSenseiContext;
-                    if (contextText && contextText.trim().length > 0) {
-                        this.createAndShowSelectionToolbar(selection, contextText);
-                        return;
-                    }
-                }
-            }
+        if (!this.tryShowToolbarForActiveSelection()) {
+            this.hideSelectionToolbar();
         }
-        this.hideSelectionToolbar();
     }
 
     private handleSelectionChange(): void {
@@ -1377,6 +1385,7 @@ class SelectionSensei {
             nextToken: this.modalConversationToken,
         });
         this.hideSelectionToolbar();
+        this.tryShowToolbarForActiveSelection();
     }
 
     
