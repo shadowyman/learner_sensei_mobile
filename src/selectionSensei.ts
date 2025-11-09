@@ -612,26 +612,20 @@ class SelectionSensei {
         this.updateMinimizeButtonState(false);
     }
 
-    private pulseModalWidthExpansion(): void {
-        if (!this.responseModal || this.isModalFullscreen || this.isModalMinimized) {
+    private expandModalWidth(): void {
+        if (!this.responseModal || this.isModalFullscreen) {
             return;
         }
-        if (typeof this.responseModal.animate !== 'function') {
+        const currentWidth = this.responseModal.getBoundingClientRect().width || this.responseModal.offsetWidth;
+        if (!currentWidth) {
             return;
         }
-        const baseTransform = this.responseModal.style.transform;
-        const hasBase = baseTransform && baseTransform !== 'none';
-        const fromTransform = hasBase ? baseTransform : 'none';
-        const scaleFactor = 2.0;
-        const toTransform = hasBase ? `${baseTransform} scaleX(${scaleFactor})` : `scaleX(${scaleFactor})`;
-        this.responseModal.animate([
-            { transform: fromTransform },
-            { transform: toTransform },
-            { transform: fromTransform }
-        ], {
-            duration: 320,
-            easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
-        });
+        const growthFactor = 1.2;
+        const viewportLimit = window.innerWidth * 0.9;
+        const minWidth = 320;
+        const desiredWidth = currentWidth * growthFactor;
+        const finalWidth = Math.max(Math.min(desiredWidth, viewportLimit), minWidth);
+        this.responseModal.style.width = `${finalWidth}px`;
     }
 
     private measureOverlayButtonRect(): DOMRect | null {
@@ -1355,7 +1349,7 @@ class SelectionSensei {
         });
 
         this.setComposerEnabled(true);
-        this.pulseModalWidthExpansion();
+        this.expandModalWidth();
     }
 
     private hideResponseModal(): void {
