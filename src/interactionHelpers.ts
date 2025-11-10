@@ -8,6 +8,7 @@ import { LearnerModel } from "./adaptiveEngine";
 import { updateMessageStream } from './ui';
 import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION, buildSocraticInitialInstruction, USER_LAST_INPUT_PLACEHOLDER } from './prompts';
 import { logger } from './logger';
+import { KeyTakeawayEnhancerController } from './keyTakeawayEnhancerController';
 
 function logSenseiPromptValidation(event: string, payload: Record<string, unknown>): void {
     const normalizedPayload: Record<string, unknown> = { ...payload };
@@ -35,7 +36,8 @@ export async function streamModuleIntroduction(
     chat: Chat,
     introContext: string,
     moduleTitleForPrompt: string,
-    senseiMessageId: string
+    senseiMessageId: string,
+    options?: { enhancerController?: KeyTakeawayEnhancerController }
 ): Promise<string> {
     let fullResponseText = "";
     
@@ -54,12 +56,20 @@ Let's begin ${moduleTitleForPrompt}.`;
     });
     
     const stream = await chat.sendMessageStream({ message: messageWithContext });
+    const enhancerController = options?.enhancerController;
     for await (const chunk of stream) {
         const chunkText = chunk.text;
         if (chunkText) {
             fullResponseText += chunkText;
+            if (enhancerController) {
+                fullResponseText = await enhancerController.onChunk(fullResponseText);
+            }
             updateMessageStream(senseiMessageId, fullResponseText);
         }
+    }
+    if (enhancerController) {
+        await enhancerController.finalize();
+        return enhancerController.getLatestText();
     }
     return fullResponseText;
 }
@@ -227,7 +237,8 @@ export async function streamMainSenseiResponse(
     chat: Chat,
     dynamicContext: string,
     currentUserInput: string,
-    senseiMessageId: string
+    senseiMessageId: string,
+    options?: { enhancerController?: KeyTakeawayEnhancerController }
 ): Promise<string> {
     let fullResponseText = "";
 
@@ -249,6 +260,7 @@ ${userLine}`;
 
     // Start streaming from LLM
     const stream = await chat.sendMessageStream({ message: messageWithContext });
+    const enhancerController = options?.enhancerController;
 
     let chunkCount = 0;
     const streamStart = performance.now();
@@ -262,6 +274,9 @@ ${userLine}`;
             }
             chunkCount++;
             fullResponseText += chunkText;
+            if (enhancerController) {
+                fullResponseText = await enhancerController.onChunk(fullResponseText);
+            }
             updateMessageStream(senseiMessageId, fullResponseText);
         }
     }
@@ -270,6 +285,11 @@ ${userLine}`;
         firstChunkLatencyMs,
         responseLength: fullResponseText.length
     });
+
+    if (enhancerController) {
+        await enhancerController.finalize();
+        return enhancerController.getLatestText();
+    }
 
     return fullResponseText;
 }

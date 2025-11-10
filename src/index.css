@@ -74,6 +74,12 @@
     --sensei-code-border: rgba(34, 197, 94, 0.15);
     --sensei-module-text: #86efac;
     --sensei-heading-gradient: linear-gradient(135deg, #16a34a, #22c55e);
+    --sensei-heading-color-h1: #0b5225;
+    --sensei-heading-color-h2: #117f3a;
+    --sensei-heading-color-h3: #16a34a;
+    --sensei-heading-color-h4: #1bc75a;
+    --sensei-heading-color-h5: #32e373;
+    --sensei-heading-color-h6: #5ee992;
 
     /* Component-Specific Colors */
     --color-bubble-user-bg: #373e47;
@@ -1507,12 +1513,38 @@ body::before {
 /* Variant: Sensei Message Content */
 .message-bubble[data-sender="sensei"] .markdown-content h1,
 .message-bubble[data-sender="sensei"] .markdown-content h2,
+.message-bubble[data-sender="sensei"] .markdown-content h3,
+.message-bubble[data-sender="sensei"] .markdown-content h4,
+.message-bubble[data-sender="sensei"] .markdown-content h5,
+.message-bubble[data-sender="sensei"] .markdown-content h6 {
+    background: none;
+    -webkit-background-clip: initial;
+    background-clip: initial;
+    -webkit-text-fill-color: currentColor;
+}
+
+.message-bubble[data-sender="sensei"] .markdown-content h1 {
+    color: var(--sensei-heading-color-h1, #0b5225);
+}
+
+.message-bubble[data-sender="sensei"] .markdown-content h2 {
+    color: var(--sensei-heading-color-h2, #117f3a);
+}
+
 .message-bubble[data-sender="sensei"] .markdown-content h3 {
-    background: var(--sensei-heading-gradient, linear-gradient(135deg, #16a34a, #22c55e));
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: var(--sensei-bold-color, var(--accent-primary));
+    color: var(--sensei-heading-color-h3, #16a34a);
+}
+
+.message-bubble[data-sender="sensei"] .markdown-content h4 {
+    color: var(--sensei-heading-color-h4, #1bc75a);
+}
+
+.message-bubble[data-sender="sensei"] .markdown-content h5 {
+    color: var(--sensei-heading-color-h5, #32e373);
+}
+
+.message-bubble[data-sender="sensei"] .markdown-content h6 {
+    color: var(--sensei-heading-color-h6, #5ee992);
 }
 
 
@@ -5323,3 +5355,12 @@ svg[aria-roledescription="error"] {
     box-shadow: 0 16px 38px rgba(217, 246, 115, 0.4);
 }
 /* === End Wrap Up Assessment Overlay Styles === */
+/* Key Takeaway Enhancer block */
+.key-takeaway-enhancer {
+  background: rgb(0 0 0 / 16%);
+  border-left: 4px solid #c6ff00d1;
+  border-right: 2px solid #99ff0024;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 10px 0;
+}

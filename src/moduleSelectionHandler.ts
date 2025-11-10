@@ -9,12 +9,14 @@ import {
     jumpToPhase,
     getCurrentCurriculumItem,
     getCurriculumFocusInstruction,
+    calculateFocusPoints
 } from "./curriculum";
 import {
     Message,
     ReloadContext,
     getPhaseDisplayName,
     displayMessage,
+    updateMessageStream,
     updateCurriculumDisplay,
     processMermaidBlocks,
     setupTextareaAutosize,
@@ -29,12 +31,16 @@ import {
 } from './geminiService';
 import {
     MODULE_INTRODUCTION_TASK_TEMPLATE,
+    KEY_TAKEAWAY_PROMPT_PREFIX
 } from './prompts';
 import {
     streamModuleIntroduction,
     buildSocraticExecutionInstruction,
     buildSenseiDynamicSystemInstruction,
 } from './interactionHelpers';
+import { KeyTakeawayEnhancerController, computeKeyTakeawayEnhancerPromptHash, hasKeyTakeawayEnhancerCacheEntry } from './keyTakeawayEnhancerController';
+import { buildPrimaryActionBlockForKeyTakeaway } from './curriculum';
+import { ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS } from './model_usage';
 import { Chat } from "@google/genai";
 import { notepad } from './notepad';
 import { showWrapUpAssessmentOverlay, WrapUpAssessmentOverlayData, validateWrapUpAssessmentQuestions, unlockWrapUpChatControls } from './wrapUpAssessment';
@@ -437,6 +443,7 @@ Where would you like to begin your learning journey?`;
                 await this.sendSystemSocraticMessage();
             } else {
                 const curriculumFocusInstruction = getCurriculumFocusInstruction(this.state.curriculum, currentItem, this.state.curriculumState, false);
+                const focusPointsSnapshot = calculateFocusPoints(this.state.curriculumState);
                 const coreInstruction = buildSenseiDynamicSystemInstruction(
                     curriculumFocusInstruction,
                     undefined
@@ -454,6 +461,40 @@ ${coreInstruction}
                     introSystemInstruction: introContext,
                     moduleTitleForPrompt: selectedModule.title
                 };
+
+                let introEnhancerController: KeyTakeawayEnhancerController | undefined;
+                const introEnhancerEligible = ENABLE_KEY_TAKEAWAY_ENHANCER
+                    && this.state.ai
+                    && this.state.curriculumState.currentPhase === 'IntroIllustrate';
+                if (introEnhancerEligible) {
+                    const primaryActionBlock = buildPrimaryActionBlockForKeyTakeaway(
+                        this.state.curriculum!,
+                        currentItem,
+                        this.state.curriculumState,
+                        false,
+                        focusPointsSnapshot
+                    );
+                    const enhancerPrompt = `${KEY_TAKEAWAY_PROMPT_PREFIX}\n\n${primaryActionBlock}`;
+                    const promptHash = computeKeyTakeawayEnhancerPromptHash(enhancerPrompt);
+                    const promptHashChanged = !hasKeyTakeawayEnhancerCacheEntry(promptHash);
+                    introEnhancerController = new KeyTakeawayEnhancerController({
+                        ai: this.state.ai!,
+                        modelName: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.modelName,
+                        modelConfig: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.config,
+                        promptText: enhancerPrompt,
+                        placeholderToken: KEY_TAKEAWAY_PLACEHOLDER,
+                        messageId: senseiIntroId,
+                        updateMessageStream,
+                        cacheKey: promptHash,
+                        postStreamGraceMs: KEY_TAKEAWAY_POST_STREAM_GRACE_MS
+                    });
+                    introEnhancerController.start();
+                    logger.info('[KEY_TAKE_AWAY_SENSEI] enhancer-armed', { messageId: senseiIntroId, promptHashChanged, source: 'module-selection' });
+                    reloadContext.keyTakeawayEnhancer = {
+                        promptHash,
+                        promptText: enhancerPrompt
+                    };
+                }
                 
                 await displayMessage({
                     id: senseiIntroId,
@@ -467,7 +508,13 @@ ${coreInstruction}
                 });
                 
                 try {
-                    introResponseText = await streamModuleIntroduction(this.state.mainSenseiChat!, introContext, selectedModule.title, senseiIntroId);
+                    introResponseText = await streamModuleIntroduction(
+                        this.state.mainSenseiChat!,
+                        introContext,
+                        selectedModule.title,
+                        senseiIntroId,
+                        { enhancerController: introEnhancerController }
+                    );
                     this.updateResponseHistory(introResponseText, senseiIntroId);
                 } catch (error) {
                     logger.error("Error generating phase intro:", error);

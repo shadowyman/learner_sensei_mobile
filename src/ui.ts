@@ -73,6 +73,10 @@ export interface ReloadContext {
     userInput?: string;                // User input that triggered this Sensei response
     introSystemInstruction?: string;   // For moduleIntro
     moduleTitleForPrompt?: string;     // For moduleIntro
+    keyTakeawayEnhancer?: {
+        promptHash: string;
+        promptText: string;
+    };
 }
 // --- END: Reload Functionality Types ---
 
@@ -525,6 +529,104 @@ interface ThemeOption {
     senseiHeadingGradient: string;
 }
 
+const DEFAULT_HEADING_BASE_COLOR = '#16a34a';
+const HEADING_COLOR_LIGHTNESS_STEPS: Record<string, number> = {
+    '--sensei-heading-color-h1': -0.18,
+    '--sensei-heading-color-h2': -0.08,
+    '--sensei-heading-color-h3': 0,
+    '--sensei-heading-color-h4': 0.08,
+    '--sensei-heading-color-h5': 0.18,
+    '--sensei-heading-color-h6': 0.28,
+};
+
+function normalizeHexColor(hex: string): string {
+    let value = hex.trim().replace('#', '');
+    if (value.length === 3) {
+        value = value.split('').map(char => char + char).join('');
+    }
+    if (value.length < 6) {
+        value = value.padEnd(6, value[value.length - 1] ?? '0');
+    }
+    return `#${value.slice(0, 6)}`;
+}
+
+function extractFirstHexColor(input: string): string | null {
+    if (!input) {
+        return null;
+    }
+    const match = input.match(/#([0-9a-fA-F]{3,8})/);
+    if (!match) {
+        return null;
+    }
+    return normalizeHexColor(match[0]);
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+    const normalized = normalizeHexColor(hex).replace('#', '');
+    const r = parseInt(normalized.substring(0, 2), 16) / 255;
+    const g = parseInt(normalized.substring(2, 4), 16) / 255;
+    const b = parseInt(normalized.substring(4, 6), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r:
+                h = (g - b) / d + (g < b ? 6 : 0);
+                break;
+            case g:
+                h = (b - r) / d + 2;
+                break;
+            case b:
+                h = (r - g) / d + 4;
+                break;
+        }
+        h /= 6;
+    }
+
+    return { h, s, l };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+    const hueToRgb = (p: number, q: number, t: number): number => {
+        let temp = t;
+        if (temp < 0) temp += 1;
+        if (temp > 1) temp -= 1;
+        if (temp < 1 / 6) return p + (q - p) * 6 * temp;
+        if (temp < 1 / 2) return q;
+        if (temp < 2 / 3) return p + (q - p) * (2 / 3 - temp) * 6;
+        return p;
+    };
+
+    let r: number;
+    let g: number;
+    let b: number;
+
+    if (s === 0) {
+        r = g = b = l;
+    } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hueToRgb(p, q, h + 1 / 3);
+        g = hueToRgb(p, q, h);
+        b = hueToRgb(p, q, h - 1 / 3);
+    }
+
+    const toHex = (value: number) => Math.round(value * 255).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function adjustHexLightness(hex: string, delta: number): string {
+    const { h, s, l } = hexToHsl(hex);
+    const adjustedL = Math.min(1, Math.max(0, l + delta));
+    return hslToHex(h, s, adjustedL);
+}
+
 const THEME_STORAGE_KEY = 'sensei-theme-palette';
 
 const THEME_OPTIONS: ThemeOption[] = [
@@ -675,6 +777,10 @@ function setThemeVariables(option: ThemeOption): void {
     root.style.setProperty('--sensei-code-border', option.senseiCodeBorder);
     root.style.setProperty('--sensei-module-text', option.senseiModuleText);
     root.style.setProperty('--sensei-heading-gradient', option.senseiHeadingGradient);
+    const baseHeadingColor = extractFirstHexColor(option.senseiHeadingGradient) ?? DEFAULT_HEADING_BASE_COLOR;
+    Object.entries(HEADING_COLOR_LIGHTNESS_STEPS).forEach(([varName, delta]) => {
+        root.style.setProperty(varName, adjustHexLightness(baseHeadingColor, delta));
+    });
 }
 
 // Contract: data-expanded is the single source of truth for controls visibility.

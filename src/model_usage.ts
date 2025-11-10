@@ -111,8 +111,19 @@ export const MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG = {
   },
 };
 
+export const KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG = {
+  modelName: MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.modelName,
+  config: {
+    ...MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.config,
+  },
+};
+
 export const MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED = true;
 export const MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED = true;
+
+export const ENABLE_KEY_TAKEAWAY_ENHANCER = true;
+export const KEY_TAKEAWAY_PLACEHOLDER = 'key_takeaway_placeholder';
+export const KEY_TAKEAWAY_POST_STREAM_GRACE_MS = 60000;
 
 /**
  * Configuration for the "Debug Mode Codebase Query" task.

@@ -1,4 +1,4 @@
-import { streamMainSenseiResponse, buildSenseiDynamicSystemInstruction } from '../interactionHelpers'
+import { streamMainSenseiResponse, streamModuleIntroduction, buildSenseiDynamicSystemInstruction } from '../interactionHelpers'
 import { updateMessageStream } from '../ui'
 
 jest.mock('../ui', () => ({
@@ -39,5 +39,32 @@ describe('interactionHelpers streamMainSenseiResponse', () => {
     expect(mockedUpdate).toHaveBeenCalled()
     expect(mockedUpdate.mock.calls.length).toBeGreaterThan(1)
     jest.useRealTimers()
+  })
+})
+
+describe('interactionHelpers streamModuleIntroduction', () => {
+  const mockedUpdate = updateMessageStream as jest.Mock
+
+  beforeEach(() => {
+    mockedUpdate.mockReset()
+  })
+
+  test('invokes enhancer controller hooks when provided', async () => {
+    const chat = {
+      sendMessageStream: async () => ({
+        async *[Symbol.asyncIterator]() {
+          yield { text: 'Intro chunk' }
+        }
+      })
+    }
+    const enhancerController = {
+      onChunk: jest.fn().mockResolvedValue('Intro replaced'),
+      finalize: jest.fn().mockResolvedValue(undefined),
+      getLatestText: jest.fn().mockReturnValue('Intro replaced')
+    }
+    const response = await streamModuleIntroduction(chat as any, 'context', 'Module', 'msg-1', { enhancerController: enhancerController as any })
+    expect(enhancerController.onChunk).toHaveBeenCalled()
+    expect(enhancerController.finalize).toHaveBeenCalled()
+    expect(response).toEqual('Intro replaced')
   })
 })

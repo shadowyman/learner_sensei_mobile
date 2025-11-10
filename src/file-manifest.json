@@ -14,6 +14,7 @@
   "index.html",
   "index.tsx",
   "interactionHelpers.ts",
+  "keyTakeawayEnhancerController.ts",
   "logger.ts",
   "logo.png",
   "mermaid-theme-integration.js",

@@ -22,12 +22,17 @@ const consolidationManager = require('../consolidationManager') as typeof import
 
 const SAMPLE_CURRICULUM_TEXT = `
 Module 1: Recursion Foundations
+Summary:
+A concise overview of recursion fundamentals and why they matter.
 Goal:
 Understand recursion fundamentals
 
 Concepts:
-1. What is recursion?: Recursion depends on base cases.
-2. Why base cases matter: Base cases stop infinite loops.
+1. What is recursion?
+Recursion depends on base cases.
+
+2. Why base cases matter
+Base cases stop infinite loops.
 
 Methodology:
 1. Explain base cases: Show terminating conditions.
@@ -542,12 +547,17 @@ describe('plan validation and generation', () => {
 describe('parsing and migration', () => {
   const buildModuleText = () => `
 Module 1: Recursion Foundations
+Summary:
+This module builds the intuition and mechanics for core recursion tools.
 Goal:
 Understand recursion fundamentals
 
 Concepts:
-1. What is recursion?: A definition and intuition.
-2. Why base cases matter: Prevent infinite descent.
+1. What is recursion?
+A definition and intuition.
+
+2. Why base cases matter
+Prevent infinite descent.
 
 Methodology:
 1. Demonstrate simple recursion: Use factorial as anchor.
@@ -559,12 +569,17 @@ Solidify & Prepare:
 Summarize and assign practice problems.
 
 Module 2: Advanced Recursion
+Summary:
+This module extends the toolkit to advanced call patterns.
 Goal:
 Explore recursion patterns
 
 Concepts:
-1. Tail recursion: Rewriting to eliminate additional frames.
-2. Mutual recursion: Coordinated call cycles.
+1. Tail recursion
+Rewriting to eliminate additional frames.
+
+2. Mutual recursion
+Coordinated call cycles.
 
 Methodology:
 1. Visualize call graphs: Map function interplay.
@@ -595,8 +610,11 @@ Consolidate techniques with exercises.
     const { parseModulesTxt, CurriculumParsingError } = await loadCurriculumModule()
     const text = `
 Module 1: Recursion Foundations
+Summary:
+Quick overview used for parser error tests.
 Concepts:
-1. What is recursion?: Intro text.
+1. What is recursion?
+Intro text.
 
 Methodology:
 1. Demonstrate: Step.
@@ -613,6 +631,8 @@ Wrap up.
     const { parseModulesTxt, CurriculumParsingError } = await loadCurriculumModule()
     const text = `
 Module 1: Recursion Foundations
+Summary:
+Quick overview used for parser error tests.
 Goal:
 Understand recursion fundamentals
 
@@ -631,6 +651,8 @@ Wrap up.
     const { parseModulesTxt, CurriculumParsingError } = await loadCurriculumModule()
     const text = `
 Module 1: Recursion Foundations
+Summary:
+Quick overview used for parser error tests.
 Goal:
 Understand recursion fundamentals
 
@@ -652,11 +674,14 @@ Wrap up.
     const { parseModulesTxt, CurriculumParsingError } = await loadCurriculumModule()
     const text = `
 Module 1: Recursion Foundations
+Summary:
+Quick overview used for parser error tests.
 Goal:
 Understand recursion fundamentals
 
 Concepts:
-1. What is recursion?: Intro text.
+1. What is recursion?
+Intro text.
 
 Methodology:
 1. Demonstrate: Step.
@@ -671,11 +696,14 @@ Wrap up.
     const { parseModulesTxt, CurriculumParsingError } = await loadCurriculumModule()
     const text = `
 Module 1: Recursion Foundations
+Summary:
+Quick overview used for parser error tests.
 Goal:
 Understand recursion fundamentals
 
 Concepts:
-1. What is recursion?: Intro text.
+1. What is recursion?
+Intro text.
 
 Methodology:
 1. Demonstrate: Step.
@@ -690,11 +718,14 @@ Prompt learner.
     const { parseModulesTxt } = await loadCurriculumModule()
     const text = `
 Module 1: Recursion Foundations
+Summary:
+Quick overview used for parser error tests.
 Goal:
 Understand recursion fundamentals
 
 Concepts:
-1. What is recursion?: Intro text.
+1. What is recursion?
+Intro text.
 
 Methodology:
 1. Valid step: First detail.

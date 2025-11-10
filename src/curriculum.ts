@@ -1660,6 +1660,31 @@ export function getCurriculumFocusInstruction(
     return getCurriculumFocusInstructionImpl(curriculum, item, state, isMustObeyTurn, preCalculatedFocusPoints);
 }
 
+export function buildPrimaryActionBlockForKeyTakeaway(
+    curriculum: Curriculum,
+    item: CurriculumItem,
+    state: CurriculumState,
+    isMustObeyTurn: boolean,
+    preCalculatedFocusPoints?: { focusPoints: string[], primaryActionType: string }
+): string {
+    const resolvedFocusPoints = preCalculatedFocusPoints ?? calculateFocusPoints(state);
+    const includeCheckUnderstanding = !isMustObeyTurn;
+    const primaryActionInstruction = buildPrimaryActionInstruction(
+        resolvedFocusPoints.primaryActionType,
+        resolvedFocusPoints.focusPoints,
+        item,
+        state,
+        includeCheckUnderstanding
+    );
+    const body = primaryActionInstruction.instruction || '';
+    const marker = 'Teaching Points:';
+    const idx = body.indexOf(marker);
+    if (idx >= 0) {
+        return body.substring(idx).trimStart();
+    }
+    return body;
+}
+
 export function checkForSocraticCompletion(senseiResponse: string): SocraticCompletionResult {
     // Check for completion flag using regex
     const completionRegex = /\[SOCRATIC_COMPLETION_TRIGGERED:\s*(.+?)\]/;

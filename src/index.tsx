@@ -80,6 +80,7 @@ import {
     getCurrentCurriculumItem,
     advanceCurriculumState,
     getCurriculumFocusInstruction,
+    buildPrimaryActionBlockForKeyTakeaway,
     calculateFocusPoints,
     isCurriculumLoaded,
     setCurriculum,
@@ -91,21 +92,22 @@ import {
 import { PedagogicalProfiler } from "./pedagogicalProfiler";
 import {
     Message,
-    ReloadContext, // Import ReloadContext
+    ReloadContext,
     getPhaseDisplayName,
     initializeUI,
     updateCurriculumDisplay,
     showLoading,
     displayMessage,
     processMermaidBlocks,
-    updateFooter,    
+    updateFooter,
     setupFullscreenToggle,
     setupTextareaAutosize,
     streamingMessagesRawText,
     updateSenseiMeditationOverlay,
     renderEnhancedMarkdown,
     setEnhanceLoadingState,
-    setEnhanceActiveState
+    setEnhanceActiveState,
+    updateMessageStream
 } from './ui';
 import { SaveLoadProgressManager } from './saveloadProgressManager';
 import { ChatWindowController } from './chatWindowController';
@@ -126,7 +128,8 @@ import {
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
     MODULE_INTRODUCTION_TASK_TEMPLATE,
     CURRICULUM_COMPLETED_FOCUS_INSTRUCTION,
-    GENERAL_INTERACTION_FOCUS_INSTRUCTION
+    GENERAL_INTERACTION_FOCUS_INSTRUCTION,
+    KEY_TAKEAWAY_PROMPT_PREFIX
 } from './prompts';
 import {
     streamModuleIntroduction,
@@ -136,10 +139,11 @@ import {
 } from './interactionHelpers';
 import { initializeDebugMode, toggleDebugModalVisibility } from './debugMode'; // Import debug mode functions
 import { initializeSelectionSensei } from "./selectionSensei"; // Import the new initializer
-import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG } from './model_usage';
+import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS } from './model_usage';
 import { notepad } from './notepad';
 import { runTestSuite } from './test';
 import { ModuleSelectionHandler } from './moduleSelectionHandler';
+import { KeyTakeawayEnhancerController, computeKeyTakeawayEnhancerPromptHash, hasKeyTakeawayEnhancerCacheEntry } from './keyTakeawayEnhancerController';
 import { initializeCodeEditorModal } from './codeEditorModal';
 import { initializeEnhancementManager, toggleEnhancement } from './enhancementManager';
 
@@ -683,6 +687,11 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     }
 
     const focusStrategy = calculateFocusStrategy(curriculumState);
+    logger.info('[KEY_TAKE_AWAY_SENSEI] focus-strategy', {
+        phase: curriculumState?.currentPhase ?? null,
+        totalFocusPoints: focusStrategy.focusPoints.length,
+        upcomingActionItems: focusStrategy.upcomingActionItems.length
+    });
     const focusPointsData = focusStrategy.focusPoints.length > 0 ? {
         focusPoints: focusStrategy.focusPoints,
         primaryActionType: focusStrategy.primaryActionType
@@ -701,9 +710,19 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         });
 
         isMustObey = guidanceText.startsWith('MUST_OBEY');
+        logger.info('[KEY_TAKE_AWAY_SENSEI] guidance-ready', {
+            skipPedagogicalIntervention,
+            hasGuidance: guidanceText.length > 0,
+            isMustObey
+        });
     } else {
         logChunkNavValidation('analysis-skipped', {
             reason: 'arrow-navigation'
+        });
+        logger.info('[KEY_TAKE_AWAY_SENSEI] guidance-skipped', {
+            skipPedagogicalIntervention,
+            hasGuidance: false,
+            isMustObey
         });
     }
     
@@ -769,11 +788,75 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         ? "The user didn't provide any input to your last message."
         : inputText;
 
+    let keyTakeawayEnhancerController: KeyTakeawayEnhancerController | undefined;
+    let keyTakeawayEnhancerPromptHash: string | null = null;
+    let keyTakeawayEnhancerPromptText: string | null = null;
+
+    const isFirstPhase = curriculumState?.currentPhase === 'IntroIllustrate';
+    logger.info('[KEY_TAKE_AWAY_SENSEI] phase-snapshot', {
+        phase: curriculumState?.currentPhase ?? null,
+        isFirstPhase,
+        skipPedagogicalIntervention,
+        isMustObey
+    });
+
+    const enhancerEligible = ENABLE_KEY_TAKEAWAY_ENHANCER
+        && ai
+        && curriculum
+        && curriculumState
+        && newCurrentItem
+        && isFirstPhase
+        && !guidanceText.startsWith('MUST_OBEY');
+    logger.info('[KEY_TAKE_AWAY_SENSEI] enhancer-eligibility', {
+        messageId: senseiMessageId,
+        eligible: enhancerEligible,
+        hasCurriculum: !!curriculum,
+        hasState: !!curriculumState,
+        hasItem: !!newCurrentItem,
+        isFirstPhase,
+        isMustObey
+    });
+
+    if (enhancerEligible) {
+        const primaryActionBlock = buildPrimaryActionBlockForKeyTakeaway(
+            curriculum!,
+            newCurrentItem!,
+            curriculumState!,
+            isMustObey,
+            focusPointsData || undefined
+        );
+        const enhancerPrompt = `${KEY_TAKEAWAY_PROMPT_PREFIX}\n\n${primaryActionBlock}`;
+        const promptHash = computeKeyTakeawayEnhancerPromptHash(enhancerPrompt);
+        const promptHashChanged = !hasKeyTakeawayEnhancerCacheEntry(promptHash);
+        keyTakeawayEnhancerController = new KeyTakeawayEnhancerController({
+            ai: ai!,
+            modelName: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.modelName,
+            modelConfig: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.config,
+            promptText: enhancerPrompt,
+            placeholderToken: KEY_TAKEAWAY_PLACEHOLDER,
+            messageId: senseiMessageId,
+            updateMessageStream,
+            cacheKey: promptHash,
+            postStreamGraceMs: KEY_TAKEAWAY_POST_STREAM_GRACE_MS
+        });
+        keyTakeawayEnhancerController.start();
+        logger.info('[KEY_TAKE_AWAY_SENSEI] enhancer-armed', { messageId: senseiMessageId, promptHashChanged });
+        keyTakeawayEnhancerPromptHash = promptHash;
+        keyTakeawayEnhancerPromptText = enhancerPrompt;
+    }
+
     const reloadContext: ReloadContext = {
         type: 'mainResponse',
         dynamicSystemInstruction: dynamicContext,
         userInput: effectiveUserInput
     };
+
+    if (keyTakeawayEnhancerPromptHash && keyTakeawayEnhancerPromptText) {
+        reloadContext.keyTakeawayEnhancer = {
+            promptHash: keyTakeawayEnhancerPromptHash,
+            promptText: keyTakeawayEnhancerPromptText
+        };
+    }
 
     await displayMessage({
         id: senseiMessageId,
@@ -803,7 +886,13 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     }
     
     try {
-        senseiResponseText = await streamMainSenseiResponse(mainSenseiChat!, dynamicContext, effectiveUserInput, senseiMessageId);
+        senseiResponseText = await streamMainSenseiResponse(
+            mainSenseiChat!,
+            dynamicContext,
+            effectiveUserInput,
+            senseiMessageId,
+            { enhancerController: keyTakeawayEnhancerController }
+        );
         
         // Check for Socratic completion
        if (curriculumState && curriculumState.currentPhase === 'Socratic') {
@@ -976,9 +1065,39 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
     streamingMessagesRawText.delete(messageId); // Clear previous raw text
 
     let newSenseiText = "";
+    let reloadEnhancerController: KeyTakeawayEnhancerController | undefined;
+    if (
+        ENABLE_KEY_TAKEAWAY_ENHANCER &&
+        context.type === 'mainResponse' &&
+        context.keyTakeawayEnhancer &&
+        ai
+    ) {
+        const promptHash = context.keyTakeawayEnhancer.promptHash;
+        const promptText = context.keyTakeawayEnhancer.promptText;
+        const promptHashChanged = !hasKeyTakeawayEnhancerCacheEntry(promptHash);
+        reloadEnhancerController = new KeyTakeawayEnhancerController({
+            ai,
+            modelName: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.modelName,
+            modelConfig: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.config,
+            promptText,
+            placeholderToken: KEY_TAKEAWAY_PLACEHOLDER,
+            messageId,
+            updateMessageStream,
+            cacheKey: promptHash,
+            postStreamGraceMs: KEY_TAKEAWAY_POST_STREAM_GRACE_MS
+        });
+        reloadEnhancerController.start();
+        logger.info('[KEY_TAKE_AWAY_SENSEI] enhancer-armed', { messageId, promptHashChanged });
+    }
     try {
         if (context.type === 'mainResponse' && context.dynamicSystemInstruction && context.userInput) {
-            newSenseiText = await streamMainSenseiResponse(mainSenseiChat!, context.dynamicSystemInstruction, context.userInput, messageId);
+            newSenseiText = await streamMainSenseiResponse(
+                mainSenseiChat!,
+                context.dynamicSystemInstruction,
+                context.userInput,
+                messageId,
+                { enhancerController: reloadEnhancerController }
+            );
         } else if (context.type === 'moduleIntro' && context.introSystemInstruction && context.moduleTitleForPrompt) {
             newSenseiText = await streamModuleIntroduction(mainSenseiChat!, context.introSystemInstruction, context.moduleTitleForPrompt, messageId);
         } else {
