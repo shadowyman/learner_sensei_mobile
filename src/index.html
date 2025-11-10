@@ -63,7 +63,7 @@
                                         <polyline points="12 4 5 12 12 20" />
                                     </svg>
                                 </button>
-                                <button id="chunk-nav-prev" class="chunk-nav-arrow prev" title="Previous Chunk" aria-label="Previous Chunk" style="display: none;">
+                                <button id="chunk-nav-prev" class="chunk-nav-arrow prev" title="Previous Part" aria-label="Previous Part" style="display: none;">
                                     <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
                                         <polyline points="15 6 9 12 15 18" />
                                     </svg>
@@ -74,7 +74,7 @@
                                 <span id="curriculum-status-topic" class="status-text">Loading curriculum...</span>
                             </div>
                             <div class="nav-group nav-group-next">
-                                <button id="chunk-nav-next" class="chunk-nav-arrow next" title="Next Chunk" aria-label="Next Chunk" style="display: none;">
+                                <button id="chunk-nav-next" class="chunk-nav-arrow next" title="Next Part" aria-label="Next Part" style="display: none;">
                                     <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
                                         <polyline points="9 6 15 12 9 18" />
                                     </svg>
@@ -163,7 +163,10 @@
             <div id="sensei-meditation-overlay" class="meditation-overlay" style="display: none;">
                 <div class="meditation-header">
                     <span class="meditation-icon">🧘‍♂️</span>
-                    <h3 class="meditation-title">Sensei meditating on:</h3>
+                    <h3 class="meditation-title">
+                        Sensei meditating on:
+                        <span id="meditation-concept-title" class="meditation-concept-title" aria-live="polite"></span>
+                    </h3>
                 </div>
                 <div class="meditation-content" id="meditation-action-items">
                     <!-- Action items will be populated here -->
