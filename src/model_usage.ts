@@ -94,7 +94,7 @@ export const COMPREHENSIVE_ANALYSIS_CONFIG = {
 export const MODULE_INTRODUCTION_CHAT_MODEL_CONFIG = {
   modelName: GEMINI_PRO,
   config: {
-    temperature: 0.7,
+    temperature: 0.5,
   },
 };
 
@@ -107,7 +107,7 @@ export const MODULE_INTRODUCTION_CHAT_MODEL_CONFIG = {
 export const MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG = {
   modelName: GEMINI_PRO,
   config: {
-    temperature: 0.7,
+    temperature: 0.5,
   },
 };
 
@@ -133,7 +133,7 @@ export const DEBUG_MODE_CONFIG = {
  */
 export const PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG = {
   modelName: GEMINI_FLASH, // Updated to recommended flash model
-  config: { temperature: 0.8 },
+  config: { temperature: 0.5 },
 };
 
 /**
@@ -158,7 +158,7 @@ export const MERMAID_ERROR_RECOVERY_CONFIG = {
   modelName: GEMINI_FLASH,
   config: {
     responseMimeType: "application/json",
-    temperature: 0.5,
+    temperature: 0.2,
   },
 };
 
@@ -166,7 +166,7 @@ export const ENHANCEMENT_REQUEST_CONFIG = {
   modelName: GEMINI_FLASH,
   config: {
     responseMimeType: "application/json",
-    temperature: 0.4,
+    temperature: 0.3,
   },
 };
 

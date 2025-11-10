@@ -173,33 +173,35 @@ You will deliver two complementary passes: the first to build intuition (Concept
 
 1. Conceptual Narrative (Intuition-Building Pass) 
 
-Your task in this section is to build a strong mental model for the learner before diving into technical specifics. You must address each of the following sub-points in detailed paragraphs.
-Label: The Pain & Stakes, Thought Experiment, Readiness Signal sections
-DO NOT LABEL these: Restate the Core Concept, Bridge to Prior Mastery, Preview the Drilldown, Visuals sections. They are part of the narrative flow.
+This is relatively short section compared to Expansive Technical Drilldown. Your task in this section is to build a strong mental model for the learner before diving into technical specifics. You must address each of the following sub-sections in detail.
+Label: The Pain & Stakes, Thought Experiment sections
+DO NOT LABEL these: Restate the Core Concept, Bridge to Prior Mastery, Preview the Drilldown, Readiness Signal, Visuals sections. They are part of the narrative flow.
 
-Restate the Core Concept: Begin by plainly stating the teaching point for immediate clarity.
-The Pain & Stakes: Dedicate a paragraph to explaining what goes wrong when this concept is ignored. Describe the common frustrations and errors that arise, emphasizing why mastering this concept is critical.
+Restate the Core Concept (NO LABEL): Begin by plainly stating the teaching point for immediate clarity.
+The Pain & Stakes: Dedicate a subsection to explain what goes wrong when this concept is ignored. Describe the common frustrations and errors that arise, emphasizing why mastering this concept is critical.
 Bridge to Prior Mastery: Connect the new concept to a topic the learner already understands. Frame it as a natural and powerful extension of their existing knowledge.
 Thought Experiment: Create a simple, brief story contrasting two paths: one where the concept is applied correctly (the success path) and one where it is ignored (the failure path). This seeds intuition without overwhelming detail.
-Readiness Signal: Reassure the learner with a specific signal they can look for in their own understanding. For example, "When you find yourself automatically thinking about X before you write code, you'll know you're ready for the technical details."
-Preview the Drilldown: Conclude this section by explicitly stating that a detailed, step-by-step technical execution guide is coming next.
+Readiness Signal (NO LABEL): Reassure the learner with a specific signal they can look for in their own understanding. For example, "When you find yourself automatically thinking about X before you write code, you'll know you're ready for the technical details."
+Preview the Drilldown(NO LABEL): Conclude this section by explicitly stating that a detailed, step-by-step technical execution guide is coming next.
 Visuals: If a concept can be clarified with a diagram, generate one using Mermaid syntax.
 
 ====
 2. Expansive Technical Drilldown (Execution-Focused Pass)
 
-This is the core technical teaching section. Your explanation must be exhaustive, precise, and ready for a technical interview setting. 
-Structure it with the following four sub-headings using Markdown level-2 headings (for example, ## Definition, ## Key Takeaways, ## Applications / Use Cases, ## Strengths, Trade-offs, & Pitfalls), and place every code example inside a fenced block such as \`\`\`cpp ... \`\`\`.
+This is the core teaching section of the teaching points and it must be technical. This section is where every little detail is thoroughly explained. Your explanation must be exhaustive, precise, and prepare the user for any technical challenge that may arise from applying the concepts being taught.
+Structure it with the following four sub-sections using Markdown.
 
-Definition: Provide a formal, textbook-quality definition of the teaching point. This should materialize the intuitive ideas from the Conceptual Narrative into concrete technical terms.
-Key Takeaways: Go beyond the definition. CRITICAL: FROM THEORY TO EXECUTION. This section MUST serve as a practical, "how-to" guide. It must not be a high-level summary. Discuss the methodology and strategic implications. Explain how an engineer should think when applying this concept. Your goal is to detail the procedural patterns and step-by-step thinking an expert uses. Use sub-headings and code snippets/examples freely within this section to break down different patterns and make the advice concrete and actionable. If appropriate, use inline code snippets freely to make your advice concrete and actionable.
+Definition: Provide a formal, textbook-quality definition of all of teaching points. This section should materialize the intuitive ideas from the Conceptual Narrative into concrete technical terms.
+
+Key Takeaways: Create a subsection and under its header: EXACTLY TYPE "key_takeaway_placeholder" placeholder string. This placeholder will be replaced by another system, so it's imperative you just write "key_takeaway_placeholder" under the header, so it can be replaced by text by the system.
+
 Applications / Use Cases: List and describe diverse scenarios where this pattern is used. Include variations and adaptations for different types of problems to showcase its versatility.
 Strengths, Trade-offs, & Pitfalls: Present a balanced view. Detail the primary benefits of using the pattern, its limitations or costs, and, most importantly, the common errors and mistakes that learners should actively avoid.
 ====
 
 3. Optional Mode — <Full C++ Walkthrough | Fill-in-the-Blank Reveal>
 
-Choose exactly one of the following two modes to include. If neither would enhance understanding, you may omit this section. This section must demonstrate the concepts from the drilldown, not re-explain them.
+Choose exactly one of the following two modes to include. If neither would enhance understanding, you may omit this section completely. This section must demonstrate the concepts from the drilldown, not re-explain them.
 
 Option A: Full C++ Walkthrough: Provide a complete, tightly-scoped C++ code example. Include a narrated dry run that explains the "why" behind each line of code, guiding the learner's thinking so they could write it themselves. Do not use a Mermaid diagram here; use prose.
 Option B: Fill-in-the-Blank Reveal: Present a code snippet with crucial parts missing. Guide the learner's reasoning process on how to fill in the blanks, then reveal the complete solution and discuss why the missing pieces are correct.
@@ -213,11 +215,10 @@ Analysis: For both scenarios, explain how the core approach adapts and how the l
 
 5. Interview-Oriented Perspective
 
-Prepare the learner for a technical interview. This requires addressing three distinct angles in separate paragraphs.
+Prepare the learner for a technical interview. This requires addressing two distinct angles in separate paragraphs. Keep each section brief.
 
-Algorithmic Angle: Provide the learner with specific language and a framework for articulating their technical approach out loud. Give them a script for how to begin their explanation to an interviewer, justifying their design choice (e.g., "I will start by ...ing ...").
-Communication & Trade-offs Angle: Coach the learner on how to discuss the high-level implications of their chosen pattern. Provide phrases they can use to concisely explain trade-offs and demonstrate strategic thinking to an interviewer.
-Interview Insights Angle: Consider real life FAANG interview scripts: share insider tips on what common technical/behavioral traps FAANG level interviewers set for this concept and how to avoid them. 
+Algorithmic Angle: Provide the learner with specific language and a framework for articulating their technical approach out loud. Give them a script for how to begin their explanation to an interviewer, justifying their design choice (e.g., "I will start by ...ing ..."). Coach the learner on how to discuss the high-level implications of their chosen pattern. Provide phrases they can use to concisely explain trade-offs and demonstrate strategic thinking to an interviewer.
+Interview Insights Angle: Consider real life FAANG interview scripts: EITHER share insider tips on what common technical/behavioral traps FAANG level interviewers set for this concept and how to avoid them OR offer tips that hone their interview skills. Use real-life interview transcripts from your training data to synthesize mission critical insights.
 
 6. Self-Assessment Checklist
 
@@ -1106,7 +1107,7 @@ export const TARGETED_CONSOLIDATION_PROMPT_TEMPLATE = (item: CurriculumItem, sta
 };
 
 export const REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[]): string => {
-    const prompt = `For each of the following specific teaching point(s) from the current chunk, you MUST provide a detailed and comprehensive explanation to address the learner's confusion. This includes:
+    const prompt = `WARNING: Either you have missed delivering an instruction for the following teaching points or the learner is having difficulty understanding these teaching points. Assess the situation and then for each of the following specific teaching point(s) from the current chunk, you MUST provide a detailed and comprehensive explanation to address the learner's confusion or cover the points you may have missed. This includes:
       - Clearly defining the core idea of the point.
       - Providing at least one illustrative example or analogy, or walking through a relevant scenario.
       - Anticipating potential common points of confusion for a learner regarding this point and proactively addressing them.
