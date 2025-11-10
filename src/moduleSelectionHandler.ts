@@ -47,6 +47,9 @@ import { showWrapUpAssessmentOverlay, WrapUpAssessmentOverlayData, validateWrapU
 
 interface ModuleSelectionState {
     pendingModuleSelection: number | null;
+    pendingPhaseSelection: Phase | null;
+    pendingConceptSelectionIndex: number | null;
+    pendingConceptSelectionBubbleId: string | null;
     currentMessageId: number;
     lastSenseiResponses: string[];
     userInputHistory: string[];
@@ -221,26 +224,98 @@ Where would you like to begin your learning journey?`;
             return;
         }
 
-        const curriculum = this.state.curriculum;
         const moduleIndex = this.state.pendingModuleSelection;
-        const ai = this.state.ai;
-        const module = curriculum.modules[moduleIndex];
+        const module = this.state.curriculum.modules[moduleIndex];
         if (!module) {
             logger.error('[MODULE_SELECTION] Selected module index out of bounds.', { moduleIndex });
             return;
         }
 
+        this.state.pendingPhaseSelection = phase;
+        this.state.pendingConceptSelectionIndex = null;
+
+        if (phase === 'IntroIllustrate') {
+            await this.showConceptSelectionBubble(moduleIndex);
+            return;
+        }
+
+        await this.executePhaseSelection(moduleIndex, phase);
+    }
+
+    async handleConceptSelection(moduleId: string, conceptIndex: number): Promise<void> {
+        if (!this.state.curriculum || this.state.pendingModuleSelection === null || !this.state.ai) {
+            logger.warn('[CONCEPT_SELECT] Concept selection attempted before curriculum ready.');
+            return;
+        }
+        if (this.state.pendingPhaseSelection !== 'IntroIllustrate') {
+            logger.warn('[CONCEPT_SELECT] No pending Teaching phase for concept selection.', { moduleId, conceptIndex });
+            return;
+        }
+        const moduleIndex = this.state.pendingModuleSelection;
+        const module = this.state.curriculum.modules[moduleIndex];
+        if (!module || module.id !== moduleId) {
+            logger.warn('[CONCEPT_SELECT] Module mismatch during concept selection.', { expectedModuleId: module?.id ?? null, receivedModuleId: moduleId });
+            return;
+        }
+        if (conceptIndex < 0 || conceptIndex >= module.concepts.length) {
+            logger.warn('[CONCEPT_SELECT] Concept index out of range.', { moduleId, conceptIndex });
+            return;
+        }
+
+        const concept = module.concepts[conceptIndex];
+        this.state.pendingConceptSelectionIndex = conceptIndex;
+        this.state.currentMessageId++;
+        const userMessageId = `msg-${this.state.currentMessageId}`;
+        await displayMessage({
+            id: userMessageId,
+            sender: 'user',
+            displayName: 'You',
+            text: `Start module: "${module.title}" – Concept: "${concept.title}" (Teaching)`,
+            timestamp: new Date(),
+            skipMermaid: true
+        });
+        this.clearConceptSelectionBubble();
+        this.removePhaseSelectionBubble();
+        await this.executePhaseSelection(moduleIndex, 'IntroIllustrate', conceptIndex);
+    }
+
+    private async executePhaseSelection(moduleIndex: number, phase: Phase, conceptIndexOverride?: number): Promise<void> {
+        if (!this.state.curriculum || !this.state.ai) {
+            return;
+        }
+        const curriculum = this.state.curriculum;
+        const module = curriculum.modules[moduleIndex];
+        if (!module) {
+            logger.error('[MODULE_SELECTION] Module missing during phase execution.', { moduleIndex });
+            return;
+        }
+        const ai = this.state.ai;
         const phaseMessages = Array.from(document.querySelectorAll<HTMLElement>('.message-bubble:not(#response-modal-sensei-bubble)'));
         let phaseMessageBubble: HTMLElement | null = null;
-        let phaseMessageId: string | null = null;
-
         for (const bubble of phaseMessages) {
-            const bubbleId = bubble.id || 'no-id';
             if (bubble.querySelector('.phase-buttons-container')) {
                 phaseMessageBubble = bubble;
-                phaseMessageId = bubbleId;
+                const buttons = bubble.querySelectorAll<HTMLButtonElement>('.phase-button');
+                buttons.forEach(button => {
+                    button.disabled = true;
+                });
                 break;
             }
+        }
+
+        if (!phaseMessageBubble) {
+            this.state.currentMessageId++;
+            const loaderId = `msg-${this.state.currentMessageId}`;
+            await displayMessage({
+                id: loaderId,
+                sender: 'sensei',
+                displayName: 'Recursive Sensei',
+                text: '',
+                timestamp: new Date(),
+                isLoading: false,
+                phaseLoadingAnimation: true
+            });
+            phaseMessageBubble = document.getElementById(loaderId);
         }
 
         const isSolidify = phase === 'Solidify';
@@ -250,16 +325,12 @@ Where would you like to begin your learning journey?`;
             const messageText = phaseMessageBubble.querySelector<HTMLElement>('.message-text');
             if (messageText) {
                 messageText.innerHTML = '';
-
                 const loadingContainer = document.createElement('div');
                 loadingContainer.classList.add('phase-loading-container');
-
                 const spinner = document.createElement('div');
                 spinner.classList.add('phase-loading-spinner');
-
                 const loadingText = document.createElement('div');
                 loadingText.classList.add('phase-loading-text');
-
                 const loadingMessages: string[] = isSolidify
                     ? [
                         'Sensei is assembling your FAANG-style wrap-up assessment',
@@ -281,14 +352,11 @@ Where would you like to begin your learning journey?`;
                 let messageIndex = 0;
                 const textSpan = document.createElement('span');
                 textSpan.textContent = loadingMessages[messageIndex] ?? '';
-
                 const dots = document.createElement('span');
                 dots.classList.add('phase-loading-dots');
                 dots.textContent = '...';
-
                 loadingText.appendChild(textSpan);
                 loadingText.appendChild(dots);
-
                 loadingContainer.appendChild(spinner);
                 loadingContainer.appendChild(loadingText);
                 messageText.appendChild(loadingContainer);
@@ -310,35 +378,39 @@ Where would you like to begin your learning journey?`;
                 cleanupPhaseBubble = () => {
                     clearInterval(dotAnimation);
                     clearInterval(messageAnimation);
-                    phaseMessageBubble.remove();
+                    phaseMessageBubble?.remove();
                 };
             }
         }
 
+        const planner = isSolidify
+            ? async (phaseForPlan: Phase) => this.createSolidifyTeachingPlan(module, phaseForPlan, ai)
+            : async (phaseForPlan: Phase, text: string) => {
+                const conceptsSummary = module.concepts.map(c => c.title).join(', ');
+                const result = await llmExtractAndPlanTeachingOrder(
+                    ai,
+                    text,
+                    phaseForPlan,
+                    module.title,
+                    module.goal,
+                    conceptsSummary
+                );
+                if (!result || result.length === 0) {
+                    throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
+                        moduleId: module.id,
+                        phase: phaseForPlan
+                    });
+                }
+                return result;
+            };
+
+        const plannerOptions = conceptIndexOverride !== undefined ? { targetConceptIndex: conceptIndexOverride } : undefined;
         this.state.curriculumState = await jumpToPhase(
             curriculum,
             moduleIndex,
             phase,
-            isSolidify
-                ? async (phaseForPlan) => this.createSolidifyTeachingPlan(module, phaseForPlan, ai)
-                : async (phaseForPlan, text) => {
-                    const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-                    const result = await llmExtractAndPlanTeachingOrder(
-                        ai,
-                        text,
-                        phaseForPlan,
-                        module.title,
-                        module.goal,
-                        conceptsSummary
-                    );
-                    if (!result || result.length === 0) {
-                        throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
-                            moduleId: module.id,
-                            phase: phaseForPlan
-                        });
-                    }
-                    return result;
-                }
+            planner,
+            plannerOptions
         );
 
         if (!this.state.curriculumState) {
@@ -351,11 +423,15 @@ Where would you like to begin your learning journey?`;
                 timestamp: new Date(),
                 isLoading: false,
             });
+            this.state.pendingPhaseSelection = null;
+            this.state.pendingConceptSelectionIndex = null;
             return;
         }
 
         if (isSolidify) {
             this.state.pendingModuleSelection = null;
+            this.state.pendingPhaseSelection = null;
+            this.state.pendingConceptSelectionIndex = null;
             const overlayData = this.pendingWrapUpAssessment;
             const generationFailed = this.pendingWrapUpAssessmentFailed;
             this.pendingWrapUpAssessment = null;
@@ -380,7 +456,7 @@ Where would you like to begin your learning journey?`;
         if (this.state.curriculumState.currentPhase === 'Socratic') {
             this.state.curriculumState.socraticTurnCount = 0;
         }
-        
+
         this.state.currentActiveConceptIndex = this.state.curriculumState.currentConceptIndex;
         logModuleSelectionValidation('active-concept-tracking-initialized', {
             activeConceptIndex: this.state.currentActiveConceptIndex
@@ -399,16 +475,15 @@ Where would you like to begin your learning journey?`;
             }
             this.state.learnerModel.KCMasteryLastUpdated[currentItem.curriculumPathId] = new Date().toISOString();
             this.state.learnerModel.awardedKcForPhasePoints = new Set<string>();
-            
+
             updateCurriculumDisplay(currentItem, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
-            
+
             const currentPhaseKCMastery = this.state.learnerModel.KCs[currentItem.curriculumPathId] || 0;
             this.updateKCProgressBar(currentPhaseKCMastery);
-            
+
             const phaseMessagesToRemove = document.querySelectorAll<HTMLElement>('.message-bubble:not(#response-modal-sensei-bubble)');
             phaseMessagesToRemove.forEach(bubble => {
                 if (bubble.querySelector('.phase-buttons-container') || bubble.querySelector('.phase-loading-container')) {
-                    const bubbleId = bubble.id || 'unknown';
                     const dotAnimation = (bubble as any).dotAnimation;
                     if (dotAnimation) {
                         clearInterval(dotAnimation);
@@ -420,25 +495,25 @@ Where would you like to begin your learning journey?`;
                     bubble.remove();
                 }
             });
-            
-            const moduleIndex = this.state.pendingModuleSelection;
-            const curriculum = this.state.curriculum;
-            if (moduleIndex === null || !curriculum) {
+
+            const currentModuleIndex = this.state.pendingModuleSelection;
+            const currentCurriculum = this.state.curriculum;
+            if (currentModuleIndex === null || !currentCurriculum) {
                 logger.error('[MODULE_SELECTION] Pending module selection missing during phase intro.');
                 return;
             }
-            const selectedModule = curriculum.modules[moduleIndex];
+            const selectedModule = currentCurriculum.modules[currentModuleIndex];
             if (!selectedModule) {
                 logger.error('[MODULE_SELECTION] Pending module selection index invalid.', {
-                    moduleIndex
+                    moduleIndex: currentModuleIndex
                 });
                 return;
             }
             const phaseDisplayName = getPhaseDisplayName(this.state.curriculumState.currentPhase);
             const conceptTitle = currentItem.concept?.title || "the module concepts";
-            
+
             let introResponseText = "";
-            
+
             if (this.state.curriculumState.currentPhase === 'Socratic') {
                 await this.sendSystemSocraticMessage();
             } else {
@@ -448,14 +523,14 @@ Where would you like to begin your learning journey?`;
                     curriculumFocusInstruction,
                     undefined
                 );
-                
+
                 this.state.currentMessageId++;
                 const senseiIntroId = `msg-${this.state.currentMessageId}`;
-                
+
                 const introContext = `${MODULE_INTRODUCTION_TASK_TEMPLATE(selectedModule.title, conceptTitle, phaseDisplayName, `Phase: ${phaseDisplayName}`)}
 ${coreInstruction}
 `;
-                
+
                 const reloadContext: ReloadContext = {
                     type: 'moduleIntro',
                     introSystemInstruction: introContext,
@@ -495,7 +570,7 @@ ${coreInstruction}
                         promptText: enhancerPrompt
                     };
                 }
-                
+
                 await displayMessage({
                     id: senseiIntroId,
                     sender: 'sensei',
@@ -506,7 +581,7 @@ ${coreInstruction}
                     isReloadable: true,
                     reloadContext: reloadContext,
                 });
-                
+
                 try {
                     introResponseText = await streamModuleIntroduction(
                         this.state.mainSenseiChat!,
@@ -542,17 +617,72 @@ ${coreInstruction}
                 logger.info('[MODULE_INTRO_RELOAD] Intro bubble finalized', { messageId: senseiIntroId });
                 await processMermaidBlocks(senseiIntroId);
             }
-            
+
             this.state.userInputHistory = [];
             if (this.state.curriculumState.currentPhase !== 'Socratic') {
                 this.state.lastSenseiResponses = [introResponseText];
             }
             this.state.pendingModuleSelection = null;
-            
+            this.state.pendingPhaseSelection = null;
+            this.state.pendingConceptSelectionIndex = null;
+
             const userInputElem = document.getElementById('user-input') as HTMLTextAreaElement;
             if (userInputElem) {
                 userInputElem.placeholder = "Phase selected. Ask questions or type your thoughts...";
             }
+        }
+    }
+
+    private async showConceptSelectionBubble(moduleIndex: number): Promise<void> {
+        if (!this.state.curriculum) {
+            return;
+        }
+        const module = this.state.curriculum.modules[moduleIndex];
+        if (!module || !module.concepts || module.concepts.length === 0) {
+            logger.warn('[CONCEPT_SELECT] Module missing concepts for selection.', { moduleIndex });
+            return;
+        }
+        this.clearConceptSelectionBubble();
+        const concepts = module.concepts.map((concept, index) => ({
+            title: `Concept ${index + 1}: ${concept.title}`,
+            index
+        }));
+        this.state.currentMessageId++;
+        const messageId = `msg-${this.state.currentMessageId}`;
+        const promptText = `Great! Choose the concept you want to start within **${module.title}**.`;
+        await displayMessage({
+            id: messageId,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: promptText,
+            timestamp: new Date(),
+            isLoading: false,
+            conceptSelectionPayload: {
+                moduleId: module.id,
+                moduleTitle: module.title,
+                concepts
+            }
+        });
+        this.state.pendingConceptSelectionBubbleId = messageId;
+    }
+
+    private clearConceptSelectionBubble(): void {
+        if (!this.state.pendingConceptSelectionBubbleId) {
+            return;
+        }
+        const existing = document.getElementById(this.state.pendingConceptSelectionBubbleId);
+        if (existing) {
+            existing.remove();
+        }
+        this.state.pendingConceptSelectionBubbleId = null;
+    }
+
+    private removePhaseSelectionBubble(): void {
+        const phaseBubble = Array.from(document.querySelectorAll<HTMLElement>('.message-bubble:not(#response-modal-sensei-bubble)')).find(bubble =>
+            bubble.querySelector('.phase-buttons-container')
+        );
+        if (phaseBubble) {
+            phaseBubble.remove();
         }
     }
 

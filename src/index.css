@@ -3118,6 +3118,45 @@ body::before {
     border-color: rgba(134, 239, 172, 0.4);
 }
 
+.concept-selection-buttons {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin: 10px 0;
+    overflow-x: hidden;
+}
+
+.concept-button {
+    display: block;
+    width: auto;
+    white-space: nowrap;
+    padding: 10px 15px;
+    font-family: inherit;
+    font-size: 0.95em;
+    line-height: 1.4;
+    text-align: left;
+    color: #c4b6da;
+    background-color: rgba(168, 85, 247, 0.45);
+    border: 1px solid rgba(147, 51, 234, 0.6);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.concept-button:hover {
+    color: var(--text-inverse);
+    background-color: rgba(186, 120, 255, 0.52);
+    border-color: rgba(160, 90, 245, 0.6);
+}
+
+.concept-button:active {
+    transform: translateY(1px);
+}
+
+
 /* Phase selection buttons */
 .phase-buttons-container {
     display: flex;
@@ -3752,7 +3791,7 @@ svg[aria-roledescription="error"] {
     top: 64px;
     left: 0;
     right: 0;
-    max-height: 70vh; /* Limit height to 70% of viewport */
+    max-height: 50vh; /* Limit height to 50% of viewport */
     overflow-y: auto; /* Allow scrolling on the overlay itself */
     overflow-x: hidden;
     transform: translateY(-20px) scale(0.95);
@@ -3836,6 +3875,17 @@ svg[aria-roledescription="error"] {
     color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.meditation-concept-title {
+    margin-left: 8px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    text-transform: none;
+}
+
+.meditation-concept-title[data-empty=true] {
+    opacity: 0.6;
 }
 
 /* Chunk progress indicator */
@@ -5358,9 +5408,19 @@ svg[aria-roledescription="error"] {
 /* Key Takeaway Enhancer block */
 .key-takeaway-enhancer {
   background: rgb(0 0 0 / 16%);
-  border-left: 4px solid #c6ff00d1;
+  border-left: 4px solid #c6ff0057;
   border-right: 2px solid #99ff0024;
   padding: 10px 12px;
   border-radius: 8px;
   margin: 10px 0;
+}
+.concept-label-text {
+    font-weight: 400;
+}
+
+.concept-button:hover .concept-label-text {
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+.concept-label-prefix {
+    margin-right: 5px;
 }

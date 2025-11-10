@@ -175,6 +175,9 @@ let currentActiveConceptIndex: number | null = null; // Track current concept fo
 let currentMessageId = 0;
 let userInputHistory: string[] = [];
 let pendingModuleSelection: number | null = null; // Track module selection pending phase choice
+let pendingPhaseSelection: Phase | null = null;
+let pendingConceptSelectionIndex: number | null = null;
+let pendingConceptSelectionBubbleId: string | null = null;
 // Store project file contents (now primarily for the manifest itself)
 const projectFileContents = new Map<string, string>();
 let availableProjectFilePaths: string[] = []; // Stores the list of file paths
@@ -205,6 +208,9 @@ Object.defineProperties(window, {
     mainSenseiChat: { get: () => mainSenseiChat, set: (v) => { mainSenseiChat = v; }, enumerable: true },
     userInputHistory: { get: () => userInputHistory, set: (v) => { userInputHistory = v; }, enumerable: true },
     pendingModuleSelection: { get: () => pendingModuleSelection, set: (v) => { pendingModuleSelection = v; }, enumerable: true },
+    pendingPhaseSelection: { get: () => pendingPhaseSelection, set: (v) => { pendingPhaseSelection = v; }, enumerable: true },
+    pendingConceptSelectionIndex: { get: () => pendingConceptSelectionIndex, set: (v) => { pendingConceptSelectionIndex = v; }, enumerable: true },
+    pendingConceptSelectionBubbleId: { get: () => pendingConceptSelectionBubbleId, set: (v) => { pendingConceptSelectionBubbleId = v; }, enumerable: true },
     autoResizeEnabled: { get: () => chatWindowController?.getAutoResizePreference() || true, set: (v) => { chatWindowController?.setAutoResizePreference(v); }, enumerable: true },
     currentActiveConceptIndex: { get: () => currentActiveConceptIndex, set: (v) => { currentActiveConceptIndex = v; }, enumerable: true },
     projectFileContents: { get: () => projectFileContents, enumerable: true },
@@ -422,7 +428,10 @@ async function handleInitialModuleSelectionInternal(userInputText: string): Prom
         currentActiveConceptIndex,
         mainSenseiChat,
         ai,
-        pendingModuleSelection
+        pendingModuleSelection,
+        pendingPhaseSelection,
+        pendingConceptSelectionIndex,
+        pendingConceptSelectionBubbleId
     });
     
     const result = await moduleSelectionHandler.handleInitialModuleSelectionInternal(userInputText);
@@ -430,6 +439,9 @@ async function handleInitialModuleSelectionInternal(userInputText: string): Prom
     // Read back state changes - especially pendingModuleSelection
     const handlerState = moduleSelectionHandler.getState();
     pendingModuleSelection = handlerState.pendingModuleSelection;
+    pendingPhaseSelection = handlerState.pendingPhaseSelection;
+    pendingConceptSelectionIndex = handlerState.pendingConceptSelectionIndex;
+    pendingConceptSelectionBubbleId = handlerState.pendingConceptSelectionBubbleId;
     currentMessageId = handlerState.currentMessageId;
     lastSenseiResponses = handlerState.lastSenseiResponses;
     
@@ -579,7 +591,10 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             currentActiveConceptIndex,
             mainSenseiChat,
             ai,
-            pendingModuleSelection
+            pendingModuleSelection,
+            pendingPhaseSelection,
+            pendingConceptSelectionIndex,
+            pendingConceptSelectionBubbleId
         });
     }
 
@@ -1144,7 +1159,10 @@ async function handleClickedModuleSelection(moduleTitle: string) {
         currentActiveConceptIndex,
         mainSenseiChat,
         ai,
-        pendingModuleSelection
+        pendingModuleSelection,
+        pendingPhaseSelection,
+        pendingConceptSelectionIndex,
+        pendingConceptSelectionBubbleId
     });
     
     await moduleSelectionHandler.handleClickedModuleSelection(moduleTitle);
@@ -1152,6 +1170,9 @@ async function handleClickedModuleSelection(moduleTitle: string) {
     // Read back any state changes - including pendingModuleSelection
     const handlerState = moduleSelectionHandler.getState();
     pendingModuleSelection = handlerState.pendingModuleSelection;
+    pendingPhaseSelection = handlerState.pendingPhaseSelection;
+    pendingConceptSelectionIndex = handlerState.pendingConceptSelectionIndex;
+    pendingConceptSelectionBubbleId = handlerState.pendingConceptSelectionBubbleId;
     currentMessageId = handlerState.currentMessageId;
     lastSenseiResponses = handlerState.lastSenseiResponses;
 }
@@ -1172,7 +1193,10 @@ async function handlePhaseSelection(phaseName: string) {
         currentActiveConceptIndex,
         mainSenseiChat,
         ai,
-        pendingModuleSelection
+        pendingModuleSelection,
+        pendingPhaseSelection,
+        pendingConceptSelectionIndex,
+        pendingConceptSelectionBubbleId
     });
     
     await moduleSelectionHandler.handlePhaseSelection(phaseName);
@@ -1186,6 +1210,45 @@ async function handlePhaseSelection(phaseName: string) {
     learnerModel = handlerState.learnerModel;
     curriculumState = handlerState.curriculumState;
     currentActiveConceptIndex = handlerState.currentActiveConceptIndex;
+    pendingPhaseSelection = handlerState.pendingPhaseSelection;
+    pendingConceptSelectionIndex = handlerState.pendingConceptSelectionIndex;
+    pendingConceptSelectionBubbleId = handlerState.pendingConceptSelectionBubbleId;
+}
+
+async function handleConceptSelection(moduleId: string, conceptIndex: number) {
+    if (!moduleSelectionHandler) {
+        return;
+    }
+
+    moduleSelectionHandler.updateState({
+        curriculum,
+        curriculumState,
+        currentMessageId,
+        lastSenseiResponses,
+        userInputHistory,
+        learnerModel,
+        currentActiveConceptIndex,
+        mainSenseiChat,
+        ai,
+        pendingModuleSelection,
+        pendingPhaseSelection,
+        pendingConceptSelectionIndex,
+        pendingConceptSelectionBubbleId,
+    });
+
+    await moduleSelectionHandler.handleConceptSelection(moduleId, conceptIndex);
+
+    const handlerState = moduleSelectionHandler.getState();
+    pendingModuleSelection = handlerState.pendingModuleSelection;
+    currentMessageId = handlerState.currentMessageId;
+    lastSenseiResponses = handlerState.lastSenseiResponses;
+    userInputHistory = handlerState.userInputHistory;
+    learnerModel = handlerState.learnerModel;
+    curriculumState = handlerState.curriculumState;
+    currentActiveConceptIndex = handlerState.currentActiveConceptIndex;
+    pendingPhaseSelection = handlerState.pendingPhaseSelection;
+    pendingConceptSelectionIndex = handlerState.pendingConceptSelectionIndex;
+    pendingConceptSelectionBubbleId = handlerState.pendingConceptSelectionBubbleId;
 }
 
 /**
@@ -1285,6 +1348,9 @@ async function loadCurriculumAndGreet() {
     (window as any).handlePhaseSelection = async (phaseName: string) => {
         await handlePhaseSelection(phaseName);
     };
+    (window as any).handleConceptSelection = async (moduleId: string, conceptIndex: number) => {
+        await handleConceptSelection(moduleId, conceptIndex);
+    };
 
     (window as any).handleReloadSenseiMessage = 
         (messageId: string, context: ReloadContext) => 
@@ -1333,6 +1399,9 @@ async function loadCurriculumAndGreet() {
         if (ai && mainSenseiChat) {
             moduleSelectionHandler = new ModuleSelectionHandler({
                 pendingModuleSelection,
+                pendingPhaseSelection,
+                pendingConceptSelectionIndex,
+                pendingConceptSelectionBubbleId,
                 currentMessageId,
                 lastSenseiResponses,
                 userInputHistory,

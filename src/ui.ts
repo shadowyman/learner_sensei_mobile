@@ -61,6 +61,7 @@ declare global {
         ai?: any; // GoogleGenAI instance
         switchToChunk?: (targetIndex: number) => Promise<void>;
         overrideChunkUnderstanding?: (payload: { chunkIndex: number; understood: boolean }) => Promise<void>;
+        handleConceptSelection?: (moduleId: string, conceptIndex: number) => Promise<void>;
     }
 }
 
@@ -93,6 +94,11 @@ export interface Message {
     phaseSelectionEnabled?: boolean; // Enable phase selection buttons
     selectedModuleIndex?: number;    // Module index for phase selection
     phaseLoadingAnimation?: boolean; // Show phase loading animation
+    conceptSelectionPayload?: {
+        moduleId: string;
+        moduleTitle: string;
+        concepts: { title: string; index: number }[];
+    };
 }
 
 /**
@@ -920,7 +926,7 @@ export function updateCurriculumDisplay(
                 ? {
                     conceptTitle,
                     conceptTooltip: conceptTitle,
-                    ...(chunkInfo ? { chunkLabel: `Chunk ${chunkInfo.current}/${chunkInfo.total}` } : {})
+                    ...(chunkInfo ? { chunkLabel: `Part ${chunkInfo.current}/${chunkInfo.total}` } : {})
                   }
                 : {})
         };
@@ -1057,9 +1063,9 @@ function showModalPrompt(options: ModalPromptOptions): Promise<boolean> {
 
 function showChunkResetConfirmation(chunkIndex: number): Promise<boolean> {
     return showModalPrompt({
-        title: 'Reset chunk understanding?',
-        body: `This will clear understanding scores and KC awards for chunk ${chunkIndex + 1}. Continue?`,
-        confirmLabel: 'Reset Chunk',
+        title: 'Reset part understanding?',
+        body: `This will clear understanding scores and KC awards for part ${chunkIndex + 1}. Continue?`,
+        confirmLabel: 'Reset Part',
         cancelLabel: 'Cancel'
     });
 }
@@ -1067,7 +1073,7 @@ function showChunkResetConfirmation(chunkIndex: number): Promise<boolean> {
 function showConceptAdvanceConfirmation(conceptTitle: string | null, chunkIndex: number): Promise<boolean> {
     return showModalPrompt({
         title: 'Advance to next concept?',
-        body: `All chunks for <strong>${conceptTitle || 'this concept'}</strong> are understood. Move on to the next concept?`,
+        body: `All parts for <strong>${conceptTitle || 'this concept'}</strong> are understood. Move on to the next concept?`,
         confirmLabel: 'Advance',
         cancelLabel: 'Stay Here'
     });
@@ -1146,17 +1152,36 @@ export function updateSenseiMeditationOverlay(
 
     const overlay = overlayElement;
     const actionItems = actionItemsElement;
+    const conceptTitleElement = overlay.querySelector('#meditation-concept-title') as HTMLSpanElement | null;
+    const setMeditationConceptTitle = (title: string | null) => {
+        if (!conceptTitleElement) {
+            return;
+        }
+        if (title && title.trim()) {
+            conceptTitleElement.textContent = title.trim();
+            conceptTitleElement.removeAttribute('data-empty');
+        } else {
+            conceptTitleElement.textContent = '';
+            conceptTitleElement.setAttribute('data-empty', 'true');
+        }
+    };
 
     if (!isVisible) {
+        setMeditationConceptTitle(null);
         hideMeditationOverlay();
         return;
     }
 
     if (!curriculumState || !curriculumState.teachingPlanForPhase || curriculumState.currentTeachingChunkIndex === undefined) {
+        setMeditationConceptTitle(null);
         return;
     }
 
     const learnerModel = (window as any).learnerModel as LearnerModel | undefined;
+    const curriculumData = getLoadedCurriculum();
+    const currentModule = curriculumData?.modules?.[curriculumState.currentModuleIndex];
+    const conceptTitle = currentModule?.concepts?.[curriculumState.currentConceptIndex]?.title || null;
+    setMeditationConceptTitle(conceptTitle);
     const currentChunk = curriculumState.teachingPlanForPhase[curriculumState.currentTeachingChunkIndex];
     if (!currentChunk || !Array.isArray(currentChunk)) {
         return;
@@ -1182,8 +1207,8 @@ export function updateSenseiMeditationOverlay(
     
     // Update the progress text with "Chunk" label - make it clickable
     chunkProgress.innerHTML = `
-        <button class="chunk-progress-button" title="Click to view all chunks">
-            <span class="chunk-label">Chunk</span>
+        <button class="chunk-progress-button" title="Click to view all parts">
+            <span class="chunk-label">Part</span>
             <span class="chunk-current">${currentChunkNumber}</span>
             <span class="chunk-separator">/</span>
             <span class="chunk-total">${totalChunks}</span>
@@ -1228,7 +1253,7 @@ export function updateSenseiMeditationOverlay(
             const chunkHeader = document.createElement('div');
             chunkHeader.className = 'chunk-card-header';
             chunkHeader.innerHTML = `
-                <span class="chunk-card-title">Chunk ${chunkIndex + 1}</span>
+                <span class="chunk-card-title">Part ${chunkIndex + 1}</span>
                 ${chunkIndex === curriculumState.currentTeachingChunkIndex ? '<span class="current-indicator">Current</span>' : ''}
             `;
 
@@ -1380,6 +1405,9 @@ function showMeditationOverlay(): void {
 
     overlayElement.onmouseleave = () => {
         meditationHoverState.isOverOverlay = false;
+        if (meditationHoverState.isPinned) {
+            return;
+        }
         if (!meditationHoverState.isOverBrand && !meditationHoverState.isOverOverlay) {
             meditationHoverState.hoverTimeout = window.setTimeout(() => {
                 updateSenseiMeditationOverlay(null, false);
@@ -1425,6 +1453,8 @@ function hideMeditationOverlay(): void {
     }
 
     meditationHoverState.showAllChunks = false;
+    meditationHoverState.isPinned = false;
+    disableMeditationOverlayOutsideClose();
 
     if (typeof anime !== 'undefined') {
         anime({
@@ -1889,6 +1919,11 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
 
     bubble.classList.add('message-bubble');
     bubble.dataset.sender = message.sender;
+    if (message.conceptSelectionPayload) {
+        bubble.dataset.conceptSelectionPayload = JSON.stringify(message.conceptSelectionPayload);
+    } else {
+        delete bubble.dataset.conceptSelectionPayload;
+    }
 
     const senderName = document.createElement('div');
     senderName.classList.add('sender-name');
@@ -2026,6 +2061,43 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
             }
             messageText.appendChild(moduleListContainer);
             streamingMessagesRawText.set(message.id, message.text); // Store original raw text
+        } else if (message.sender === 'sensei' && message.conceptSelectionPayload) {
+            const payload = message.conceptSelectionPayload;
+            const sanitizedText = sanitizeMarkdownFences(message.text);
+            messageText.innerHTML = parseSanitizedMarkdown(sanitizedText);
+
+            const conceptContainer = document.createElement('div');
+            conceptContainer.classList.add('concept-selection-buttons');
+            conceptContainer.dataset.moduleId = payload.moduleId;
+            conceptContainer.dataset.conceptPayload = JSON.stringify(payload);
+
+            payload.concepts.forEach(concept => {
+                const match = concept.title.match(/^Concept\s+(\d+):\s*(.+)$/i);
+                const conceptNumber = match ? match[1] : null;
+                const conceptText = match ? match[2] : concept.title;
+                const button = document.createElement('button');
+                button.classList.add('concept-button');
+                button.dataset.conceptIndex = concept.index.toString();
+                const label = document.createElement('span');
+                label.textContent = conceptText;
+                label.classList.add('concept-label-text');
+                const prefixSpan = document.createElement('span');
+                prefixSpan.textContent = conceptNumber ? `Concept ${conceptNumber}:` : 'Concept:';
+                prefixSpan.classList.add('concept-label-prefix');
+                button.appendChild(prefixSpan);
+                button.appendChild(label);
+                button.setAttribute('aria-label', `Select Concept ${conceptNumber ?? ''} ${conceptText}`.trim());
+                button.addEventListener('click', () => {
+                    logger.debug('[CONCEPT_SELECT] Concept button clicked UI', { moduleId: payload.moduleId, conceptIndex: concept.index });
+                    if (typeof (window as any).handleConceptSelection === 'function') {
+                        (window as any).handleConceptSelection(payload.moduleId, concept.index);
+                    }
+                });
+                conceptContainer.appendChild(button);
+            });
+
+            messageText.appendChild(conceptContainer);
+            streamingMessagesRawText.set(message.id, message.text);
         } else if (message.sender === 'sensei' && message.phaseSelectionEnabled) {
             // Handle phase selection display
             const phases = [
@@ -3281,8 +3353,40 @@ let meditationHoverState = {
     isOverBrand: false,
     isOverOverlay: false,
     hoverTimeout: null as number | null,
-    showAllChunks: false // Toggle between single chunk and all chunks view
+    showAllChunks: false,
+    isPinned: false
 };
+
+let meditationOverlayOutsideClickHandler: ((event: MouseEvent) => void) | null = null;
+
+function enableMeditationOverlayOutsideClose(): void {
+    if (meditationOverlayOutsideClickHandler) {
+        return;
+    }
+    meditationOverlayOutsideClickHandler = event => {
+        const overlayElement = meditationOverlay;
+        const target = event.target as Node | null;
+        if (!overlayElement) {
+            return;
+        }
+        if (target && (overlayElement.contains(target) || statusSegment?.contains(target))) {
+            return;
+        }
+        meditationHoverState.isPinned = false;
+        meditationHoverState.showAllChunks = false;
+        disableMeditationOverlayOutsideClose();
+        updateSenseiMeditationOverlay(null, false);
+    };
+    document.addEventListener('click', meditationOverlayOutsideClickHandler);
+}
+
+function disableMeditationOverlayOutsideClose(): void {
+    if (!meditationOverlayOutsideClickHandler) {
+        return;
+    }
+    document.removeEventListener('click', meditationOverlayOutsideClickHandler);
+    meditationOverlayOutsideClickHandler = null;
+}
 
 function setupBrandHoverMeditationOverlay(): void {
     if (!brandSegment) {
@@ -3305,11 +3409,14 @@ function setupBrandHoverMeditationOverlay(): void {
 
     brandSegment.addEventListener('mouseleave', () => {
         meditationHoverState.isOverBrand = false;
+        if (meditationHoverState.isPinned) {
+            return;
+        }
         // Check if we should hide (only if not over overlay)
         if (!meditationHoverState.isOverOverlay) {
             meditationHoverState.hoverTimeout = window.setTimeout(() => {
                 // Double check before hiding - maybe mouse made it to overlay
-                if (!meditationHoverState.isOverOverlay) {
+                if (!meditationHoverState.isOverOverlay && !meditationHoverState.isPinned) {
                     updateSenseiMeditationOverlay(null, false);
                 }
                 meditationHoverState.hoverTimeout = null;
@@ -3339,7 +3446,13 @@ function setupStatusClickMeditationOverlay(): void {
         if (!curriculumState || !curriculumState.teachingPlanForPhase || curriculumState.currentTeachingChunkIndex === undefined) {
             return;
         }
+        if (meditationHoverState.hoverTimeout) {
+            clearTimeout(meditationHoverState.hoverTimeout);
+            meditationHoverState.hoverTimeout = null;
+        }
         meditationHoverState.showAllChunks = true;
+        meditationHoverState.isPinned = true;
+        enableMeditationOverlayOutsideClose();
         updateSenseiMeditationOverlay(curriculumState, true);
     });
 }

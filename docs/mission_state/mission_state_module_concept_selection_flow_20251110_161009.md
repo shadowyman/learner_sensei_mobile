@@ -48,6 +48,12 @@
 - `geminiService.llmExtractAndPlanTeachingOrder` invocation inputs (module metadata should match selected concept).
 - Integration smoke: module selection → Teaching → concept selection → ensures `updateCurriculumDisplay` shows chosen concept.
 
+## Implementation Checkpoint (2025-11-10)
+- Module selection flow now introduces `pendingPhaseSelection` and explicit concept-selection helpers, including `[CONCEPT_SELECT]` telemetry for bubble render, user choice, jump, and serialization.
+- `displayMessage` and `saveloadProgressManager` understand `conceptSelectionPayload`, rendering buttons with complementary styles and preserving them through restore.
+- `jumpToPhase` accepts `{ targetConceptIndex }`, enabling Intro phases to begin on any concept without extra navigation hops.
+- Jest suites updated (`moduleSelectionHandler.test.ts`, `moduleSelectionHandler.enhancer.test.ts`) to cover the concept selector + planner override path using mocked AI planners.
+
 ## Unknowns Register
 | Unknown | Impact | Verification Plan | Owner | Target |
 | --- | --- | --- | --- | --- |

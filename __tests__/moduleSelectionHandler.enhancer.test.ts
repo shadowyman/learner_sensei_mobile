@@ -44,9 +44,23 @@ jest.mock('../src/notepad', () => ({
 const mockedStreamModuleIntro = streamModuleIntroduction as jest.Mock
 const mockedDisplayMessage = displayMessage as jest.Mock
 
+const createMockAI = () => ({
+  models: {
+    generateContent: jest.fn().mockResolvedValue({ response: { text: () => 'ok' } })
+  },
+  chats: {
+    create: jest.fn().mockReturnValue({
+      sendMessage: jest.fn().mockResolvedValue({ text: 'Key takeaway ready.' })
+    })
+  }
+})
+
 function buildHandler(overrides: Partial<any> = {}) {
   const state = {
     pendingModuleSelection: 0,
+    pendingPhaseSelection: null,
+    pendingConceptSelectionIndex: null,
+    pendingConceptSelectionBubbleId: null,
     currentMessageId: 0,
     lastSenseiResponses: [],
     userInputHistory: [],
@@ -59,6 +73,7 @@ function buildHandler(overrides: Partial<any> = {}) {
     curriculum: {
       modules: [
         {
+          id: 'Module1',
           title: 'Module A',
           goal: 'Goal',
           concepts: [
@@ -77,7 +92,7 @@ function buildHandler(overrides: Partial<any> = {}) {
     },
     currentActiveConceptIndex: 0,
     mainSenseiChat: {},
-    ai: { chats: { create: jest.fn().mockReturnValue({ sendMessage: jest.fn().mockResolvedValue({ text: 'Key takeaway ready.' }) }) } },
+    ai: createMockAI(),
     pendingWrapUpAssessment: null,
     pendingWrapUpAssessmentFailed: false
   }
@@ -94,6 +109,7 @@ describe('ModuleSelectionHandler key takeaway enhancer', () => {
   test('arms enhancer for module intro turns', async () => {
     const handler = buildHandler()
     await handler.handlePhaseSelection('IntroIllustrate')
+    await handler.handleConceptSelection('Module1', 0)
     const call = mockedStreamModuleIntro.mock.calls[mockedStreamModuleIntro.mock.calls.length - 1]
     const options = call[4]
     expect(options?.enhancerController).toBeTruthy()

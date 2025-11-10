@@ -14,7 +14,7 @@ import {
     validateSerializedData
 } from './saveloadSerialization';
 import { logger } from './logger';
-import { CurriculumState, Curriculum, getCurrentCurriculumItem } from './curriculum';
+import { CurriculumState, Curriculum, getCurrentCurriculumItem, Phase } from './curriculum';
 import { LearnerModel } from './adaptiveEngine';
 import { displayMessage } from './ui';
 import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG } from './model_usage';
@@ -44,6 +44,9 @@ interface SessionData {
         chronologicallyLastLLMSenseiMessageId: string | null;
         userInputHistory: string[];
         pendingModuleSelection: number | null;
+        pendingPhaseSelection: Phase | null;
+        pendingConceptSelectionIndex: number | null;
+        pendingConceptSelectionBubbleId: string | null;
         autoResizeEnabled: boolean;
     };
     chatSession: {
@@ -191,6 +194,9 @@ export class SaveLoadProgressManager {
                 chronologicallyLastLLMSenseiMessageId: w.chronologicallyLastLLMSenseiMessageId,
                 userInputHistory: w.userInputHistory || [],
                 pendingModuleSelection: w.pendingModuleSelection,
+                pendingPhaseSelection: w.pendingPhaseSelection ?? null,
+                pendingConceptSelectionIndex: w.pendingConceptSelectionIndex ?? null,
+                pendingConceptSelectionBubbleId: w.pendingConceptSelectionBubbleId ?? null,
                 autoResizeEnabled: w.autoResizeEnabled ?? true
             },
             chatSession: {
@@ -231,6 +237,9 @@ export class SaveLoadProgressManager {
         w.chronologicallyLastLLMSenseiMessageId = session.applicationState.chronologicallyLastLLMSenseiMessageId;
         w.userInputHistory = session.applicationState.userInputHistory;
         w.pendingModuleSelection = session.applicationState.pendingModuleSelection;
+        w.pendingPhaseSelection = session.applicationState.pendingPhaseSelection;
+        w.pendingConceptSelectionIndex = session.applicationState.pendingConceptSelectionIndex;
+        w.pendingConceptSelectionBubbleId = session.applicationState.pendingConceptSelectionBubbleId;
         w.autoResizeEnabled = session.applicationState.autoResizeEnabled;
         
         await this.recreateChatSession(session.chatSession);
@@ -407,6 +416,16 @@ export class SaveLoadProgressManager {
         const messageElements = document.querySelectorAll('.message-bubble:not(#response-modal-sensei-bubble)');
 
         messageElements.forEach((element: any) => {
+            let conceptSelectionPayload: any = null;
+            const conceptContainer = element.querySelector('.concept-selection-buttons');
+            const payloadText = conceptContainer?.dataset?.conceptPayload;
+            if (payloadText) {
+                try {
+                    conceptSelectionPayload = JSON.parse(payloadText);
+                } catch (error) {
+                    conceptSelectionPayload = null;
+                }
+            }
             messages.push({
                 id: element.id,
                 className: element.className,
@@ -415,7 +434,8 @@ export class SaveLoadProgressManager {
                 htmlContent: element.querySelector('.message-text')?.innerHTML || '',
                 timestamp: element.dataset.timestamp,
                 isReloadable: element.classList.contains('reloadable'),
-                phaseSelectionEnabled: element.querySelector('.phase-selection-buttons') !== null
+                phaseSelectionEnabled: element.querySelector('.phase-selection-buttons') !== null,
+                conceptSelectionPayload
             });
         });
         
@@ -500,7 +520,8 @@ export class SaveLoadProgressManager {
                         isReloadable: msg.isReloadable || false,
                         phaseSelectionEnabled: msg.phaseSelectionEnabled || false,
                         selectedModuleIndex: msg.selectedModuleIndex,
-                        skipMermaid: false
+                        skipMermaid: false,
+                        conceptSelectionPayload: msg.conceptSelectionPayload
                     };
                     
                     await displayMessageFunc(message);
@@ -558,7 +579,8 @@ export class SaveLoadProgressManager {
                     isReloadable: msg.isReloadable || false,
                     phaseSelectionEnabled: msg.phaseSelectionEnabled || false,
                     selectedModuleIndex: msg.selectedModuleIndex,
-                    skipMermaid: false  // We'll process mermaid after all messages are restored
+                    skipMermaid: false,  // We'll process mermaid after all messages are restored
+                    conceptSelectionPayload: msg.conceptSelectionPayload
                 };
                 
                 // Use the proper display function to render the message
@@ -623,7 +645,11 @@ export class SaveLoadProgressManager {
 
         try {
             handler.updateState({
-                lastSenseiResponses: Array.isArray(w.lastSenseiResponses) ? [...w.lastSenseiResponses] : []
+                lastSenseiResponses: Array.isArray(w.lastSenseiResponses) ? [...w.lastSenseiResponses] : [],
+                pendingModuleSelection: w.pendingModuleSelection,
+                pendingPhaseSelection: w.pendingPhaseSelection ?? null,
+                pendingConceptSelectionIndex: w.pendingConceptSelectionIndex ?? null,
+                pendingConceptSelectionBubbleId: w.pendingConceptSelectionBubbleId ?? null
             });
         } catch (error) {
             logger.warn('[SAVELOAD] Unable to sync module selection handler state', { error });

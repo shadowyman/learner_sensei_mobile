@@ -720,7 +720,8 @@ export async function jumpToPhase(
     curriculumData: Curriculum,
     moduleIndex: number,
     targetPhase: Phase,
-    llmPlanner: LLMTeachingPlanGenerator
+    llmPlanner: LLMTeachingPlanGenerator,
+    options: { targetConceptIndex?: number } = {}
 ): Promise<CurriculumState | null> {
     
     if (!curriculumData || curriculumData.modules.length === 0 || moduleIndex < 0 || moduleIndex >= curriculumData.modules.length) {
@@ -744,6 +745,7 @@ export async function jumpToPhase(
     
     // Determine initial state based on target phase
     let conceptIndex = 0;
+    const targetConceptIndex = options.targetConceptIndex;
     let isModuleWidePhase = MODULE_PEDAGOGICAL_PHASES.includes(targetPhase);
     
     if (isModuleWidePhase) {
@@ -764,6 +766,16 @@ export async function jumpToPhase(
     };
 
     if (!isModuleWidePhase) {
+        if (typeof targetConceptIndex === 'number') {
+            conceptIndex = targetConceptIndex;
+        }
+        if (conceptIndex < 0 || conceptIndex >= module.concepts.length) {
+            logger.warn('[CONCEPT_SELECT] Invalid concept index during phase jump.', {
+                moduleId: module.id,
+                conceptIndex
+            });
+            return null;
+        }
         const concept = module.concepts[conceptIndex];
         if (!concept) {
             logger.warn('[PHASE_JUMP_FAILURE] Concept index out of bounds during phase jump.', {
