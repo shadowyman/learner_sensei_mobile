@@ -5,6 +5,12 @@ const brandLogo = require('../../assets/brand.png');
 
 const SEGMENT_BACKGROUND = 'rgba(6,19,29,0.7)';
 const SEGMENT_BORDER = 'rgba(255,255,255,0.04)';
+const HEADER_AUTO_CLOSE_MS = 3500;
+const THRESHOLD_FRACTION = 0.70;
+const EXPAND_DURATION_MS = 1000;
+const COLLAPSE_DURATION_MS = 500;
+const FADE_IN_DURATION_MS = 1000;
+const FADE_OUT_DURATION_MS = 700;
 
 interface SenseiHeaderProps {
     statusText: string;
@@ -46,7 +52,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         if (!controlsExpanded) {
             return;
         }
-        const timer = setTimeout(() => setControlsExpanded(false), 3500);
+        const timer = setTimeout(() => setControlsExpanded(false), HEADER_AUTO_CLOSE_MS);
         return () => clearTimeout(timer);
     }, [controlsExpanded]);
 
@@ -57,7 +63,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
             setShowEllipsis(false);
             controlsOpacity.setValue(0);
             ellipsisOpacity.setValue(0);
-            const threshold = EXPANDED_WIDTH * 0.70;
+            const threshold = EXPANDED_WIDTH * THRESHOLD_FRACTION;
             let revealed = false;
             listenerId = widthAnim.addListener(({ value }) => {
                 if (!revealed && value >= threshold) {
@@ -65,7 +71,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     setShowControls(true);
                     Animated.timing(controlsOpacity, {
                         toValue: 1,
-                        duration: 1000,
+                        duration: FADE_IN_DURATION_MS,
                         easing: Easing.out(Easing.cubic),
                         useNativeDriver: true
                     }).start();
@@ -73,7 +79,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
             });
             Animated.timing(widthAnim, {
                 toValue: EXPANDED_WIDTH,
-                duration: 1000,
+                duration: EXPAND_DURATION_MS,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: false
             }).start();
@@ -81,7 +87,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
             setShowEllipsis(false);
             Animated.timing(controlsOpacity, {
                 toValue: 0,
-                duration: 700,
+                duration: FADE_OUT_DURATION_MS,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: true
             }).start(() => {
@@ -90,7 +96,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                 setShowEllipsis(true);
                 Animated.timing(widthAnim, {
                     toValue: ELLIPSIS_WIDTH,
-                    duration: 500,
+                    duration: COLLAPSE_DURATION_MS,
                     easing: Easing.out(Easing.cubic),
                     useNativeDriver: false
                 }).start();
