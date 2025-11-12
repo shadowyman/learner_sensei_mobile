@@ -37,7 +37,10 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
 }) => {
     const [controlsExpanded, setControlsExpanded] = useState(false);
     const [showControls, setShowControls] = useState(false);
+    const [showEllipsis, setShowEllipsis] = useState(true);
     const widthAnim = useRef(new Animated.Value(ELLIPSIS_WIDTH)).current;
+    const controlsOpacity = useRef(new Animated.Value(0)).current;
+    const ellipsisOpacity = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         if (!controlsExpanded) {
@@ -51,30 +54,47 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         let listenerId: string | null = null;
         if (controlsExpanded) {
             setShowControls(false);
+            setShowEllipsis(false);
+            controlsOpacity.setValue(0);
+            ellipsisOpacity.setValue(0);
             const threshold = EXPANDED_WIDTH * 0.70;
             let revealed = false;
             listenerId = widthAnim.addListener(({ value }) => {
                 if (!revealed && value >= threshold) {
                     revealed = true;
                     setShowControls(true);
+                    Animated.timing(controlsOpacity, {
+                        toValue: 1,
+                        duration: 1000,
+                        easing: Easing.out(Easing.cubic),
+                        useNativeDriver: true
+                    }).start();
                 }
             });
             Animated.timing(widthAnim, {
                 toValue: EXPANDED_WIDTH,
-                duration: 260,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: false
-            }).start(({ finished }) => {
-                if (finished && !revealed) setShowControls(true);
-            });
-        } else {
-            setShowControls(false);
-            Animated.timing(widthAnim, {
-                toValue: ELLIPSIS_WIDTH,
-                duration: 220,
+                duration: 1000,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: false
             }).start();
+        } else {
+            setShowEllipsis(false);
+            Animated.timing(controlsOpacity, {
+                toValue: 0,
+                duration: 700,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true
+            }).start(() => {
+                setShowControls(false);
+                ellipsisOpacity.setValue(1);
+                setShowEllipsis(true);
+                Animated.timing(widthAnim, {
+                    toValue: ELLIPSIS_WIDTH,
+                    duration: 500,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: false
+                }).start();
+            });
         }
         return () => {
             if (listenerId) {
@@ -127,9 +147,12 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     onChunk={onChunkNext}
                 />
             </View>
-            <Animated.View style={[styles.controlsSegment, { width: widthAnim }]}>
-                {showControls ? (
-                    <View style={styles.controlsExpandedShell}>
+            <Animated.View style={[styles.controlsSegment, { width: widthAnim }]}> 
+                {showControls && (
+                    <Animated.View
+                        style={[styles.controlsExpandedShell, { opacity: controlsOpacity }]} 
+                        pointerEvents={showControls ? 'auto' : 'none'}
+                    >
                         {renderControlRows(
                             onToggleFontSize,
                             onToggleTheme,
@@ -139,17 +162,20 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                             onSave,
                             onLoad
                         )}
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        style={styles.ellipsisButton}
-                        onPress={() => setControlsExpanded(true)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Show header controls"
-                    >
-                        <Text style={styles.ellipsisText}>···</Text>
-                        <Text style={styles.plusIcon}>＋</Text>
-                    </TouchableOpacity>
+                    </Animated.View>
+                )}
+                {showEllipsis && (
+                    <Animated.View style={{ opacity: ellipsisOpacity }} pointerEvents={showEllipsis ? 'auto' : 'none'}>
+                        <TouchableOpacity
+                            style={styles.ellipsisButton}
+                            onPress={() => setControlsExpanded(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Show header controls"
+                        >
+                            <Text style={styles.ellipsisText}>···</Text>
+                            <Text style={styles.plusIcon}>＋</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
                 )}
             </Animated.View>
         </View>
