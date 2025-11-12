@@ -4,6 +4,7 @@
  */
 
 import { logger } from './logger';
+import { sendToNative } from './mobile/webviewBridge';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
@@ -70,6 +71,21 @@ const TOOLBAR_ACTIONS = [
     { label: 'Add to Notepad', actionType: 'addToNotepad' },
 ];
 
+const BRIDGE_ACTION_LABELS: Record<string, string> = {
+    explainSimpler: 'Simpler',
+    explainWithAnalogy: 'Analogy',
+    explainInMoreDepth: 'Depth',
+    showAnExample: 'Example',
+    showExampleCodeSnippet: 'Code',
+    askQuestion: 'Ask',
+    addToNotepad: 'Add to Notepad'
+};
+
+interface BridgeInvokeExtras {
+    actionLabel?: string;
+    userQuestion?: string;
+}
+
 class SelectionSensei {
     private selectionToolbarElement: HTMLDivElement | null = null;
     private responseModal: HTMLDivElement | null = null;
@@ -106,6 +122,50 @@ class SelectionSensei {
     private offsetX = 0;
     private offsetY = 0;
     private boundOutsidePointerHandler: (event: PointerEvent) => void;
+    private lastSelectionSnapshot: { text: string; context: string } | null = null;
+
+    private async copySelectionText(text: string): Promise<void> {
+        try {
+            if (navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+                logger.info('[MOBILE_PORT_SELECTION] copy success');
+                return;
+            }
+        } catch (error) {
+            logger.warn('[MOBILE_PORT_SELECTION] copy failed via clipboard API', { error: (error as Error).message });
+        }
+        if (typeof document === 'undefined') {
+            return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            logger.info('[MOBILE_PORT_SELECTION] copy success', { fallback: true });
+        } catch (error) {
+            logger.error('[MOBILE_PORT_SELECTION] copy fallback failed', { error: (error as Error).message });
+        } finally {
+            document.body.removeChild(textarea);
+        }
+    }
+
+    private async shareSelectionText(text: string): Promise<void> {
+        try {
+            if (navigator?.share) {
+                await navigator.share({ text, title: 'Recursive Sensei Selection' });
+                logger.info('[MOBILE_PORT_SELECTION] share success');
+                return;
+            }
+        } catch (error) {
+            logger.warn('[MOBILE_PORT_SELECTION] share via navigator failed', { error: (error as Error).message });
+        }
+        await this.copySelectionText(text);
+    }
 
     constructor(
         private ai: GoogleGenAI,
@@ -648,6 +708,11 @@ class SelectionSensei {
             : null;
         if (senseiMessageTextElement) {
             const originalSenseiMessageText = senseiMessageTextElement.textContent || '';
+            this.lastSelectionSnapshot = { text: selectedText, context: originalSenseiMessageText };
+            if (this.isNativeBridgeActive()) {
+                this.sendSelectionToNative(selection, selectedText);
+                return true;
+            }
             this.createAndShowSelectionToolbar(selection, originalSenseiMessageText);
             return true;
         }
@@ -658,6 +723,11 @@ class SelectionSensei {
         if (contextCarrier) {
             const contextText = contextCarrier.dataset.selectionSenseiContext;
             if (contextText && contextText.trim().length > 0) {
+                this.lastSelectionSnapshot = { text: selectedText, context: contextText };
+                if (this.isNativeBridgeActive()) {
+                    this.sendSelectionToNative(selection, selectedText);
+                    return true;
+                }
                 this.createAndShowSelectionToolbar(selection, contextText);
                 return true;
             }
@@ -1148,7 +1218,71 @@ class SelectionSensei {
             this.selectionToolbarElement = null;
             this.askInputContainer = null; // Reset the container
         }
+        if (this.isNativeBridgeActive()) {
+            sendToNative({ type: 'selection:clear' });
+        }
         this.isAskModeActive = false; // Add this line
+    }
+
+    private isNativeBridgeActive(): boolean {
+        return typeof (window as any)?.ReactNativeWebView?.postMessage === 'function';
+    }
+
+    private sendSelectionToNative(selection: Selection, selectedText: string): void {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        sendToNative({
+            type: 'selection',
+            phase: 'start',
+            text: selectedText,
+            rect: {
+                x: rect.left + window.scrollX,
+                y: rect.top + window.scrollY,
+                width: rect.width,
+                height: rect.height
+            },
+            viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                scrollY: window.scrollY,
+                devicePixelRatio: window.devicePixelRatio ?? 1
+            }
+        });
+    }
+
+    public handleBridgeInvoke(actionId: string, extras?: BridgeInvokeExtras): void {
+        if (!this.lastSelectionSnapshot) {
+            return;
+        }
+        logger.info('[MOBILE_PORT_SELECTION] web invoke', {
+            actionId,
+            fromBridge: true,
+            hasQuestion: !!extras?.userQuestion
+        });
+        const { text, context } = this.lastSelectionSnapshot;
+        if (actionId === 'copy') {
+            void this.copySelectionText(text);
+            return;
+        }
+        if (actionId === 'share') {
+            void this.shareSelectionText(text);
+            return;
+        }
+        if (actionId === 'addToNotepad') {
+            this.handleAddToNotepad(text);
+            return;
+        }
+        if (actionId === 'askQuestion') {
+            if (!extras?.userQuestion) {
+                logger.warn('[MOBILE_PORT_SELECTION] missing question payload', { actionId });
+                return;
+            }
+            void this.handleToolbarAction(text, 'askQuestion', context, extras.actionLabel ?? BRIDGE_ACTION_LABELS[actionId] ?? 'Ask', extras.userQuestion);
+            return;
+        }
+        if (BRIDGE_ACTION_LABELS[actionId]) {
+            void this.handleToolbarAction(text, actionId, context, extras?.actionLabel ?? BRIDGE_ACTION_LABELS[actionId]);
+        }
     }
 
     private activateAskMode(selectedText: string, originalSenseiMessageText: string, actionLabel: string): void {
@@ -1695,4 +1829,8 @@ export function reinitializeSelectionSensei(
         logSelectionSenseiValidation('reinitialized', { messageAreaFound: true });
         initializeSelectionSensei(ai, messageArea);
     }
+}
+
+export function invokeSelectionSenseiBridgeAction(actionId: string, extras?: BridgeInvokeExtras): void {
+    currentSelectionSenseiInstance?.handleBridgeInvoke(actionId, extras);
 }

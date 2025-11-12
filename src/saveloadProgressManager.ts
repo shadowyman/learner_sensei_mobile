@@ -84,21 +84,7 @@ export class SaveLoadProgressManager {
                 await this.waitForStreamingCompletion();
             }
             
-            const sessionData = this.collectSessionData();
-            
-            const validation = validateSerializedData(sessionData);
-            if (!validation.isValid) {
-                throw new Error(`State validation failed: ${validation.errors.join(', ')}`);
-            }
-            
-            const saveFile = {
-                version: this.SAVE_VERSION,
-                timestamp: new Date().toISOString(),
-                metadata: this.generateMetadata(sessionData),
-                session: sessionData
-            };
-            
-            const jsonString = JSON.stringify(saveFile, serializeForSave, 2);
+            const jsonString = await this.exportSessionAsJson();
             
             try {
                 const isoString = new Date().toISOString();
@@ -120,6 +106,27 @@ export class SaveLoadProgressManager {
             throw error;
         }
     }
+
+    static async exportSessionAsJson(): Promise<string> {
+        if (this.hasActiveStreamingMessages()) {
+            await this.waitForStreamingCompletion();
+        }
+
+        const sessionData = this.collectSessionData();
+        const validation = validateSerializedData(sessionData);
+        if (!validation.isValid) {
+            throw new Error(`State validation failed: ${validation.errors.join(', ')}`);
+        }
+
+        const saveFile = {
+            version: this.SAVE_VERSION,
+            timestamp: new Date().toISOString(),
+            metadata: this.generateMetadata(sessionData),
+            session: sessionData
+        };
+
+        return JSON.stringify(saveFile, serializeForSave, 2);
+    }
     
     /**
      * Main load function - reads file and restores all state
@@ -130,14 +137,7 @@ export class SaveLoadProgressManager {
             
             const jsonString = await this.readFile(file);
             
-            const saveFile = JSON.parse(jsonString, deserializeFromSave);
-            
-            const compatibility = this.checkCompatibility(saveFile);
-            if (!compatibility.isCompatible) {
-                throw new Error(`Incompatible save file: ${compatibility.reason}`);
-            }
-            
-            await this.restoreSessionData(saveFile.session);
+            await this.restoreFromSerializedJson(jsonString);
 
             // Re-initialize SelectionSensei after DOM has been rebuilt
             // Add a small delay to ensure DOM is fully settled
@@ -164,6 +164,15 @@ export class SaveLoadProgressManager {
         } finally {
             this.isRestoring = false;
         }
+    }
+
+    static async restoreFromSerializedJson(jsonString: string): Promise<void> {
+        const saveFile = JSON.parse(jsonString, deserializeFromSave);
+        const compatibility = this.checkCompatibility(saveFile);
+        if (!compatibility.isCompatible) {
+            throw new Error(`Incompatible save file: ${compatibility.reason}`);
+        }
+        await this.restoreSessionData(saveFile.session);
     }
     
     /**

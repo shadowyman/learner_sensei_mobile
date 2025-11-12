@@ -5,6 +5,7 @@
  */
 
 import { logger, DEBUG_FLAGS } from './logger';
+import { sendToNative } from './mobile/webviewBridge';
 import { resetEnhancementState } from './enhancementManager';
 import type { EnhancementHighlight, RenderMarkdownOptions } from './enhancementManager';
 import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
@@ -1134,6 +1135,7 @@ export function updateFooter(learnerModel: LearnerModel) {
         footerIntentValue.className = 'status-value intent-value';
         lastFooterState.intent = newState.intent;
     }
+    sendToNative({ type: 'footer:update', payload: newState });
 }
 
 export function updateSenseiMeditationOverlay(
@@ -2403,6 +2405,12 @@ export async function updateMessageStream(messageId: string, fullTextSoFar: stri
                 messageTextElement.innerHTML = '';
             }
             streamingMessagesRawText.set(messageId, fullTextSoFar);
+            sendToNative({
+                type: 'render:progress',
+                messageId,
+                chars: fullTextSoFar.length,
+                elapsedMs: 0
+            });
 
             const fullySanitized = sanitizeMarkdownFences(fullTextSoFar);
             const parts = fullySanitized.split(/(```[\s\S]*?```)/g);

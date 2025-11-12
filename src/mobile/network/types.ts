@@ -1,0 +1,47 @@
+export interface SubmitTurnPayload {
+    text: string;
+    clientTurnId: string;
+    selectionContext?: Record<string, unknown>;
+}
+
+export interface StreamChunk {
+    type: 'chunk';
+    text: string;
+}
+
+export interface StreamStatus {
+    type: 'status';
+    phase: 'started' | 'keepalive' | 'completed';
+    footer?: Record<string, unknown>;
+}
+
+export interface StreamError {
+    type: 'error';
+    code: string;
+    message: string;
+}
+
+export interface TurnStreamHandle {
+    messageId: string;
+    stream: AsyncIterable<StreamChunk | StreamStatus | StreamError>;
+}
+
+export interface MermaidRecoveryPayload {
+    messageId: string;
+    code: string;
+    theme?: string;
+    errorHash?: string;
+    context?: Record<string, unknown>;
+}
+
+export interface MermaidRecoveryResult {
+    fixed: boolean;
+    fixedCode?: string;
+}
+
+export interface BffClientLike {
+    ensureSession(): Promise<void>;
+    submitTurn(payload: SubmitTurnPayload): Promise<TurnStreamHandle>;
+    reconnectIfNeeded(): Promise<void>;
+    recoverMermaid(payload: MermaidRecoveryPayload): Promise<MermaidRecoveryResult>;
+}

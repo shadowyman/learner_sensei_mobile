@@ -110,6 +110,9 @@ import {
     updateMessageStream
 } from './ui';
 import { SaveLoadProgressManager } from './saveloadProgressManager';
+import { initializeWebviewBridge, sendToNative } from './mobile/webviewBridge';
+import type { RNToWebMessage } from './mobile/bridge/contracts';
+import { invokeSelectionSenseiBridgeAction } from './selectionSensei';
 import { ChatWindowController } from './chatWindowController';
 import {
     llmExtractAndPlanTeachingOrder, 
@@ -155,6 +158,11 @@ const debug = false;
 const inputArea = document.getElementById('input-area') as HTMLFormElement;
 const userInputElement = document.getElementById('user-input') as HTMLTextAreaElement;
 const debugModeButton = document.getElementById('debug-mode-button') as HTMLButtonElement;
+
+const SENDER_DISPLAY_NAMES: Record<'user' | 'sensei', string> = {
+    user: 'You',
+    sensei: 'Recursive Sensei'
+};
 
 
 const isLocal = window.location.hostname === 'localhost';
@@ -1725,6 +1733,97 @@ if (typeof window !== 'undefined') {
     
     // Expose concept index getter for notepad
     (window as any).getCurrentActiveConceptIndex = () => currentActiveConceptIndex;
+
+    initializeWebviewBridge(handleReactNativeMessage);
+}
+
+async function handleReactNativeMessage(message: RNToWebMessage): Promise<void> {
+    logger.info('[MOBILE_PORT] webview bridge', { direction: 'to-web', type: message.type });
+    switch (message.type) {
+        case 'saveload:export': {
+            try {
+                const json = await SaveLoadProgressManager.exportSessionAsJson();
+                sendToNative({ type: 'saveload:exportResult', requestId: message.requestId, success: true, json });
+            } catch (error) {
+                logger.error('[MOBILE_PORT] webview bridge export error', { error });
+                sendToNative({ type: 'saveload:exportResult', requestId: message.requestId, success: false, error: (error as Error).message });
+            }
+            break;
+        }
+        case 'saveload:import': {
+            try {
+                await SaveLoadProgressManager.restoreFromSerializedJson(message.json);
+                sendToNative({ type: 'saveload:importResult', requestId: message.requestId, success: true });
+            } catch (error) {
+                sendToNative({ type: 'saveload:importResult', requestId: message.requestId, success: false, error: (error as Error).message } as any);
+            }
+            break;
+        }
+        case 'chat:startMessage': {
+            const sender = message.sender;
+            const startPayload: Message = {
+                id: message.messageId,
+                sender,
+                displayName: SENDER_DISPLAY_NAMES[sender],
+                text: message.text ?? '',
+                timestamp: new Date(),
+                isLoading: sender === 'sensei' && !message.text,
+                isReloadable: Boolean(message.reloadable),
+                skipMermaid: true
+            };
+            await displayMessage(startPayload);
+            streamingMessagesRawText.set(message.messageId, message.text ?? '');
+            if (message.text) {
+                await processMermaidBlocks(message.messageId);
+            }
+            break;
+        }
+        case 'chat:update': {
+            const previous = streamingMessagesRawText.get(message.messageId) ?? '';
+            const next = previous + message.text;
+            streamingMessagesRawText.set(message.messageId, next);
+            await updateMessageStream(message.messageId, next);
+            break;
+        }
+        case 'chat:completeMessage': {
+            const bubble = document.getElementById(message.messageId);
+            const senderAttr: 'user' | 'sensei' = bubble?.dataset.sender === 'user' ? 'user' : 'sensei';
+            const finalText = streamingMessagesRawText.get(message.messageId) ?? '';
+            await displayMessage({
+                id: message.messageId,
+                sender: senderAttr,
+                displayName: SENDER_DISPLAY_NAMES[senderAttr],
+                text: finalText,
+                timestamp: new Date(),
+                isLoading: false,
+                isReloadable: senderAttr === 'sensei',
+                skipMermaid: true
+            });
+            await processMermaidBlocks(message.messageId);
+            break;
+        }
+        case 'wrapup:show': {
+            showWrapUpAssessmentOverlay(message.data);
+            break;
+        }
+        case 'footer:update': {
+            updateFooter(message.payload);
+            break;
+        }
+        case 'selectionSensei:invoke': {
+            invokeSelectionSenseiBridgeAction(message.actionId, {
+                actionLabel: message.actionLabel,
+                userQuestion: message.userQuestion
+            });
+            break;
+        }
+        case 'telemetry:configure': {
+            (window as any).__telemetryEnabled = message.enabled;
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 // Add celebration keyframe animation

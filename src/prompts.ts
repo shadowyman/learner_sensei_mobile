@@ -1083,7 +1083,7 @@ Strict boundaries to prevent repetition of earlier sections:
 - Do NOT add another exemplar that duplicates earlier walkthroughs. If you include code, it must illuminate a nuance not previously covered (e.g., a defensive precondition guard, a minimal test harness, or an instrumentation probe), and you must justify why it exists and its trade-offs.
 - Do NOT re-define basic terms already defined in the drilldown. If a definition is indispensable, compress it to one sentence as an anchor, then immediately move to advanced content.
 
-Output requirements per teaching point (non-negotiable scaffolding):
+Output requirements per teaching point (non-negotiable scaffolding, you may combine two teaching points if combining them pedagogically makes more sense):
 1) Expert Anchor (1 sentence max): Name the essence only if needed to orient the reader.
 2) In-Depth Explanations of the Teaching Points: Imagine a textbook where teaching points were explained on the first page. You're now writing the 2,3,4,5,6,... pages of that textbook, include text that would go on those pages..
 3) Decision Heuristics & Trade-Offs: Provide senior-engineer "if X, prefer Y because …; avoid Z because …" rules. Contrast options with operational consequences (correctness, latency/memory, failure isolation, evolvability).

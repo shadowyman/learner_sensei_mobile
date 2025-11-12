@@ -41,6 +41,8 @@ const config = {
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   moduleNameMapper: {
+    '^react-native$': '<rootDir>/__mocks__/react-native.js',
+    '^react-native-webview$': '<rootDir>/__mocks__/react-native-webview.js',
     '^\\./interactionHelpers\\.js$': '<rootDir>/src/interactionHelpers.ts',
     '^\\./selectionSensei\\.js$': '<rootDir>/src/selectionSensei.ts',
     '^\\./ui\\.js$': '<rootDir>/src/ui.ts',
