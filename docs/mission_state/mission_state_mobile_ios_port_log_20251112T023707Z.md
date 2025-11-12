@@ -2,6 +2,7 @@
 
 ## Mission Overview
 - Objective: Deliver Phase 1 iOS mobile client achieving strict web parity, backed by Sensei Core + BFF per specs dated 2025-11-12.
+- Protocol Reference: See `AGENTS.md` for the governing directives and workflow requirements.
 - Protocol Stack: Core Analysis → Impact Analysis → Architectural Synthesis → Principle-Driven Implementation (+ RCI) with Flight Director Assurance overlays.
 - Guardrails: FDA Pre-Edit Triad, mission log updates, go/no-go gates, parity sentinel tests, anomaly stop cards, context refresh timers.
 

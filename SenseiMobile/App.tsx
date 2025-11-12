@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import type WebView from 'react-native-webview';
@@ -10,7 +10,7 @@ import { SaveLoadService } from './src/mobile/saveLoad/SaveLoadService';
 import { IOSFileAdapter } from './src/mobile/saveLoad/nativeFileAdapter';
 import { TelemetryManager } from './src/mobile/telemetry/TelemetryManager';
 
-const BFF_BASE_URL = 'https://your-bff.example.com';
+const BFF_BASE_URL = 'http://localhost:8787';
 
 const createMemoryStore = () => {
   const store = new Map<string, string>();
@@ -58,13 +58,67 @@ function App(): React.JSX.Element {
     return `file://${basePath}/app_web/webview_dist/index.html`;
   }, []);
 
+  // Fallback resolver for common bundle layouts
+  const [uriIndex, setUriIndex] = useState(0);
+  const candidates = useMemo(() => {
+    const basePath = RNFS.MainBundlePath ?? '';
+    return [
+      `file://${basePath}/app_web/webview_dist/index.html`,
+      `file://${basePath}/webview_dist/index.html`,
+      `file://${basePath}/index.html`
+    ];
+  }, []);
+  const activeUri = candidates[Math.min(uriIndex, candidates.length - 1)];
+  const readAccessBase = useMemo(() => {
+    const basePath = RNFS.MainBundlePath ?? '';
+    return `file://${basePath}`;
+  }, []);
+
+  // Development preflight: log existence of common bundle paths
+  useEffect(() => {
+    const basePath = RNFS.MainBundlePath ?? '';
+    const paths = [
+      `${basePath}/app_web/webview_dist/index.html`,
+      `${basePath}/app_web/webview_dist/index.js`,
+      `${basePath}/app_web/webview_dist/index.css`,
+      `${basePath}/webview_dist/index.html`,
+      `${basePath}/webview_dist/index.js`,
+      `${basePath}/webview_dist/index.css`,
+      `${basePath}/index.html`,
+      `${basePath}/index.js`,
+      `${basePath}/index.css`
+    ];
+    (async () => {
+      for (const p of paths) {
+        try {
+          // @ts-ignore RNFS.exists is available at runtime
+          const exists = await RNFS.exists(p);
+          if (exists && p.includes('app_web/webview_dist')) {
+            // eslint-disable-next-line no-console
+            console.info('Sensei(info) [MOBILE_PORT] webview preflight', { path: p, exists: true });
+            break;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    })();
+  }, []);
+
+  const handleWebViewError = useCallback(() => {
+    setUriIndex((i) => Math.min(i + 1, candidates.length));
+  }, [candidates.length]);
+
   return (
     <MainScreen
       bridge={bridge}
       bffClient={bffClient}
       saveLoadService={saveLoadService}
       telemetryManager={telemetryManager}
-      webContentUri={webContentUri}
+      webContentUri={uriIndex < candidates.length ? activeUri : undefined}
+      webContentHtml={uriIndex >= candidates.length ? '<!doctype html><html><body style="font-family:-apple-system;color:#e2e8f0;background:#0b0b0b;padding:16px"><h3>Web bundle not found</h3><p>Looked for:<br/>app_web/webview_dist/index.html<br/>webview_dist/index.html<br/>index.html</p><p>Confirm Xcode has a blue folder reference for <code>app_web</code> or adjust the path in App.tsx.</p></body></html>' : undefined}
+      onWebViewError={handleWebViewError}
+      allowingReadAccessToURL={readAccessBase}
       webViewRefOverride={webViewRef}
     />
   );

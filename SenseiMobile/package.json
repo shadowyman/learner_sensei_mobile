@@ -7,6 +7,7 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
+    "metro": "react-native start",
     "test": "jest"
   },
   "dependencies": {
@@ -25,6 +26,7 @@
     "@react-native-community/cli": "20.0.0",
     "@react-native-community/cli-platform-android": "20.0.0",
     "@react-native-community/cli-platform-ios": "20.0.0",
+    "@react-native-community/cli-plugin-metro": "^12.3.6",
     "@react-native/babel-preset": "0.82.1",
     "@react-native/eslint-config": "0.82.1",
     "@react-native/metro-config": "0.82.1",

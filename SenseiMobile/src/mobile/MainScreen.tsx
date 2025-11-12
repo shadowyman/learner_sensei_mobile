@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 
 import { logger } from '../logger';
@@ -26,9 +27,12 @@ interface MainScreenProps {
     bffClient: BffClientLike;
     saveLoadService: SaveLoadServiceLike;
     telemetryManager: TelemetryManagerLike;
-    webContentUri: string;
+    webContentUri?: string;
+    webContentHtml?: string;
     onWebViewEvent?: (message: WebToRNMessage) => void;
     webViewRefOverride?: React.RefObject<WebView | null>;
+    onWebViewError?: (info: { url?: string; code?: number; description?: string }) => void;
+    allowingReadAccessToURL?: string;
 }
 
 interface ForwardStreamOptions {
@@ -85,8 +89,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     saveLoadService,
     telemetryManager,
     webContentUri,
+    webContentHtml,
     onWebViewEvent,
-    webViewRefOverride
+    webViewRefOverride,
+    onWebViewError,
+    allowingReadAccessToURL
 }) => {
     const internalWebViewRef = useRef<WebView>(null);
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
@@ -97,7 +104,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const selectionControllerRef = useRef<SelectionOverlayController | null>(null);
     const [webViewFrame, setWebViewFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
-    const webViewSource = useMemo(() => ({ uri: webContentUri }), [webContentUri]);
+    const webViewSource = useMemo(() => {
+        if (webContentUri) return { uri: webContentUri } as const;
+        if (webContentHtml) return { html: webContentHtml } as const;
+        return { html: '<!doctype html><html><body style="font-family:-apple-system;color:#e2e8f0;background:#0b0b0b;padding:16px">No WebView source provided.</body></html>' } as const;
+    }, [webContentUri, webContentHtml]);
+
+    // Track success to avoid logging stale onError events after a successful load
+    const hasLoadedRef = useRef(false);
+    useEffect(() => { hasLoadedRef.current = false; }, [webContentUri, webContentHtml]);
+
+    const webviewKey = useMemo(() => (webContentUri ? `uri:${webContentUri}` : webContentHtml ? `html:${webContentHtml.length}` : 'empty'), [webContentUri, webContentHtml]);
 
     useEffect(() => {
         const initMessage: RNToWebMessage = {
@@ -161,12 +178,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.brand}>Recursive Sensei</Text>
-                <TouchableOpacity onPress={() => telemetryManager.toggle(!telemetryManager.isEnabled())}>
-                    <Text style={styles.buttonText}>{telemetryManager.isEnabled() ? 'Telemetry On' : 'Telemetry Off'}</Text>
-                </TouchableOpacity>
-            </View>
             <SelectionOverlay
                 state={selectionOverlay}
                 webViewFrame={webViewFrame}
@@ -174,10 +185,29 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onDismiss={() => selectionControllerRef.current?.dismiss()}
             />
             <WebView
+                key={webviewKey}
                 ref={webViewRef}
                 source={webViewSource}
                 originWhitelist={['file://*']}
                 onMessage={handleWebViewMessage}
+                allowingReadAccessToURL={allowingReadAccessToURL}
+                onLoad={() => {
+                    hasLoadedRef.current = true;
+                    logger.info('[MOBILE_PORT] webview load success');
+                }}
+                onHttpError={(e) => {
+                    const ne = e.nativeEvent as any;
+                    logger.warn('[MOBILE_PORT] webview http error', { url: ne?.url, statusCode: ne?.statusCode, description: ne?.description });
+                }}
+                onError={(e) => {
+                    const ne = e.nativeEvent as any;
+                    if (!hasLoadedRef.current) {
+                        logger.error('[MOBILE_PORT] webview load error', { url: ne?.url, code: ne?.code, description: ne?.description });
+                        onWebViewError?.({ url: ne?.url, code: ne?.code, description: ne?.description });
+                    } else {
+                        logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
+                    }
+                }}
                 onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
                 style={styles.webview}
             />
@@ -204,6 +234,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <TouchableOpacity onPress={handleImport} style={styles.secondaryButton}>
                         <Text style={styles.buttonText}>Load</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity onPress={() => telemetryManager.toggle(!telemetryManager.isEnabled())} style={styles.secondaryButton}>
+                        <Text style={styles.buttonText}>{telemetryManager.isEnabled() ? 'Telemetry On' : 'Telemetry Off'}</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
         </SafeAreaView>
@@ -214,18 +247,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#050505'
-    },
-    header: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-    },
-    brand: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600'
     },
     webview: {
         flex: 1
