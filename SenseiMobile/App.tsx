@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StatusBar } from 'react-native';
 import RNFS from 'react-native-fs';
 import type WebView from 'react-native-webview';
 
@@ -110,17 +110,20 @@ function App(): React.JSX.Element {
   }, [candidates.length]);
 
   return (
-    <MainScreen
-      bridge={bridge}
-      bffClient={bffClient}
-      saveLoadService={saveLoadService}
-      telemetryManager={telemetryManager}
-      webContentUri={uriIndex < candidates.length ? activeUri : undefined}
-      webContentHtml={uriIndex >= candidates.length ? '<!doctype html><html><body style="font-family:-apple-system;color:#e2e8f0;background:#0b0b0b;padding:16px"><h3>Web bundle not found</h3><p>Looked for:<br/>app_web/webview_dist/index.html<br/>webview_dist/index.html<br/>index.html</p><p>Confirm Xcode has a blue folder reference for <code>app_web</code> or adjust the path in App.tsx.</p></body></html>' : undefined}
-      onWebViewError={handleWebViewError}
-      allowingReadAccessToURL={readAccessBase}
-      webViewRefOverride={webViewRef}
-    />
+    <>
+      <StatusBar hidden animated />
+      <MainScreen
+        bridge={bridge}
+        bffClient={bffClient}
+        saveLoadService={saveLoadService}
+        telemetryManager={telemetryManager}
+        webContentUri={uriIndex < candidates.length ? activeUri : undefined}
+        webContentHtml={uriIndex >= candidates.length ? '<!doctype html><html><body style="font-family:-apple-system;color:#e2e8f0;background:#0b0b0b;padding:16px"><h3>Web bundle not found</h3><p>Looked for:<br/>app_web/webview_dist/index.html<br/>webview_dist/index.html<br/>index.html</p><p>Confirm Xcode has a blue folder reference for <code>app_web</code> or adjust the path in App.tsx.</p></body></html>' : undefined}
+        onWebViewError={handleWebViewError}
+        allowingReadAccessToURL={readAccessBase}
+        webViewRefOverride={webViewRef}
+      />
+    </>
   );
 }
 

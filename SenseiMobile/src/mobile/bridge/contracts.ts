@@ -29,7 +29,8 @@ export type WebToRNMessage =
     | { type: 'saveload:importResult'; requestId: string; success: boolean; error?: string }
     | { type: 'telemetry:event'; eventName: string; data: Record<string, unknown> }
     | { type: 'mermaid:error'; messageId: string; code: string; errorHash?: string }
-    | { type: 'modal:state'; id: string; visible: boolean };
+    | { type: 'modal:state'; id: string; visible: boolean }
+    | { type: 'header:status'; text: string; html?: string };
 
 export interface DOMRectLike {
     x: number;

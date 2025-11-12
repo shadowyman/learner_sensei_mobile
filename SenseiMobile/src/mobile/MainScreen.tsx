@@ -8,6 +8,7 @@ import { BridgeManager } from './bridge/BridgeManager';
 import type { RNToWebMessage, WebToRNMessage, FooterPayload } from './bridge/contracts';
 import type { BffClientLike } from './network/types';
 import { SelectionOverlay, SelectionOverlayController, SelectionOverlayState } from './SelectionOverlay';
+import { SenseiHeader } from './components/SenseiHeader';
 
 interface SaveLoadServiceLike {
     exportSession: () => Promise<void>;
@@ -100,6 +101,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [input, setInput] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
     const [footer, setFooter] = useState<FooterPayload | null>(null);
+    const [headerStatus, setHeaderStatus] = useState('Loading curriculum…');
     const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>({ visible: false });
     const selectionControllerRef = useRef<SelectionOverlayController | null>(null);
     const [webViewFrame, setWebViewFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
@@ -112,7 +114,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
     // Track success to avoid logging stale onError events after a successful load
     const hasLoadedRef = useRef(false);
-    useEffect(() => { hasLoadedRef.current = false; }, [webContentUri, webContentHtml]);
+    const headerBridgeInjectedRef = useRef(false);
+    useEffect(() => {
+        hasLoadedRef.current = false;
+        headerBridgeInjectedRef.current = false;
+    }, [webContentUri, webContentHtml]);
 
     const webviewKey = useMemo(() => (webContentUri ? `uri:${webContentUri}` : webContentHtml ? `html:${webContentHtml.length}` : 'empty'), [webContentUri, webContentHtml]);
 
@@ -127,6 +133,64 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             selectionControllerRef.current = new SelectionOverlayController({ bridge, onChange: setSelectionOverlay });
         }
     }, [bridge, telemetryManager, setFooter]);
+
+    const sendWebViewCommand = useCallback((script: string) => {
+        const target = webViewRef.current;
+        target?.injectJavaScript(script);
+    }, [webViewRef]);
+
+    const clickWebButton = useCallback((elementId: string) => {
+        const script = `
+            (function() {
+                const button = document.getElementById(${JSON.stringify(elementId)});
+                if (button) {
+                    button.click();
+                }
+            })();
+            true;
+        `;
+        sendWebViewCommand(script);
+    }, [sendWebViewCommand]);
+
+    const injectHeaderStatusObserver = useCallback(() => {
+        if (headerBridgeInjectedRef.current) {
+            return;
+        }
+        headerBridgeInjectedRef.current = true;
+        const script = `
+            (function() {
+                if (window.__senseiHeaderBridgeInitialized) {
+                    return;
+                }
+                window.__senseiHeaderBridgeInitialized = true;
+                const sendStatus = () => {
+                    const target = document.getElementById('curriculum-status-topic');
+                    if (!target || !window.ReactNativeWebView) {
+                        return;
+                    }
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'header:status',
+                        text: target.innerText || ''
+                    }));
+                };
+                const container = document.getElementById('curriculum-status-container');
+                if (container && window.MutationObserver) {
+                    const observer = new MutationObserver(function() {
+                        sendStatus();
+                    });
+                    observer.observe(container, { childList: true, subtree: true, characterData: true });
+                }
+                if (document.readyState === 'complete') {
+                    sendStatus();
+                } else {
+                    window.addEventListener('load', sendStatus, { once: true });
+                }
+                sendStatus();
+            })();
+            true;
+        `;
+        sendWebViewCommand(script);
+    }, [sendWebViewCommand]);
 
     const forwardStream = useCallback(async (handle: ReturnType<BffClientLike['submitTurn']>) => {
         await runForwardStream(handle, { bridge, telemetryManager, setFooter, setIsStreaming });
@@ -162,6 +226,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             if (parsed.type === 'telemetry:event') {
                 telemetryManager.record(parsed.eventName, parsed.data ?? {});
             }
+            if (parsed.type === 'header:status') {
+                setHeaderStatus(parsed.text ?? '');
+            }
             onWebViewEvent?.(parsed);
         } catch (error) {
             logger.error('[MOBILE_PORT] webview message parse error', { error });
@@ -176,6 +243,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         await saveLoadService.importSession();
     }, [saveLoadService]);
 
+    const handleToggleFontSize = useCallback(() => clickWebButton('font-size-toggle'), [clickWebButton]);
+    const handleToggleTheme = useCallback(() => clickWebButton('theme-button'), [clickWebButton]);
+    const handleToggleDebug = useCallback(() => clickWebButton('debug-mode-button'), [clickWebButton]);
+    const handleToggleFullscreen = useCallback(() => clickWebButton('main-chat-fullscreen-button'), [clickWebButton]);
+    const handleOpenNotepad = useCallback(() => clickWebButton('notepad-button'), [clickWebButton]);
+    const handleConceptPrev = useCallback(() => clickWebButton('concept-nav-prev'), [clickWebButton]);
+    const handleConceptNext = useCallback(() => clickWebButton('concept-nav-next'), [clickWebButton]);
+    const handleChunkPrev = useCallback(() => clickWebButton('chunk-nav-prev'), [clickWebButton]);
+    const handleChunkNext = useCallback(() => clickWebButton('chunk-nav-next'), [clickWebButton]);
+
     return (
         <SafeAreaView style={styles.container}>
             <SelectionOverlay
@@ -184,33 +261,50 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onAction={(actionId, extras) => selectionControllerRef.current?.invoke(actionId, extras)}
                 onDismiss={() => selectionControllerRef.current?.dismiss()}
             />
-            <WebView
-                key={webviewKey}
-                ref={webViewRef}
-                source={webViewSource}
-                originWhitelist={['file://*']}
-                onMessage={handleWebViewMessage}
-                allowingReadAccessToURL={allowingReadAccessToURL}
-                onLoad={() => {
-                    hasLoadedRef.current = true;
-                    logger.info('[MOBILE_PORT] webview load success');
-                }}
-                onHttpError={(e) => {
-                    const ne = e.nativeEvent as any;
-                    logger.warn('[MOBILE_PORT] webview http error', { url: ne?.url, statusCode: ne?.statusCode, description: ne?.description });
-                }}
-                onError={(e) => {
-                    const ne = e.nativeEvent as any;
-                    if (!hasLoadedRef.current) {
-                        logger.error('[MOBILE_PORT] webview load error', { url: ne?.url, code: ne?.code, description: ne?.description });
-                        onWebViewError?.({ url: ne?.url, code: ne?.code, description: ne?.description });
-                    } else {
-                        logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
-                    }
-                }}
-                onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
-                style={styles.webview}
+            <SenseiHeader
+                statusText={headerStatus}
+                onConceptPrev={handleConceptPrev}
+                onConceptNext={handleConceptNext}
+                onChunkPrev={handleChunkPrev}
+                onChunkNext={handleChunkNext}
+                onToggleFontSize={handleToggleFontSize}
+                onToggleTheme={handleToggleTheme}
+                onToggleDebug={handleToggleDebug}
+                onToggleFullscreen={handleToggleFullscreen}
+                onOpenNotepad={handleOpenNotepad}
+                onSave={handleSave}
+                onLoad={handleImport}
             />
+            <View style={styles.webviewWrapper}>
+                <WebView
+                    key={webviewKey}
+                    ref={webViewRef}
+                    source={webViewSource}
+                    originWhitelist={['file://*']}
+                    onMessage={handleWebViewMessage}
+                    allowingReadAccessToURL={allowingReadAccessToURL}
+                    onLoad={() => {
+                        hasLoadedRef.current = true;
+                        logger.info('[MOBILE_PORT] webview load success');
+                        injectHeaderStatusObserver();
+                    }}
+                    onHttpError={(e) => {
+                        const ne = e.nativeEvent as any;
+                        logger.warn('[MOBILE_PORT] webview http error', { url: ne?.url, statusCode: ne?.statusCode, description: ne?.description });
+                    }}
+                    onError={(e) => {
+                        const ne = e.nativeEvent as any;
+                        if (!hasLoadedRef.current) {
+                            logger.error('[MOBILE_PORT] webview load error', { url: ne?.url, code: ne?.code, description: ne?.description });
+                            onWebViewError?.({ url: ne?.url, code: ne?.code, description: ne?.description });
+                        } else {
+                            logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
+                        }
+                    }}
+                    onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
+                    style={styles.webview}
+                />
+            </View>
             <View style={styles.footer}>
                 {footer && (
                     <Text style={styles.footerText}>{`Confidence: ${footer.confidence} | Confusion: ${footer.confusion} | Intent: ${footer.intent}`}</Text>
@@ -247,6 +341,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#050505'
+    },
+    webviewWrapper: {
+        flex: 1
     },
     webview: {
         flex: 1
