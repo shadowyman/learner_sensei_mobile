@@ -46,8 +46,7 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
         };
     }, []);
     const shaderSupported = Platform.OS === 'ios' || (Platform.OS === 'android' && Platform.Version >= 30);
-    const FORCE_SHADER = true;
-    const useShader = !!headerRect && (FORCE_SHADER || (shaderSupported && !reduceMotion));
+    const useShader = !!headerRect && shaderSupported && !reduceMotion;
     const hasHeaderRect = !!headerRect;
     const resolvedHeaderRect = headerRect ?? DEFAULT_HEADER_RECT;
 
@@ -122,13 +121,13 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
                     <LinearGradient start={vec(0, 0)} end={vec(width, height)} colors={['#0a0a0a', '#1a1a2e', '#16213e']} />
                 </Fill>
                 <Rect x={0} y={0} width={width} height={height}>
-                    <RadialGradient c={vec(width * 0.2, height * 0.2)} r={Math.max(width, height) * 0.45} colors={['rgba(0,212,255,0.18)', 'rgba(0,212,255,0)']} positions={[0, 1]} />
+                    <RadialGradient c={vec(width * 0.2, height * 0.2)} r={Math.max(width, height) * 0.45} colors={['rgba(0,212,255,0.18)', 'rgba(0,212,255,0.05)']} positions={[0, 1]} />
                 </Rect>
                 <Rect x={0} y={0} width={width} height={height}>
-                    <RadialGradient c={vec(width * 0.8, height * 0.8)} r={Math.max(width, height) * 0.4} colors={['rgba(0,212,255,0.08)', 'rgba(0,212,255,0)']} positions={[0, 1]} />
+                    <RadialGradient c={vec(width * 0.8, height * 0.8)} r={Math.max(width, height) * 0.40} colors={['rgba(0,212,255,0.08)', 'rgba(0,212,255,0)']} positions={[0, 1]} />
                 </Rect>
                 <Rect x={0} y={0} width={width} height={height}>
-                    <RadialGradient c={vec(width * 0.3, height * 0.6)} r={Math.max(width, height) * 0.35} colors={['rgba(196,229,56,0.05)', 'rgba(196,229,56,0)']} positions={[0, 1]} />
+                    <RadialGradient c={vec(width * 0.5, height * 0.5)} r={Math.max(width, height) * 0.4} colors={['rgba(196,229,56,0.08)', 'rgba(196,229,56,0)']} positions={[0, 1]} />
                 </Rect>
             </Group>
             {filter && (
