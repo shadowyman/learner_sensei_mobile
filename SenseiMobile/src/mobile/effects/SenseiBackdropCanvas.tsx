@@ -25,7 +25,7 @@ interface SenseiBackdropCanvasProps {
     headerRect: { x: number; y: number; width: number; height: number } | null;
 }
 
-const HEADER_RADIUS = 16;
+const HEADER_RADIUS = 40;
 const DEFAULT_HEADER_RECT = { x: 0, y: 0, width: 0, height: 0 } as const;
 
 // Built-in Skia dithering is enabled via <Group dither>
@@ -62,13 +62,15 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
         }
         const builder = Skia.RuntimeShaderBuilder(headerRefractiveRibbon);
         const localMatrix = processTransform2d([{ translateX: x }, { translateY: y }]);
+        const topRadius = HEADER_RADIUS;
+        const bottomRadius = Math.min(topRadius, Math.max(0, Math.round(rectHeight * 0)));
         processUniforms(
             headerRefractiveRibbon,
             {
                 transform: convertToColumnMajor3(localMatrix.get()),
                 resolution: [width, height],
                 box: [0, 0, rectWidth, rectHeight],
-                r: HEADER_RADIUS,
+                radii: [topRadius, topRadius, bottomRadius, bottomRadius],
             },
             builder
         );
@@ -88,10 +90,12 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
         const tintShader = Skia.Shader.MakeColor(Skia.Color('rgba(255,255,255,0.28)'));
         const tint = Skia.ImageFilter.MakeShader(tintShader);
         const maskEffect = Skia.RuntimeEffect.Make(
-            `uniform vec4 box; uniform float r; half4 main(vec2 xy) {
+            `uniform vec4 box; uniform vec4 radii; half4 main(vec2 xy) {
                vec2 halfSize = box.zw * 0.5; vec2 local = xy - box.xy - halfSize;
-               vec2 q = abs(local) - halfSize + r;
-               float d = min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+               float rx;
+               if (local.y < 0.0) { rx = (local.x >= 0.0) ? radii.y : radii.x; } else { rx = (local.x >= 0.0) ? radii.z : radii.w; }
+               vec2 q = abs(local) - halfSize + rx;
+               float d = min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rx;
                if (d > 0.0) { return vec4(0.0); }
                return vec4(1.0);
             }`
@@ -100,9 +104,11 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
             return Skia.ImageFilter.MakeBlend(BlendMode.SrcOver, blur, tint);
         }
         const localMatrix = processTransform2d([{ translateX: x }, { translateY: y }]);
+        const topRadius = HEADER_RADIUS;
+        const bottomRadius = Math.min(topRadius, Math.max(0, Math.round(rectHeight * 0.12)));
         const maskUniforms = processUniforms(
             maskEffect,
-            { box: [0, 0, rectWidth, rectHeight], r: HEADER_RADIUS }
+            { box: [0, 0, rectWidth, rectHeight], radii: [topRadius, topRadius, bottomRadius, bottomRadius] }
         );
         const maskShaderInst = maskEffect.makeShader(maskUniforms, localMatrix);
         const tinted = Skia.ImageFilter.MakeBlend(BlendMode.SrcOver, blur, tint);
@@ -127,7 +133,7 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
                     <RadialGradient c={vec(width * 0.8, height * 0.8)} r={Math.max(width, height) * 0.40} colors={['rgba(0,212,255,0.08)', 'rgba(0,212,255,0)']} positions={[0, 1]} />
                 </Rect>
                 <Rect x={0} y={0} width={width} height={height}>
-                    <RadialGradient c={vec(width * 0.5, height * 0.5)} r={Math.max(width, height) * 0.4} colors={['rgba(196,229,56,0.08)', 'rgba(196,229,56,0)']} positions={[0, 1]} />
+                    <RadialGradient c={vec(width * 0.55, height * 0.5)} r={Math.max(width, height) * 0.44} colors={['rgba(196,229,56,0.08)', 'rgba(196,229,56,0)']} positions={[0, 1]} />
                 </Rect>
             </Group>
             {filter && (

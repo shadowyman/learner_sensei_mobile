@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { NavIconSkia } from './NavIconSkia';
+import { MenuIconSvg } from './MenuIconSvg';
  
 
 const brandLogo = require('../../assets/brand.png');
@@ -7,6 +9,8 @@ const brandLogo = require('../../assets/brand.png');
 const SEGMENT_BACKGROUND = 'rgba(6,19,29,0.7)';
 const SEGMENT_BORDER = 'rgba(255,255,255,0.04)';
 const WRAPPER_PADDING_V = 10;
+const HEADER_OVERLAY_TINT_RGB = '255,255,255';
+const HEADER_OVERLAY_INTENSITY = 0.003;
  
 const HEADER_AUTO_CLOSE_MS = 3500;
 const THRESHOLD_FRACTION = 0.70;
@@ -166,6 +170,9 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                 onLayoutRect?.(layout);
             }}
         >
+            {HEADER_OVERLAY_INTENSITY > 0 ? (
+                <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(${HEADER_OVERLAY_TINT_RGB}, ${HEADER_OVERLAY_INTENSITY})` }]} />
+            ) : null}
             <View
                 style={styles.brandSegment}
             >
@@ -209,8 +216,6 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                             {renderControlRows(
                                 onToggleFontSize,
                                 onToggleTheme,
-                                onToggleDebug,
-                                onToggleFullscreen,
                                 onOpenNotepad,
                                 onSave,
                                 onLoad
@@ -247,8 +252,6 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     {renderControlRows(
                         () => { restartAutoClose(); onToggleFontSize(); },
                         () => { restartAutoClose(); onToggleTheme(); },
-                        () => { restartAutoClose(); onToggleDebug(); },
-                        () => { restartAutoClose(); onToggleFullscreen(); },
                         () => { restartAutoClose(); onOpenNotepad(); },
                         () => { restartAutoClose(); onSave(); },
                         () => { restartAutoClose(); onLoad(); }
@@ -261,27 +264,29 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
 
 const ELLIPSIS_WIDTH = 70;
 const EXPANDED_WIDTH = 240;
+const CONTROL_BUTTON_SIZE = 32;
+const CONTROL_BUTTON_GAP = 8;
+const CONTROL_ROW_COLUMNS = 3;
+const CONTROL_ROW_WIDTH = CONTROL_BUTTON_SIZE * CONTROL_ROW_COLUMNS + CONTROL_BUTTON_GAP * (CONTROL_ROW_COLUMNS - 1);
+const CONTROL_ROW_VERTICAL_GAP = 20;
 
 const renderControlRows = (
     onToggleFontSize: () => void,
     onToggleTheme: () => void,
-    onToggleDebug: () => void,
-    onToggleFullscreen: () => void,
     onOpenNotepad: () => void,
     onSave: () => void,
     onLoad: () => void
 ) => (
     <>
-        <View style={styles.controlsRow}>
-            <ControlButton label="Toggle font size" onPress={onToggleFontSize} text="A↕" />
-            <ControlButton label="Theme" onPress={onToggleTheme} text="🎨" />
-            <ControlButton label="Debug" onPress={onToggleDebug} text="🐞" />
-            <ControlButton label="Fullscreen" onPress={onToggleFullscreen} text="⤢" />
+        <View style={[styles.controlsRow, styles.controlsRowTop]}>
+            <ControlButton label="Toggle font size" onPress={onToggleFontSize} icon="font" />
+            <ControlButton label="Theme" onPress={onToggleTheme} icon="theme" />
         </View>
-        <View style={styles.controlsRow}>
-            <ControlButton label="Notepad" onPress={onOpenNotepad} text="📝" />
-            <ControlButton label="Save" onPress={onSave} text="💾" />
-            <ControlButton label="Load" onPress={onLoad} text="📂" />
+        <View style={styles.controlsRowSpacer} />
+        <View style={[styles.controlsRow, styles.controlsRowBottom]}>
+            <ControlButton label="Notepad" onPress={onOpenNotepad} icon="note" />
+            <ControlButton label="Save" onPress={onSave} icon="save" />
+            <ControlButton label="Load" onPress={onLoad} icon="load" />
         </View>
     </>
 );
@@ -294,53 +299,58 @@ interface NavClusterProps {
 
 const NavCluster: React.FC<NavClusterProps> = ({ variant, onConcept, onChunk }) => {
     const isPrev = variant === 'prev';
-    return (
-        <View style={styles.navCluster}>
-            <NavButton
-                label={isPrev ? 'Previous concept' : 'Next concept'}
-                text={isPrev ? '⟪' : '⟫'}
-                onPress={onConcept}
-            />
-            <NavButton
-                label={isPrev ? 'Previous part' : 'Next part'}
-                text={isPrev ? '‹' : '›'}
-                onPress={onChunk}
-            />
-        </View>
+    const conceptBtn = (
+        <NavButton
+            key="concept"
+            label={isPrev ? 'Previous concept' : 'Next concept'}
+            icon={{ variant: 'double', dir: isPrev ? 'left' : 'right' }}
+            onPress={onConcept}
+        />
     );
+    const chunkBtn = (
+        <NavButton
+            key="chunk"
+            label={isPrev ? 'Previous part' : 'Next part'}
+            icon={{ variant: 'single', dir: isPrev ? 'left' : 'right' }}
+            onPress={onChunk}
+        />
+    );
+    const children = isPrev ? [conceptBtn, chunkBtn] : [chunkBtn, conceptBtn];
+    return <View style={styles.navCluster}>{children}</View>;
 };
 
 interface NavButtonProps {
     label: string;
-    text: string;
+    icon: { variant: 'single' | 'double'; dir: 'left' | 'right' };
     onPress: () => void;
 }
 
-const NavButton: React.FC<NavButtonProps> = ({ label, text, onPress }) => (
+const NavButton: React.FC<NavButtonProps> = ({ label, icon, onPress }) => (
     <TouchableOpacity
         style={styles.navButton}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={label}
+        hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
     >
-        <Text style={styles.navIcon}>{text}</Text>
+        <NavIconSkia dir={icon.dir} variant={icon.variant} size={16} color={'#1d3421'} strokeWidth={2} />
     </TouchableOpacity>
 );
 
 interface ControlButtonProps {
     label: string;
-    text: string;
+    icon: 'font' | 'theme' | 'debug' | 'fullscreen' | 'note' | 'save' | 'load';
     onPress: () => void;
 }
 
-const ControlButton: React.FC<ControlButtonProps> = ({ label, text, onPress }) => (
+const ControlButton: React.FC<ControlButtonProps> = ({ label, icon, onPress }) => (
     <TouchableOpacity
         style={styles.controlButton}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={label}
     >
-        <Text style={styles.controlButtonText}>{text}</Text>
+        <MenuIconSvg name={icon as any} size={27} />
     </TouchableOpacity>
 );
 
@@ -350,7 +360,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: WRAPPER_PADDING_V,
         borderBottomWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         gap: 12,
         alignItems: 'stretch',
         position: 'relative'
@@ -417,7 +427,7 @@ const styles = StyleSheet.create({
         maxWidth: '100%'
     },
     navCluster: {
-        flexDirection: 'column',
+        flexDirection: 'row',
         gap: 6
     },
     navButton: {
@@ -443,10 +453,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'flex-end',
         position: 'relative',
-        paddingVertical: 4,
+        paddingVertical: 0,
         flexDirection: 'row',
-        overflow: 'hidden',
-        backgroundColor: 'transparent'
+        backgroundColor: 'transparent',
+        minHeight: CONTROL_BUTTON_SIZE * 2 + CONTROL_ROW_VERTICAL_GAP
     },
     ellipsisButton: {
         flexDirection: 'row',
@@ -467,10 +477,9 @@ const styles = StyleSheet.create({
     },
     controlsExpandedShell: {
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 0,
         backgroundColor: 'transparent',
-        flexDirection: 'column',
-        gap: 6
+        flexDirection: 'column'
     },
     divider: {
         width: 1,
@@ -486,21 +495,29 @@ const styles = StyleSheet.create({
     },
     controlsRow: {
         flexDirection: 'row',
-        gap: 8,
-        justifyContent: 'flex-end',
-        marginBottom: 4,
+        width: CONTROL_ROW_WIDTH,
+        gap: CONTROL_BUTTON_GAP,
+        marginBottom: 0,
         flexWrap: 'nowrap'
     },
+    controlsRowTop: {
+        justifyContent: 'center'
+    },
+    controlsRowBottom: {
+        justifyContent: 'space-between'
+    },
+    controlsRowSpacer: {
+        height: CONTROL_ROW_VERTICAL_GAP
+    },
     controlButton: {
-        minWidth: 38,
-        minHeight: 32,
-        borderRadius: 18,
+        width: 32,
+        height: 32,
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 10,
-        backgroundColor: 'rgba(4,12,20,0.8)'
+        backgroundColor: '#00353c'
     },
     controlButtonText: {
         color: '#e2e8f0',

@@ -4,13 +4,19 @@ export const headerRefractiveRibbon = Skia.RuntimeEffect.Make(`
 uniform mat3 transform;
 uniform vec2 resolution;
 uniform vec4 box;
-uniform float r;
+uniform vec4 radii;
 uniform shader image;
 uniform shader blurredImage;
 
-float sdRoundedBox(vec2 p, vec2 b, float radius) {
-  vec2 q = abs(p) - b + radius;
-  return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+float sdRoundedBoxCorners(vec2 p, vec2 b, vec4 r) {
+  float rx;
+  if (p.y < 0.0) {
+    rx = (p.x >= 0.0) ? r.y : r.x;
+  } else {
+    rx = (p.x >= 0.0) ? r.z : r.w;
+  }
+  vec2 q = abs(p) - b + rx;
+  return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rx;
 }
 
 vec2 project(vec2 xy, mat3 m) {
@@ -22,7 +28,7 @@ float sdf(vec2 xy) {
   vec2 p = project(xy, transform);
   vec2 halfSize = box.zw * 0.5;
   vec2 local = p - box.xy - halfSize;
-  return sdRoundedBox(local, halfSize, r);
+  return sdRoundedBoxCorners(local, halfSize, radii);
 }
 
 vec2 gradient(vec2 xy) {

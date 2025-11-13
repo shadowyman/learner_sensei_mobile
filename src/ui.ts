@@ -467,7 +467,6 @@ const ICONS: { [key: string]: string } = {
     palette: `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--icon-palette-stroke, currentColor)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 3c-4.97 0-9 3.58-9 8 0 2.5 2 4 4 4h1c1.1 0 2 .9 2 2s.9 2 2 2c4.2 0 8-3.1 8-8s-4.03-8-9-8z"/>
-      <!-- Larger, repositioned swatches following palette curvature -->
       <circle cx="8.5" cy="9" r="2.6" fill="var(--icon-palette-s1, #60a5fa)"/>
       <circle cx="11.6" cy="7.6" r="2.6" fill="var(--icon-palette-s2, #f472b6)"/>
       <circle cx="15.6" cy="10.6" r="2.6" fill="var(--icon-palette-s4, #fde047)"/>

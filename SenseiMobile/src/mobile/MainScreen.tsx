@@ -281,6 +281,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onLoad={handleImport}
                 onLayoutRect={setHeaderRect}
             />
+            <View style={styles.headerDivider} />
             {SHOW_WEBVIEW ? (
                 <View style={styles.webviewWrapper}>
                     <WebView
@@ -358,6 +359,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'transparent'
+    },
+    headerDivider: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        alignSelf: 'stretch'
     },
     webviewWrapper: {
         flex: 1
