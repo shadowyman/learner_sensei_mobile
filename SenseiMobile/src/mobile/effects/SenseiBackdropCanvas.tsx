@@ -19,6 +19,7 @@ import {
 } from '@shopify/react-native-skia';
 
 import { headerRefractiveRibbon } from './shaders/headerRefractiveRibbon';
+import { logger } from '../../logger';
 // no additional background shader; using built-in Skia dithering via <Group dither>
 
 interface SenseiBackdropCanvasProps {
@@ -50,6 +51,15 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
     const hasHeaderRect = !!headerRect;
     const resolvedHeaderRect = headerRect ?? DEFAULT_HEADER_RECT;
 
+    useEffect(() => {
+        logger.info('Sensei(debug)', {
+            tag: 'backdrop.headerRect',
+            hasHeaderRect,
+            useShader,
+            headerRect: headerRect ?? null
+        });
+    }, [hasHeaderRect, useShader, headerRect]);
+
     // No background runtime shader; gradients are drawn directly
 
     const shaderFilter = useMemo(() => {
@@ -63,7 +73,7 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
         const builder = Skia.RuntimeShaderBuilder(headerRefractiveRibbon);
         const localMatrix = processTransform2d([{ translateX: x }, { translateY: y }]);
         const topRadius = HEADER_RADIUS;
-        const bottomRadius = Math.min(topRadius, Math.max(0, Math.round(rectHeight * 0)));
+        const bottomRadius = Math.min(topRadius, Math.max(0, Math.round(rectHeight * 0.12)));
         processUniforms(
             headerRefractiveRibbon,
             {

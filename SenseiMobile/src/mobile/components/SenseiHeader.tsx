@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { logger } from '../../logger';
 import { NavIconSkia } from './NavIconSkia';
 import { MenuIconSvg } from './MenuIconSvg';
  
@@ -61,6 +62,12 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const collapseOpacity = useRef(new Animated.Value(1)).current;
     const ellipsisOpacity = useRef(new Animated.Value(1)).current;
     const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const measureRafRef = useRef<number | null>(null);
+    const wrapperRef = useRef<View | null>(null);
+    const [layoutTick, setLayoutTick] = useState(0);
+    const { width } = useWindowDimensions();
+    const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
+    const isCompactIOS = Platform.OS === 'ios' && !isPad && width <= 430;
  
     const controlsOpacityBase = useMemo(
         () =>
@@ -162,81 +169,221 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         restartAutoClose();
     };
 
+    const brandSection = (
+        <View style={styles.brandSegment}>
+            <Image source={brandLogo} style={styles.brandImage} resizeMode="contain" />
+            <Text style={styles.brandLabel}>Recursive Sensei</Text>
+            <Text style={styles.brandTagline}>Mentor Mode</Text>
+        </View>
+    );
+
+    const statusRef = useRef<View | null>(null);
+    const topRowRef = useRef<View | null>(null);
+    const statusBottomRef = useRef<number | null>(null);
+    const topRowBottomRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (!isCompactIOS) {
+            return;
+        }
+        const measureNode = (node: View | null, tag: string) => {
+            if (!node || typeof (node as any).measureInWindow !== 'function') {
+                return;
+            }
+            (node as any).measureInWindow((x: number, y: number, w: number, h: number) => {
+                logger.info('Sensei(debug)', { tag, x, y, width: w, height: h });
+                if (tag === 'header.status.window') {
+                    statusBottomRef.current = y + h;
+                } else if (tag === 'header.topRow.window') {
+                    topRowBottomRef.current = y + h;
+                }
+            });
+        };
+        const raf = requestAnimationFrame(() => {
+            measureNode(topRowRef.current, 'header.topRow.window');
+            measureNode(statusRef.current, 'header.status.window');
+        });
+        return () => cancelAnimationFrame(raf);
+    }, [layoutTick, isCompactIOS]);
+
+    const statusSection = (
+        <View
+            ref={statusRef}
+            style={[styles.statusSegment, isCompactIOS && styles.statusSegmentCompact]}
+        >
+            <NavCluster
+                variant="prev"
+                onConcept={onConceptPrev}
+                onChunk={onChunkPrev}
+            />
+            <View style={styles.statusContent}>
+                <Text style={styles.statusLabel}>Current Focus</Text>
+                {statusLines.length > 0 ? (
+                    <>
+                        <Text style={styles.statusModule} numberOfLines={isCompactIOS ? 2 : 1}>{statusLines[0]}</Text>
+                        {statusLines.slice(1).map(line => (
+                            <Text key={line} style={styles.statusPhase} numberOfLines={1}>
+                                {line}
+                            </Text>
+                        ))}
+                    </>
+                ) : (
+                    <Text style={styles.statusPhase}>Loading curriculum…</Text>
+                )}
+            </View>
+            <NavCluster
+                variant="next"
+                onConcept={onConceptNext}
+                onChunk={onChunkNext}
+            />
+        </View>
+    );
+
+    const controlsSection = (
+        <Animated.View
+            style={[styles.controlsSegment, { width: widthAnim }]}
+            onTouchStart={onFlyoutTouchStart}
+            onLayout={(event) => {
+                if (!isCompactIOS) return;
+                const layout = event.nativeEvent.layout;
+                logger.info('Sensei(debug)', {
+                    tag: 'header.controls.layout',
+                    width: layout.width,
+                    height: layout.height
+                });
+            }}
+        >
+            {showControls && (
+                <View style={styles.controlsExpandedShell} pointerEvents={'auto'}>
+                    <Animated.View style={{ opacity: controlsOpacity }}>
+                        {renderControlRows(
+                            onToggleFontSize,
+                            onToggleTheme,
+                            onOpenNotepad,
+                            onSave,
+                            onLoad
+                        )}
+                    </Animated.View>
+                </View>
+            )}
+            {showEllipsis && (
+                <Animated.View style={{ opacity: ellipsisOpacity }} pointerEvents={showEllipsis ? 'auto' : 'none'}>
+                    <TouchableOpacity
+                        style={styles.ellipsisButton}
+                        onPress={() => setControlsExpanded(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Show header controls"
+                    >
+                        <Text style={styles.ellipsisText}>···</Text>
+                        <Text style={styles.plusIcon}>＋</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+            )}
+        </Animated.View>
+    );
+
+    const measureHeaderRect = useCallback(() => {
+        const node = wrapperRef.current;
+        if (!node) {
+            return;
+        }
+        const handle: any = node;
+        if (typeof handle.measureInWindow !== 'function') {
+            return;
+        }
+    handle.measureInWindow((x: number, y: number, windowWidth: number, windowHeight: number) => {
+        if (!windowHeight || windowHeight <= 0) {
+            return;
+        }
+        if (isCompactIOS) {
+            const offsetY = Math.max(0, y);
+            const heightWithInset = windowHeight + offsetY;
+            const rect = { x: 0, y: 0, width, height: heightWithInset };
+            logger.info('Sensei(debug)', {
+                tag: 'header.measure.compact',
+                windowX: x,
+                windowY: y,
+                windowWidth,
+                windowHeight,
+                offsetY,
+                heightWithInset,
+                rect
+            });
+            onLayoutRect?.(rect);
+            return;
+        }
+        const rect = { x, y, width: windowWidth, height: windowHeight };
+        logger.info('Sensei(debug)', {
+            tag: 'header.measure.default',
+            windowX: x,
+            windowY: y,
+            windowWidth,
+            windowHeight,
+            rect
+        });
+        onLayoutRect?.(rect);
+    });
+    }, [isCompactIOS, onLayoutRect, width]);
+
+    useEffect(() => {
+        if (measureRafRef.current) {
+            cancelAnimationFrame(measureRafRef.current);
+        }
+        measureRafRef.current = requestAnimationFrame(() => {
+            measureHeaderRect();
+            measureRafRef.current = null;
+        });
+        return () => {
+            if (measureRafRef.current) {
+                cancelAnimationFrame(measureRafRef.current);
+                measureRafRef.current = null;
+            }
+        };
+    }, [layoutTick, measureHeaderRect]);
+
     return (
         <View
-            style={styles.wrapper}
+            ref={wrapperRef}
+            style={[styles.wrapper, isCompactIOS && styles.wrapperCompact]}
+            collapsable={false}
             onLayout={(event) => {
                 const layout = event.nativeEvent.layout;
-                onLayoutRect?.(layout);
+                logger.info('Sensei(debug)', {
+                    tag: 'header.layout',
+                    width: layout.width,
+                    height: layout.height,
+                    compact: isCompactIOS
+                });
+                setLayoutTick((tick) => tick + 1);
             }}
         >
             {HEADER_OVERLAY_INTENSITY > 0 ? (
                 <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(${HEADER_OVERLAY_TINT_RGB}, ${HEADER_OVERLAY_INTENSITY})` }]} />
             ) : null}
-            <View
-                style={styles.brandSegment}
-            >
-                <Image source={brandLogo} style={styles.brandImage} resizeMode="contain" />
-                <Text style={styles.brandLabel}>Recursive Sensei</Text>
-                <Text style={styles.brandTagline}>Mentor Mode</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statusSegment}>
-                <NavCluster
-                    variant="prev"
-                    onConcept={onConceptPrev}
-                    onChunk={onChunkPrev}
-                />
-                <View style={styles.statusContent}>
-                    <Text style={styles.statusLabel}>Current Focus</Text>
-                    {statusLines.length > 0 ? (
-                        <>
-                            <Text style={styles.statusModule} numberOfLines={1}>{statusLines[0]}</Text>
-                            {statusLines.slice(1).map(line => (
-                                <Text key={line} style={styles.statusPhase} numberOfLines={1}>
-                                    {line}
-                                </Text>
-                            ))}
-                        </>
-                    ) : (
-                        <Text style={styles.statusPhase}>Loading curriculum…</Text>
-                    )}
-                </View>
-                <NavCluster
-                    variant="next"
-                    onConcept={onConceptNext}
-                    onChunk={onChunkNext}
-                />
-            </View>
-            <View style={styles.divider} />
-            <Animated.View style={[styles.controlsSegment, { width: widthAnim }]} onTouchStart={onFlyoutTouchStart}> 
-                {showControls && (
-                    <View style={styles.controlsExpandedShell} pointerEvents={'auto'}>
-                        <Animated.View style={{ opacity: controlsOpacity }}>
-                            {renderControlRows(
-                                onToggleFontSize,
-                                onToggleTheme,
-                                onOpenNotepad,
-                                onSave,
-                                onLoad
-                            )}
-                        </Animated.View>
+            {isCompactIOS ? (
+                <>
+                    <View
+                        ref={topRowRef}
+                        style={styles.compactTopRow}
+                    >
+                        {brandSection}
+                        <View style={[styles.divider, styles.dividerCompactVertical]} />
+                        {controlsSection}
                     </View>
-                )}
-                {showEllipsis && (
-                    <Animated.View style={{ opacity: ellipsisOpacity }} pointerEvents={showEllipsis ? 'auto' : 'none'}>
-                        <TouchableOpacity
-                            style={styles.ellipsisButton}
-                            onPress={() => setControlsExpanded(true)}
-                            accessibilityRole="button"
-                            accessibilityLabel="Show header controls"
-                        >
-                            <Text style={styles.ellipsisText}>···</Text>
-                            <Text style={styles.plusIcon}>＋</Text>
-                        </TouchableOpacity>
-                    </Animated.View>
-                )}
-            </Animated.View>
+                    <View style={styles.dividerContainer}>
+                        <View style={styles.dividerHorizontal} />
+                    </View>
+                    {statusSection}
+                </>
+            ) : (
+                <>
+                    {brandSection}
+                    <View style={styles.divider} />
+                    {statusSection}
+                    <View style={styles.divider} />
+                    {controlsSection}
+                </>
+            )}
             <View
                 style={styles.measureContainer}
                 pointerEvents="none"
@@ -365,6 +512,17 @@ const styles = StyleSheet.create({
         alignItems: 'stretch',
         position: 'relative'
     },
+    wrapperCompact: {
+        flexDirection: 'column',
+        gap: 0
+    },
+    compactTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        gap: 12
+    },
     
     
     brandSegment: {
@@ -401,6 +559,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 8,
         gap: 12
+    },
+    statusSegmentCompact: {
+        paddingHorizontal: 4,
+        paddingVertical: 8,
+        minHeight: 48
     },
     statusContent: {
         flex: 1,
@@ -486,6 +649,19 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch',
         backgroundColor: 'rgba(255,255,255,0.08)',
         marginVertical: -WRAPPER_PADDING_V
+    },
+    dividerCompactVertical: {
+        marginVertical: 0
+    },
+    dividerContainer: {
+        width: '100%',
+        height: 17,
+        justifyContent: 'center'
+    },
+    dividerHorizontal: {
+        width: '100%',
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.08)'
     },
     measureContainer: {
         position: 'absolute',

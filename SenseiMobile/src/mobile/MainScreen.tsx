@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 
@@ -108,6 +108,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const selectionControllerRef = useRef<SelectionOverlayController | null>(null);
     const [webViewFrame, setWebViewFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [headerRect, setHeaderRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+    const { width: viewportWidth } = useWindowDimensions();
+    const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
+    const isCompactIOS = Platform.OS === 'ios' && !isPad && viewportWidth <= 430;
+    const handleHeaderRectUpdate = useCallback((rect: { x: number; y: number; width: number; height: number } | null) => {
+        logger.info('Sensei(debug)', {
+            tag: 'headerRect.update',
+            compact: isCompactIOS,
+            rect
+        });
+        setHeaderRect(rect);
+    }, [isCompactIOS]);
 
     const webViewSource = useMemo(() => {
         if (webContentUri) return { uri: webContentUri } as const;
@@ -258,8 +269,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
     return (
         <View style={styles.root}>
-            <SafeAreaView style={styles.container}>
             <SenseiBackdropCanvas headerRect={headerRect} />
+            <SafeAreaView style={styles.container}>
             <SelectionOverlay
                 state={selectionOverlay}
                 webViewFrame={webViewFrame}
@@ -279,9 +290,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onOpenNotepad={handleOpenNotepad}
                 onSave={handleSave}
                 onLoad={handleImport}
-                onLayoutRect={setHeaderRect}
+                onLayoutRect={handleHeaderRectUpdate}
             />
-            <View style={styles.headerDivider} />
+            {!isCompactIOS && <View style={styles.headerDivider} />}
             {SHOW_WEBVIEW ? (
                 <View style={styles.webviewWrapper}>
                     <WebView
