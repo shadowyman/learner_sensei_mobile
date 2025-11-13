@@ -72,6 +72,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const { top: insetTop } = useSafeAreaInsets();
     const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
     const isCompactIOS = Platform.OS === 'ios' && !isPad && width <= 430;
+    const rowGap = isCompactIOS ? CONTROL_ROW_VERTICAL_GAP_COMPACT : CONTROL_ROW_VERTICAL_GAP;
  
     const controlsOpacityBase = useMemo(
         () =>
@@ -321,7 +322,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
 
     const controlsSection = (
         <Animated.View
-            style={[styles.controlsSegment, { width: widthAnim }]}
+            style={[styles.controlsSegment, { width: widthAnim }, { minHeight: CONTROL_BUTTON_SIZE * 2 + rowGap }]}
             onTouchStart={onFlyoutTouchStart}
             onLayout={(event) => {
                 if (!isCompactIOS) return;
@@ -342,7 +343,8 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                             onToggleTelemetry,
                             onOpenNotepad,
                             onSave,
-                            onLoad
+                            onLoad,
+                            rowGap
                         )}
                     </Animated.View>
                 </View>
@@ -446,7 +448,8 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                         () => { restartAutoClose(); onToggleTelemetry(); },
                         () => { restartAutoClose(); onOpenNotepad(); },
                         () => { restartAutoClose(); onSave(); },
-                        () => { restartAutoClose(); onLoad(); }
+                        () => { restartAutoClose(); onLoad(); },
+                        rowGap
                     )}
                 </View>
             </View>
@@ -461,6 +464,7 @@ const CONTROL_BUTTON_GAP = 8;
 const CONTROL_ROW_COLUMNS = 3;
 const CONTROL_ROW_WIDTH = CONTROL_BUTTON_SIZE * CONTROL_ROW_COLUMNS + CONTROL_BUTTON_GAP * (CONTROL_ROW_COLUMNS - 1);
 const CONTROL_ROW_VERTICAL_GAP = 20;
+const CONTROL_ROW_VERTICAL_GAP_COMPACT = 10;
 
 const renderControlRows = (
     onToggleFontSize: () => void,
@@ -468,7 +472,8 @@ const renderControlRows = (
     onToggleTelemetry: () => void,
     onOpenNotepad: () => void,
     onSave: () => void,
-    onLoad: () => void
+    onLoad: () => void,
+    rowGap: number
 ) => (
     <>
         <View style={[styles.controlsRow, styles.controlsRowTop]}>
@@ -476,7 +481,7 @@ const renderControlRows = (
             <ControlButton label="Theme" onPress={onToggleTheme} icon="theme" />
             <ControlButton label="Telemetry" onPress={onToggleTelemetry} icon="telemetry" />
         </View>
-        <View style={styles.controlsRowSpacer} />
+        <View style={[styles.controlsRowSpacer, { height: rowGap }]} />
         <View style={[styles.controlsRow, styles.controlsRowBottom]}>
             <ControlButton label="Notepad" onPress={onOpenNotepad} icon="note" />
             <ControlButton label="Save" onPress={onSave} icon="save" />
@@ -686,7 +691,8 @@ const styles = StyleSheet.create({
         color: '#e2e8f0'
     },
     controlsExpandedShell: {
-        paddingHorizontal: 12,
+        paddingLeft: 0,
+        paddingRight: 6,
         paddingVertical: 0,
         backgroundColor: 'transparent',
         flexDirection: 'column'
