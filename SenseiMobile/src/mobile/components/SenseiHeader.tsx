@@ -1,16 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+ 
 
 const brandLogo = require('../../assets/brand.png');
 
 const SEGMENT_BACKGROUND = 'rgba(6,19,29,0.7)';
 const SEGMENT_BORDER = 'rgba(255,255,255,0.04)';
+const WRAPPER_PADDING_V = 10;
+ 
 const HEADER_AUTO_CLOSE_MS = 3500;
 const THRESHOLD_FRACTION = 0.70;
 const EXPAND_DURATION_MS = 1000;
 const COLLAPSE_DURATION_MS = 500;
 const FADE_IN_DURATION_MS = 1000;
-const FADE_OUT_DURATION_MS = 700;
+const FADE_OUT_DURATION_MS = 400;
+const FADE_IN_START_FRACTION = 0.70;
+const FADE_IN_END_FRACTION = 1.00;
+ 
 
 interface SenseiHeaderProps {
     statusText: string;
@@ -45,51 +51,77 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const [showControls, setShowControls] = useState(false);
     const [showEllipsis, setShowEllipsis] = useState(true);
     const widthAnim = useRef(new Animated.Value(ELLIPSIS_WIDTH)).current;
-    const controlsOpacity = useRef(new Animated.Value(0)).current;
+    const [targetWidth, setTargetWidth] = useState(EXPANDED_WIDTH);
+    const collapseOpacity = useRef(new Animated.Value(1)).current;
     const ellipsisOpacity = useRef(new Animated.Value(1)).current;
+    const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ 
+    const controlsOpacityBase = useMemo(
+        () =>
+            widthAnim.interpolate({
+                inputRange: [targetWidth * FADE_IN_START_FRACTION, targetWidth * FADE_IN_END_FRACTION],
+                outputRange: [0, 1],
+                extrapolate: 'clamp'
+            }),
+        [widthAnim, targetWidth]
+    );
+    const controlsOpacity = Animated.multiply(controlsOpacityBase, collapseOpacity);
 
     useEffect(() => {
-        if (!controlsExpanded) {
-            return;
+        if (controlsExpanded) {
+            if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current as any);
+            autoCloseTimerRef.current = setTimeout(() => setControlsExpanded(false), HEADER_AUTO_CLOSE_MS);
+        } else {
+            if (autoCloseTimerRef.current) {
+                clearTimeout(autoCloseTimerRef.current as any);
+                autoCloseTimerRef.current = null;
+            }
         }
-        const timer = setTimeout(() => setControlsExpanded(false), HEADER_AUTO_CLOSE_MS);
-        return () => clearTimeout(timer);
+        return () => {
+            if (autoCloseTimerRef.current) {
+                clearTimeout(autoCloseTimerRef.current as any);
+                autoCloseTimerRef.current = null;
+            }
+        };
     }, [controlsExpanded]);
+
+    const restartAutoClose = () => {
+        if (!controlsExpanded) return;
+        if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current as any);
+        autoCloseTimerRef.current = setTimeout(() => setControlsExpanded(false), HEADER_AUTO_CLOSE_MS);
+    };
 
     useEffect(() => {
         let listenerId: string | null = null;
         if (controlsExpanded) {
             setShowControls(false);
             setShowEllipsis(false);
-            controlsOpacity.setValue(0);
+            collapseOpacity.setValue(1);
             ellipsisOpacity.setValue(0);
-            const threshold = EXPANDED_WIDTH * THRESHOLD_FRACTION;
-            let revealed = false;
+            const startThreshold = targetWidth * FADE_IN_START_FRACTION;
+            let mounted = false;
             listenerId = widthAnim.addListener(({ value }) => {
-                if (!revealed && value >= threshold) {
-                    revealed = true;
+                if (!mounted && value >= startThreshold) {
+                    mounted = true;
                     setShowControls(true);
-                    Animated.timing(controlsOpacity, {
-                        toValue: 1,
-                        duration: FADE_IN_DURATION_MS,
-                        easing: Easing.out(Easing.cubic),
-                        useNativeDriver: true
-                    }).start();
+                    if (listenerId) {
+                        try { widthAnim.removeListener(listenerId); } catch (_) {}
+                        listenerId = null;
+                    }
                 }
             });
             Animated.timing(widthAnim, {
-                toValue: EXPANDED_WIDTH,
+                toValue: targetWidth,
                 duration: EXPAND_DURATION_MS,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: false
             }).start();
         } else {
-            setShowEllipsis(false);
-            Animated.timing(controlsOpacity, {
+            Animated.timing(collapseOpacity, {
                 toValue: 0,
                 duration: FADE_OUT_DURATION_MS,
                 easing: Easing.out(Easing.cubic),
-                useNativeDriver: true
+                useNativeDriver: false
             }).start(() => {
                 setShowControls(false);
                 ellipsisOpacity.setValue(1);
@@ -107,7 +139,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                 try { widthAnim.removeListener(listenerId); } catch (_) {}
             }
         };
-    }, [controlsExpanded, widthAnim]);
+    }, [controlsExpanded, widthAnim, targetWidth, collapseOpacity]);
 
     const statusLines = useMemo(() => {
         if (!statusText) {
@@ -119,13 +151,21 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
             .filter(Boolean);
     }, [statusText]);
 
+    const onFlyoutTouchStart = () => {
+        // Any interaction inside the flyout resets auto-close timer
+        restartAutoClose();
+    };
+
     return (
         <View style={styles.wrapper}>
-            <View style={styles.brandSegment}>
+            <View
+                style={styles.brandSegment}
+            >
                 <Image source={brandLogo} style={styles.brandImage} resizeMode="contain" />
                 <Text style={styles.brandLabel}>Recursive Sensei</Text>
                 <Text style={styles.brandTagline}>Mentor Mode</Text>
             </View>
+            <View style={styles.divider} />
             <View style={styles.statusSegment}>
                 <NavCluster
                     variant="prev"
@@ -153,22 +193,22 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     onChunk={onChunkNext}
                 />
             </View>
-            <Animated.View style={[styles.controlsSegment, { width: widthAnim }]}> 
+            <View style={styles.divider} />
+            <Animated.View style={[styles.controlsSegment, { width: widthAnim }]} onTouchStart={onFlyoutTouchStart}> 
                 {showControls && (
-                    <Animated.View
-                        style={[styles.controlsExpandedShell, { opacity: controlsOpacity }]} 
-                        pointerEvents={showControls ? 'auto' : 'none'}
-                    >
-                        {renderControlRows(
-                            onToggleFontSize,
-                            onToggleTheme,
-                            onToggleDebug,
-                            onToggleFullscreen,
-                            onOpenNotepad,
-                            onSave,
-                            onLoad
-                        )}
-                    </Animated.View>
+                    <View style={styles.controlsExpandedShell} pointerEvents={'auto'}>
+                        <Animated.View style={{ opacity: controlsOpacity }}>
+                            {renderControlRows(
+                                onToggleFontSize,
+                                onToggleTheme,
+                                onToggleDebug,
+                                onToggleFullscreen,
+                                onOpenNotepad,
+                                onSave,
+                                onLoad
+                            )}
+                        </Animated.View>
+                    </View>
                 )}
                 {showEllipsis && (
                     <Animated.View style={{ opacity: ellipsisOpacity }} pointerEvents={showEllipsis ? 'auto' : 'none'}>
@@ -184,6 +224,29 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     </Animated.View>
                 )}
             </Animated.View>
+            <View
+                style={styles.measureContainer}
+                pointerEvents="none"
+                collapsable={false}
+                onLayout={(e) => {
+                    const w = Math.ceil(e.nativeEvent.layout.width);
+                    if (w > 0 && Math.abs(w - targetWidth) > 0) {
+                        setTargetWidth(w);
+                    }
+                }}
+            >
+                <View style={styles.controlsExpandedShell}>
+                    {renderControlRows(
+                        () => { restartAutoClose(); onToggleFontSize(); },
+                        () => { restartAutoClose(); onToggleTheme(); },
+                        () => { restartAutoClose(); onToggleDebug(); },
+                        () => { restartAutoClose(); onToggleFullscreen(); },
+                        () => { restartAutoClose(); onOpenNotepad(); },
+                        () => { restartAutoClose(); onSave(); },
+                        () => { restartAutoClose(); onLoad(); }
+                    )}
+                </View>
+            </View>
         </View>
     );
 };
@@ -277,20 +340,20 @@ const styles = StyleSheet.create({
     wrapper: {
         flexDirection: 'row',
         paddingHorizontal: 12,
-        paddingVertical: 10,
-        backgroundColor: '#050b14',
+        paddingVertical: WRAPPER_PADDING_V,
         borderBottomWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
         gap: 12,
-        alignItems: 'stretch'
+        alignItems: 'stretch',
+        position: 'relative'
     },
+    
+    
     brandSegment: {
         flexDirection: 'column',
         alignItems: 'center',
         paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRightWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
         minWidth: 76
     },
     brandImage: {
@@ -320,7 +383,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 8,
         gap: 12,
-        backgroundColor: SEGMENT_BACKGROUND,
         borderRadius: 16,
         borderWidth: 1,
         borderColor: SEGMENT_BORDER
@@ -402,15 +464,26 @@ const styles = StyleSheet.create({
         color: '#e2e8f0'
     },
     controlsExpandedShell: {
-        width: '100%',
         borderRadius: 16,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.04)',
-        backgroundColor: 'rgba(6,19,29,0.7)',
+        backgroundColor: 'transparent',
         flexDirection: 'column',
         gap: 6
+    },
+    divider: {
+        width: 1,
+        alignSelf: 'stretch',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        marginVertical: -WRAPPER_PADDING_V
+    },
+    measureContainer: {
+        position: 'absolute',
+        left: -9999,
+        top: 0,
+        opacity: 0
     },
     controlsRow: {
         flexDirection: 'row',

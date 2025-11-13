@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import LinearGradient from 'react-native-linear-gradient';
 
 import { logger } from '../logger';
 import { BridgeManager } from './bridge/BridgeManager';
@@ -96,6 +98,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     onWebViewError,
     allowingReadAccessToURL
 }) => {
+    const SHOW_WEBVIEW = false;
     const internalWebViewRef = useRef<WebView>(null);
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
     const [input, setInput] = useState('');
@@ -254,7 +257,33 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const handleChunkNext = useCallback(() => clickWebButton('chunk-nav-next'), [clickWebButton]);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.root}>
+            <LinearGradient
+                colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+            />
+            <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+                <Defs>
+                    <RadialGradient id="bgGlowPrimary" cx="20%" cy="20%" rx="45%" ry="45%">
+                        <Stop offset="0%" stopColor="#00d4ff" stopOpacity={0.18} />
+                        <Stop offset="100%" stopColor="#00d4ff" stopOpacity={0} />
+                    </RadialGradient>
+                    <RadialGradient id="bgGlowSecondary" cx="80%" cy="80%" rx="40%" ry="40%">
+                        <Stop offset="0%" stopColor="#00d4ff" stopOpacity={0.08} />
+                        <Stop offset="100%" stopColor="#00d4ff" stopOpacity={0} />
+                    </RadialGradient>
+                    <RadialGradient id="bgOverlayPrimary" cx="30%" cy="60%" rx="35%" ry="35%">
+                        <Stop offset="0%" stopColor="#c4e538" stopOpacity={0.05} />
+                        <Stop offset="100%" stopColor="#c4e538" stopOpacity={0} />
+                    </RadialGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#bgGlowPrimary)" />
+                <Rect width="100%" height="100%" fill="url(#bgGlowSecondary)" />
+                <Rect width="100%" height="100%" fill="url(#bgOverlayPrimary)" />
+            </Svg>
+            <SafeAreaView style={styles.container}>
             <SelectionOverlay
                 state={selectionOverlay}
                 webViewFrame={webViewFrame}
@@ -275,36 +304,42 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onSave={handleSave}
                 onLoad={handleImport}
             />
-            <View style={styles.webviewWrapper}>
-                <WebView
-                    key={webviewKey}
-                    ref={webViewRef}
-                    source={webViewSource}
-                    originWhitelist={['file://*']}
-                    onMessage={handleWebViewMessage}
-                    allowingReadAccessToURL={allowingReadAccessToURL}
-                    onLoad={() => {
-                        hasLoadedRef.current = true;
-                        logger.info('[MOBILE_PORT] webview load success');
-                        injectHeaderStatusObserver();
-                    }}
-                    onHttpError={(e) => {
-                        const ne = e.nativeEvent as any;
-                        logger.warn('[MOBILE_PORT] webview http error', { url: ne?.url, statusCode: ne?.statusCode, description: ne?.description });
-                    }}
-                    onError={(e) => {
-                        const ne = e.nativeEvent as any;
-                        if (!hasLoadedRef.current) {
-                            logger.error('[MOBILE_PORT] webview load error', { url: ne?.url, code: ne?.code, description: ne?.description });
-                            onWebViewError?.({ url: ne?.url, code: ne?.code, description: ne?.description });
-                        } else {
-                            logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
-                        }
-                    }}
-                    onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
-                    style={styles.webview}
-                />
-            </View>
+            {SHOW_WEBVIEW ? (
+                <View style={styles.webviewWrapper}>
+                    <WebView
+                        key={webviewKey}
+                        ref={webViewRef}
+                        source={webViewSource}
+                        originWhitelist={['file://*']}
+                        onMessage={handleWebViewMessage}
+                        allowingReadAccessToURL={allowingReadAccessToURL}
+                        onLoad={() => {
+                            hasLoadedRef.current = true;
+                            logger.info('[MOBILE_PORT] webview load success');
+                            injectHeaderStatusObserver();
+                        }}
+                        onHttpError={(e) => {
+                            const ne = e.nativeEvent as any;
+                            logger.warn('[MOBILE_PORT] webview http error', { url: ne?.url, statusCode: ne?.statusCode, description: ne?.description });
+                        }}
+                        onError={(e) => {
+                            const ne = e.nativeEvent as any;
+                            if (!hasLoadedRef.current) {
+                                logger.error('[MOBILE_PORT] webview load error', { url: ne?.url, code: ne?.code, description: ne?.description });
+                                onWebViewError?.({ url: ne?.url, code: ne?.code, description: ne?.description });
+                            } else {
+                                logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
+                            }
+                        }}
+                        onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
+                        style={styles.webview}
+                    />
+                </View>
+            ) : (
+                <View style={styles.webviewPlaceholder}>
+                    <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
+                </View>
+            )}
             <View style={styles.footer}>
                 {footer && (
                     <Text style={styles.footerText}>{`Confidence: ${footer.confidence} | Confusion: ${footer.confusion} | Intent: ${footer.intent}`}</Text>
@@ -333,20 +368,38 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     </TouchableOpacity>
                 </View>
             </View>
-        </SafeAreaView>
+            </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    root: {
+        flex: 1,
+        backgroundColor: '#050b14'
+    },
     container: {
         flex: 1,
-        backgroundColor: '#050505'
+        backgroundColor: 'transparent'
     },
     webviewWrapper: {
         flex: 1
     },
     webview: {
         flex: 1
+    },
+    webviewPlaceholder: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 16,
+        marginHorizontal: 12,
+        marginTop: 12
+    },
+    placeholderText: {
+        color: '#94a3b8'
     },
     footer: {
         padding: 12,
