@@ -271,7 +271,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     return (
         <View style={styles.root}>
             <SenseiBackdropCanvas headerRect={headerRect} />
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={['left','right','bottom']}>
             <SelectionOverlay
                 state={selectionOverlay}
                 webViewFrame={webViewFrame}

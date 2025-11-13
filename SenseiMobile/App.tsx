@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Platform, StatusBar } from 'react-native';
 import RNFS from 'react-native-fs';
 import type WebView from 'react-native-webview';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { BridgeManager } from './src/mobile/bridge/BridgeManager';
 import { MainScreen } from './src/mobile/MainScreen';
@@ -110,7 +111,7 @@ function App(): React.JSX.Element {
   }, [candidates.length]);
 
   return (
-    <>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <StatusBar hidden animated />
       <MainScreen
         bridge={bridge}
@@ -123,7 +124,7 @@ function App(): React.JSX.Element {
         allowingReadAccessToURL={readAccessBase}
         webViewRefOverride={webViewRef}
       />
-    </>
+    </SafeAreaProvider>
   );
 }
 

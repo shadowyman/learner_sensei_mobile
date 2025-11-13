@@ -73,7 +73,7 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
         const builder = Skia.RuntimeShaderBuilder(headerRefractiveRibbon);
         const localMatrix = processTransform2d([{ translateX: x }, { translateY: y }]);
         const topRadius = HEADER_RADIUS;
-        const bottomRadius = Math.min(topRadius, Math.max(0, Math.round(rectHeight * 0.12)));
+        const bottomRadius = 0;
         processUniforms(
             headerRefractiveRibbon,
             {
@@ -115,7 +115,7 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
         }
         const localMatrix = processTransform2d([{ translateX: x }, { translateY: y }]);
         const topRadius = HEADER_RADIUS;
-        const bottomRadius = Math.min(topRadius, Math.max(0, Math.round(rectHeight * 0.12)));
+        const bottomRadius = 0;
         const maskUniforms = processUniforms(
             maskEffect,
             { box: [0, 0, rectWidth, rectHeight], radii: [topRadius, topRadius, bottomRadius, bottomRadius] }

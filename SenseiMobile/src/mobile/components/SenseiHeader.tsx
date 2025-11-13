@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, PixelRatio } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../logger';
 import { NavIconSkia } from './NavIconSkia';
 import { MenuIconSvg } from './MenuIconSvg';
@@ -68,6 +69,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const wrapperRef = useRef<View | null>(null);
     const [layoutTick, setLayoutTick] = useState(0);
     const { width } = useWindowDimensions();
+    const { top: insetTop } = useSafeAreaInsets();
     const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
     const isCompactIOS = Platform.OS === 'ios' && !isPad && width <= 430;
  
@@ -203,13 +205,14 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                 const statusBottom = statusBottomRef.current ?? -Infinity;
                 const childrenBottom = Math.max(topBottom, statusBottom);
                 if (childrenBottom !== -Infinity) {
-                    const heightFromChildren = childrenBottom - y;
+                    const headerTop = y;
+                    const heightFromChildren = childrenBottom - headerTop;
                     const computedRaw = Math.max(windowHeight, heightFromChildren);
                     const pixel = PixelRatio.get() || 1;
                     const computed = Math.ceil(computedRaw * pixel) / pixel;
-                    const heightForShader = Math.ceil((computed + y) * pixel) / pixel;
+                    const heightForShader = Math.ceil((computed + headerTop) * pixel) / pixel;
                     const prev = enforcedMinHeight;
-                    const shouldUpdate = prev == null || Math.abs(computed - prev) > 0.5;
+                    const shouldUpdate = prev == null || Math.abs(computed - prev) > 0.1;
                     if (shouldUpdate) {
                         setEnforcedMinHeight(computed);
                     }
@@ -217,6 +220,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     logger.info('Sensei(debug)', {
                         tag: 'header.enforced',
                         wy: y,
+                        insetTop,
                         wh: windowHeight,
                         topRowBottom: topBottom,
                         statusBottom,
@@ -246,6 +250,9 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         if (!isCompactIOS) {
             return;
         }
+        // Reset cached child bottoms on signal changes to avoid stale values
+        topRowBottomRef.current = null;
+        statusBottomRef.current = null;
         const measureNode = (node: View | null, tag: string) => {
             if (!node || typeof (node as any).measureInWindow !== 'function') {
                 return;
@@ -264,14 +271,20 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
             measureNode(statusRef.current, 'header.status.window');
             const raf2 = requestAnimationFrame(() => {
                 measureHeaderRect();
+                const raf3 = requestAnimationFrame(() => {
+                    // extra pass to capture late-arriving inset/layout settles (post-rotation)
+                    measureHeaderRect();
+                });
+                (measureNode as any)._raf3 = raf3;
             });
             (measureNode as any)._raf2 = raf2;
         });
         return () => {
             cancelAnimationFrame(raf);
             if ((measureNode as any)._raf2) cancelAnimationFrame((measureNode as any)._raf2);
+            if ((measureNode as any)._raf3) cancelAnimationFrame((measureNode as any)._raf3);
         };
-    }, [layoutTick, isCompactIOS, measureHeaderRect]);
+    }, [layoutTick, isCompactIOS, measureHeaderRect, insetTop, width]);
 
     const statusSection = (
         <View

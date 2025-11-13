@@ -221,3 +221,20 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
         <when_to_run>Run whenever the user requests a functional specification or requirements document.</when_to_run>
     </protocol>
 </system_directives>
+
+## iOS Top‑Notch Header Bug — Fix Checklist (Compact iPhone)
+
+- SafeAreaProvider at root: Wrap the app with `SafeAreaProvider` (use `initialWindowMetrics`) so insets are available on frame 0. See `SenseiMobile/App.tsx`.
+- Do not apply top Safe Area padding to the header container: In `MainScreen`, set `SafeAreaView` `edges={['left','right','bottom']}` so the header wrapper renders at `y=0` (flush to the notch).
+- Draw Skia outside Safe Area: Keep `SenseiBackdropCanvas` outside `SafeAreaView` and emit shader rects from `{ y:0 }` to cover the notch.
+- Compact header height must match visual bottom:
+  - Measure child bottoms in window space (`topRowRef.measureInWindow`, `statusRef.measureInWindow`).
+  - Measure wrapper `{ wx, wy, ww, wh }` in window space.
+  - Compute `computed = ceil_to_pixel(max(wh, max(childBottoms) − wy))` and apply as wrapper `minHeight`.
+  - Emit shader rect `{ x:0, y:0, height: computed + wy }` so layout and glass remain in lockstep.
+- Re‑measure triggers: header `onLayout` tick, window size/orientation change, and safe‑area top inset change (after rotation). Use a short RAF chain: rows → compute → one safety recompute next frame. Guard updates with a small threshold (~0.1 px).
+- Avoid vertical `gap` for parent height: use a fixed‑height spacer container (e.g., 17 px) for the inter‑row separation so Yoga includes it in the parent’s measured height.
+- Exactly one measurement caller per mode: compact uses the child‑measure effect; non‑compact uses the generic effect.
+- Use a single `<Group dither>` around both gradients and `BackdropFilter` to prevent banding seams.
+
+Use this list whenever the header appears below the notch or its height/glass drift after rotation.
