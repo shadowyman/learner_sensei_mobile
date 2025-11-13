@@ -31,6 +31,7 @@ interface SenseiHeaderProps {
     onOpenNotepad: () => void;
     onSave: () => void;
     onLoad: () => void;
+    onLayoutRect?: (layout: { x: number; y: number; width: number; height: number }) => void;
 }
 
 export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
@@ -45,7 +46,8 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     onToggleFullscreen,
     onOpenNotepad,
     onSave,
-    onLoad
+    onLoad,
+    onLayoutRect
 }) => {
     const [controlsExpanded, setControlsExpanded] = useState(false);
     const [showControls, setShowControls] = useState(false);
@@ -157,7 +159,13 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     };
 
     return (
-        <View style={styles.wrapper}>
+        <View
+            style={styles.wrapper}
+            onLayout={(event) => {
+                const layout = event.nativeEvent.layout;
+                onLayoutRect?.(layout);
+            }}
+        >
             <View
                 style={styles.brandSegment}
             >
@@ -382,10 +390,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 8,
-        gap: 12,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: SEGMENT_BORDER
+        gap: 12
     },
     statusContent: {
         flex: 1,
@@ -440,7 +445,8 @@ const styles = StyleSheet.create({
         position: 'relative',
         paddingVertical: 4,
         flexDirection: 'row',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        backgroundColor: 'transparent'
     },
     ellipsisButton: {
         flexDirection: 'row',
@@ -448,11 +454,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 4,
         paddingVertical: 4,
-        paddingHorizontal: 12,
-        borderRadius: 16,
-        backgroundColor: 'rgba(4,12,20,0.65)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)'
+        paddingHorizontal: 12
     },
     ellipsisText: {
         fontSize: 20,
@@ -464,11 +466,8 @@ const styles = StyleSheet.create({
         color: '#e2e8f0'
     },
     controlsExpandedShell: {
-        borderRadius: 16,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.04)',
         backgroundColor: 'transparent',
         flexDirection: 'column',
         gap: 6

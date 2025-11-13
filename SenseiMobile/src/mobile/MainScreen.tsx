@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
-import LinearGradient from 'react-native-linear-gradient';
 
 import { logger } from '../logger';
 import { BridgeManager } from './bridge/BridgeManager';
@@ -11,6 +9,7 @@ import type { RNToWebMessage, WebToRNMessage, FooterPayload } from './bridge/con
 import type { BffClientLike } from './network/types';
 import { SelectionOverlay, SelectionOverlayController, SelectionOverlayState } from './SelectionOverlay';
 import { SenseiHeader } from './components/SenseiHeader';
+import { SenseiBackdropCanvas } from './effects/SenseiBackdropCanvas';
 
 interface SaveLoadServiceLike {
     exportSession: () => Promise<void>;
@@ -108,6 +107,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>({ visible: false });
     const selectionControllerRef = useRef<SelectionOverlayController | null>(null);
     const [webViewFrame, setWebViewFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
+    const [headerRect, setHeaderRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
     const webViewSource = useMemo(() => {
         if (webContentUri) return { uri: webContentUri } as const;
@@ -258,32 +258,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
     return (
         <View style={styles.root}>
-            <LinearGradient
-                colors={['#0a0a0a', '#1a1a2e', '#16213e']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
-            <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
-                <Defs>
-                    <RadialGradient id="bgGlowPrimary" cx="20%" cy="20%" rx="45%" ry="45%">
-                        <Stop offset="0%" stopColor="#00d4ff" stopOpacity={0.18} />
-                        <Stop offset="100%" stopColor="#00d4ff" stopOpacity={0} />
-                    </RadialGradient>
-                    <RadialGradient id="bgGlowSecondary" cx="80%" cy="80%" rx="40%" ry="40%">
-                        <Stop offset="0%" stopColor="#00d4ff" stopOpacity={0.08} />
-                        <Stop offset="100%" stopColor="#00d4ff" stopOpacity={0} />
-                    </RadialGradient>
-                    <RadialGradient id="bgOverlayPrimary" cx="30%" cy="60%" rx="35%" ry="35%">
-                        <Stop offset="0%" stopColor="#c4e538" stopOpacity={0.05} />
-                        <Stop offset="100%" stopColor="#c4e538" stopOpacity={0} />
-                    </RadialGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#bgGlowPrimary)" />
-                <Rect width="100%" height="100%" fill="url(#bgGlowSecondary)" />
-                <Rect width="100%" height="100%" fill="url(#bgOverlayPrimary)" />
-            </Svg>
             <SafeAreaView style={styles.container}>
+            <SenseiBackdropCanvas headerRect={headerRect} />
             <SelectionOverlay
                 state={selectionOverlay}
                 webViewFrame={webViewFrame}
@@ -303,6 +279,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onOpenNotepad={handleOpenNotepad}
                 onSave={handleSave}
                 onLoad={handleImport}
+                onLayoutRect={setHeaderRect}
             />
             {SHOW_WEBVIEW ? (
                 <View style={styles.webviewWrapper}>
