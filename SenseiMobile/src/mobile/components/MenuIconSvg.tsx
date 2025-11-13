@@ -75,6 +75,16 @@ const WEB_ICONS: Record<string, string> = {
       <path d="M9.5 13.5L12 16l2.5-2.5" fill="none" stroke="var(--icon-load-arrow, #22c55e)" stroke-width="1.8"/>
     </svg>
   `,
+  telemetry: `
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="1.6" fill="var(--icon-telemetry-dot, #22c55e)" stroke="none"/>
+      <path d="M8.2 9.8a4 4 0 0 0 0 4.4"/>
+      <path d="M15.8 9.8a4 4 0 0 1 0 4.4"/>
+      <path d="M6 8a7 7 0 0 0 0 8"/>
+      <path d="M18 8a7 7 0 0 1 0 8"/>
+    </svg>
+  `,
 };
 // AUTO-GENERATED: END WEB_ICON_DEFS
 
@@ -114,6 +124,7 @@ const DEFAULT_COLOR: Record<MenuIconSvgProps['name'], string> = {
   note: '#fbbf24',
   save: '#38bdf8',
   load: '#a78bfa',
+  telemetry: '#22c55e',
 };
 
 export const MenuIconSvg: React.FC<MenuIconSvgProps> = ({ name, size = 27, color }) => {

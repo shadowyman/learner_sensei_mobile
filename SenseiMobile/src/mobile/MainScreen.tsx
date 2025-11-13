@@ -259,6 +259,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
     const handleToggleFontSize = useCallback(() => clickWebButton('font-size-toggle'), [clickWebButton]);
     const handleToggleTheme = useCallback(() => clickWebButton('theme-button'), [clickWebButton]);
+    const handleToggleTelemetryMenu = useCallback(() => telemetryManager.toggle(!telemetryManager.isEnabled()), [telemetryManager]);
     const handleToggleDebug = useCallback(() => clickWebButton('debug-mode-button'), [clickWebButton]);
     const handleToggleFullscreen = useCallback(() => clickWebButton('main-chat-fullscreen-button'), [clickWebButton]);
     const handleOpenNotepad = useCallback(() => clickWebButton('notepad-button'), [clickWebButton]);
@@ -285,6 +286,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onChunkNext={handleChunkNext}
                 onToggleFontSize={handleToggleFontSize}
                 onToggleTheme={handleToggleTheme}
+                onToggleTelemetry={handleToggleTelemetryMenu}
                 onToggleDebug={handleToggleDebug}
                 onToggleFullscreen={handleToggleFullscreen}
                 onOpenNotepad={handleOpenNotepad}
@@ -343,17 +345,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     />
                     <TouchableOpacity onPress={handleSubmit} disabled={isStreaming} style={styles.sendButton}>
                         <Text style={styles.buttonText}>Send</Text>
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.actionsRow}>
-                    <TouchableOpacity onPress={handleSave} style={styles.secondaryButton}>
-                        <Text style={styles.buttonText}>Save</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleImport} style={styles.secondaryButton}>
-                        <Text style={styles.buttonText}>Load</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => telemetryManager.toggle(!telemetryManager.isEnabled())} style={styles.secondaryButton}>
-                        <Text style={styles.buttonText}>{telemetryManager.isEnabled() ? 'Telemetry On' : 'Telemetry Off'}</Text>
                     </TouchableOpacity>
                 </View>
             </View>

@@ -145,10 +145,10 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
                 <Rect x={0} y={0} width={width} height={height}>
                     <RadialGradient c={vec(width * 0.55, height * 0.5)} r={Math.max(width, height) * 0.44} colors={['rgba(196,229,56,0.08)', 'rgba(196,229,56,0)']} positions={[0, 1]} />
                 </Rect>
+                {filter && (
+                    <BackdropFilter filter={<ImageFilter filter={filter} />} />
+                )}
             </Group>
-            {filter && (
-                <BackdropFilter filter={<ImageFilter filter={filter} />} />
-            )}
         </Canvas>
     );
 };

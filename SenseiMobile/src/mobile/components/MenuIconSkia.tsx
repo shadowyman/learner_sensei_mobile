@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Canvas, Group, Path, Skia, Circle } from '@shopify/react-native-skia';
 
-export type MenuIconName = 'font' | 'theme' | 'debug' | 'fullscreen' | 'note' | 'save' | 'load';
+export type MenuIconName = 'font' | 'theme' | 'debug' | 'fullscreen' | 'note' | 'save' | 'load' | 'telemetry';
 
 interface MenuIconSkiaProps {
   name: MenuIconName;
@@ -28,6 +28,12 @@ export const MenuIconSkia: React.FC<MenuIconSkiaProps> = ({
 
   const paths = useMemo(() => {
     switch (name) {
+      case 'telemetry':
+        return [
+          buildPath([[12, 6], [12, 6.01]]),
+          buildPath([[8, 9], [6, 11], [5, 13], [6, 15], [8, 17]]),
+          buildPath([[16, 9], [18, 11], [19, 13], [18, 15], [16, 17]]),
+        ];
       case 'fullscreen':
         return [
           buildPath([[5, 9], [5, 5], [9, 5]]),

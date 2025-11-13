@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, PixelRatio } from 'react-native';
 import { logger } from '../../logger';
 import { NavIconSkia } from './NavIconSkia';
 import { MenuIconSvg } from './MenuIconSvg';
@@ -31,6 +31,7 @@ interface SenseiHeaderProps {
     onChunkNext: () => void;
     onToggleFontSize: () => void;
     onToggleTheme: () => void;
+    onToggleTelemetry: () => void;
     onToggleDebug: () => void;
     onToggleFullscreen: () => void;
     onOpenNotepad: () => void;
@@ -47,6 +48,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     onChunkNext,
     onToggleFontSize,
     onToggleTheme,
+    onToggleTelemetry,
     onToggleDebug,
     onToggleFullscreen,
     onOpenNotepad,
@@ -173,7 +175,6 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         <View style={styles.brandSegment}>
             <Image source={brandLogo} style={styles.brandImage} resizeMode="contain" />
             <Text style={styles.brandLabel}>Recursive Sensei</Text>
-            <Text style={styles.brandTagline}>Mentor Mode</Text>
         </View>
     );
 
@@ -181,6 +182,65 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const topRowRef = useRef<View | null>(null);
     const statusBottomRef = useRef<number | null>(null);
     const topRowBottomRef = useRef<number | null>(null);
+
+    const [enforcedMinHeight, setEnforcedMinHeight] = useState<number | null>(null);
+
+    const measureHeaderRect = useCallback(() => {
+        const node = wrapperRef.current;
+        if (!node) {
+            return;
+        }
+        const handle: any = node;
+        if (typeof handle.measureInWindow !== 'function') {
+            return;
+        }
+        handle.measureInWindow((x: number, y: number, windowWidth: number, windowHeight: number) => {
+            if (!windowHeight || windowHeight <= 0) {
+                return;
+            }
+            if (isCompactIOS) {
+                const topBottom = topRowBottomRef.current ?? -Infinity;
+                const statusBottom = statusBottomRef.current ?? -Infinity;
+                const childrenBottom = Math.max(topBottom, statusBottom);
+                if (childrenBottom !== -Infinity) {
+                    const heightFromChildren = childrenBottom - y;
+                    const computedRaw = Math.max(windowHeight, heightFromChildren);
+                    const pixel = PixelRatio.get() || 1;
+                    const computed = Math.ceil(computedRaw * pixel) / pixel;
+                    const heightForShader = Math.ceil((computed + y) * pixel) / pixel;
+                    const prev = enforcedMinHeight;
+                    const shouldUpdate = prev == null || Math.abs(computed - prev) > 0.5;
+                    if (shouldUpdate) {
+                        setEnforcedMinHeight(computed);
+                    }
+                    const rect = { x: 0, y: 0, width, height: heightForShader };
+                    logger.info('Sensei(debug)', {
+                        tag: 'header.enforced',
+                        wy: y,
+                        wh: windowHeight,
+                        topRowBottom: topBottom,
+                        statusBottom,
+                        heightFromChildren,
+                        computed,
+                        heightForShader,
+                        updated: shouldUpdate
+                    });
+                    onLayoutRect?.(rect);
+                    return;
+                }
+            }
+            const rect = { x, y, width: windowWidth, height: windowHeight };
+            logger.info('Sensei(debug)', {
+                tag: 'header.measure.default',
+                windowX: x,
+                windowY: y,
+                windowWidth,
+                windowHeight,
+                rect
+            });
+            onLayoutRect?.(rect);
+        });
+    }, [isCompactIOS, onLayoutRect, width, enforcedMinHeight]);
 
     useEffect(() => {
         if (!isCompactIOS) {
@@ -202,9 +262,16 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         const raf = requestAnimationFrame(() => {
             measureNode(topRowRef.current, 'header.topRow.window');
             measureNode(statusRef.current, 'header.status.window');
+            const raf2 = requestAnimationFrame(() => {
+                measureHeaderRect();
+            });
+            (measureNode as any)._raf2 = raf2;
         });
-        return () => cancelAnimationFrame(raf);
-    }, [layoutTick, isCompactIOS]);
+        return () => {
+            cancelAnimationFrame(raf);
+            if ((measureNode as any)._raf2) cancelAnimationFrame((measureNode as any)._raf2);
+        };
+    }, [layoutTick, isCompactIOS, measureHeaderRect]);
 
     const statusSection = (
         <View
@@ -259,6 +326,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                         {renderControlRows(
                             onToggleFontSize,
                             onToggleTheme,
+                            onToggleTelemetry,
                             onOpenNotepad,
                             onSave,
                             onLoad
@@ -282,50 +350,10 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         </Animated.View>
     );
 
-    const measureHeaderRect = useCallback(() => {
-        const node = wrapperRef.current;
-        if (!node) {
-            return;
-        }
-        const handle: any = node;
-        if (typeof handle.measureInWindow !== 'function') {
-            return;
-        }
-    handle.measureInWindow((x: number, y: number, windowWidth: number, windowHeight: number) => {
-        if (!windowHeight || windowHeight <= 0) {
-            return;
-        }
-        if (isCompactIOS) {
-            const offsetY = Math.max(0, y);
-            const heightWithInset = windowHeight + offsetY;
-            const rect = { x: 0, y: 0, width, height: heightWithInset };
-            logger.info('Sensei(debug)', {
-                tag: 'header.measure.compact',
-                windowX: x,
-                windowY: y,
-                windowWidth,
-                windowHeight,
-                offsetY,
-                heightWithInset,
-                rect
-            });
-            onLayoutRect?.(rect);
-            return;
-        }
-        const rect = { x, y, width: windowWidth, height: windowHeight };
-        logger.info('Sensei(debug)', {
-            tag: 'header.measure.default',
-            windowX: x,
-            windowY: y,
-            windowWidth,
-            windowHeight,
-            rect
-        });
-        onLayoutRect?.(rect);
-    });
-    }, [isCompactIOS, onLayoutRect, width]);
+    
 
     useEffect(() => {
+        if (isCompactIOS) return;
         if (measureRafRef.current) {
             cancelAnimationFrame(measureRafRef.current);
         }
@@ -339,12 +367,16 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                 measureRafRef.current = null;
             }
         };
-    }, [layoutTick, measureHeaderRect]);
+    }, [layoutTick, measureHeaderRect, isCompactIOS]);
 
     return (
         <View
             ref={wrapperRef}
-            style={[styles.wrapper, isCompactIOS && styles.wrapperCompact]}
+            style={[
+                styles.wrapper,
+                isCompactIOS && styles.wrapperCompact,
+                isCompactIOS && enforcedMinHeight != null ? { minHeight: enforcedMinHeight } : null
+            ]}
             collapsable={false}
             onLayout={(event) => {
                 const layout = event.nativeEvent.layout;
@@ -367,7 +399,6 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                         style={styles.compactTopRow}
                     >
                         {brandSection}
-                        <View style={[styles.divider, styles.dividerCompactVertical]} />
                         {controlsSection}
                     </View>
                     <View style={styles.dividerContainer}>
@@ -399,6 +430,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     {renderControlRows(
                         () => { restartAutoClose(); onToggleFontSize(); },
                         () => { restartAutoClose(); onToggleTheme(); },
+                        () => { restartAutoClose(); onToggleTelemetry(); },
                         () => { restartAutoClose(); onOpenNotepad(); },
                         () => { restartAutoClose(); onSave(); },
                         () => { restartAutoClose(); onLoad(); }
@@ -420,6 +452,7 @@ const CONTROL_ROW_VERTICAL_GAP = 20;
 const renderControlRows = (
     onToggleFontSize: () => void,
     onToggleTheme: () => void,
+    onToggleTelemetry: () => void,
     onOpenNotepad: () => void,
     onSave: () => void,
     onLoad: () => void
@@ -428,6 +461,7 @@ const renderControlRows = (
         <View style={[styles.controlsRow, styles.controlsRowTop]}>
             <ControlButton label="Toggle font size" onPress={onToggleFontSize} icon="font" />
             <ControlButton label="Theme" onPress={onToggleTheme} icon="theme" />
+            <ControlButton label="Telemetry" onPress={onToggleTelemetry} icon="telemetry" />
         </View>
         <View style={styles.controlsRowSpacer} />
         <View style={[styles.controlsRow, styles.controlsRowBottom]}>
@@ -486,7 +520,7 @@ const NavButton: React.FC<NavButtonProps> = ({ label, icon, onPress }) => (
 
 interface ControlButtonProps {
     label: string;
-    icon: 'font' | 'theme' | 'debug' | 'fullscreen' | 'note' | 'save' | 'load';
+    icon: 'font' | 'theme' | 'debug' | 'fullscreen' | 'note' | 'save' | 'load' | 'telemetry';
     onPress: () => void;
 }
 
