@@ -29,7 +29,7 @@
     "backup:create": "ts-node scripts/createBackup.ts",
     "test:lint": "eslint --config config/eslint.config.cjs",
     "review:mediate": "node --require ts-node/register scripts/review_mediator.ts",
-    "webview:bundle": "esbuild src/index.tsx --bundle --format=esm --platform=browser --target=es2020 --sourcemap --define:process.env.NODE_ENV=\\\"production\\\" --outfile=SenseiMobile/app_web/webview_dist/index.js --loader:.ts=ts --loader:.tsx=tsx --external:@google/genai --external:marked --external:mermaid --external:jszip --external:@google/generative-ai --external:@codemirror/state --external:@codemirror/view --external:@codemirror/language --external:@codemirror/commands --external:@codemirror/autocomplete --external:@codemirror/lang-cpp --external:@codemirror/highlight --external:@codemirror/gutter --external:@lezer/highlight --external:w3c-keyname --external:react-native --external:@react-native/assets-registry --external:react-native-safe-area-context"
+    "webview:bundle": "esbuild src/index.tsx --bundle --format=esm --platform=browser --target=es2020 --sourcemap --define:process.env.NODE_ENV=\\\"production\\\" --outfile=SenseiMobile/app_web/webview_dist/index.js --loader:.ts=ts --loader:.tsx=tsx --external:@google/genai --external:marked --external:mermaid --external:jszip --external:@google/generative-ai --external:@codemirror/state --external:@codemirror/view --external:@codemirror/language --external:@codemirror/commands --external:@codemirror/autocomplete --external:@codemirror/lang-cpp --external:@codemirror/highlight --external:@codemirror/gutter --external:@lezer/highlight --external:w3c-keyname --external:react-native --external:@react-native/assets-registry --external:react-native-safe-area-context && cp src/index.css SenseiMobile/app_web/webview_dist/index.css"
   },
   "keywords": [
     "education",
@@ -57,6 +57,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "codex": "^0.2.3",
     "json5": "^2.2.3",
     "katex": "^0.16.23",
     "marked-katex-extension": "^5.1.5",

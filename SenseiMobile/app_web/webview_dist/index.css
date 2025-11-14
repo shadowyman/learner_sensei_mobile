@@ -153,10 +153,7 @@ body {
     font-family: var(--font-primary);
     font-variant-ligatures: none;
     font-feature-settings: "liga" 0, "clig" 0, "calt" 0;
-    background: 
-        var(--background-body-radial-primary),
-        var(--background-body-radial-secondary),
-        var(--background-main);
+    background: transparent;
     min-height: 100vh;
     padding: 12px;
     color: var(--text-primary);
@@ -164,20 +161,8 @@ body {
     position: relative;
 }
 
-/* Enhanced glass morphism background layer */
 body::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--background-overlay-primary),
-                var(--background-overlay-secondary),
-                var(--background-overlay-tertiary);
-    pointer-events: none;
-    z-index: 0;
-    filter: blur(80px);
+    content: none;
 }
 
 /* --- FONT SIZE CONTROL --- */

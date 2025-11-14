@@ -22985,9 +22985,17 @@ function setupFullscreenToggle(buttonId, containerId, fullscreenClassName, expan
     return;
   }
   const initialIconPlaceholder = buttonElement.querySelector(".icon-placeholder");
+  const isInitiallyFullscreen = containerElement.classList.contains(fullscreenClassName);
   if (initialIconPlaceholder) {
-    initialIconPlaceholder.dataset.icon = expandIcon;
+    initialIconPlaceholder.dataset.icon = isInitiallyFullscreen ? compressIcon : expandIcon;
     renderIcons(buttonElement);
+  }
+  if (isInitiallyFullscreen) {
+    buttonElement.title = "Exit Fullscreen";
+    buttonElement.setAttribute("aria-label", "Exit Fullscreen");
+  } else {
+    buttonElement.title = "Enter Fullscreen";
+    buttonElement.setAttribute("aria-label", "Enter Fullscreen");
   }
   buttonElement.addEventListener("click", () => {
     containerElement.classList.toggle(fullscreenClassName);
@@ -33678,10 +33686,6 @@ async function loadCurriculumAndGreet() {
   window.saveProgress = () => SaveLoadProgressManager.saveProgress();
   window.loadProgress = (file) => SaveLoadProgressManager.loadProgress(file);
   setupFullscreenToggle("main-chat-fullscreen-button", "chat-container", "main-chat-fullscreen");
-  const fullscreenButton2 = document.getElementById("main-chat-fullscreen-button");
-  if (fullscreenButton2) {
-    fullscreenButton2.click();
-  }
   const messageArea2 = document.getElementById("message-area");
   if (messageArea2) {
     initializeSelectionSensei(ai, messageArea2);

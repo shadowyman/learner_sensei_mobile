@@ -1375,14 +1375,7 @@ async function loadCurriculumAndGreet() {
     (window as any).saveProgress = () => SaveLoadProgressManager.saveProgress();
     (window as any).loadProgress = (file: File) => SaveLoadProgressManager.loadProgress(file);
     
-    // Setup the new main chat fullscreen button
     setupFullscreenToggle('main-chat-fullscreen-button', 'chat-container', 'main-chat-fullscreen');
-
-    // Automatically start in fullscreen mode
-    const fullscreenButton = document.getElementById('main-chat-fullscreen-button') as HTMLButtonElement;
-    if (fullscreenButton) {
-        fullscreenButton.click();
-    }
 
     // Initialize the new self-contained selection sensei module
     const messageArea = document.getElementById('message-area') as HTMLDivElement;

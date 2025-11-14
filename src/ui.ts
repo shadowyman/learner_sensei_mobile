@@ -3330,11 +3330,18 @@ export function setupFullscreenToggle(
     }
 
     const initialIconPlaceholder = buttonElement.querySelector('.icon-placeholder') as HTMLElement;
+    const isInitiallyFullscreen = containerElement.classList.contains(fullscreenClassName);
     if (initialIconPlaceholder) {
-        initialIconPlaceholder.dataset.icon = expandIcon;
+        initialIconPlaceholder.dataset.icon = isInitiallyFullscreen ? compressIcon : expandIcon;
         renderIcons(buttonElement);
     }
-
+    if (isInitiallyFullscreen) {
+        buttonElement.title = 'Exit Fullscreen';
+        buttonElement.setAttribute('aria-label', 'Exit Fullscreen');
+    } else {
+        buttonElement.title = 'Enter Fullscreen';
+        buttonElement.setAttribute('aria-label', 'Enter Fullscreen');
+    }
 
     buttonElement.addEventListener('click', () => {
         containerElement.classList.toggle(fullscreenClassName);
