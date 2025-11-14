@@ -274,7 +274,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     return (
         <View style={styles.root}>
             <SenseiBackdropCanvas headerRect={headerRect} inputBarRect={inputBarRect} inputFieldRect={inputFieldRect} />
-            <SafeAreaView style={styles.container} edges={['left','right','bottom']}>
+            <SafeAreaView style={styles.container} edges={['left','right']}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
             <SelectionOverlay
                 state={selectionOverlay}
