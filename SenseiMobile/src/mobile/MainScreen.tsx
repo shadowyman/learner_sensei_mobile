@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, Platform, useWindowDimensions, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 
@@ -10,6 +10,7 @@ import type { BffClientLike } from './network/types';
 import { SelectionOverlay, SelectionOverlayController, SelectionOverlayState } from './SelectionOverlay';
 import { SenseiHeader } from './components/SenseiHeader';
 import { SenseiBackdropCanvas } from './effects/SenseiBackdropCanvas';
+import { InputBar } from './components/InputBar';
 
 interface SaveLoadServiceLike {
     exportSession: () => Promise<void>;
@@ -108,6 +109,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const selectionControllerRef = useRef<SelectionOverlayController | null>(null);
     const [webViewFrame, setWebViewFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [headerRect, setHeaderRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+    const [inputBarRect, setInputBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+    const [inputFieldRect, setInputFieldRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const { width: viewportWidth } = useWindowDimensions();
     const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
     const isCompactIOS = Platform.OS === 'ios' && !isPad && viewportWidth <= 430;
@@ -270,8 +273,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
     return (
         <View style={styles.root}>
-            <SenseiBackdropCanvas headerRect={headerRect} />
+            <SenseiBackdropCanvas headerRect={headerRect} inputBarRect={inputBarRect} inputFieldRect={inputFieldRect} />
             <SafeAreaView style={styles.container} edges={['left','right','bottom']}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
             <SelectionOverlay
                 state={selectionOverlay}
                 webViewFrame={webViewFrame}
@@ -304,6 +308,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         originWhitelist={['file://*']}
                         onMessage={handleWebViewMessage}
                         allowingReadAccessToURL={allowingReadAccessToURL}
+                        style={[styles.webview, { backgroundColor: 'transparent' }]}
+                        setBackgroundColor={'transparent'}
+                        opaque={false}
                         onLoad={() => {
                             hasLoadedRef.current = true;
                             logger.info('[MOBILE_PORT] webview load success');
@@ -331,23 +338,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
                 </View>
             )}
-            <View style={styles.footer}>
-                {footer && (
-                    <Text style={styles.footerText}>{`Confidence: ${footer.confidence} | Confusion: ${footer.confusion} | Intent: ${footer.intent}`}</Text>
-                )}
-                <View style={styles.inputRow}>
-                    <TextInput
-                        value={input}
-                        onChangeText={setInput}
-                        editable={!isStreaming}
-                        placeholder="Ask Sensei anything"
-                        style={styles.input}
-                    />
-                    <TouchableOpacity onPress={handleSubmit} disabled={isStreaming} style={styles.sendButton}>
-                        <Text style={styles.buttonText}>Send</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+            <InputBar
+                onSubmit={(txt) => {
+                    logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
+                }}
+                onOpenEditor={() => {
+                    logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
+                }}
+                onLayoutRect={setInputBarRect}
+                onInputFieldRect={setInputFieldRect}
+            />
+            </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
     );
@@ -368,10 +369,12 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch'
     },
     webviewWrapper: {
-        flex: 1
+        flex: 1,
+        backgroundColor: 'transparent'
     },
     webview: {
-        flex: 1
+        flex: 1,
+        backgroundColor: 'transparent'
     },
     webviewPlaceholder: {
         flex: 1,
@@ -385,36 +388,6 @@ const styles = StyleSheet.create({
     },
     placeholderText: {
         color: '#94a3b8'
-    },
-    footer: {
-        padding: 12,
-        backgroundColor: '#0f0f0f'
-    },
-    footerText: {
-        color: '#94a3b8',
-        marginBottom: 8
-    },
-    inputRow: {
-        flexDirection: 'row',
-        gap: 8,
-        alignItems: 'center'
-    },
-    input: {
-        flex: 1,
-        backgroundColor: '#1f1f1f',
-        color: '#fff',
-        padding: 12,
-        borderRadius: 8
-    },
-    sendButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: '#22d3ee',
-        borderRadius: 8
-    },
-    buttonText: {
-        color: '#050505',
-        fontWeight: '600'
     },
     actionsRow: {
         flexDirection: 'row',

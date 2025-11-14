@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StatusBar } from 'react-native';
+import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import type WebView from 'react-native-webview';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -112,7 +112,6 @@ function App(): React.JSX.Element {
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <StatusBar hidden animated />
       <MainScreen
         bridge={bridge}
         bffClient={bffClient}
