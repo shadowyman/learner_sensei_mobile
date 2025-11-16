@@ -1,4 +1,5 @@
 # Recursive Sensei BFF System — Master Architectural Guide
+Status (2025-11-16): Phase 1 BFF implementation is scheduled; scaffolding and contract-aligned services are pending.
 
 ## Introduction
 

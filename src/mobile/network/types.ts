@@ -1,7 +1,12 @@
+export interface SelectionContext {
+    actionId: string;
+    selectedText?: string;
+}
+
 export interface SubmitTurnPayload {
     text: string;
     clientTurnId: string;
-    selectionContext?: Record<string, unknown>;
+    selectionContext?: SelectionContext;
 }
 
 export interface StreamChunk {

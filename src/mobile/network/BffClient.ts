@@ -16,11 +16,18 @@ interface WebSocketInstanceLike {
     close(): void;
 }
 
+interface ClientMetadata {
+    topicId?: string;
+    source?: string;
+    appVersion?: string;
+}
+
 interface BffClientOptions {
     baseUrl: string;
     bridge: BridgeManager;
     fetchImpl?: FetchLike;
     webSocketImpl?: WebSocketLike;
+    clientMetadata?: ClientMetadata;
 }
 
 type StreamEvent = StreamChunk | StreamStatus | StreamError;
@@ -75,12 +82,18 @@ export class BffClient implements BffClientLike {
     private readonly WebSocketImpl?: WebSocketLike;
     private readonly bridge: BridgeManager;
     private sessionId: string | null = null;
+    private readonly clientMetadata: ClientMetadata;
 
     constructor(options: BffClientOptions) {
         this.baseUrl = options.baseUrl.replace(/\/$/, '');
         this.fetchImpl = options.fetchImpl ?? fetch;
         this.WebSocketImpl = options.webSocketImpl ?? (globalThis as any).WebSocket;
         this.bridge = options.bridge;
+        this.clientMetadata = {
+            topicId: 'c++_recursive_mastery',
+            source: 'mobile',
+            ...options.clientMetadata
+        };
     }
 
     async ensureSession(): Promise<void> {
@@ -90,7 +103,13 @@ export class BffClient implements BffClientLike {
         const response = await this.fetchImpl(`${this.baseUrl}/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topicId: 'default' })
+            body: JSON.stringify({
+                topicId: this.clientMetadata.topicId,
+                metadata: {
+                    source: this.clientMetadata.source,
+                    appVersion: this.clientMetadata.appVersion
+                }
+            })
         });
         if (!response.ok) {
             throw new Error(`Failed to initialize session: ${response.status}`);
@@ -104,25 +123,53 @@ export class BffClient implements BffClientLike {
     }
 
     async submitTurn(payload: SubmitTurnPayload): Promise<TurnStreamHandle> {
-        await this.ensureSession();
-        const body = {
+        const requestBody = {
             clientTurnId: payload.clientTurnId,
-            input: { text: payload.text }
+            input: { text: payload.text },
+            metadata: {
+                source: this.clientMetadata.source,
+                appVersion: this.clientMetadata.appVersion,
+                selectionSensei: payload.selectionContext
+            }
         };
+        return this.postTurnWithRetry(requestBody, false);
+    }
+
+    private async postTurnWithRetry(body: Record<string, unknown>, hasRetried: boolean): Promise<TurnStreamHandle> {
+        await this.ensureSession();
         const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/turns`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
+        if (response.status === 400) {
+            const errorBody = await this.safeParseJson(response);
+            if (!hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postTurnWithRetry(body, true);
+            }
+            throw new Error(`Turn submission failed: ${response.status}`);
+        }
         if (!response.ok) {
             throw new Error(`Turn submission failed: ${response.status}`);
         }
-        const json = await response.json();
-        logger.info('[MOBILE_PORT] ws status', { phase: 'requested', turnId: json.turnId });
-        return {
-            messageId: `msg-${json.turnId}`,
-            stream: this.createStream(json.streamUrl, json.turnId)
-        };
+        return this.handleTurnResponse(response);
+    }
+
+    private isUnknownSessionError(body: any): boolean {
+        if (!body || typeof body !== 'object') {
+            return false;
+        }
+        const message = typeof body.message === 'string' ? body.message.toLowerCase() : '';
+        return body.code === 'BAD_REQUEST' && message.includes('unknown session');
+    }
+
+    private async safeParseJson(response: Response): Promise<any | null> {
+        try {
+            return await response.json();
+        } catch (_) {
+            return null;
+        }
     }
 
     async recoverMermaid(payload: MermaidRecoveryPayload): Promise<MermaidRecoveryResult> {

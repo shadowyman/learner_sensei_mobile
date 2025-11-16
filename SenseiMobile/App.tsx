@@ -52,7 +52,15 @@ function App(): React.JSX.Element {
       }),
     []
   );
-  const bffClient = useMemo(() => new BffClient({ baseUrl: BFF_BASE_URL, bridge }), [bridge]);
+  const bffClient = useMemo(
+    () =>
+      new BffClient({
+        baseUrl: BFF_BASE_URL,
+        bridge,
+        clientMetadata: { appVersion: '1.0.0-mobile', source: 'mobile', topicId: 'c++_recursive_mastery' }
+      }),
+    [bridge]
+  );
 
   const webContentUri = useMemo(() => {
     const basePath = RNFS.MainBundlePath ?? '';
