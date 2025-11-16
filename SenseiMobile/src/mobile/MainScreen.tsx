@@ -271,14 +271,76 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     return;
                 }
                 window.__senseiHeaderBridgeInitialized = true;
+                const getText = (node) => {
+                    if (!node || typeof node.textContent !== 'string') {
+                        return '';
+                    }
+                    return node.textContent.trim();
+                };
+                const buildLines = (target) => {
+                    const lines = [];
+                    const moduleNode = target.querySelector('.status-module');
+                    if (moduleNode) {
+                        const moduleText = getText(moduleNode);
+                        if (moduleText) {
+                            lines.push(moduleText);
+                        }
+                    }
+                    const phaseLineNode = target.querySelector('.status-phase-line');
+                    if (phaseLineNode) {
+                        const fragments = Array.from(phaseLineNode.childNodes)
+                            .map((child) => getText(child))
+                            .filter(Boolean);
+                        const joined = fragments.join(' ').replace(/\\s+/g, ' ').trim();
+                        if (joined) {
+                            lines.push(joined);
+                        }
+                    } else {
+                        const parts = [];
+                        const phaseNode = target.querySelector('.status-phase');
+                        const conceptNode = target.querySelector('.status-concept');
+                        const chunkNode = target.querySelector('.status-chunk');
+                        const phaseText = getText(phaseNode);
+                        if (phaseText) {
+                            parts.push(phaseText);
+                        }
+                        const conceptText = getText(conceptNode);
+                        if (conceptText) {
+                            if (parts.length > 0) {
+                                parts.push('–');
+                            }
+                            parts.push(conceptText);
+                        }
+                        const chunkText = getText(chunkNode);
+                        if (chunkText) {
+                            parts.push(chunkText);
+                        }
+                        const fallback = parts.join(' ').replace(/\\s+/g, ' ').trim();
+                        if (fallback) {
+                            lines.push(fallback);
+                        }
+                    }
+                    if (lines.length === 0) {
+                        const fallbackText = getText(target);
+                        if (fallbackText) {
+                            lines.push(fallbackText);
+                        }
+                    }
+                    return lines;
+                };
                 const sendStatus = () => {
                     const target = document.getElementById('curriculum-status-topic');
                     if (!target || !window.ReactNativeWebView) {
                         return;
                     }
+                    const lines = buildLines(target)
+                        .map((line) => (typeof line === 'string' ? line.replace(/\\s+/g, ' ').trim() : ''))
+                        .filter((line) => !!line);
+                    const text = lines.join('\\n');
                     window.ReactNativeWebView.postMessage(JSON.stringify({
                         type: 'header:status',
-                        text: target.innerText || ''
+                        text,
+                        lines
                     }));
                 };
                 const container = document.getElementById('curriculum-status-container');
@@ -340,7 +402,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 telemetryManager.record(parsed.eventName, parsed.data ?? {});
             }
             if (parsed.type === 'header:status') {
-                setHeaderStatus(parsed.text ?? '');
+                if (Array.isArray(parsed.lines) && parsed.lines.length > 0) {
+                    setHeaderStatus(parsed.lines.join('\n'));
+                } else {
+                    setHeaderStatus(parsed.text ?? '');
+                }
             }
             onWebViewEvent?.(parsed);
         } catch (error) {

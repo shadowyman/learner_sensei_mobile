@@ -6,7 +6,7 @@ import { FunctionDeclaration, Tool, Type } from '@google/genai';
  */
 
 // Define model names as constants
-const GEMINI_PRO = 'gemini-2.5-pro'; // Main teaching, higher quality
+const GEMINI_PRO = 'gemini-flash-latest'; // Main teaching, higher quality
 const GEMINI_FLASH = 'gemini-flash-latest'; // Faster, for analysis/structured output
 
 /**

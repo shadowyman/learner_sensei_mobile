@@ -1522,7 +1522,7 @@ var GEMINI_PRO, GEMINI_FLASH, TEACHING_PLAN_GENERATION_CONFIG, WRAP_UP_ASSESSMEN
 var init_model_usage = __esm({
   "src/model_usage.ts"() {
     "use strict";
-    GEMINI_PRO = "gemini-2.5-pro";
+    GEMINI_PRO = "gemini-flash-latest";
     GEMINI_FLASH = "gemini-flash-latest";
     TEACHING_PLAN_GENERATION_CONFIG = {
       modelName: GEMINI_PRO,
