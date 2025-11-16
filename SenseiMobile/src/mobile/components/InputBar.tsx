@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CodeEditorBadge } from './CodeEditorBadge';
+import { SendIconSkia } from './SendIconSkia';
 import { logger } from '../../logger';
 
 const INPUT_LINE_HEIGHT = 20;
@@ -59,7 +60,7 @@ interface InputBarProps {
 		});
 	}, [measureInputRect]);
 
-  const editorSize = 32; // match nav button size
+	const editorSize = 26;
 
   return (
     <View
@@ -83,17 +84,17 @@ interface InputBarProps {
 		        />
 		        </View>
 		      </View>
-      <View style={styles.actions}>
-        <View style={styles.sendStack}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Send message"
-            onPress={handleSubmit}
-            style={styles.sendButton}
-          >
-            <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
-          <View style={[styles.editorOverlay, { top: -6, right: -12 }]}> 
+	      <View style={styles.actions}>
+	        <View style={styles.sendStack}>
+	          <TouchableOpacity
+	            accessibilityRole="button"
+	            accessibilityLabel="Send message"
+	            onPress={handleSubmit}
+	            style={styles.sendButton}
+	          >
+	            <SendIconSkia size={14} />
+	          </TouchableOpacity>
+	          <View style={[styles.editorOverlay, { top: -6, right: -17 }]}> 
             <CodeEditorBadge size={editorSize} onPress={onOpenEditor} />
           </View>
         </View>
@@ -135,23 +136,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: INPUT_LINE_HEIGHT
 	},
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0
-  },
-  sendStack: {
-    position: 'relative',
-    paddingRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  sendButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#22d3ee',
-    borderRadius: 8
-  },
+	actions: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		flexShrink: 0,
+		marginRight: 20
+	},
+	sendStack: {
+		position: 'relative',
+		paddingRight: 16,
+		alignItems: 'center',
+		justifyContent: 'center'
+	},
+	sendButton: {
+		width: 35,
+		height: 35,
+		borderRadius: 17.5,
+		backgroundColor: '#10b981',
+		borderWidth: 1,
+		borderColor: 'rgba(16,185,129,0.4)',
+		alignItems: 'center',
+		justifyContent: 'center',
+		shadowColor: '#10b981',
+		shadowOpacity: 0.3,
+		shadowRadius: 8,
+		shadowOffset: { width: 0, height: 2 }
+	},
   sendButtonText: {
     color: '#050505',
     fontWeight: '600'

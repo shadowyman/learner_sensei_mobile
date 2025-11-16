@@ -48,7 +48,7 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 #if DEBUG
     // Point to a specific Metro bundler host for development.
     // Update the IP if your machine's address changes.
-    return URL(string: "http://192.168.1.146:8081/index.bundle?platform=ios&dev=true")
+    return URL(string: "http://127.0.0.1:8081/index.bundle?platform=ios&dev=true")
 #else
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif

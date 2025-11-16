@@ -39,9 +39,10 @@ paths:
               properties:
                 topicId:
                   type: string
-                  description: Default subject/topic; Phase 1 may use a single default.
+                  description: Logical subject/topic key. For Phase 1 mobile, the only supported value is "c++_recursive_mastery" (the existing recursion curriculum); the BFF validates topicId against a server-owned topic registry.
                 metadata:
                   type: object
+                  description: Optional, open-ended observability context (e.g., { source, appVersion }); servers MUST tolerate unknown fields.
                   additionalProperties: true
               required: [topicId]
       responses:
@@ -56,6 +57,7 @@ paths:
                     type: string
                   stateBootstrap:
                     type: object
+                    description: Optional, reserved for future server-driven bootstrap hints; MUST be omitted or ignored by Phase 1 mobile clients.
                 required: [sessionId]
         '400': { description: BAD_REQUEST }
   /sessions/{sessionId}/turns:
@@ -81,21 +83,13 @@ paths:
                   properties:
                     text:
                       type: string
+                      minLength: 1
                       maxLength: 4000
                   required: [text]
                 metadata:
                   type: object
-                  properties:
-                    source:
-                      type: string
-                      enum: [mobile, web]
-                    appVersion:
-                      type: string
-                    selectionSensei:
-                      type: object
-                      properties:
-                        actionId: { type: string }
-                        selectedText: { type: string }
+                  description: Optional, open-ended per-turn context. Any information about client/platform (e.g., source, appVersion) is already derivable from the associated session; servers MUST NOT require turn metadata for correctness and MUST tolerate unknown fields.
+                  additionalProperties: true
               required: [clientTurnId, input]
       responses:
         '200':
@@ -134,9 +128,9 @@ paths:
                 errorHash: { type: string }
                 context: { type: object }
               required: [messageId, code]
-      responses:
-        '200':
-          description: Fixed diagram or negative result
+	      responses:
+	        '200':
+	          description: Fixed diagram or negative result
           content:
             application/json:
               schema:
@@ -144,16 +138,38 @@ paths:
                 properties:
                   fixed: { type: boolean }
                   fixedCode: { type: string }
-                required: [fixed]
-        '400': { description: BAD_REQUEST }
-        '422': { description: Unable to repair with current inputs }
-        '503': { description: DOWNSTREAM_UNAVAILABLE }
-```
+	              required: [fixed]
+	        '400': { description: BAD_REQUEST }
+	        '422': { description: Unable to repair with current inputs }
+	        '503': { description: DOWNSTREAM_UNAVAILABLE }
+	```
 
-Normative behaviors
-- Auth: Not required in Phase 1; endpoints are rate‑limited per IP/UA (429 + Retry‑After). [Functional Spec]
-- Input limit: 4000 characters; reject with 413 without opening a stream. [Functional Spec]
-- Idempotency: `clientTurnId` replays return original `turnId` without duplicating work. [Functional Spec]
+Normative behaviors (Mermaid)
+- Request:
+  - `messageId` and `code` are required; `theme`, `errorHash`, and `context` are optional and may contain arbitrary fields. Servers MUST tolerate unknown fields in `context`.
+- Responses:
+  - 200 with `{ fixed: true, fixedCode }`:
+    - Indicates a successful repair; `fixedCode` MUST be a non-empty string containing the diagram the client should render instead of the original.
+  - 200 with `{ fixed: false }`:
+    - Indicates that the server declined or was unable to produce a better diagram. Clients MUST treat this as a failed recovery (equivalent to “no fix”), and may keep the original code and show an appropriate fallback UI.
+  - 400 BAD_REQUEST:
+    - Used for malformed payloads (missing `messageId`/`code`, wrong types, etc.). The body SHOULD be `{ code: "BAD_REQUEST", message: "Invalid mermaid recovery payload" }` or a more specific message. Clients MUST treat this as a failed recovery and SHOULD NOT retry automatically with the same payload.
+  - 422 Unable to repair:
+    - Indicates that the request was valid but a reliable repair is not possible given the inputs. The body SHOULD be `{ code: "BAD_REQUEST", message: "Unable to repair diagram with current inputs." }`. Clients MUST treat this as a failed recovery (equivalent to `{ fixed: false }` for UX) and MAY inform the user that the diagram cannot be repaired.
+  - 503 DOWNSTREAM_UNAVAILABLE:
+    - Indicates a temporary backend/LLM outage. The body SHOULD be `{ code: "DOWNSTREAM_UNAVAILABLE", message: "Sensei is busy—try again shortly." }`. Clients MAY offer a retry; until then, the recovery attempt is considered failed.
+
+	Normative behaviors
+	- Auth: Not required in Phase 1; endpoints are rate‑limited per IP/UA (429 + Retry‑After). [Functional Spec]
+	- Input limit: 4000 characters; reject with 413 without opening a stream. [Functional Spec]
+	- Idempotency: `clientTurnId` replays return original `turnId` without duplicating work. [Functional Spec]
+	- Topic validation: `POST /sessions` must reject unknown topicId values with 400 BAD_REQUEST and a descriptive error message; valid values are determined by the BFF’s server-owned topic registry (Phase 1: "c++_recursive_mastery" only).
+	- Error bodies: HTTP 4xx/5xx responses from the BFF use a consistent JSON shape `{ code: string, message: string }`. For an unknown topicId on `/sessions`, servers SHOULD return `{ code: "BAD_REQUEST", message: "Unknown topicId" }`.
+	- Session metadata: `/sessions` `metadata` is optional and treated as an open-ended context object. Servers MAY derive `source` and `appVersion` for logging from either `metadata` or headers (such as `X-App-Version`), but MUST NOT reject unknown metadata fields.
+	- Turn metadata: `/sessions/{sessionId}/turns` `metadata` is optional, per-turn context. Core routing, auth, and limits derive from `sessionId` and session metadata; servers MUST NOT require turn metadata to be present and MUST tolerate unknown fields.
+	- Empty input: `/sessions/{sessionId}/turns` MUST reject empty or whitespace-only `input.text` with 400 BAD_REQUEST and an error body such as `{ code: "BAD_REQUEST", message: "Input text must not be empty" }`.
+	- Rate limiting: `/sessions/{sessionId}/turns` MUST enforce a limit of 3 turns per rolling 60-second window per (client IP, User-Agent) pair. When exceeded, servers MUST respond with HTTP 429, include a `Retry-After` header (seconds until a new turn is allowed), and a body such as `{ code: "RATE_LIMITED", message: "Too many messages—wait a moment before trying again." }`.
+	 - Message routing (Phase 1 mobile): For `Chunk` frames, `messageId` is optional and is not used by the mobile client to select bubbles. RN and WebView route updates based on the `messageId` they agreed on when issuing `chat:startMessage` (derived from the `{ turnId, streamUrl }` response); the BFF is not responsible for choosing which message bubble to update.
 
 —
 
@@ -206,6 +222,12 @@ channels:
 Normative behaviors
 - Keepalive every 15s. If no data or ping ack for 25s (15s + 10s grace), server switches to buffered mode and delivers a single final payload on the same WS. On hard timeout (~60s) or LLM error, emit `error` and close. SSE fallback is not used in Phase 1. [Functional Spec]
 - Liveness: Servers use native WebSocket ping/pong for liveness. JSON `status:keepalive` frames are informational and do not require client JSON acks.
+- Lifecycle (Phase 1 mobile):
+  - On successful connection, servers MUST first send a `Status` frame with `phase: "started"` before any `Chunk` frames.
+  - During streaming, servers MAY interleave `Status` frames with `phase: "keepalive"` between `Chunk` frames; these keepalives are informational.
+  - On normal completion, servers MUST send a final `Status` frame with `phase: "completed"` and then close the WebSocket; no further `Chunk`, `WrapUp`, or `Error` frames are sent after `completed`.
+  - At most one `WrapUp` frame MAY be sent per stream; if present, it MUST appear before the terminal `Status` frame with `phase: "completed"`.
+  - If an `Error` frame is sent, servers MUST close the WebSocket after that frame and MUST NOT send `Status` with `phase: "completed"` or additional `Chunk`/`WrapUp` frames for that stream.
 
 —
 
@@ -348,12 +370,21 @@ Event envelope (JSON; fields vary by event)
 Event names
 - turn_submitted, stream_completed, enhance_used, wrapup_submitted, mermaid_recovery_attempt, save_exported, save_imported. [Functional Spec]
 
+Telemetry endpoint (`POST /telemetry`)
+- Request:
+  - Body: `{ "events": TelemetryEvent[] }`, where each event follows the envelope above (at minimum: `event`, `ts`, `device`, `sampled`, `data`).
+  - Servers MUST tolerate missing or extra fields inside individual events; telemetry schemas are intentionally flexible in Phase 1 as long as PII is not included.
+- Behavior:
+  - Telemetry is best-effort only and MUST NOT affect core chat flows.
+  - Servers SHOULD log or forward events and then respond with HTTP 204 (or 200 with an empty body) even if some events are malformed.
+  - Servers MUST NOT return 4xx/5xx solely due to telemetry payload issues; at most they log and drop or partially process the batch.
+
 —
 
 6) Error Codes & Semantics
 - 400 BAD_REQUEST → user‑visible: “Something went wrong. Please try again.”
 - 413 (turns) → “Your message is too long—shorten it and resend.”
-- 429 → “Too many messages—wait a moment before trying again.” (include Retry‑After)
+- 429 → “Too many messages—wait a moment before trying again.” (include Retry-After)
 - 503 → “Sensei is busy—try again shortly.”
 - 504 → “Sensei timed out—try again.”
 [All per Functional Spec]
@@ -361,19 +392,34 @@ Event names
 —
 
 7) Idempotency
-- `clientTurnId` is a required string; duplicates must return the original `turnId` and not duplicate work. Clients should generate a unique value per submission. (Implementation detail such as UUID/ULID is not normative in this contract.) [Functional Spec]
- - Retention: Servers MUST retain idempotency records for at least 10 minutes (SHOULD be 60 minutes). Replays outside the retention window MAY return 409 with a descriptive message.
+- `clientTurnId` is a required string; duplicates for the same `sessionId` must return the original `turnId` and not duplicate work. Clients should generate a unique value per submission attempt. (Implementation detail such as UUID/ULID is not normative in this contract.) [Functional Spec]
+- Retention: Servers MUST retain per-session idempotency records for at least 10 minutes (SHOULD be 60 minutes). Replays outside the retention window MAY return 409 with a descriptive message.
+
+9) HTTP vs WebSocket Error Mapping
+- Submit-time errors (no stream started):
+  - Schema/validation errors, unknown session, or empty/whitespace-only `input.text` → HTTP 400 with `{ code: "BAD_REQUEST", message: "Something went wrong. Please try again." }` or a more specific message such as `"Input text must not be empty"`; clients MUST NOT open a WebSocket for this turn.
+  - Input too long (`input.text.length > 4000`) → HTTP 413 with `{ code: "BAD_REQUEST", message: "Your message is too long—shorten it and resend." }`; no stream is started.
+  - Rate limit exceeded at submit → HTTP 429 with `{ code: "RATE_LIMITED", message: "Too many messages—wait a moment before trying again." }` and a `Retry-After` header; no stream is started.
+- Stream-time errors (after `/turns` has returned 200 and the client has opened the WebSocket):
+  - Downstream LLM/infra failure → WS `Error` frame `{ type: "error", code: "DOWNSTREAM_UNAVAILABLE", message: "Sensei is busy—try again shortly." }`, then close.
+  - Turn timeout (~60s) → WS `Error` frame `{ type: "error", code: "TURN_TIMEOUT", message: "Sensei timed out—try again." }`, then close.
+  - Late rate-limit (if applicable) → WS `Error` frame `{ type: "error", code: "RATE_LIMITED", message: "Too many messages—wait a moment before trying again." }`, then close.
+  - Unexpected internal error during streaming → WS `Error` frame `{ type: "error", code: "BAD_REQUEST", message: "Something went wrong. Please try again." }`, then close.
 
 —
 
 8) Conformance & Versioning
 - API is versioned implicitly as v1 for Phase 1 endpoints; changes that affect payloads will be recorded as 1.x minor revisions.
 - RN↔WebView bridge is versioned as v1; breaking changes require a coordinated client update.
-- Save‑file schema uses `version: "2.0.0"` to match current web serializer; loaders must reject mismatched major versions (src/saveloadProgressManager.ts:853–867).
+- Save-file schema uses `version: "2.0.0"` to match current web serializer; loaders must reject mismatched major versions (src/saveloadProgressManager.ts:853–867).
 
 Common headers & version handshake
 - Clients SHOULD send `X-App-Version: <semver>` and `X-Client-Platform: ios` on REST requests. Servers SHOULD return `X-Api-Version: 1.0` on responses.
-- If an incompatible app version is detected, servers MAY respond `426 Upgrade Required` with a JSON body `{ message: string, minVersion: string }`.
+- If an incompatible app version is detected, servers MAY respond `426 Upgrade Required` with a JSON body `{ message: string, minVersion: string }`. In Phase 1, BFF implementations are expected to log `X-App-Version`/`X-Client-Platform` for observability but generally SHOULD NOT enforce minimum versions yet; forced-upgrade behavior can be introduced in later revisions without changing the payload schema.
+
+Persistence & durability (Phase 1)
+- Session and turn state on the BFF MAY be stored only in memory; servers are not required to persist this state across restarts or deployments in Phase 1.
+- Clients MUST NOT rely on the BFF for long-term learner progress or transcript persistence; save/load remains a client-side responsibility using the JSON schema defined above.
 
 Footer payload (WS `status.footer`)
 ```yaml

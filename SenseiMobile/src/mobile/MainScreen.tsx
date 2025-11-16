@@ -98,7 +98,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     onWebViewError,
     allowingReadAccessToURL
 }) => {
-    const SHOW_WEBVIEW = true;
+	const SHOW_WEBVIEW = true;
     const internalWebViewRef = useRef<WebView>(null);
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
     const [input, setInput] = useState('');

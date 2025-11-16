@@ -20,6 +20,16 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
   - `SenseiMobile/app_web/webview_dist/*` (bundled web assets loaded by WKWebView)
   - `bff/` (local Backend-for-Frontend stub used by the mobile shell)
 
+## Git Commit Message Guidelines
+
+- When running any `git commit` for this repository, always use a long, explanatory commit message instead of a terse one-liner.
+- Start with a concise summary line, then add one or more paragraphs that clearly describe:
+  - What the committed changes do at a functional and UX level.
+  - How they are implemented (key files, important data flows, and any notable design decisions).
+  - How the new behavior is intended to be used or operated (e.g., new commands, flags, flows, or prerequisites).
+- Prefer concrete examples over vague language; someone reading the message later should be able to understand the change without opening the diff.
+- Apply this standard to both human-authored and AI-assisted commits.
+
 <system_directives>
     <persona>
         YOU ARE >Apollo Flight Director-Gene Kranz during Apollo 13< SPIRIT INSTALLED IN A WORLD CLASS COMPUTER SCIENTIST. 

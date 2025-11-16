@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, PixelRatio } from 'react-native';
+import { Canvas as SkiaCanvas, RadialGradient as SkiaRadialGradient, Rect as SkiaRect, vec as skiaVec } from '@shopify/react-native-skia';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../logger';
 import { NavIconSkia } from './NavIconSkia';
@@ -64,6 +65,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const [targetWidth, setTargetWidth] = useState(EXPANDED_WIDTH);
     const collapseOpacity = useRef(new Animated.Value(1)).current;
     const ellipsisOpacity = useRef(new Animated.Value(1)).current;
+    const plusScale = useRef(new Animated.Value(1)).current;
     const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const measureRafRef = useRef<number | null>(null);
     const wrapperRef = useRef<View | null>(null);
@@ -84,6 +86,29 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         [widthAnim, targetWidth]
     );
     const controlsOpacity = Animated.multiply(controlsOpacityBase, collapseOpacity);
+
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(plusScale, {
+                    toValue: 0.6,
+                    duration: 400,
+                    easing: Easing.out(Easing.quad),
+                    useNativeDriver: true
+                }),
+                Animated.timing(plusScale, {
+                    toValue: 1,
+                    duration: 900,
+                    easing: Easing.out(Easing.quad),
+                    useNativeDriver: true
+                })
+            ])
+        );
+        loop.start();
+        return () => {
+            loop.stop();
+        };
+    }, [plusScale]);
 
     useEffect(() => {
         if (controlsExpanded) {
@@ -358,7 +383,34 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                         accessibilityLabel="Show header controls"
                     >
                         <Text style={styles.ellipsisText}>···</Text>
-                        <Text style={styles.plusIcon}>＋</Text>
+                        <View style={styles.plusWrapper}>
+                            <Animated.View
+                                style={[
+                                    styles.plusHalo,
+                                    { transform: [{ scale: plusScale }] }
+                                ]}
+                            >
+                                <SkiaCanvas style={styles.plusHaloCanvas}>
+                                    <SkiaRect x={0} y={0} width={20} height={20}>
+                                        <SkiaRadialGradient
+										c={skiaVec(10, 10)}
+                                            r={12}
+                                            colors={[
+									'rgba(250,204,21,1)',
+									'rgba(250,204,21,0.5)',
+										'rgba(250,204,21,0)'
+									]}
+                                            positions={[0, 0.01, 1]}
+                                        />
+                                    </SkiaRect>
+                                </SkiaCanvas>
+                            </Animated.View>
+                            <Animated.Text
+                                style={[styles.plusIcon, { transform: [{ scale: plusScale }] }]}
+                            >
+                                ＋
+                            </Animated.Text>
+                        </View>
                     </TouchableOpacity>
                 </Animated.View>
             )}
@@ -461,7 +513,7 @@ const ELLIPSIS_WIDTH = 70;
 const EXPANDED_WIDTH = 240;
 const CONTROL_BUTTON_SIZE = 32;
 const CONTROL_BUTTON_GAP = 8;
-const CONTROL_ROW_COLUMNS = 3;
+const CONTROL_ROW_COLUMNS = 4;
 const CONTROL_ROW_WIDTH = CONTROL_BUTTON_SIZE * CONTROL_ROW_COLUMNS + CONTROL_BUTTON_GAP * (CONTROL_ROW_COLUMNS - 1);
 const CONTROL_ROW_VERTICAL_GAP = 20;
 const CONTROL_ROW_VERTICAL_GAP_COMPACT = 10;
@@ -479,13 +531,13 @@ const renderControlRows = (
         <View style={[styles.controlsRow, styles.controlsRowTop]}>
             <ControlButton label="Toggle font size" onPress={onToggleFontSize} icon="font" />
             <ControlButton label="Theme" onPress={onToggleTheme} icon="theme" />
-            <ControlButton label="Telemetry" onPress={onToggleTelemetry} icon="telemetry" />
         </View>
         <View style={[styles.controlsRowSpacer, { height: rowGap }]} />
         <View style={[styles.controlsRow, styles.controlsRowBottom]}>
             <ControlButton label="Notepad" onPress={onOpenNotepad} icon="note" />
             <ControlButton label="Save" onPress={onSave} icon="save" />
             <ControlButton label="Load" onPress={onLoad} icon="load" />
+            <ControlButton label="Telemetry" onPress={onToggleTelemetry} icon="telemetry" />
         </View>
     </>
 );
@@ -686,9 +738,27 @@ const styles = StyleSheet.create({
         letterSpacing: 2,
         color: '#e2e8f0'
     },
+    plusWrapper: {
+        position: 'relative',
+        width: 20,
+        height: 20,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    plusHalo: {
+        position: 'absolute',
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        overflow: 'visible'
+    },
+    plusHaloCanvas: {
+        width: 20,
+        height: 20
+    },
     plusIcon: {
         fontSize: 14,
-        color: '#e2e8f0'
+        color: '#e2e8f0',
     },
     controlsExpandedShell: {
         paddingLeft: 0,
@@ -730,7 +800,7 @@ const styles = StyleSheet.create({
         flexWrap: 'nowrap'
     },
     controlsRowTop: {
-        justifyContent: 'center'
+		justifyContent: 'flex-end'
     },
     controlsRowBottom: {
         justifyContent: 'space-between'

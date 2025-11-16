@@ -1834,11 +1834,19 @@ body::before {
     }
 }
 
+#input-area {
+	display: none;
+}
+
 .chat-input-send-button:disabled {
     background: rgba(255, 255, 255, 0.1);
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+}
+
+.chat-window-header {
+	display: none;
 }
 
 #send-button svg {
