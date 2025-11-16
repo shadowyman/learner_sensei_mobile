@@ -12,6 +12,92 @@ import { SenseiHeader } from './components/SenseiHeader';
 import { SenseiBackdropCanvas } from './effects/SenseiBackdropCanvas';
 import { InputBar } from './components/InputBar';
 
+const WEBVIEW_ERROR_BRIDGE = `
+(function() {
+    if (window.__senseiWebviewErrorBridge) {
+        return;
+    }
+    window.__senseiWebviewErrorBridge = true;
+    var formatLocation = function(file, line, col) {
+        if (!file && !line && !col) {
+            return '';
+        }
+        var parts = [];
+        if (file) {
+            parts.push(file);
+        }
+        if (typeof line === 'number') {
+            parts.push(line);
+        }
+        if (typeof col === 'number') {
+            parts.push(col);
+        }
+        return parts.join(':');
+    };
+    var describeEvent = function(event) {
+        if (!event) {
+            return 'Unknown webview error';
+        }
+        if (event.message && event.message.length) {
+            var loc = formatLocation(event.filename, event.lineno, event.colno);
+            return loc ? event.message + ' (' + loc + ')' : event.message;
+        }
+        if (event.target && event.target.tagName) {
+            var el = event.target;
+            var src = el.src || el.href || (el.getAttribute && el.getAttribute('src')) || '';
+            if (src) {
+                return 'Resource load failed: ' + el.tagName.toLowerCase() + ' ' + src;
+            }
+        }
+        if (event.filename) {
+            return 'Script error at ' + event.filename;
+        }
+        return 'Unhandled error';
+    };
+    var post = function(payload) {
+        try {
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+            }
+        } catch (_) {}
+    };
+    var report = function(message, stack) {
+        var body = { type: 'webview:error', message: message && message.length ? message : 'Webview error' };
+        if (stack) {
+            body.stack = stack;
+        }
+        if (typeof console !== 'undefined' && console.error) {
+            console.error('Failed to load webview bundle', body);
+        }
+        post(body);
+    };
+    window.addEventListener('error', function(event) {
+        if (!event) {
+            return;
+        }
+        var msg = describeEvent(event);
+        var stack = event.error && event.error.stack ? event.error.stack : undefined;
+        report(msg, stack);
+    }, true);
+    window.addEventListener('unhandledrejection', function(event) {
+        if (!event) {
+            return;
+        }
+        var reason = event.reason;
+        var message;
+        if (typeof reason === 'string') {
+            message = reason;
+        } else if (reason && reason.message) {
+            message = reason.message;
+        } else {
+            message = 'Unhandled rejection';
+        }
+        var stack = reason && reason.stack ? reason.stack : undefined;
+        report(message, stack);
+    });
+    return true;
+})();`;
+
 interface SaveLoadServiceLike {
     exportSession: () => Promise<void>;
     importSession: () => Promise<void>;
@@ -101,6 +187,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 	const SHOW_WEBVIEW = true;
     const internalWebViewRef = useRef<WebView>(null);
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
+    const enableIOSWebInspector = Platform.OS === 'ios';
     const [input, setInput] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
     const [footer, setFooter] = useState<FooterPayload | null>(null);
@@ -112,6 +199,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [inputBarRect, setInputBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [inputFieldRect, setInputFieldRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const { width: viewportWidth } = useWindowDimensions();
+    const webviewErrorInjection = useMemo(() => `
+        window.__SENSEI_MOBILE_BUILD__ = true;
+        ${WEBVIEW_ERROR_BRIDGE}
+    `, []);
     const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
     const isCompactIOS = Platform.OS === 'ios' && !isPad && viewportWidth <= 430;
     const handleHeaderRectUpdate = useCallback((rect: { x: number; y: number; width: number; height: number } | null) => {
@@ -231,6 +322,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const handleWebViewMessage = useCallback((event: WebViewMessageEvent) => {
         try {
             const parsed: WebToRNMessage = JSON.parse(event.nativeEvent.data);
+            if (parsed.type === 'webview:error') {
+                logger.error('[MOBILE_PORT] webview bootstrap error', { message: parsed.message, stack: parsed.stack });
+                onWebViewEvent?.(parsed);
+                return;
+            }
             if (parsed.type === 'footer:update') {
                 setFooter(parsed.payload);
             }
@@ -306,8 +402,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         ref={webViewRef}
                         source={webViewSource}
                         originWhitelist={['file://*']}
+                        injectedJavaScriptBeforeContentLoaded={webviewErrorInjection}
                         onMessage={handleWebViewMessage}
                         allowingReadAccessToURL={allowingReadAccessToURL}
+                        allowFileAccessFromFileURLs={true}
+                        allowUniversalAccessFromFileURLs={true}
+                        webviewDebuggingEnabled={enableIOSWebInspector}
                         style={[styles.webview, { backgroundColor: 'transparent' }]}
                         setBackgroundColor={'transparent'}
                         opaque={false}

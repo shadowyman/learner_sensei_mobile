@@ -17,7 +17,12 @@ declare module 'react-native-webview' {
         originWhitelist?: string[];
         onMessage?: (event: WebViewMessageEvent) => void;
         injectedJavaScript?: string;
+        injectedJavaScriptBeforeContentLoaded?: string;
         style?: any;
+        webviewDebuggingEnabled?: boolean;
+        allowingReadAccessToURL?: string;
+        allowFileAccessFromFileURLs?: boolean;
+        allowUniversalAccessFromFileURLs?: boolean;
     }
 
     export class WebView extends React.Component<WebViewProps> {}

@@ -13,6 +13,7 @@ import { LearnerModel } from './adaptiveEngine';
 import { runMermaidRecovery } from './mermaidErrorRecovery';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
+import { API_KEY } from './index';
 import { mermaidManager, DEFAULT_MERMAID_THEME } from './mermaidManager.js';
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
@@ -951,7 +952,7 @@ export function updateCurriculumDisplay(
             setStatusLines('Ready to Begin', 'Select a module to get started');
         } else if (appIsCurriculumLoaded) {
             setStatusLines('Curriculum Loaded', 'Ask Sensei to begin');
-        } else if (!appIsCurriculumLoaded && !(process.env.API_KEY)) {
+        } else if (!appIsCurriculumLoaded && !API_KEY) {
             setStatusLines('API Key Missing', 'Set API_KEY to continue');
         } else {
             setStatusLines('Loading Curriculum…', 'Preparing your journey');

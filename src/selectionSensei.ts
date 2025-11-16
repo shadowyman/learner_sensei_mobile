@@ -1225,7 +1225,7 @@ class SelectionSensei {
     }
 
     private isNativeBridgeActive(): boolean {
-        return typeof (window as any)?.ReactNativeWebView?.postMessage === 'function';
+        return Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
     }
 
     private sendSelectionToNative(selection: Selection, selectedText: string): void {

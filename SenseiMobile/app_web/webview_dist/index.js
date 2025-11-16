@@ -315,6 +315,736 @@ ${"=".repeat(60)}
   }
 });
 
+// src/mermaidManager.ts
+var DEFAULT_MERMAID_THEME, MERMAID_THEMES, MermaidManager, mermaidManager;
+var init_mermaidManager = __esm({
+  "src/mermaidManager.ts"() {
+    "use strict";
+    init_logger();
+    DEFAULT_MERMAID_THEME = "warm";
+    MERMAID_THEMES = {
+      glass: {
+        name: "Glass Morphism",
+        description: "Translucent elegance matching your glass aesthetic",
+        displayName: "\u2728 Glass Morphism",
+        config: {
+          theme: "base",
+          themeVariables: {
+            darkMode: true,
+            fontFamily: "Inter, sans-serif",
+            fontSize: "12px",
+            background: "#1a1a2e",
+            primaryColor: "#C4E538",
+            primaryTextColor: "#1a1a2e",
+            primaryBorderColor: "#A6C92E",
+            secondaryColor: "#2a2a3e",
+            secondaryTextColor: "#e2e8f0",
+            secondaryBorderColor: "#3a3a4e",
+            tertiaryColor: "#00d4ff",
+            tertiaryTextColor: "#1a1a2e",
+            tertiaryBorderColor: "#00a8cc",
+            noteBkgColor: "#2a2a3e",
+            noteTextColor: "#e2e8f0",
+            noteBorderColor: "#3a3a4e",
+            lineColor: "#e2e8f0",
+            textColor: "#e2e8f0",
+            mainBkg: "#1f1f33",
+            nodeBkg: "#1f1f33",
+            nodeBorder: "#3a3a4e",
+            clusterBkg: "#252538",
+            clusterBorder: "#A6C92E",
+            edgeLabelBackground: "#1a1a2e",
+            nodeTextColor: "#e2e8f0",
+            defaultLinkColor: "#e2e8f0",
+            titleColor: "#e2e8f0",
+            actorBkg: "#1f1f33",
+            actorBorder: "#A6C92E",
+            actorTextColor: "#1a1a2e",
+            actorLineColor: "#e2e8f0"
+          }
+        }
+      },
+      neon: {
+        name: "Neon Cyberpunk",
+        description: "Electric vibes with glowing edges and signature colors",
+        displayName: "\u26A1 Neon Cyberpunk",
+        config: {
+          theme: "base",
+          themeVariables: {
+            darkMode: true,
+            fontFamily: "Inter, sans-serif",
+            fontSize: "12px",
+            fontWeight: "600",
+            background: "#0a0a0a",
+            primaryColor: "#C4E538",
+            primaryTextColor: "#0a0a0a",
+            primaryBorderColor: "#C4E538",
+            secondaryColor: "#ff6b6b",
+            secondaryTextColor: "#0a0a0a",
+            secondaryBorderColor: "#ff6b6b",
+            tertiaryColor: "#4ecdc4",
+            tertiaryTextColor: "#0a0a0a",
+            tertiaryBorderColor: "#4ecdc4",
+            noteBkgColor: "#1a1a1a",
+            noteTextColor: "#C4E538",
+            noteBorderColor: "#C4E538",
+            lineColor: "#00d4ff",
+            textColor: "#C4E538",
+            mainBkg: "#0a0a0a",
+            nodeBkg: "#0a0a0a",
+            nodeBorder: "#C4E538",
+            clusterBkg: "#0f0f0f",
+            clusterBorder: "#C4E538",
+            edgeLabelBackground: "#0a0a0a",
+            nodeTextColor: "#C4E538",
+            defaultLinkColor: "#00d4ff",
+            titleColor: "#C4E538",
+            actorBkg: "#0a0a0a",
+            actorBorder: "#C4E538",
+            actorTextColor: "#0a0a0a",
+            actorLineColor: "#00d4ff"
+          }
+        }
+      },
+      minimal: {
+        name: "Minimalist Professional",
+        description: "Clean, modern styling with subtle elegance",
+        displayName: "\u{1F3AF} Minimalist Professional",
+        config: {
+          theme: "base",
+          themeVariables: {
+            darkMode: true,
+            fontFamily: "Inter, sans-serif",
+            fontSize: "12px",
+            fontWeight: "500",
+            background: "#1a1a2e",
+            primaryColor: "#e2e8f0",
+            primaryTextColor: "#1a1a2e",
+            primaryBorderColor: "#c5ced9",
+            secondaryColor: "#C4E538",
+            secondaryTextColor: "#1a1a2e",
+            secondaryBorderColor: "#A6C92E",
+            tertiaryColor: "#5BA3D9",
+            tertiaryTextColor: "#ffffff",
+            tertiaryBorderColor: "#4A92C8",
+            noteBkgColor: "#2a2a3e",
+            noteTextColor: "#e2e8f0",
+            noteBorderColor: "#3a3a4e",
+            lineColor: "#9ca3af",
+            textColor: "#e2e8f0",
+            mainBkg: "#222236",
+            nodeBkg: "#222236",
+            nodeBorder: "#3a3a4e",
+            clusterBkg: "#1f1f33",
+            clusterBorder: "#3a3a4e",
+            edgeLabelBackground: "#1a1a2e",
+            nodeTextColor: "#e2e8f0",
+            defaultLinkColor: "#9ca3af",
+            titleColor: "#e2e8f0",
+            actorBkg: "#222236",
+            actorBorder: "#c5ced9",
+            actorTextColor: "#1a1a2e",
+            actorLineColor: "#9ca3af"
+          }
+        }
+      },
+      warm: {
+        name: "Warm Educational",
+        description: "Friendly, approachable colors for learning",
+        displayName: "\u{1F31F} Warm Educational",
+        config: {
+          theme: "base",
+          themeVariables: {
+            darkMode: true,
+            fontFamily: "Inter, sans-serif",
+            fontSize: "12px",
+            fontWeight: "500",
+            background: "#1a1a2e",
+            primaryColor: "#ffd93d",
+            primaryTextColor: "#1a1a2e",
+            primaryBorderColor: "#e6c235",
+            secondaryColor: "#81c784",
+            secondaryTextColor: "#1a1a2e",
+            secondaryBorderColor: "#6fb473",
+            tertiaryColor: "#64b5f6",
+            tertiaryTextColor: "#1a1a2e",
+            tertiaryBorderColor: "#5aa3e3",
+            noteBkgColor: "#2a2a3e",
+            noteTextColor: "#ffd93d",
+            noteBorderColor: "#3a3a4e",
+            lineColor: "#ff8a65",
+            textColor: "#ffd93d",
+            mainBkg: "#252538",
+            nodeBkg: "#252538",
+            nodeBorder: "#665522",
+            clusterBkg: "#1f1f33",
+            clusterBorder: "#6fb473",
+            edgeLabelBackground: "#1a1a2e",
+            nodeTextColor: "#ffd93d",
+            defaultLinkColor: "#ff8a65",
+            titleColor: "#ffd93d",
+            actorBkg: "#252538",
+            actorBorder: "#e6c235",
+            actorTextColor: "#1a1a2e",
+            actorLineColor: "#ff8a65"
+          }
+        }
+      },
+      space: {
+        name: "Deep Space",
+        description: "Cosmic elegance with purple and teal accents",
+        displayName: "\u{1F30C} Deep Space",
+        config: {
+          theme: "base",
+          themeVariables: {
+            darkMode: true,
+            fontFamily: "Inter, sans-serif",
+            fontSize: "12px",
+            fontWeight: "500",
+            background: "#0a0a1a",
+            primaryColor: "#bb86fc",
+            primaryTextColor: "#0a0a1a",
+            primaryBorderColor: "#9966cc",
+            secondaryColor: "#cf6679",
+            secondaryTextColor: "#ffffff",
+            secondaryBorderColor: "#b85567",
+            tertiaryColor: "#ffd93d",
+            tertiaryTextColor: "#0a0a1a",
+            tertiaryBorderColor: "#e6c235",
+            noteBkgColor: "#1a1a2e",
+            noteTextColor: "#bb86fc",
+            noteBorderColor: "#3a3a4e",
+            lineColor: "#03dac6",
+            textColor: "#bb86fc",
+            mainBkg: "#15152a",
+            nodeBkg: "#15152a",
+            nodeBorder: "#6644aa",
+            clusterBkg: "#0f0f1f",
+            clusterBorder: "#03dac6",
+            edgeLabelBackground: "#0a0a1a",
+            nodeTextColor: "#bb86fc",
+            defaultLinkColor: "#03dac6",
+            titleColor: "#bb86fc",
+            actorBkg: "#15152a",
+            actorBorder: "#9966cc",
+            actorTextColor: "#0a0a1a",
+            actorLineColor: "#03dac6"
+          }
+        }
+      }
+    };
+    MermaidManager = class {
+      constructor() {
+        __publicField(this, "mermaidInstance", null);
+        __publicField(this, "initializationPromise", null);
+        __publicField(this, "currentTheme");
+        __publicField(this, "themes", null);
+        __publicField(this, "isInitialized", false);
+        this.currentTheme = localStorage.getItem("mermaid-theme") || DEFAULT_MERMAID_THEME;
+      }
+      /**
+       * Initialize Mermaid with the current theme
+       * This is idempotent - multiple calls will reuse the same promise
+       */
+      async initializeMermaid() {
+        if (this.initializationPromise && !this.isInitialized) {
+          return this.initializationPromise;
+        }
+        if (this.isInitialized) {
+          return Promise.resolve();
+        }
+        this.initializationPromise = this.performInitialization();
+        return this.initializationPromise;
+      }
+      /**
+       * Perform the actual initialization
+       */
+      async performInitialization() {
+        try {
+          if (!this.mermaidInstance) {
+            const mermaidModule = await import("mermaid");
+            this.mermaidInstance = mermaidModule.default;
+          }
+          if (!this.themes) {
+            this.themes = MERMAID_THEMES;
+          }
+          let theme = this.themes[this.currentTheme];
+          if (!theme) {
+            logger.warn(`Theme "${this.currentTheme}" not found. Using ${DEFAULT_MERMAID_THEME} theme.`);
+            this.currentTheme = DEFAULT_MERMAID_THEME;
+            theme = this.themes[this.currentTheme];
+          }
+          if (!theme) {
+            throw new Error(`Mermaid theme configuration missing for ${this.currentTheme}`);
+          }
+          this.mermaidInstance.initialize({
+            startOnLoad: false,
+            securityLevel: "loose",
+            theme: "base",
+            // Use base theme for custom variables
+            themeVariables: {
+              ...theme.config.themeVariables
+            },
+            flowchart: {
+              htmlLabels: true,
+              curve: "basis",
+              defaultRenderer: "elk"
+            }
+          });
+          this.isInitialized = true;
+        } catch (error) {
+          if (DEBUG_FLAGS.mermaid_debug) {
+            logger.error("Failed to initialize Mermaid:", error);
+          }
+          this.initializationPromise = null;
+          this.isInitialized = false;
+          throw error;
+        }
+      }
+      /**
+       * Render a Mermaid diagram
+       * Ensures initialization before rendering
+       */
+      async render(id, code) {
+        await this.initializeMermaid();
+        if (!this.mermaidInstance) {
+          throw new Error("Mermaid failed to initialize");
+        }
+        try {
+          const result = await this.mermaidInstance.render(id, code);
+          return result;
+        } catch (error) {
+          throw error;
+        }
+      }
+      /**
+       * Change the current theme
+       * Forces re-initialization with new theme
+       */
+      async setTheme(themeName) {
+        if (themeName === this.currentTheme && this.isInitialized) {
+          return;
+        }
+        this.currentTheme = themeName;
+        this.isInitialized = false;
+        this.initializationPromise = null;
+        localStorage.setItem("mermaid-theme", themeName);
+        await this.initializeMermaid();
+      }
+      /**
+       * Get the current theme name
+       */
+      getCurrentTheme() {
+        return this.currentTheme;
+      }
+      /**
+       * Get available themes
+       */
+      async getAvailableThemes() {
+        if (!this.themes) {
+          this.themes = MERMAID_THEMES;
+        }
+        return this.themes;
+      }
+    };
+    mermaidManager = new MermaidManager();
+  }
+});
+
+// src/mermaid-theme-integration.js
+function logMermaidValidation(event, payload) {
+  logger.info("[MERMAID_VALIDATION]", { event, ...payload });
+}
+function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, themeName = null, rawMermaidCode = "") {
+  if (!themeName && window.mermaidManager) {
+    themeName = window.mermaidManager.getCurrentTheme();
+  }
+  themeName = themeName || window.DEFAULT_MERMAID_THEME || "neon";
+  const thumbnail = document.createElement("div");
+  thumbnail.className = "mermaid-thumbnail";
+  if (window.updateMermaidThemeClass) {
+    window.updateMermaidThemeClass(thumbnail, themeName);
+  } else {
+    thumbnail.classList.add(`mermaid-theme-${themeName}`);
+  }
+  thumbnail.dataset.theme = themeName;
+  if (rawMermaidCode) {
+    thumbnail.dataset.mermaidCode = rawMermaidCode;
+  }
+  try {
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(rawSvgContent, "image/svg+xml");
+    const svgElement = svgDoc.querySelector("svg");
+    if (svgElement) {
+      const viewBox = svgElement.getAttribute("viewBox");
+      if (viewBox) {
+        const parts = viewBox.split(" ").map(Number);
+        if (parts.length === 4) {
+          const viewboxWidth = parts[2];
+          const viewboxHeight = parts[3];
+          if (viewboxWidth > viewboxHeight) {
+            thumbnail.classList.add("mermaid-thumbnail--horizontal");
+          } else {
+            thumbnail.classList.add("mermaid-thumbnail--vertical");
+          }
+        }
+      }
+      thumbnail.innerHTML = svgElement.outerHTML;
+    } else {
+      thumbnail.innerHTML = rawSvgContent;
+    }
+  } catch (e) {
+    logger.error("Error parsing SVG for aspect ratio detection:", e);
+    thumbnail.innerHTML = rawSvgContent;
+  }
+  preElement.replaceWith(thumbnail);
+  if (thumbnail.parentElement && !thumbnail.parentElement.classList.contains("mermaid-figure")) {
+    const figure = document.createElement("div");
+    figure.className = "mermaid-figure";
+    if (thumbnail.classList.contains("mermaid-thumbnail--horizontal")) {
+      figure.classList.add("mermaid-thumbnail--horizontal");
+    }
+    if (thumbnail.classList.contains("mermaid-thumbnail--vertical")) {
+      figure.classList.add("mermaid-thumbnail--vertical");
+    }
+    thumbnail.replaceWith(figure);
+    figure.appendChild(thumbnail);
+    const getNextElementSkippingArtifacts = (startNode) => {
+      let node = startNode;
+      while (node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const trimmed = node.textContent ? node.textContent.trim() : "";
+          if (!trimmed) {
+            node = node.nextSibling;
+            continue;
+          }
+          if (trimmed === "```") {
+            const next = node.nextSibling;
+            node.parentNode?.removeChild(node);
+            logMermaidValidation("stray-backticks-removed", { nodeType: "text" });
+            node = next;
+            continue;
+          }
+          node = node.nextSibling;
+          continue;
+        }
+        if (node instanceof HTMLElement) {
+          const trimmed = node.textContent ? node.textContent.trim() : "";
+          if (trimmed === "```" && node.tagName.toLowerCase() !== "code") {
+            const tag = node.tagName.toLowerCase();
+            const next = node.nextSibling;
+            node.remove();
+            logMermaidValidation("stray-backticks-removed", { nodeType: tag });
+            node = next;
+            continue;
+          }
+          if (!trimmed && node.childElementCount === 0) {
+            node = node.nextSibling;
+            continue;
+          }
+          return node;
+        }
+        node = node.nextSibling;
+      }
+      return null;
+    };
+    let sibling = getNextElementSkippingArtifacts(figure.nextSibling);
+    let annotationElement = null;
+    if (sibling instanceof HTMLElement) {
+      const tagName = sibling.tagName.toLowerCase();
+      if (tagName === "p") {
+        const firstChild = sibling.firstElementChild;
+        const trimmed = sibling.textContent ? sibling.textContent.trim() : "";
+        if (firstChild && firstChild.tagName.toLowerCase() === "em" && sibling.childElementCount === 1 && trimmed.length > 0) {
+          annotationElement = sibling;
+        }
+      } else if (tagName === "pre") {
+        const codeChild = sibling.firstElementChild;
+        const codeTag = codeChild && codeChild.tagName ? codeChild.tagName.toLowerCase() : "";
+        const rawCaption = codeChild && codeChild.textContent ? codeChild.textContent.trim() : "";
+        const newlineCount = rawCaption ? (rawCaption.match(/\n/g) || []).length : 0;
+        if (codeTag === "code" && rawCaption && rawCaption.length <= 500 && newlineCount <= 1) {
+          let cleaned = rawCaption.replace(/^```/, "").replace(/```$/, "").trim();
+          let emphasizeText = cleaned;
+          if (emphasizeText.startsWith("*") && emphasizeText.endsWith("*") && emphasizeText.length > 2) {
+            emphasizeText = emphasizeText.slice(1, -1).trim();
+          }
+          const hasCodeIndicators = /[{};=<>]/.test(emphasizeText) || /\b(function|class|return)\b/i.test(emphasizeText);
+          if (emphasizeText && !hasCodeIndicators) {
+            const paragraph = document.createElement("p");
+            const emphasis = document.createElement("em");
+            emphasis.textContent = emphasizeText;
+            paragraph.appendChild(emphasis);
+            paragraph.classList.add("mermaid-annotation");
+            sibling.remove();
+            figure.appendChild(paragraph);
+            annotationElement = paragraph;
+          }
+        }
+      }
+    }
+    if (!annotationElement) {
+      const prev = getNextElementSkippingArtifacts(figure.previousSibling);
+      if (prev instanceof HTMLElement) {
+        const tagName = prev.tagName.toLowerCase();
+        if (tagName === "p") {
+          const firstChild = prev.firstElementChild;
+          const trimmed = prev.textContent ? prev.textContent.trim() : "";
+          if (firstChild && firstChild.tagName.toLowerCase() === "em" && prev.childElementCount === 1 && trimmed.length > 0) {
+            annotationElement = prev;
+          }
+        } else if (tagName === "pre") {
+          const codeChild = prev.firstElementChild;
+          const codeTag = codeChild && codeChild.tagName ? codeChild.tagName.toLowerCase() : "";
+          const rawCaption = codeChild && codeChild.textContent ? codeChild.textContent.trim() : "";
+          const newlineCount = rawCaption ? (rawCaption.match(/\n/g) || []).length : 0;
+          if (codeTag === "code" && rawCaption && rawCaption.length <= 500 && newlineCount <= 1) {
+            let cleaned = rawCaption.replace(/^```/, "").replace(/```$/, "").trim();
+            let emphasizeText = cleaned;
+            if (emphasizeText.startsWith("*") && emphasizeText.endsWith("*") && emphasizeText.length > 2) {
+              emphasizeText = emphasizeText.slice(1, -1).trim();
+            }
+            const hasCodeIndicators = /[{};=<>]/.test(emphasizeText) || /\b(function|class|return)\b/i.test(emphasizeText);
+            if (emphasizeText && !hasCodeIndicators) {
+              const paragraph = document.createElement("p");
+              const emphasis = document.createElement("em");
+              emphasis.textContent = emphasizeText;
+              paragraph.appendChild(emphasis);
+              paragraph.classList.add("mermaid-annotation");
+              prev.remove();
+              figure.appendChild(paragraph);
+              annotationElement = paragraph;
+            }
+          }
+        }
+      }
+    }
+    if (annotationElement) {
+      const sentenceCount = annotationElement.textContent ? annotationElement.textContent.split(/[.!?]+/).map((segment) => segment.trim()).filter((segment) => segment.length > 0).length : 0;
+      annotationElement.classList.add("mermaid-annotation");
+      if (!figure.contains(annotationElement)) {
+        figure.appendChild(annotationElement);
+      }
+      if (!mermaidAnnotationSuccessLogged && sentenceCount > 0) {
+        logMermaidValidation("caption-aligned", { sentenceCount });
+        mermaidAnnotationSuccessLogged = true;
+      }
+      getNextElementSkippingArtifacts(annotationElement.nextSibling);
+    }
+  }
+  thumbnail.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const mermaidCode = thumbnail.dataset.mermaidCode;
+    const storedTheme = thumbnail.dataset.theme || themeName;
+    const currentTheme = window.mermaidManager ? window.mermaidManager.getCurrentTheme() : storedTheme;
+    const lightbox = document.createElement("div");
+    lightbox.className = "mermaid-lightbox";
+    if (window.updateMermaidThemeClass) {
+      window.updateMermaidThemeClass(lightbox, currentTheme);
+    } else {
+      lightbox.classList.add(`mermaid-theme-${currentTheme}`);
+    }
+    const content = document.createElement("div");
+    content.className = "mermaid-lightbox__content";
+    content.tabIndex = 0;
+    content.setAttribute("role", "dialog");
+    content.setAttribute("aria-modal", "true");
+    content.setAttribute("aria-label", "Fullscreen Mermaid diagram viewer");
+    lightbox.appendChild(content);
+    const closeButton2 = document.createElement("button");
+    const closeButtonId = `mermaid-lightbox-close-${Date.now()}-${Math.random().toString(36).substring(2)}`;
+    closeButton2.id = closeButtonId;
+    closeButton2.type = "button";
+    closeButton2.className = "mermaid-lightbox__close";
+    closeButton2.setAttribute("aria-label", "Close fullscreen diagram");
+    closeButton2.setAttribute("title", "Close diagram");
+    closeButton2.innerHTML = "&times;";
+    content.appendChild(closeButton2);
+    const attachDiagram = (diagram2) => {
+      diagram2.removeAttribute("width");
+      diagram2.removeAttribute("height");
+      diagram2.style.width = "";
+      diagram2.style.height = "";
+      diagram2.style.transform = "";
+      diagram2.classList.add("mermaid-lightbox__diagram");
+      content.innerHTML = "";
+      content.appendChild(diagram2);
+      content.appendChild(closeButton2);
+    };
+    const needsRerender = mermaidCode && window.mermaidManager && storedTheme !== currentTheme;
+    if (needsRerender) {
+      try {
+        logMermaidValidation("theme-rerender", {
+          fromTheme: storedTheme,
+          toTheme: currentTheme
+        });
+        const uniqueId = `lightbox-mermaid-${Date.now()}-${Math.random().toString(36).substring(2)}`;
+        const { svg: freshSvg } = await window.mermaidManager.render(uniqueId, mermaidCode);
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(freshSvg, "image/svg+xml");
+        const svgElement = svgDoc.querySelector("svg");
+        if (svgElement) {
+          attachDiagram(svgElement);
+          thumbnail.dataset.theme = currentTheme;
+        } else {
+          logger.warn("Re-render succeeded but no SVG element found, falling back to cloning");
+          const existingSvg = thumbnail.querySelector("svg");
+          if (existingSvg) {
+            const clonedSvg = existingSvg.cloneNode(true);
+            attachDiagram(clonedSvg);
+          } else {
+            content.innerHTML = thumbnail.innerHTML;
+            content.appendChild(closeButton2);
+          }
+        }
+      } catch (error) {
+        logger.error("Failed to re-render Mermaid in lightbox:", error);
+        const svgElement = thumbnail.querySelector("svg");
+        if (svgElement) {
+          const clonedSvg = svgElement.cloneNode(true);
+          attachDiagram(clonedSvg);
+        } else {
+          content.innerHTML = thumbnail.innerHTML;
+          content.appendChild(closeButton2);
+        }
+      }
+    } else {
+      const svgElement = thumbnail.querySelector("svg");
+      if (svgElement) {
+        const clonedSvg = svgElement.cloneNode(true);
+        attachDiagram(clonedSvg);
+      } else {
+        content.innerHTML = thumbnail.innerHTML;
+        content.appendChild(closeButton2);
+      }
+    }
+    const diagram = content.querySelector(".mermaid-lightbox__diagram");
+    const scale = 1.75;
+    const clamp = (value) => Math.min(Math.max(value, 0), 1);
+    const updateZoomTransform = (sourceEvent) => {
+      if (!diagram) {
+        return;
+      }
+      if (content.dataset.zoomed !== "true") {
+        diagram.style.transform = "";
+        return;
+      }
+      const rect = content.getBoundingClientRect();
+      const width = rect.width || 1;
+      const height = rect.height || 1;
+      let xRatio = 0.5;
+      let yRatio = 0.5;
+      if (sourceEvent) {
+        xRatio = (sourceEvent.clientX - rect.left) / width;
+        yRatio = (sourceEvent.clientY - rect.top) / height;
+      }
+      xRatio = clamp(xRatio);
+      yRatio = clamp(yRatio);
+      const offsetX = (0.5 - xRatio) * (scale - 1) * width;
+      const offsetY = (0.5 - yRatio) * (scale - 1) * height;
+      diagram.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    };
+    const setZoomState = (shouldZoom, sourceEvent) => {
+      if (shouldZoom) {
+        content.dataset.zoomed = "true";
+        content.classList.add("mermaid-lightbox__content--zoomed");
+        updateZoomTransform(sourceEvent);
+      } else {
+        delete content.dataset.zoomed;
+        content.classList.remove("mermaid-lightbox__content--zoomed");
+        updateZoomTransform();
+      }
+    };
+    if (diagram) {
+      diagram.addEventListener("click", (diagramEvent) => {
+        diagramEvent.stopPropagation();
+        const nextZoom = content.dataset.zoomed === "true" ? false : true;
+        setZoomState(nextZoom, diagramEvent);
+      });
+    }
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    let isLightboxActive = true;
+    function pointerDownHandler(event2) {
+      if (!isLightboxActive) {
+        return;
+      }
+      const targetNode = event2.target;
+      if (!(targetNode instanceof Node)) {
+        return;
+      }
+      if (!lightbox.contains(targetNode)) {
+        return;
+      }
+      event2.stopPropagation();
+      event2.stopImmediatePropagation();
+    }
+    function removeLightbox(trigger) {
+      if (!isLightboxActive) {
+        return;
+      }
+      isLightboxActive = false;
+      document.removeEventListener("keydown", handleKeydown2, true);
+      window.removeEventListener("pointerdown", pointerDownHandler, true);
+      closeButton2.removeEventListener("click", closeButtonHandler);
+      content.removeEventListener("click", contentClickHandler);
+      lightbox.removeEventListener("click", lightboxClickHandler);
+      if (lightbox.parentNode) {
+        lightbox.parentNode.removeChild(lightbox);
+      }
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
+    }
+    function handleKeydown2(keyEvent) {
+      if (!isLightboxActive) {
+        return;
+      }
+      if (keyEvent.key === "Escape") {
+        keyEvent.preventDefault();
+        removeLightbox("escape");
+      }
+    }
+    function closeButtonHandler(buttonEvent) {
+      buttonEvent.preventDefault();
+      buttonEvent.stopPropagation();
+      removeLightbox("button");
+    }
+    function contentClickHandler(contentEvent) {
+      if (contentEvent.target === content) {
+        contentEvent.stopPropagation();
+        removeLightbox("backdrop");
+      }
+    }
+    function lightboxClickHandler(closeEvent) {
+      if (closeEvent.target === lightbox) {
+        closeEvent.stopPropagation();
+        removeLightbox("backdrop");
+      }
+    }
+    const handlePointerMove = (moveEvent) => {
+      if (content.dataset.zoomed === "true") {
+        updateZoomTransform(moveEvent);
+      }
+    };
+    content.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerdown", pointerDownHandler, true);
+    document.addEventListener("keydown", handleKeydown2, true);
+    closeButton2.addEventListener("click", closeButtonHandler);
+    content.addEventListener("click", contentClickHandler);
+    lightbox.addEventListener("click", lightboxClickHandler);
+    document.body.appendChild(lightbox);
+    closeButton2.focus();
+  });
+}
+var mermaidAnnotationSuccessLogged;
+var init_mermaid_theme_integration = __esm({
+  "src/mermaid-theme-integration.js"() {
+    "use strict";
+    init_logger();
+    mermaidAnnotationSuccessLogged = false;
+  }
+});
+
 // src/adaptiveEngine.ts
 function logAdaptiveValidation(event, payload) {
   if (payload && Object.keys(payload).length > 0) {
@@ -1034,7 +1764,12 @@ var init_teachingPlanCache = __esm({
     init_model_usage();
     STORAGE_KEY = "teaching-plan-cache";
     CACHE_VERSION = 1;
-    isCacheDisabled = () => typeof process !== "undefined" && (process.env.JEST_WORKER_ID !== void 0 || false);
+    isCacheDisabled = () => {
+      if (typeof process === "undefined" || !process.env) {
+        return false;
+      }
+      return process.env.JEST_WORKER_ID !== void 0 || false;
+    };
   }
 });
 
@@ -3816,13 +4551,32 @@ async function llmExtractAndPlanTeachingOrder(ai2, textToProcess, phase, moduleT
     logger.error("Parsed JSON for teaching_plan does not match expected structure (not an array or missing 'teaching_plan' key):", parsed);
     return null;
   } catch (error) {
+    const apiErrorDetails = extractApiErrorDetails(error);
     if (phase === "Socratic") {
-      logger.error("Sensei:[SOCRATIC_V4] Failed to parse teaching plan:", error);
+      logger.error("Sensei:[SOCRATIC_V4] Failed to parse teaching plan:", apiErrorDetails ?? error);
     }
-    logger.error("Error getting or parsing teaching_plan from Gemini:", error);
+    logger.error("Error getting or parsing teaching_plan from Gemini:", apiErrorDetails ?? error);
     logger.error("Original text sent to Gemini for teaching_plan:", textToProcess);
     return null;
   }
+}
+function extractApiErrorDetails(error) {
+  if (error && typeof error === "object") {
+    const maybeResponse = error.response;
+    if (maybeResponse && typeof maybeResponse === "object") {
+      const errorObj = maybeResponse.error ?? maybeResponse;
+      if (errorObj && typeof errorObj === "object") {
+        const { code, status: status2, message: message2, details } = errorObj;
+        return { code, status: status2, message: message2, details };
+      }
+    }
+    const status = error.status ?? error.code;
+    const message = error.message ?? String(error);
+    if (status || message) {
+      return { status, message };
+    }
+  }
+  return null;
 }
 async function getAnalysisFromGemini(ai2, userInputText, lastSenseiMsg, currentTaskIdForAnalysis, expectedContentPointsForCurrentChunk) {
   if (!ai2) {
@@ -3902,15 +4656,7 @@ function isWrapUpDebugEnabled() {
       return false;
     }
   }
-  if (typeof process !== "undefined" && process.env) {
-    if (process.env.WRAP_UP_DEBUG === "true") {
-      return true;
-    }
-    if (process.env.WRAP_UP_DEBUG === "false") {
-      return false;
-    }
-  }
-  return WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
+  return WRAP_UP_ASSESSMENT_DEBUG_FLAG ?? WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
 }
 function buildDebugAssessment(moduleTitle) {
   const snippetQuestions = Array.from({ length: 5 }, (_, idx) => {
@@ -4170,7 +4916,7 @@ async function requestSenseiEnhancement(ai2, request) {
     return null;
   }
 }
-var WRAP_UP_ASSESSMENT_DEBUG_DEFAULT, DEFAULT_ENHANCEMENT_REQUEST_CONFIG, ENHANCEMENT_REQUEST_CONFIG2;
+var WRAP_UP_ASSESSMENT_DEBUG_DEFAULT, WRAP_UP_ASSESSMENT_DEBUG_FLAG, DEFAULT_ENHANCEMENT_REQUEST_CONFIG, ENHANCEMENT_REQUEST_CONFIG2;
 var init_geminiService = __esm({
   "src/geminiService.ts"() {
     "use strict";
@@ -4180,6 +4926,7 @@ var init_geminiService = __esm({
     init_model_usage();
     init_model_usage();
     WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
+    WRAP_UP_ASSESSMENT_DEBUG_FLAG = false;
     DEFAULT_ENHANCEMENT_REQUEST_CONFIG = {
       modelName: "gemini-2.5-flash",
       config: {
@@ -4188,6 +4935,168 @@ var init_geminiService = __esm({
       }
     };
     ENHANCEMENT_REQUEST_CONFIG2 = ENHANCEMENT_REQUEST_CONFIG ?? DEFAULT_ENHANCEMENT_REQUEST_CONFIG;
+  }
+});
+
+// src/pedagogicalProfiler.ts
+var ITEM_SPECIFIC_PEDAGOGICAL_META_PROMPT_TEMPLATE, PedagogicalProfiler;
+var init_pedagogicalProfiler = __esm({
+  "src/pedagogicalProfiler.ts"() {
+    "use strict";
+    init_adaptiveEngine();
+    init_geminiService();
+    ITEM_SPECIFIC_PEDAGOGICAL_META_PROMPT_TEMPLATE = `### ROLE & MISSION
+Your role is that of a world-class pedagogy expert overseeing a teaching AI, 'Sensei'. You will receive a list of curriculum items that Sensei must teach. Your job is to specify the optimal pedagogical method for EACH item individually, considering the learner's current state. You determine HOW each item should be taught - the teaching method, pacing, tone, and connections between items - but you NEVER modify or add to the curriculum content itself.
+
+### CRITICAL CONSTRAINTS
+1. **NO CONTENT CREATION:** You must NEVER create new examples, exercises, or educational content. The curriculum items listed are COMPLETE and FINAL.
+2. **ITEM-SPECIFIC GUIDANCE:** You MUST provide specific pedagogical guidance for EACH curriculum item individually.
+3. **METHOD ONLY:** Focus exclusively on HOW to teach each item (method, tone, pacing), not WHAT to teach.
+
+---
+### REASONING PROCESS
+Your reasoning process **MUST** follow these steps in a strict, sequential order:
+
+#### **STEP 1: Synthesize the Full Context**
+First, analyze all the provided data as puzzle pieces to build a holistic understanding of the learner's current state.
+
+*   **Conversation History (Last 3 Turns):** For each turn, analyze the relationship between Sensei's message and the User's subsequent response. What was the user's intent? Did they demonstrate understanding, confusion, or frustration?
+    *   **Turn 1 (Oldest):**
+        *   Sensei's message: "{sensei_response_1}"
+        *   User's response to Sensei's message: "{user_response_1}"
+    *   **Turn 2:**
+        *   Sensei's message: "{sensei_response_2}"
+        *   User's response to Sensei's message: "{user_response_2}"
+    *   **Turn 3 (Most Recent):**
+        *   Sensei's message: "{sensei_response_3}"
+        *   User's response to Sensei's message: "{user_response_3}"
+
+*   **Learner State Flags:** Treat these as the **most critical signal** of the learner's internal state (cognitive, affective, psychological).
+    *   *Active Flags:* \`[{active_flags}]\`
+
+*   **Upcoming Curriculum Items:** These are the EXACT items Sensei must teach. You will provide specific pedagogical guidance for EACH item.
+    *   *Items to Teach:* \`{action_items}\`
+
+---
+#### **STEP 2: Choose Your Primary Path (Intervention vs. Coaching-Oriented Orchestration)**
+Based on your analysis of how the user's responses reveal their state of mind, you **MUST** choose **ONE** of the two following paths. This is your most important decision.
+
+*   **PATH A: Critical Intervention**
+    *   **Trigger Conditions:** You **MUST** select this path if **ANY** of the following flags are active: \`Flag:High_Frustration\`, \`Flag:High_Confusion\`, \`Flag:Performance_Stalled\`, \`Flag:Profile_Overwhelmed_Novice\`. You **SHOULD** also select this path if your holistic analysis of the conversation reveals other signs of crisis (e.g., despairing language, repeated basic errors).
+    *   **Goal:** Your directive's goal is to de-escalate and remediate the immediate crisis. Even in intervention mode, reference the specific curriculum items when possible.
+
+*   **PATH B: Coaching-Oriented Orchestration**
+    *   **Trigger Conditions:** Choose this path when no critical distress is detected and the learner is ready to proceed.
+    *   **Goal:** Provide concise coaching on HOW Sensei should teach next\u2014adjust pace, difficulty, tone, scaffolds, humor, and checks for understanding. The listed items will be taught regardless; your role is to tune delivery, not to plan lessons or author content.
+
+    *   **Required Coaching Guidance Structure (Path B only):**
+        1. **Coaching Moves (3\u20136 total):** Specify the most impactful tactics now (e.g., pacing change, small/medium difficulty shift, tone choice, specific scaffolds, light humor usage, quick checks for understanding). Do not outline examples, exercises, or question wordings.
+        2. **Justification:** Tie each move to observed flags or conversation cues (e.g., boredom \u2192 introduce micro\u2011humor; high confidence \u2192 increase difficulty; confusion \u2192 slower pacing + chunking).
+        3. **Optional Item Reference:** You may reference particular upcoming items when helpful (e.g., \u201CWhile teaching '[item X]', because the learner is [state Y], prefer [move Z]\u201D). Do not enumerate a full per\u2011item plan.
+        4. **Format:** Return a short paragraph or 3\u20136 compact bullets. Avoid structures like \u201CFor Item 1/2\u2026\u201D.
+
+---
+#### **STEP 3: Select Your Expert Persona**
+Now, select exactly **ONE** persona that best fits the path you chose and the specific guidance you intend to give. Your final directive **MUST** be written from this persona's point of view.
+
+1. **The Method Strategist:** Selects optimal teaching methods per item based on cognitive science
+2. **The Pacing Expert:** Adjusts cognitive load and speed per item to optimize learning
+3. **The Connection Architect:** Designs conceptual bridges between curriculum items
+4. **The Adaptive Instructor:** Matches teaching methods to current learner state
+5. **The Scaffolding Specialist:** Breaks complex items into manageable cognitive steps
+
+---
+#### **STEP 4: Compose Your Directive**
+Write your directive according to the path you chose:
+
+*   **Required Format for Path A (Intervention):**
+    Start with validation, then if possible, reference specific items: "I see you're struggling. Let's pause and approach '[item name]' differently..."
+
+*   **Required Format for Path B (Coaching-Oriented):**
+    Start with a concise coaching directive. Provide 3\u20136 tactics (pace, difficulty, tone, scaffolds, humor, checks), each justified by learner flags or conversation cues. You may reference specific items where helpful, but do not enumerate every item or create content.
+
+*   **Example Output for Path B:**
+    "Coaching for upcoming items: Learner shows waning engagement with high confidence\u2014raise difficulty slightly (\u224810\u201320%) and interleave occasional light humor to sustain attention. Keep tone warm\u2011challenging. Add quick checks for understanding every 1\u20132 turns. While teaching 'Recursion base cases', use smaller chunks and a short success\u2011first reset before ramping difficulty."
+
+*   **Action Type Selection:** After writing the directive, select exactly **ONE** \`Action_Type\`:
+    *   **GROUP A (Interventions):** \`Action_Crisis_Mitigation\`, \`Action_Remediate_Misconception\`, \`Action_Mental_Model_Refinement\`
+    *   **GROUP B (Teaching Guidance):** \`Action_Item_Direct_Instruction\`, \`Action_Item_Socratic_Method\`, \`Action_Item_Guided_Discovery\`, \`Action_Item_Mixed_Methods\`
+
+*   **CRITICAL FORMATTING RULE:**
+    *   If you chose **Path A**, your final output **MUST** be: \`MUST_OBEY Action_Type: [Your directive addressing items where possible]\`
+    *   If you chose **Path B**, your final output **MUST** be: \`[Action_Type]: [Your coaching-oriented directive]\`
+
+---
+### QUALITY PRINCIPLES
+*   **MANDATORY:** Do not create examples, exercises, or question wordings; focus on strategy and coaching moves only
+*   **ALLOWED:** Reference particular items when helpful to target tactics; avoid full per\u2011item enumeration unless in Path A remediation
+*   **AVOID:** Generic advice with no link to learner flags or conversation cues
+*   **ASPIRE TO:** Concise, high\u2011leverage coaching that adapts pace, difficulty, tone, scaffolds, humor, and checks to the current learner state
+
+Now, generate your directive based on the provided learner state and curriculum items.`;
+    PedagogicalProfiler = class {
+      constructor(ai2) {
+        this.ai = ai2;
+      }
+      _identifyActiveFlags(model) {
+        const FLAG_DEFINITIONS = [
+          // Affective State Flags
+          { flagName: "Flag:High_Frustration", condition: (m) => m.AffectiveState.Frustration === "High" },
+          { flagName: "Flag:High_Confusion", condition: (m) => m.AffectiveState.Confusion === "High" },
+          { flagName: "Flag:Waning_Engagement", condition: (m) => m.AffectiveState.Engagement === "Waning" },
+          { flagName: "Flag:High_Boredom", condition: (m) => m.AffectiveState.Boredom === "High" },
+          { flagName: "Flag:Low_Confidence", condition: (m) => m.AffectiveState.Confidence === "Low" },
+          { flagName: "Flag:High_Confidence", condition: (m) => m.AffectiveState.Confidence === "High" },
+          { flagName: "Flag:High_Self_Efficacy", condition: (m) => m.AffectiveState.SelfEfficacy === "High" },
+          { flagName: "Flag:Seeking_Reassurance", condition: (m) => m.LastAnalysis?.primary_intent === "SeekingReassurance" },
+          // Cognitive & Performance Flags
+          { flagName: "Flag:Performance_Declining", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Declining" },
+          { flagName: "Flag:Performance_Stalled", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Stalled_On_Current_Topic" },
+          { flagName: "Flag:Performance_Improving", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Improving" },
+          { flagName: "Flag:High_Cognitive_Load", condition: (m) => m.CognitiveLoad.EstimatedIntrinsic === "High" || m.CognitiveLoad.EstimatedExtraneous === "High" },
+          { flagName: "Flag:Misconception_Active", condition: (m) => Object.values(m.Misconceptions).some((p) => p > 0.7) },
+          { flagName: "Flag:Mental_Model_Non_Viable", condition: (m) => m.MentalModelState.InferredModelType.includes("Non-Viable") },
+          { flagName: "Flag:Mental_Model_Emerging", condition: (m) => m.MentalModelState.InferredModelType.includes("Emerging") },
+          // SRL Flags
+          { flagName: "Flag:SRL_Low_Planning", condition: (m) => m.SRL_Indicators.PlanningObserved === "Low" },
+          { flagName: "Flag:SRL_Low_Monitoring", condition: (m) => m.SRL_Indicators.MonitoringObserved === "Low" },
+          { flagName: "Flag:SRL_Trial_And_Error", condition: (m) => m.SRL_Indicators.StrategyUse.includes("TrialAndError") },
+          {
+            flagName: "Flag:SRL_Help_Seeking_Vague",
+            condition: (m) => {
+              const normalized = normalizeHelpSeekingStyle(m.LastAnalysis?.srl_indicators.help_seeking_style);
+              return m.SRL_Indicators.HelpSeekingAppropriateness === "Low" || normalized === "Low";
+            }
+          },
+          { flagName: "Flag:SRL_Help_Seeking_Demanding", condition: (m) => normalizeHelpSeekingStyle(m.LastAnalysis?.srl_indicators.help_seeking_style) === "High" },
+          // Composite Profile Flags
+          { flagName: "Flag:Profile_Confident_But_Incorrect", condition: (m) => m.AffectiveState.Confidence === "High" && (m.AffectiveState.Confusion === "High" || Object.values(m.Misconceptions).some((p) => p > 0.7)) },
+          { flagName: "Flag:Profile_Productive_Struggle", condition: (m) => m.AffectiveState.Engagement === "High" && m.LearningTrajectory.RecentPerformanceTrend === "Stalled_On_Current_Topic" },
+          { flagName: "Flag:Profile_Knowledgeable_But_Bored", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Improving" && m.AffectiveState.Boredom === "High" },
+          { flagName: "Flag:Profile_Breakthrough_Moment", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Improving" && m.AffectiveState.Confusion === "Low" && m.AffectiveState.Confidence === "High" },
+          // New flag to detect specific content-level struggles.
+          //{ flagName: 'Flag:Specific_Content_Weakness_Detected', condition: (m) => m.contentPointsCoverage ? Object.values(m.contentPointsCoverage).some(p => p.understanding_score >= 0.5 && p.understanding_score < 0.7) : false },
+          { flagName: "Flag:Profile_Overwhelmed_Novice", condition: (m) => (m.CognitiveLoad.EstimatedIntrinsic === "High" || m.CognitiveLoad.EstimatedExtraneous === "High") && m.AffectiveState.Confidence === "Low" && m.LearningTrajectory.InteractionCounter_On_Current_Topic < 3 }
+        ];
+        const activeFlags = FLAG_DEFINITIONS.filter((flagDef) => flagDef.condition(model)).map((flagDef) => flagDef.flagName);
+        return activeFlags;
+      }
+      async getDirective(model, context) {
+        const activeFlags = this._identifyActiveFlags(model);
+        const actionItemsForPrompt = `[${context.upcomingActionItems.map((item) => `"${item.replace(/"/g, '\\"')}"`).join(", ")}]`;
+        const chronologicalUserResponses = context.lastThreeUserResponses;
+        const chronologicalSenseiResponses = [...context.lastThreeSenseiResponses].reverse();
+        const s1 = chronologicalSenseiResponses[0]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
+        const s2 = chronologicalSenseiResponses[1]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
+        const s3 = chronologicalSenseiResponses[2]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
+        const u1 = chronologicalUserResponses[0]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
+        const u2 = chronologicalUserResponses[1]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
+        const u3 = chronologicalUserResponses[2]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
+        const metaPrompt = ITEM_SPECIFIC_PEDAGOGICAL_META_PROMPT_TEMPLATE.replace("{sensei_response_1}", s1).replace("{user_response_1}", u1).replace("{sensei_response_2}", s2).replace("{user_response_2}", u2).replace("{sensei_response_3}", s3).replace("{user_response_3}", u3).replace("{active_flags}", activeFlags.join(", ")).replace("{action_items}", actionItemsForPrompt);
+        const directive = await generateDirectiveFromMetaPrompt(this.ai, metaPrompt);
+        return directive;
+      }
+    };
   }
 });
 
@@ -5178,736 +6087,6 @@ Provide your response as JSON with this structure:
     "explanation": "brief explanation of what was fixed"
 }
 `;
-  }
-});
-
-// src/mermaid-theme-integration.js
-function logMermaidValidation(event, payload) {
-  logger.info("[MERMAID_VALIDATION]", { event, ...payload });
-}
-function renderMermaidThumbnailWithTheme(preElement, rawSvgContent, themeName = null, rawMermaidCode = "") {
-  if (!themeName && window.mermaidManager) {
-    themeName = window.mermaidManager.getCurrentTheme();
-  }
-  themeName = themeName || window.DEFAULT_MERMAID_THEME || "neon";
-  const thumbnail = document.createElement("div");
-  thumbnail.className = "mermaid-thumbnail";
-  if (window.updateMermaidThemeClass) {
-    window.updateMermaidThemeClass(thumbnail, themeName);
-  } else {
-    thumbnail.classList.add(`mermaid-theme-${themeName}`);
-  }
-  thumbnail.dataset.theme = themeName;
-  if (rawMermaidCode) {
-    thumbnail.dataset.mermaidCode = rawMermaidCode;
-  }
-  try {
-    const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(rawSvgContent, "image/svg+xml");
-    const svgElement = svgDoc.querySelector("svg");
-    if (svgElement) {
-      const viewBox = svgElement.getAttribute("viewBox");
-      if (viewBox) {
-        const parts = viewBox.split(" ").map(Number);
-        if (parts.length === 4) {
-          const viewboxWidth = parts[2];
-          const viewboxHeight = parts[3];
-          if (viewboxWidth > viewboxHeight) {
-            thumbnail.classList.add("mermaid-thumbnail--horizontal");
-          } else {
-            thumbnail.classList.add("mermaid-thumbnail--vertical");
-          }
-        }
-      }
-      thumbnail.innerHTML = svgElement.outerHTML;
-    } else {
-      thumbnail.innerHTML = rawSvgContent;
-    }
-  } catch (e) {
-    logger.error("Error parsing SVG for aspect ratio detection:", e);
-    thumbnail.innerHTML = rawSvgContent;
-  }
-  preElement.replaceWith(thumbnail);
-  if (thumbnail.parentElement && !thumbnail.parentElement.classList.contains("mermaid-figure")) {
-    const figure = document.createElement("div");
-    figure.className = "mermaid-figure";
-    if (thumbnail.classList.contains("mermaid-thumbnail--horizontal")) {
-      figure.classList.add("mermaid-thumbnail--horizontal");
-    }
-    if (thumbnail.classList.contains("mermaid-thumbnail--vertical")) {
-      figure.classList.add("mermaid-thumbnail--vertical");
-    }
-    thumbnail.replaceWith(figure);
-    figure.appendChild(thumbnail);
-    const getNextElementSkippingArtifacts = (startNode) => {
-      let node = startNode;
-      while (node) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const trimmed = node.textContent ? node.textContent.trim() : "";
-          if (!trimmed) {
-            node = node.nextSibling;
-            continue;
-          }
-          if (trimmed === "```") {
-            const next = node.nextSibling;
-            node.parentNode?.removeChild(node);
-            logMermaidValidation("stray-backticks-removed", { nodeType: "text" });
-            node = next;
-            continue;
-          }
-          node = node.nextSibling;
-          continue;
-        }
-        if (node instanceof HTMLElement) {
-          const trimmed = node.textContent ? node.textContent.trim() : "";
-          if (trimmed === "```" && node.tagName.toLowerCase() !== "code") {
-            const tag = node.tagName.toLowerCase();
-            const next = node.nextSibling;
-            node.remove();
-            logMermaidValidation("stray-backticks-removed", { nodeType: tag });
-            node = next;
-            continue;
-          }
-          if (!trimmed && node.childElementCount === 0) {
-            node = node.nextSibling;
-            continue;
-          }
-          return node;
-        }
-        node = node.nextSibling;
-      }
-      return null;
-    };
-    let sibling = getNextElementSkippingArtifacts(figure.nextSibling);
-    let annotationElement = null;
-    if (sibling instanceof HTMLElement) {
-      const tagName = sibling.tagName.toLowerCase();
-      if (tagName === "p") {
-        const firstChild = sibling.firstElementChild;
-        const trimmed = sibling.textContent ? sibling.textContent.trim() : "";
-        if (firstChild && firstChild.tagName.toLowerCase() === "em" && sibling.childElementCount === 1 && trimmed.length > 0) {
-          annotationElement = sibling;
-        }
-      } else if (tagName === "pre") {
-        const codeChild = sibling.firstElementChild;
-        const codeTag = codeChild && codeChild.tagName ? codeChild.tagName.toLowerCase() : "";
-        const rawCaption = codeChild && codeChild.textContent ? codeChild.textContent.trim() : "";
-        const newlineCount = rawCaption ? (rawCaption.match(/\n/g) || []).length : 0;
-        if (codeTag === "code" && rawCaption && rawCaption.length <= 500 && newlineCount <= 1) {
-          let cleaned = rawCaption.replace(/^```/, "").replace(/```$/, "").trim();
-          let emphasizeText = cleaned;
-          if (emphasizeText.startsWith("*") && emphasizeText.endsWith("*") && emphasizeText.length > 2) {
-            emphasizeText = emphasizeText.slice(1, -1).trim();
-          }
-          const hasCodeIndicators = /[{};=<>]/.test(emphasizeText) || /\b(function|class|return)\b/i.test(emphasizeText);
-          if (emphasizeText && !hasCodeIndicators) {
-            const paragraph = document.createElement("p");
-            const emphasis = document.createElement("em");
-            emphasis.textContent = emphasizeText;
-            paragraph.appendChild(emphasis);
-            paragraph.classList.add("mermaid-annotation");
-            sibling.remove();
-            figure.appendChild(paragraph);
-            annotationElement = paragraph;
-          }
-        }
-      }
-    }
-    if (!annotationElement) {
-      const prev = getNextElementSkippingArtifacts(figure.previousSibling);
-      if (prev instanceof HTMLElement) {
-        const tagName = prev.tagName.toLowerCase();
-        if (tagName === "p") {
-          const firstChild = prev.firstElementChild;
-          const trimmed = prev.textContent ? prev.textContent.trim() : "";
-          if (firstChild && firstChild.tagName.toLowerCase() === "em" && prev.childElementCount === 1 && trimmed.length > 0) {
-            annotationElement = prev;
-          }
-        } else if (tagName === "pre") {
-          const codeChild = prev.firstElementChild;
-          const codeTag = codeChild && codeChild.tagName ? codeChild.tagName.toLowerCase() : "";
-          const rawCaption = codeChild && codeChild.textContent ? codeChild.textContent.trim() : "";
-          const newlineCount = rawCaption ? (rawCaption.match(/\n/g) || []).length : 0;
-          if (codeTag === "code" && rawCaption && rawCaption.length <= 500 && newlineCount <= 1) {
-            let cleaned = rawCaption.replace(/^```/, "").replace(/```$/, "").trim();
-            let emphasizeText = cleaned;
-            if (emphasizeText.startsWith("*") && emphasizeText.endsWith("*") && emphasizeText.length > 2) {
-              emphasizeText = emphasizeText.slice(1, -1).trim();
-            }
-            const hasCodeIndicators = /[{};=<>]/.test(emphasizeText) || /\b(function|class|return)\b/i.test(emphasizeText);
-            if (emphasizeText && !hasCodeIndicators) {
-              const paragraph = document.createElement("p");
-              const emphasis = document.createElement("em");
-              emphasis.textContent = emphasizeText;
-              paragraph.appendChild(emphasis);
-              paragraph.classList.add("mermaid-annotation");
-              prev.remove();
-              figure.appendChild(paragraph);
-              annotationElement = paragraph;
-            }
-          }
-        }
-      }
-    }
-    if (annotationElement) {
-      const sentenceCount = annotationElement.textContent ? annotationElement.textContent.split(/[.!?]+/).map((segment) => segment.trim()).filter((segment) => segment.length > 0).length : 0;
-      annotationElement.classList.add("mermaid-annotation");
-      if (!figure.contains(annotationElement)) {
-        figure.appendChild(annotationElement);
-      }
-      if (!mermaidAnnotationSuccessLogged && sentenceCount > 0) {
-        logMermaidValidation("caption-aligned", { sentenceCount });
-        mermaidAnnotationSuccessLogged = true;
-      }
-      getNextElementSkippingArtifacts(annotationElement.nextSibling);
-    }
-  }
-  thumbnail.addEventListener("click", async (event) => {
-    event.stopPropagation();
-    const mermaidCode = thumbnail.dataset.mermaidCode;
-    const storedTheme = thumbnail.dataset.theme || themeName;
-    const currentTheme = window.mermaidManager ? window.mermaidManager.getCurrentTheme() : storedTheme;
-    const lightbox = document.createElement("div");
-    lightbox.className = "mermaid-lightbox";
-    if (window.updateMermaidThemeClass) {
-      window.updateMermaidThemeClass(lightbox, currentTheme);
-    } else {
-      lightbox.classList.add(`mermaid-theme-${currentTheme}`);
-    }
-    const content = document.createElement("div");
-    content.className = "mermaid-lightbox__content";
-    content.tabIndex = 0;
-    content.setAttribute("role", "dialog");
-    content.setAttribute("aria-modal", "true");
-    content.setAttribute("aria-label", "Fullscreen Mermaid diagram viewer");
-    lightbox.appendChild(content);
-    const closeButton2 = document.createElement("button");
-    const closeButtonId = `mermaid-lightbox-close-${Date.now()}-${Math.random().toString(36).substring(2)}`;
-    closeButton2.id = closeButtonId;
-    closeButton2.type = "button";
-    closeButton2.className = "mermaid-lightbox__close";
-    closeButton2.setAttribute("aria-label", "Close fullscreen diagram");
-    closeButton2.setAttribute("title", "Close diagram");
-    closeButton2.innerHTML = "&times;";
-    content.appendChild(closeButton2);
-    const attachDiagram = (diagram2) => {
-      diagram2.removeAttribute("width");
-      diagram2.removeAttribute("height");
-      diagram2.style.width = "";
-      diagram2.style.height = "";
-      diagram2.style.transform = "";
-      diagram2.classList.add("mermaid-lightbox__diagram");
-      content.innerHTML = "";
-      content.appendChild(diagram2);
-      content.appendChild(closeButton2);
-    };
-    const needsRerender = mermaidCode && window.mermaidManager && storedTheme !== currentTheme;
-    if (needsRerender) {
-      try {
-        logMermaidValidation("theme-rerender", {
-          fromTheme: storedTheme,
-          toTheme: currentTheme
-        });
-        const uniqueId = `lightbox-mermaid-${Date.now()}-${Math.random().toString(36).substring(2)}`;
-        const { svg: freshSvg } = await window.mermaidManager.render(uniqueId, mermaidCode);
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(freshSvg, "image/svg+xml");
-        const svgElement = svgDoc.querySelector("svg");
-        if (svgElement) {
-          attachDiagram(svgElement);
-          thumbnail.dataset.theme = currentTheme;
-        } else {
-          logger.warn("Re-render succeeded but no SVG element found, falling back to cloning");
-          const existingSvg = thumbnail.querySelector("svg");
-          if (existingSvg) {
-            const clonedSvg = existingSvg.cloneNode(true);
-            attachDiagram(clonedSvg);
-          } else {
-            content.innerHTML = thumbnail.innerHTML;
-            content.appendChild(closeButton2);
-          }
-        }
-      } catch (error) {
-        logger.error("Failed to re-render Mermaid in lightbox:", error);
-        const svgElement = thumbnail.querySelector("svg");
-        if (svgElement) {
-          const clonedSvg = svgElement.cloneNode(true);
-          attachDiagram(clonedSvg);
-        } else {
-          content.innerHTML = thumbnail.innerHTML;
-          content.appendChild(closeButton2);
-        }
-      }
-    } else {
-      const svgElement = thumbnail.querySelector("svg");
-      if (svgElement) {
-        const clonedSvg = svgElement.cloneNode(true);
-        attachDiagram(clonedSvg);
-      } else {
-        content.innerHTML = thumbnail.innerHTML;
-        content.appendChild(closeButton2);
-      }
-    }
-    const diagram = content.querySelector(".mermaid-lightbox__diagram");
-    const scale = 1.75;
-    const clamp = (value) => Math.min(Math.max(value, 0), 1);
-    const updateZoomTransform = (sourceEvent) => {
-      if (!diagram) {
-        return;
-      }
-      if (content.dataset.zoomed !== "true") {
-        diagram.style.transform = "";
-        return;
-      }
-      const rect = content.getBoundingClientRect();
-      const width = rect.width || 1;
-      const height = rect.height || 1;
-      let xRatio = 0.5;
-      let yRatio = 0.5;
-      if (sourceEvent) {
-        xRatio = (sourceEvent.clientX - rect.left) / width;
-        yRatio = (sourceEvent.clientY - rect.top) / height;
-      }
-      xRatio = clamp(xRatio);
-      yRatio = clamp(yRatio);
-      const offsetX = (0.5 - xRatio) * (scale - 1) * width;
-      const offsetY = (0.5 - yRatio) * (scale - 1) * height;
-      diagram.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
-    };
-    const setZoomState = (shouldZoom, sourceEvent) => {
-      if (shouldZoom) {
-        content.dataset.zoomed = "true";
-        content.classList.add("mermaid-lightbox__content--zoomed");
-        updateZoomTransform(sourceEvent);
-      } else {
-        delete content.dataset.zoomed;
-        content.classList.remove("mermaid-lightbox__content--zoomed");
-        updateZoomTransform();
-      }
-    };
-    if (diagram) {
-      diagram.addEventListener("click", (diagramEvent) => {
-        diagramEvent.stopPropagation();
-        const nextZoom = content.dataset.zoomed === "true" ? false : true;
-        setZoomState(nextZoom, diagramEvent);
-      });
-    }
-    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    let isLightboxActive = true;
-    function pointerDownHandler(event2) {
-      if (!isLightboxActive) {
-        return;
-      }
-      const targetNode = event2.target;
-      if (!(targetNode instanceof Node)) {
-        return;
-      }
-      if (!lightbox.contains(targetNode)) {
-        return;
-      }
-      event2.stopPropagation();
-      event2.stopImmediatePropagation();
-    }
-    function removeLightbox(trigger) {
-      if (!isLightboxActive) {
-        return;
-      }
-      isLightboxActive = false;
-      document.removeEventListener("keydown", handleKeydown2, true);
-      window.removeEventListener("pointerdown", pointerDownHandler, true);
-      closeButton2.removeEventListener("click", closeButtonHandler);
-      content.removeEventListener("click", contentClickHandler);
-      lightbox.removeEventListener("click", lightboxClickHandler);
-      if (lightbox.parentNode) {
-        lightbox.parentNode.removeChild(lightbox);
-      }
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        previouslyFocused.focus();
-      }
-    }
-    function handleKeydown2(keyEvent) {
-      if (!isLightboxActive) {
-        return;
-      }
-      if (keyEvent.key === "Escape") {
-        keyEvent.preventDefault();
-        removeLightbox("escape");
-      }
-    }
-    function closeButtonHandler(buttonEvent) {
-      buttonEvent.preventDefault();
-      buttonEvent.stopPropagation();
-      removeLightbox("button");
-    }
-    function contentClickHandler(contentEvent) {
-      if (contentEvent.target === content) {
-        contentEvent.stopPropagation();
-        removeLightbox("backdrop");
-      }
-    }
-    function lightboxClickHandler(closeEvent) {
-      if (closeEvent.target === lightbox) {
-        closeEvent.stopPropagation();
-        removeLightbox("backdrop");
-      }
-    }
-    const handlePointerMove = (moveEvent) => {
-      if (content.dataset.zoomed === "true") {
-        updateZoomTransform(moveEvent);
-      }
-    };
-    content.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerdown", pointerDownHandler, true);
-    document.addEventListener("keydown", handleKeydown2, true);
-    closeButton2.addEventListener("click", closeButtonHandler);
-    content.addEventListener("click", contentClickHandler);
-    lightbox.addEventListener("click", lightboxClickHandler);
-    document.body.appendChild(lightbox);
-    closeButton2.focus();
-  });
-}
-var mermaidAnnotationSuccessLogged;
-var init_mermaid_theme_integration = __esm({
-  "src/mermaid-theme-integration.js"() {
-    "use strict";
-    init_logger();
-    mermaidAnnotationSuccessLogged = false;
-  }
-});
-
-// src/mermaidManager.ts
-var DEFAULT_MERMAID_THEME, MERMAID_THEMES, MermaidManager, mermaidManager;
-var init_mermaidManager = __esm({
-  "src/mermaidManager.ts"() {
-    "use strict";
-    init_logger();
-    DEFAULT_MERMAID_THEME = "warm";
-    MERMAID_THEMES = {
-      glass: {
-        name: "Glass Morphism",
-        description: "Translucent elegance matching your glass aesthetic",
-        displayName: "\u2728 Glass Morphism",
-        config: {
-          theme: "base",
-          themeVariables: {
-            darkMode: true,
-            fontFamily: "Inter, sans-serif",
-            fontSize: "12px",
-            background: "#1a1a2e",
-            primaryColor: "#C4E538",
-            primaryTextColor: "#1a1a2e",
-            primaryBorderColor: "#A6C92E",
-            secondaryColor: "#2a2a3e",
-            secondaryTextColor: "#e2e8f0",
-            secondaryBorderColor: "#3a3a4e",
-            tertiaryColor: "#00d4ff",
-            tertiaryTextColor: "#1a1a2e",
-            tertiaryBorderColor: "#00a8cc",
-            noteBkgColor: "#2a2a3e",
-            noteTextColor: "#e2e8f0",
-            noteBorderColor: "#3a3a4e",
-            lineColor: "#e2e8f0",
-            textColor: "#e2e8f0",
-            mainBkg: "#1f1f33",
-            nodeBkg: "#1f1f33",
-            nodeBorder: "#3a3a4e",
-            clusterBkg: "#252538",
-            clusterBorder: "#A6C92E",
-            edgeLabelBackground: "#1a1a2e",
-            nodeTextColor: "#e2e8f0",
-            defaultLinkColor: "#e2e8f0",
-            titleColor: "#e2e8f0",
-            actorBkg: "#1f1f33",
-            actorBorder: "#A6C92E",
-            actorTextColor: "#1a1a2e",
-            actorLineColor: "#e2e8f0"
-          }
-        }
-      },
-      neon: {
-        name: "Neon Cyberpunk",
-        description: "Electric vibes with glowing edges and signature colors",
-        displayName: "\u26A1 Neon Cyberpunk",
-        config: {
-          theme: "base",
-          themeVariables: {
-            darkMode: true,
-            fontFamily: "Inter, sans-serif",
-            fontSize: "12px",
-            fontWeight: "600",
-            background: "#0a0a0a",
-            primaryColor: "#C4E538",
-            primaryTextColor: "#0a0a0a",
-            primaryBorderColor: "#C4E538",
-            secondaryColor: "#ff6b6b",
-            secondaryTextColor: "#0a0a0a",
-            secondaryBorderColor: "#ff6b6b",
-            tertiaryColor: "#4ecdc4",
-            tertiaryTextColor: "#0a0a0a",
-            tertiaryBorderColor: "#4ecdc4",
-            noteBkgColor: "#1a1a1a",
-            noteTextColor: "#C4E538",
-            noteBorderColor: "#C4E538",
-            lineColor: "#00d4ff",
-            textColor: "#C4E538",
-            mainBkg: "#0a0a0a",
-            nodeBkg: "#0a0a0a",
-            nodeBorder: "#C4E538",
-            clusterBkg: "#0f0f0f",
-            clusterBorder: "#C4E538",
-            edgeLabelBackground: "#0a0a0a",
-            nodeTextColor: "#C4E538",
-            defaultLinkColor: "#00d4ff",
-            titleColor: "#C4E538",
-            actorBkg: "#0a0a0a",
-            actorBorder: "#C4E538",
-            actorTextColor: "#0a0a0a",
-            actorLineColor: "#00d4ff"
-          }
-        }
-      },
-      minimal: {
-        name: "Minimalist Professional",
-        description: "Clean, modern styling with subtle elegance",
-        displayName: "\u{1F3AF} Minimalist Professional",
-        config: {
-          theme: "base",
-          themeVariables: {
-            darkMode: true,
-            fontFamily: "Inter, sans-serif",
-            fontSize: "12px",
-            fontWeight: "500",
-            background: "#1a1a2e",
-            primaryColor: "#e2e8f0",
-            primaryTextColor: "#1a1a2e",
-            primaryBorderColor: "#c5ced9",
-            secondaryColor: "#C4E538",
-            secondaryTextColor: "#1a1a2e",
-            secondaryBorderColor: "#A6C92E",
-            tertiaryColor: "#5BA3D9",
-            tertiaryTextColor: "#ffffff",
-            tertiaryBorderColor: "#4A92C8",
-            noteBkgColor: "#2a2a3e",
-            noteTextColor: "#e2e8f0",
-            noteBorderColor: "#3a3a4e",
-            lineColor: "#9ca3af",
-            textColor: "#e2e8f0",
-            mainBkg: "#222236",
-            nodeBkg: "#222236",
-            nodeBorder: "#3a3a4e",
-            clusterBkg: "#1f1f33",
-            clusterBorder: "#3a3a4e",
-            edgeLabelBackground: "#1a1a2e",
-            nodeTextColor: "#e2e8f0",
-            defaultLinkColor: "#9ca3af",
-            titleColor: "#e2e8f0",
-            actorBkg: "#222236",
-            actorBorder: "#c5ced9",
-            actorTextColor: "#1a1a2e",
-            actorLineColor: "#9ca3af"
-          }
-        }
-      },
-      warm: {
-        name: "Warm Educational",
-        description: "Friendly, approachable colors for learning",
-        displayName: "\u{1F31F} Warm Educational",
-        config: {
-          theme: "base",
-          themeVariables: {
-            darkMode: true,
-            fontFamily: "Inter, sans-serif",
-            fontSize: "12px",
-            fontWeight: "500",
-            background: "#1a1a2e",
-            primaryColor: "#ffd93d",
-            primaryTextColor: "#1a1a2e",
-            primaryBorderColor: "#e6c235",
-            secondaryColor: "#81c784",
-            secondaryTextColor: "#1a1a2e",
-            secondaryBorderColor: "#6fb473",
-            tertiaryColor: "#64b5f6",
-            tertiaryTextColor: "#1a1a2e",
-            tertiaryBorderColor: "#5aa3e3",
-            noteBkgColor: "#2a2a3e",
-            noteTextColor: "#ffd93d",
-            noteBorderColor: "#3a3a4e",
-            lineColor: "#ff8a65",
-            textColor: "#ffd93d",
-            mainBkg: "#252538",
-            nodeBkg: "#252538",
-            nodeBorder: "#665522",
-            clusterBkg: "#1f1f33",
-            clusterBorder: "#6fb473",
-            edgeLabelBackground: "#1a1a2e",
-            nodeTextColor: "#ffd93d",
-            defaultLinkColor: "#ff8a65",
-            titleColor: "#ffd93d",
-            actorBkg: "#252538",
-            actorBorder: "#e6c235",
-            actorTextColor: "#1a1a2e",
-            actorLineColor: "#ff8a65"
-          }
-        }
-      },
-      space: {
-        name: "Deep Space",
-        description: "Cosmic elegance with purple and teal accents",
-        displayName: "\u{1F30C} Deep Space",
-        config: {
-          theme: "base",
-          themeVariables: {
-            darkMode: true,
-            fontFamily: "Inter, sans-serif",
-            fontSize: "12px",
-            fontWeight: "500",
-            background: "#0a0a1a",
-            primaryColor: "#bb86fc",
-            primaryTextColor: "#0a0a1a",
-            primaryBorderColor: "#9966cc",
-            secondaryColor: "#cf6679",
-            secondaryTextColor: "#ffffff",
-            secondaryBorderColor: "#b85567",
-            tertiaryColor: "#ffd93d",
-            tertiaryTextColor: "#0a0a1a",
-            tertiaryBorderColor: "#e6c235",
-            noteBkgColor: "#1a1a2e",
-            noteTextColor: "#bb86fc",
-            noteBorderColor: "#3a3a4e",
-            lineColor: "#03dac6",
-            textColor: "#bb86fc",
-            mainBkg: "#15152a",
-            nodeBkg: "#15152a",
-            nodeBorder: "#6644aa",
-            clusterBkg: "#0f0f1f",
-            clusterBorder: "#03dac6",
-            edgeLabelBackground: "#0a0a1a",
-            nodeTextColor: "#bb86fc",
-            defaultLinkColor: "#03dac6",
-            titleColor: "#bb86fc",
-            actorBkg: "#15152a",
-            actorBorder: "#9966cc",
-            actorTextColor: "#0a0a1a",
-            actorLineColor: "#03dac6"
-          }
-        }
-      }
-    };
-    MermaidManager = class {
-      constructor() {
-        __publicField(this, "mermaidInstance", null);
-        __publicField(this, "initializationPromise", null);
-        __publicField(this, "currentTheme");
-        __publicField(this, "themes", null);
-        __publicField(this, "isInitialized", false);
-        this.currentTheme = localStorage.getItem("mermaid-theme") || DEFAULT_MERMAID_THEME;
-      }
-      /**
-       * Initialize Mermaid with the current theme
-       * This is idempotent - multiple calls will reuse the same promise
-       */
-      async initializeMermaid() {
-        if (this.initializationPromise && !this.isInitialized) {
-          return this.initializationPromise;
-        }
-        if (this.isInitialized) {
-          return Promise.resolve();
-        }
-        this.initializationPromise = this.performInitialization();
-        return this.initializationPromise;
-      }
-      /**
-       * Perform the actual initialization
-       */
-      async performInitialization() {
-        try {
-          if (!this.mermaidInstance) {
-            const mermaidModule = await import("mermaid");
-            this.mermaidInstance = mermaidModule.default;
-          }
-          if (!this.themes) {
-            this.themes = MERMAID_THEMES;
-          }
-          let theme = this.themes[this.currentTheme];
-          if (!theme) {
-            logger.warn(`Theme "${this.currentTheme}" not found. Using ${DEFAULT_MERMAID_THEME} theme.`);
-            this.currentTheme = DEFAULT_MERMAID_THEME;
-            theme = this.themes[this.currentTheme];
-          }
-          if (!theme) {
-            throw new Error(`Mermaid theme configuration missing for ${this.currentTheme}`);
-          }
-          this.mermaidInstance.initialize({
-            startOnLoad: false,
-            securityLevel: "loose",
-            theme: "base",
-            // Use base theme for custom variables
-            themeVariables: {
-              ...theme.config.themeVariables
-            },
-            flowchart: {
-              htmlLabels: true,
-              curve: "basis",
-              defaultRenderer: "elk"
-            }
-          });
-          this.isInitialized = true;
-        } catch (error) {
-          if (DEBUG_FLAGS.mermaid_debug) {
-            logger.error("Failed to initialize Mermaid:", error);
-          }
-          this.initializationPromise = null;
-          this.isInitialized = false;
-          throw error;
-        }
-      }
-      /**
-       * Render a Mermaid diagram
-       * Ensures initialization before rendering
-       */
-      async render(id, code) {
-        await this.initializeMermaid();
-        if (!this.mermaidInstance) {
-          throw new Error("Mermaid failed to initialize");
-        }
-        try {
-          const result = await this.mermaidInstance.render(id, code);
-          return result;
-        } catch (error) {
-          throw error;
-        }
-      }
-      /**
-       * Change the current theme
-       * Forces re-initialization with new theme
-       */
-      async setTheme(themeName) {
-        if (themeName === this.currentTheme && this.isInitialized) {
-          return;
-        }
-        this.currentTheme = themeName;
-        this.isInitialized = false;
-        this.initializationPromise = null;
-        localStorage.setItem("mermaid-theme", themeName);
-        await this.initializeMermaid();
-      }
-      /**
-       * Get the current theme name
-       */
-      getCurrentTheme() {
-        return this.currentTheme;
-      }
-      /**
-       * Get available themes
-       */
-      async getAvailableThemes() {
-        if (!this.themes) {
-          this.themes = MERMAID_THEMES;
-        }
-        return this.themes;
-      }
-    };
-    mermaidManager = new MermaidManager();
   }
 });
 
@@ -20996,7 +21175,7 @@ function updateCurriculumDisplay(curriculumItem, currentPhase, appCurriculum, ap
       setStatusLines("Ready to Begin", "Select a module to get started");
     } else if (appIsCurriculumLoaded) {
       setStatusLines("Curriculum Loaded", "Ask Sensei to begin");
-    } else if (!appIsCurriculumLoaded && !process.env.API_KEY) {
+    } else if (!appIsCurriculumLoaded && !API_KEY) {
       setStatusLines("API Key Missing", "Set API_KEY to continue");
     } else {
       setStatusLines("Loading Curriculum\u2026", "Preparing your journey");
@@ -23105,6 +23284,7 @@ var init_ui = __esm({
     init_mermaidErrorRecovery();
     init_curriculum();
     init_mermaid_theme_integration();
+    init_index();
     init_mermaidManager();
     init_src();
     globalMarkedConfig = globalThis;
@@ -23424,6 +23604,143 @@ var init_ui = __esm({
     meditationOverlayOutsideClickHandler = null;
     addLanguageDisplayToCodeBlocks = addLanguageDisplayToCodeBlocks_internal;
     addCopyButtonsToCodeBlocks = addCopyButtonsToCodeBlocks_internal;
+  }
+});
+
+// src/saveloadSerialization.ts
+function serializeForSave(key, value) {
+  const parentCandidate = typeof this === "object" && this !== null ? this[key] : void 0;
+  const actualValue = parentCandidate instanceof Date || parentCandidate instanceof Set || parentCandidate instanceof Map ? parentCandidate : value;
+  if (actualValue instanceof Date) {
+    return {
+      __type: "Date",
+      data: actualValue.toISOString()
+    };
+  }
+  if (actualValue instanceof Set) {
+    return {
+      __type: "Set",
+      data: Array.from(actualValue)
+    };
+  }
+  if (actualValue instanceof Map) {
+    return {
+      __type: "Map",
+      data: Array.from(actualValue.entries())
+    };
+  }
+  if (value === void 0) {
+    return null;
+  }
+  return value;
+}
+function deserializeFromSave(key, value) {
+  if (value && typeof value === "object" && value.__type) {
+    if (value.__type === "Set") {
+      return new Set(value.data);
+    }
+    if (value.__type === "Map") {
+      return new Map(value.data);
+    }
+    if (value.__type === "Date") {
+      return new Date(value.data);
+    }
+  }
+  return value;
+}
+function serializeCurriculumState(state) {
+  if (!state) return null;
+  const serialized = { ...state };
+  if (state.coveredPointsInCurrentChunk instanceof Set) {
+    serialized.coveredPointsInCurrentChunk = Array.from(state.coveredPointsInCurrentChunk);
+  }
+  if (state.pointsToRevisitInCurrentChunk instanceof Set) {
+    serialized.pointsToRevisitInCurrentChunk = Array.from(state.pointsToRevisitInCurrentChunk);
+  }
+  if (state.activeConsolidationState?.plan instanceof Map) {
+    serialized.activeConsolidationState = {
+      ...state.activeConsolidationState,
+      plan: Array.from(state.activeConsolidationState.plan.entries())
+    };
+  }
+  if (!serialized.chunkUnderstandingLedger) {
+    serialized.chunkUnderstandingLedger = {};
+  }
+  return serialized;
+}
+function deserializeCurriculumState(state) {
+  if (!state) return null;
+  const deserialized = { ...state };
+  if (Array.isArray(state.coveredPointsInCurrentChunk)) {
+    deserialized.coveredPointsInCurrentChunk = new Set(state.coveredPointsInCurrentChunk);
+  }
+  if (Array.isArray(state.pointsToRevisitInCurrentChunk)) {
+    deserialized.pointsToRevisitInCurrentChunk = new Set(state.pointsToRevisitInCurrentChunk);
+  }
+  if (state.activeConsolidationState?.plan && Array.isArray(state.activeConsolidationState.plan)) {
+    deserialized.activeConsolidationState = {
+      ...state.activeConsolidationState,
+      plan: new Map(state.activeConsolidationState.plan)
+    };
+  }
+  if (!deserialized.chunkUnderstandingLedger) {
+    deserialized.chunkUnderstandingLedger = {};
+  }
+  return deserialized;
+}
+function serializeLearnerModel(model) {
+  if (!model) return null;
+  const serialized = { ...model };
+  if (model.awardedKcForPhasePoints instanceof Set) {
+    serialized.awardedKcForPhasePoints = Array.from(model.awardedKcForPhasePoints);
+  }
+  return serialized;
+}
+function deserializeLearnerModel(model) {
+  if (!model) return null;
+  const deserialized = { ...model };
+  if (Array.isArray(model.awardedKcForPhasePoints)) {
+    deserialized.awardedKcForPhasePoints = new Set(model.awardedKcForPhasePoints);
+  }
+  return deserialized;
+}
+function validateSerializedData(data) {
+  const errors = [];
+  if (!data) {
+    errors.push("Data is null or undefined");
+    return { isValid: false, errors };
+  }
+  if (!data.learnerModel) {
+    errors.push("Missing required field: learnerModel");
+  }
+  if (data.applicationState) {
+    if (data.applicationState.currentMessageId === void 0) {
+      errors.push("Missing required field: applicationState.currentMessageId");
+    }
+    if (!data.applicationState.lastSenseiResponses) {
+      errors.push("Missing required field: applicationState.lastSenseiResponses");
+    }
+  } else {
+    errors.push("Missing required field: applicationState");
+  }
+  if (data.curriculumState) {
+    const cs = data.curriculumState;
+    if (cs.currentModuleIndex === void 0) {
+      errors.push("Invalid curriculumState: missing currentModuleIndex");
+    }
+    if (cs.currentConceptIndex === void 0) {
+      errors.push("Invalid curriculumState: missing currentConceptIndex");
+    }
+    if (!cs.currentPhase) {
+      errors.push("Invalid curriculumState: missing currentPhase");
+    }
+  }
+  const isValid = errors.length === 0;
+  return { isValid, errors };
+}
+var init_saveloadSerialization = __esm({
+  "src/saveloadSerialization.ts"() {
+    "use strict";
   }
 });
 
@@ -27163,7 +27480,7 @@ ${extracted.explanation}`,
         this.isAskModeActive = false;
       }
       isNativeBridgeActive() {
-        return typeof window?.ReactNativeWebView?.postMessage === "function";
+        return Boolean(window?.__SENSEI_MOBILE_BUILD__);
       }
       sendSelectionToNative(selection, selectedText) {
         const range = selection.getRangeAt(0);
@@ -27648,1320 +27965,824 @@ ${extracted.explanation}`,
   }
 });
 
-// src/interactionHelpers.ts
-var interactionHelpers_exports = {};
-__export(interactionHelpers_exports, {
-  buildSenseiDynamicSystemInstruction: () => buildSenseiDynamicSystemInstruction,
-  buildSocraticExecutionInstruction: () => buildSocraticExecutionInstruction,
-  streamMainSenseiResponse: () => streamMainSenseiResponse,
-  streamModuleIntroduction: () => streamModuleIntroduction
-});
-function logSenseiPromptValidation(event, payload) {
-  const normalizedPayload = { ...payload };
-  if (typeof normalizedPayload.prompt === "string") {
-    normalizedPayload.promptLines = normalizedPayload.prompt.split("\n");
-    delete normalizedPayload.prompt;
-  }
-  logger.info("[SENSEI_PROMPT_VALIDATION]", { event, ...normalizedPayload });
-}
-async function streamModuleIntroduction(chat, introContext, moduleTitleForPrompt, senseiMessageId, options) {
-  let fullResponseText = "";
-  const messageWithContext = `${introContext}
-
-Let's begin ${moduleTitleForPrompt}.`;
-  logSenseiPromptValidation("module-introduction", {
-    moduleTitle: moduleTitleForPrompt,
-    promptLength: messageWithContext.length
-  });
-  logSenseiPromptValidation("module-introduction-full-prompt", {
-    prompt: messageWithContext
-  });
-  const stream = await chat.sendMessageStream({ message: messageWithContext });
-  const enhancerController = options?.enhancerController;
-  for await (const chunk of stream) {
-    const chunkText = chunk.text;
-    if (chunkText) {
-      fullResponseText += chunkText;
-      if (enhancerController) {
-        fullResponseText = await enhancerController.onChunk(fullResponseText);
-      }
-      updateMessageStream(senseiMessageId, fullResponseText);
-    }
-  }
-  if (enhancerController) {
-    await enhancerController.finalize();
-    return enhancerController.getLatestText();
-  }
-  return fullResponseText;
-}
-function buildSenseiDynamicSystemInstruction(curriculumFocusInstruction, pedagogicalGuidanceDirective, navigationContext) {
-  let isMustObey = false;
-  let proseDirective = pedagogicalGuidanceDirective;
-  let tempDirective = pedagogicalGuidanceDirective || "";
-  if (tempDirective.startsWith("MUST_OBEY ")) {
-    isMustObey = true;
-    logSenseiPromptValidation("standard-guidance-evaluated", {
-      mustObey: true,
-      directive: tempDirective
-    });
-    tempDirective = tempDirective.substring("MUST_OBEY ".length);
-  }
-  const colonIndex = tempDirective.indexOf(":");
-  if (colonIndex !== -1) {
-    proseDirective = tempDirective.substring(colonIndex + 1).trim();
-  } else {
-    proseDirective = tempDirective.trim();
-  }
-  if (!proseDirective) {
-    proseDirective = void 0;
-  }
-  const coreInstruction = MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
-    curriculumFocusInstruction,
-    proseDirective,
-    isMustObey
-  );
-  if (!navigationContext) {
-    return coreInstruction;
-  }
-  return `[NavigationContext]
-${navigationContext}
-
-${coreInstruction}`;
-}
-function buildSocraticExecutionInstruction(teachingPlan, pedagogicalGuidance, isSystemInitialization = false, navigationContext, conceptContext) {
-  const intent = teachingPlan[0][0];
-  const guidance = intent.interactionGuidance;
-  logSenseiPromptValidation("socratic-instruction-build", {
-    buildType: isSystemInitialization ? "system_initialization" : "user_response",
-    teachingPlanLength: intent.text?.length || 0,
-    expectedTurns: guidance.expectedTurns,
-    completionTriggerCount: guidance.completionTriggers?.length || 0
-  });
-  if (isSystemInitialization) {
-    const initialInstruction = buildSocraticInitialInstruction(teachingPlan, conceptContext);
-    logSenseiPromptValidation("socratic-initial-instruction-ready", {
-      instructionLength: initialInstruction.length
-    });
-    if (!navigationContext) {
-      return initialInstruction;
-    }
-    return `[NavigationContext]
-${navigationContext}
-
-${initialInstruction}`;
-  }
-  const isMustObey = pedagogicalGuidance.metaPrompt && pedagogicalGuidance.metaPrompt.includes("MUST_OBEY");
-  logSenseiPromptValidation("socratic-guidance-evaluated", {
-    mustObey: !!isMustObey
-  });
-  if (isMustObey) {
-    const overrideInstruction = `[RecursiveSensei CRITICAL OVERRIDE for THIS TURN:
-A high-priority situation has been detected. For this turn, you MUST IGNORE the standard Socratic dialogue plan provided below.
-Your SOLE TASK is to execute the following high-priority directive with immense detail, empathy, and care. This directive takes absolute precedence.
-
-High-Priority Directive: ${pedagogicalGuidance.metaPrompt}
-
-(The standard Socratic dialogue plan, which you will ignore for this turn, is:
-${intent.text}
-
-You will continue with this plan in the next turn after addressing the current critical situation.)
-]`;
-    if (!navigationContext) {
-      return overrideInstruction;
-    }
-    return `[NavigationContext]
-${navigationContext}
-
-${overrideInstruction}`;
-  }
-  const subsequentTurnInstruction = `[RecursiveSensei Task & Checklist for THIS TURN:
-Your task is to generate a response by following this prioritized checklist. You MUST evaluate and execute these steps in order.
-
-**Your Response Checklist:**
-1.  **Execute Socratic Plan:** Continue your Socratic dialogue according to your teaching plan.
-2.  **Integrate Guidance Strategy:** You MUST use the methods, tone, and style from the \`PedagogicalGuidance\` to facilitate the Socratic dialogue. For example, if the guidance suggests using simpler language, adjust your questions accordingly.
-
----
-**Inputs for your checklist:**
-
-- **PedagogicalGuidance:** ${pedagogicalGuidance.directive || "Continue with standard Socratic questioning approach"}
-- **SocraticContext:** You are executing a Socratic dialogue. Expected length: ~${guidance.expectedTurns} turns. Monitor for completion triggers: ${JSON.stringify(guidance.completionTriggers)}
-
----
-
-COMPLETION MONITORING: If any completion trigger is met, add [SOCRATIC_COMPLETION_TRIGGERED: <trigger>] at the END of your response.]`;
-  logSenseiPromptValidation("socratic-subsequent-instruction-ready", {
-    instructionLength: subsequentTurnInstruction.length,
-    mustObey: false
-  });
-  if (!navigationContext) {
-    return subsequentTurnInstruction;
-  }
-  return `[NavigationContext]
-${navigationContext}
-
-${subsequentTurnInstruction}`;
-}
-async function streamMainSenseiResponse(chat, dynamicContext, currentUserInput, senseiMessageId, options) {
-  let fullResponseText = "";
-  const userLine = `User: ${currentUserInput}`;
-  const messageWithContext = dynamicContext.includes(USER_LAST_INPUT_PLACEHOLDER) ? dynamicContext.replace(USER_LAST_INPUT_PLACEHOLDER, userLine) : `${dynamicContext}
-
-${userLine}`;
-  logSenseiPromptValidation("main-response-requested", {
-    userInputLength: currentUserInput.length,
-    dynamicContextLength: dynamicContext.length
-  });
-  logSenseiPromptValidation("main-response-full-prompt", {
-    prompt: messageWithContext
-  });
-  const stream = await chat.sendMessageStream({ message: messageWithContext });
-  const enhancerController = options?.enhancerController;
-  let chunkCount = 0;
-  const streamStart = performance.now();
-  let firstChunkLatencyMs = null;
-  for await (const chunk of stream) {
-    const chunkText = chunk.text;
-    if (chunkText) {
-      if (chunkCount === 0) {
-        firstChunkLatencyMs = performance.now() - streamStart;
-      }
-      chunkCount++;
-      fullResponseText += chunkText;
-      if (enhancerController) {
-        fullResponseText = await enhancerController.onChunk(fullResponseText);
-      }
-      updateMessageStream(senseiMessageId, fullResponseText);
-    }
-  }
-  logSenseiPromptValidation("main-response-streamed", {
-    chunks: chunkCount,
-    firstChunkLatencyMs,
-    responseLength: fullResponseText.length
-  });
-  if (enhancerController) {
-    await enhancerController.finalize();
-    return enhancerController.getLatestText();
-  }
-  return fullResponseText;
-}
-var init_interactionHelpers = __esm({
-  "src/interactionHelpers.ts"() {
-    "use strict";
-    init_ui();
-    init_prompts();
-    init_logger();
-  }
-});
-
-// src/index.tsx
-init_logger();
-init_adaptiveEngine();
-init_curriculum();
-import { GoogleGenAI } from "@google/genai";
-
-// src/pedagogicalProfiler.ts
-init_adaptiveEngine();
-init_geminiService();
-var ITEM_SPECIFIC_PEDAGOGICAL_META_PROMPT_TEMPLATE = `### ROLE & MISSION
-Your role is that of a world-class pedagogy expert overseeing a teaching AI, 'Sensei'. You will receive a list of curriculum items that Sensei must teach. Your job is to specify the optimal pedagogical method for EACH item individually, considering the learner's current state. You determine HOW each item should be taught - the teaching method, pacing, tone, and connections between items - but you NEVER modify or add to the curriculum content itself.
-
-### CRITICAL CONSTRAINTS
-1. **NO CONTENT CREATION:** You must NEVER create new examples, exercises, or educational content. The curriculum items listed are COMPLETE and FINAL.
-2. **ITEM-SPECIFIC GUIDANCE:** You MUST provide specific pedagogical guidance for EACH curriculum item individually.
-3. **METHOD ONLY:** Focus exclusively on HOW to teach each item (method, tone, pacing), not WHAT to teach.
-
----
-### REASONING PROCESS
-Your reasoning process **MUST** follow these steps in a strict, sequential order:
-
-#### **STEP 1: Synthesize the Full Context**
-First, analyze all the provided data as puzzle pieces to build a holistic understanding of the learner's current state.
-
-*   **Conversation History (Last 3 Turns):** For each turn, analyze the relationship between Sensei's message and the User's subsequent response. What was the user's intent? Did they demonstrate understanding, confusion, or frustration?
-    *   **Turn 1 (Oldest):**
-        *   Sensei's message: "{sensei_response_1}"
-        *   User's response to Sensei's message: "{user_response_1}"
-    *   **Turn 2:**
-        *   Sensei's message: "{sensei_response_2}"
-        *   User's response to Sensei's message: "{user_response_2}"
-    *   **Turn 3 (Most Recent):**
-        *   Sensei's message: "{sensei_response_3}"
-        *   User's response to Sensei's message: "{user_response_3}"
-
-*   **Learner State Flags:** Treat these as the **most critical signal** of the learner's internal state (cognitive, affective, psychological).
-    *   *Active Flags:* \`[{active_flags}]\`
-
-*   **Upcoming Curriculum Items:** These are the EXACT items Sensei must teach. You will provide specific pedagogical guidance for EACH item.
-    *   *Items to Teach:* \`{action_items}\`
-
----
-#### **STEP 2: Choose Your Primary Path (Intervention vs. Coaching-Oriented Orchestration)**
-Based on your analysis of how the user's responses reveal their state of mind, you **MUST** choose **ONE** of the two following paths. This is your most important decision.
-
-*   **PATH A: Critical Intervention**
-    *   **Trigger Conditions:** You **MUST** select this path if **ANY** of the following flags are active: \`Flag:High_Frustration\`, \`Flag:High_Confusion\`, \`Flag:Performance_Stalled\`, \`Flag:Profile_Overwhelmed_Novice\`. You **SHOULD** also select this path if your holistic analysis of the conversation reveals other signs of crisis (e.g., despairing language, repeated basic errors).
-    *   **Goal:** Your directive's goal is to de-escalate and remediate the immediate crisis. Even in intervention mode, reference the specific curriculum items when possible.
-
-*   **PATH B: Coaching-Oriented Orchestration**
-    *   **Trigger Conditions:** Choose this path when no critical distress is detected and the learner is ready to proceed.
-    *   **Goal:** Provide concise coaching on HOW Sensei should teach next\u2014adjust pace, difficulty, tone, scaffolds, humor, and checks for understanding. The listed items will be taught regardless; your role is to tune delivery, not to plan lessons or author content.
-
-    *   **Required Coaching Guidance Structure (Path B only):**
-        1. **Coaching Moves (3\u20136 total):** Specify the most impactful tactics now (e.g., pacing change, small/medium difficulty shift, tone choice, specific scaffolds, light humor usage, quick checks for understanding). Do not outline examples, exercises, or question wordings.
-        2. **Justification:** Tie each move to observed flags or conversation cues (e.g., boredom \u2192 introduce micro\u2011humor; high confidence \u2192 increase difficulty; confusion \u2192 slower pacing + chunking).
-        3. **Optional Item Reference:** You may reference particular upcoming items when helpful (e.g., \u201CWhile teaching '[item X]', because the learner is [state Y], prefer [move Z]\u201D). Do not enumerate a full per\u2011item plan.
-        4. **Format:** Return a short paragraph or 3\u20136 compact bullets. Avoid structures like \u201CFor Item 1/2\u2026\u201D.
-
----
-#### **STEP 3: Select Your Expert Persona**
-Now, select exactly **ONE** persona that best fits the path you chose and the specific guidance you intend to give. Your final directive **MUST** be written from this persona's point of view.
-
-1. **The Method Strategist:** Selects optimal teaching methods per item based on cognitive science
-2. **The Pacing Expert:** Adjusts cognitive load and speed per item to optimize learning
-3. **The Connection Architect:** Designs conceptual bridges between curriculum items
-4. **The Adaptive Instructor:** Matches teaching methods to current learner state
-5. **The Scaffolding Specialist:** Breaks complex items into manageable cognitive steps
-
----
-#### **STEP 4: Compose Your Directive**
-Write your directive according to the path you chose:
-
-*   **Required Format for Path A (Intervention):**
-    Start with validation, then if possible, reference specific items: "I see you're struggling. Let's pause and approach '[item name]' differently..."
-
-*   **Required Format for Path B (Coaching-Oriented):**
-    Start with a concise coaching directive. Provide 3\u20136 tactics (pace, difficulty, tone, scaffolds, humor, checks), each justified by learner flags or conversation cues. You may reference specific items where helpful, but do not enumerate every item or create content.
-
-*   **Example Output for Path B:**
-    "Coaching for upcoming items: Learner shows waning engagement with high confidence\u2014raise difficulty slightly (\u224810\u201320%) and interleave occasional light humor to sustain attention. Keep tone warm\u2011challenging. Add quick checks for understanding every 1\u20132 turns. While teaching 'Recursion base cases', use smaller chunks and a short success\u2011first reset before ramping difficulty."
-
-*   **Action Type Selection:** After writing the directive, select exactly **ONE** \`Action_Type\`:
-    *   **GROUP A (Interventions):** \`Action_Crisis_Mitigation\`, \`Action_Remediate_Misconception\`, \`Action_Mental_Model_Refinement\`
-    *   **GROUP B (Teaching Guidance):** \`Action_Item_Direct_Instruction\`, \`Action_Item_Socratic_Method\`, \`Action_Item_Guided_Discovery\`, \`Action_Item_Mixed_Methods\`
-
-*   **CRITICAL FORMATTING RULE:**
-    *   If you chose **Path A**, your final output **MUST** be: \`MUST_OBEY Action_Type: [Your directive addressing items where possible]\`
-    *   If you chose **Path B**, your final output **MUST** be: \`[Action_Type]: [Your coaching-oriented directive]\`
-
----
-### QUALITY PRINCIPLES
-*   **MANDATORY:** Do not create examples, exercises, or question wordings; focus on strategy and coaching moves only
-*   **ALLOWED:** Reference particular items when helpful to target tactics; avoid full per\u2011item enumeration unless in Path A remediation
-*   **AVOID:** Generic advice with no link to learner flags or conversation cues
-*   **ASPIRE TO:** Concise, high\u2011leverage coaching that adapts pace, difficulty, tone, scaffolds, humor, and checks to the current learner state
-
-Now, generate your directive based on the provided learner state and curriculum items.`;
-var PedagogicalProfiler = class {
-  constructor(ai2) {
-    this.ai = ai2;
-  }
-  _identifyActiveFlags(model) {
-    const FLAG_DEFINITIONS = [
-      // Affective State Flags
-      { flagName: "Flag:High_Frustration", condition: (m) => m.AffectiveState.Frustration === "High" },
-      { flagName: "Flag:High_Confusion", condition: (m) => m.AffectiveState.Confusion === "High" },
-      { flagName: "Flag:Waning_Engagement", condition: (m) => m.AffectiveState.Engagement === "Waning" },
-      { flagName: "Flag:High_Boredom", condition: (m) => m.AffectiveState.Boredom === "High" },
-      { flagName: "Flag:Low_Confidence", condition: (m) => m.AffectiveState.Confidence === "Low" },
-      { flagName: "Flag:High_Confidence", condition: (m) => m.AffectiveState.Confidence === "High" },
-      { flagName: "Flag:High_Self_Efficacy", condition: (m) => m.AffectiveState.SelfEfficacy === "High" },
-      { flagName: "Flag:Seeking_Reassurance", condition: (m) => m.LastAnalysis?.primary_intent === "SeekingReassurance" },
-      // Cognitive & Performance Flags
-      { flagName: "Flag:Performance_Declining", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Declining" },
-      { flagName: "Flag:Performance_Stalled", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Stalled_On_Current_Topic" },
-      { flagName: "Flag:Performance_Improving", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Improving" },
-      { flagName: "Flag:High_Cognitive_Load", condition: (m) => m.CognitiveLoad.EstimatedIntrinsic === "High" || m.CognitiveLoad.EstimatedExtraneous === "High" },
-      { flagName: "Flag:Misconception_Active", condition: (m) => Object.values(m.Misconceptions).some((p) => p > 0.7) },
-      { flagName: "Flag:Mental_Model_Non_Viable", condition: (m) => m.MentalModelState.InferredModelType.includes("Non-Viable") },
-      { flagName: "Flag:Mental_Model_Emerging", condition: (m) => m.MentalModelState.InferredModelType.includes("Emerging") },
-      // SRL Flags
-      { flagName: "Flag:SRL_Low_Planning", condition: (m) => m.SRL_Indicators.PlanningObserved === "Low" },
-      { flagName: "Flag:SRL_Low_Monitoring", condition: (m) => m.SRL_Indicators.MonitoringObserved === "Low" },
-      { flagName: "Flag:SRL_Trial_And_Error", condition: (m) => m.SRL_Indicators.StrategyUse.includes("TrialAndError") },
-      {
-        flagName: "Flag:SRL_Help_Seeking_Vague",
-        condition: (m) => {
-          const normalized = normalizeHelpSeekingStyle(m.LastAnalysis?.srl_indicators.help_seeking_style);
-          return m.SRL_Indicators.HelpSeekingAppropriateness === "Low" || normalized === "Low";
-        }
-      },
-      { flagName: "Flag:SRL_Help_Seeking_Demanding", condition: (m) => normalizeHelpSeekingStyle(m.LastAnalysis?.srl_indicators.help_seeking_style) === "High" },
-      // Composite Profile Flags
-      { flagName: "Flag:Profile_Confident_But_Incorrect", condition: (m) => m.AffectiveState.Confidence === "High" && (m.AffectiveState.Confusion === "High" || Object.values(m.Misconceptions).some((p) => p > 0.7)) },
-      { flagName: "Flag:Profile_Productive_Struggle", condition: (m) => m.AffectiveState.Engagement === "High" && m.LearningTrajectory.RecentPerformanceTrend === "Stalled_On_Current_Topic" },
-      { flagName: "Flag:Profile_Knowledgeable_But_Bored", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Improving" && m.AffectiveState.Boredom === "High" },
-      { flagName: "Flag:Profile_Breakthrough_Moment", condition: (m) => m.LearningTrajectory.RecentPerformanceTrend === "Improving" && m.AffectiveState.Confusion === "Low" && m.AffectiveState.Confidence === "High" },
-      // New flag to detect specific content-level struggles.
-      //{ flagName: 'Flag:Specific_Content_Weakness_Detected', condition: (m) => m.contentPointsCoverage ? Object.values(m.contentPointsCoverage).some(p => p.understanding_score >= 0.5 && p.understanding_score < 0.7) : false },
-      { flagName: "Flag:Profile_Overwhelmed_Novice", condition: (m) => (m.CognitiveLoad.EstimatedIntrinsic === "High" || m.CognitiveLoad.EstimatedExtraneous === "High") && m.AffectiveState.Confidence === "Low" && m.LearningTrajectory.InteractionCounter_On_Current_Topic < 3 }
-    ];
-    const activeFlags = FLAG_DEFINITIONS.filter((flagDef) => flagDef.condition(model)).map((flagDef) => flagDef.flagName);
-    return activeFlags;
-  }
-  async getDirective(model, context) {
-    const activeFlags = this._identifyActiveFlags(model);
-    const actionItemsForPrompt = `[${context.upcomingActionItems.map((item) => `"${item.replace(/"/g, '\\"')}"`).join(", ")}]`;
-    const chronologicalUserResponses = context.lastThreeUserResponses;
-    const chronologicalSenseiResponses = [...context.lastThreeSenseiResponses].reverse();
-    const s1 = chronologicalSenseiResponses[0]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
-    const s2 = chronologicalSenseiResponses[1]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
-    const s3 = chronologicalSenseiResponses[2]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
-    const u1 = chronologicalUserResponses[0]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
-    const u2 = chronologicalUserResponses[1]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
-    const u3 = chronologicalUserResponses[2]?.replace(/"/g, '\\"') || "[SYSTEM: Turn slot empty - conversation shorter than 3 turns]";
-    const metaPrompt = ITEM_SPECIFIC_PEDAGOGICAL_META_PROMPT_TEMPLATE.replace("{sensei_response_1}", s1).replace("{user_response_1}", u1).replace("{sensei_response_2}", s2).replace("{user_response_2}", u2).replace("{sensei_response_3}", s3).replace("{user_response_3}", u3).replace("{active_flags}", activeFlags.join(", ")).replace("{action_items}", actionItemsForPrompt);
-    const directive = await generateDirectiveFromMetaPrompt(this.ai, metaPrompt);
-    return directive;
-  }
-};
-
-// src/index.tsx
-init_ui();
-
-// src/saveloadSerialization.ts
-function serializeForSave(key, value) {
-  const parentCandidate = typeof this === "object" && this !== null ? this[key] : void 0;
-  const actualValue = parentCandidate instanceof Date || parentCandidate instanceof Set || parentCandidate instanceof Map ? parentCandidate : value;
-  if (actualValue instanceof Date) {
-    return {
-      __type: "Date",
-      data: actualValue.toISOString()
-    };
-  }
-  if (actualValue instanceof Set) {
-    return {
-      __type: "Set",
-      data: Array.from(actualValue)
-    };
-  }
-  if (actualValue instanceof Map) {
-    return {
-      __type: "Map",
-      data: Array.from(actualValue.entries())
-    };
-  }
-  if (value === void 0) {
-    return null;
-  }
-  return value;
-}
-function deserializeFromSave(key, value) {
-  if (value && typeof value === "object" && value.__type) {
-    if (value.__type === "Set") {
-      return new Set(value.data);
-    }
-    if (value.__type === "Map") {
-      return new Map(value.data);
-    }
-    if (value.__type === "Date") {
-      return new Date(value.data);
-    }
-  }
-  return value;
-}
-function serializeCurriculumState(state) {
-  if (!state) return null;
-  const serialized = { ...state };
-  if (state.coveredPointsInCurrentChunk instanceof Set) {
-    serialized.coveredPointsInCurrentChunk = Array.from(state.coveredPointsInCurrentChunk);
-  }
-  if (state.pointsToRevisitInCurrentChunk instanceof Set) {
-    serialized.pointsToRevisitInCurrentChunk = Array.from(state.pointsToRevisitInCurrentChunk);
-  }
-  if (state.activeConsolidationState?.plan instanceof Map) {
-    serialized.activeConsolidationState = {
-      ...state.activeConsolidationState,
-      plan: Array.from(state.activeConsolidationState.plan.entries())
-    };
-  }
-  if (!serialized.chunkUnderstandingLedger) {
-    serialized.chunkUnderstandingLedger = {};
-  }
-  return serialized;
-}
-function deserializeCurriculumState(state) {
-  if (!state) return null;
-  const deserialized = { ...state };
-  if (Array.isArray(state.coveredPointsInCurrentChunk)) {
-    deserialized.coveredPointsInCurrentChunk = new Set(state.coveredPointsInCurrentChunk);
-  }
-  if (Array.isArray(state.pointsToRevisitInCurrentChunk)) {
-    deserialized.pointsToRevisitInCurrentChunk = new Set(state.pointsToRevisitInCurrentChunk);
-  }
-  if (state.activeConsolidationState?.plan && Array.isArray(state.activeConsolidationState.plan)) {
-    deserialized.activeConsolidationState = {
-      ...state.activeConsolidationState,
-      plan: new Map(state.activeConsolidationState.plan)
-    };
-  }
-  if (!deserialized.chunkUnderstandingLedger) {
-    deserialized.chunkUnderstandingLedger = {};
-  }
-  return deserialized;
-}
-function serializeLearnerModel(model) {
-  if (!model) return null;
-  const serialized = { ...model };
-  if (model.awardedKcForPhasePoints instanceof Set) {
-    serialized.awardedKcForPhasePoints = Array.from(model.awardedKcForPhasePoints);
-  }
-  return serialized;
-}
-function deserializeLearnerModel(model) {
-  if (!model) return null;
-  const deserialized = { ...model };
-  if (Array.isArray(model.awardedKcForPhasePoints)) {
-    deserialized.awardedKcForPhasePoints = new Set(model.awardedKcForPhasePoints);
-  }
-  return deserialized;
-}
-function validateSerializedData(data) {
-  const errors = [];
-  if (!data) {
-    errors.push("Data is null or undefined");
-    return { isValid: false, errors };
-  }
-  if (!data.learnerModel) {
-    errors.push("Missing required field: learnerModel");
-  }
-  if (data.applicationState) {
-    if (data.applicationState.currentMessageId === void 0) {
-      errors.push("Missing required field: applicationState.currentMessageId");
-    }
-    if (!data.applicationState.lastSenseiResponses) {
-      errors.push("Missing required field: applicationState.lastSenseiResponses");
-    }
-  } else {
-    errors.push("Missing required field: applicationState");
-  }
-  if (data.curriculumState) {
-    const cs = data.curriculumState;
-    if (cs.currentModuleIndex === void 0) {
-      errors.push("Invalid curriculumState: missing currentModuleIndex");
-    }
-    if (cs.currentConceptIndex === void 0) {
-      errors.push("Invalid curriculumState: missing currentConceptIndex");
-    }
-    if (!cs.currentPhase) {
-      errors.push("Invalid curriculumState: missing currentPhase");
-    }
-  }
-  const isValid = errors.length === 0;
-  return { isValid, errors };
-}
-
 // src/saveloadProgressManager.ts
-init_logger();
-init_curriculum();
-init_model_usage();
-var SaveLoadProgressManager = class {
-  /**
-   * Main save function - collects and serializes all state
-   */
-  static async saveProgress() {
-    try {
-      if (this.hasActiveStreamingMessages()) {
-        await this.waitForStreamingCompletion();
-      }
-      const jsonString = await this.exportSessionAsJson();
-      try {
-        const isoString = (/* @__PURE__ */ new Date()).toISOString();
-        const filename = `sensei_progress_${isoString.replace(/[:.]/g, "-")}.json`;
-        this.downloadSaveFile(jsonString, filename);
-      } catch (fileError) {
-        const fallbackFilename = `sensei_progress_${Date.now()}.json`;
-        this.downloadSaveFile(jsonString, fallbackFilename);
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
-  static async exportSessionAsJson() {
-    if (this.hasActiveStreamingMessages()) {
-      await this.waitForStreamingCompletion();
-    }
-    const sessionData = this.collectSessionData();
-    const validation = validateSerializedData(sessionData);
-    if (!validation.isValid) {
-      throw new Error(`State validation failed: ${validation.errors.join(", ")}`);
-    }
-    const saveFile = {
-      version: this.SAVE_VERSION,
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      metadata: this.generateMetadata(sessionData),
-      session: sessionData
-    };
-    return JSON.stringify(saveFile, serializeForSave, 2);
-  }
-  /**
-   * Main load function - reads file and restores all state
-   */
-  static async loadProgress(file) {
-    try {
-      this.isRestoring = true;
-      const jsonString = await this.readFile(file);
-      await this.restoreFromSerializedJson(jsonString);
-      const w = window;
-      const loadSelectionSensei = w.__selectionSenseiLoader ?? (() => Promise.resolve().then(() => (init_selectionSensei(), selectionSensei_exports)));
-      setTimeout(async () => {
+var SaveLoadProgressManager;
+var init_saveloadProgressManager = __esm({
+  "src/saveloadProgressManager.ts"() {
+    "use strict";
+    init_saveloadSerialization();
+    init_logger();
+    init_curriculum();
+    init_model_usage();
+    SaveLoadProgressManager = class {
+      /**
+       * Main save function - collects and serializes all state
+       */
+      static async saveProgress() {
         try {
-          const { reinitializeSelectionSensei: reinitializeSelectionSensei2 } = await loadSelectionSensei();
-          if (w.ai) {
-            reinitializeSelectionSensei2(w.ai);
+          if (this.hasActiveStreamingMessages()) {
+            await this.waitForStreamingCompletion();
+          }
+          const jsonString = await this.exportSessionAsJson();
+          try {
+            const isoString = (/* @__PURE__ */ new Date()).toISOString();
+            const filename = `sensei_progress_${isoString.replace(/[:.]/g, "-")}.json`;
+            this.downloadSaveFile(jsonString, filename);
+          } catch (fileError) {
+            const fallbackFilename = `sensei_progress_${Date.now()}.json`;
+            this.downloadSaveFile(jsonString, fallbackFilename);
           }
         } catch (error) {
-          logger.error("[SAVELOAD_SELECTION_SENSEI] Failed to reinitialize SelectionSensei", { error });
-        }
-      }, 100);
-    } catch (error) {
-      throw error;
-    } finally {
-      this.isRestoring = false;
-    }
-  }
-  static async restoreFromSerializedJson(jsonString) {
-    const saveFile = JSON.parse(jsonString, deserializeFromSave);
-    const compatibility = this.checkCompatibility(saveFile);
-    if (!compatibility.isCompatible) {
-      throw new Error(`Incompatible save file: ${compatibility.reason}`);
-    }
-    await this.restoreSessionData(saveFile.session);
-  }
-  /**
-   * Collects all session state from the running application
-   */
-  static collectSessionData() {
-    const w = window;
-    const chatHistory = this.extractChatHistory(w.mainSenseiChat);
-    const rawNotepadNotes = w.notepad?.getAllNotes?.();
-    const notepadNotes = Array.isArray(rawNotepadNotes) ? rawNotepadNotes : [];
-    logger.info("[NOTEPAD_SAVE_BUG] collectSessionData captured notepad notes", { count: notepadNotes.length });
-    const uiState = this.collectUIState();
-    const sessionData = {
-      curriculum: null,
-      // Curriculum is always loaded from Modules.txt, no need to save
-      curriculumState: serializeCurriculumState(w.curriculumState),
-      learnerModel: serializeLearnerModel(w.learnerModel),
-      applicationState: {
-        currentActiveConceptIndex: w.currentActiveConceptIndex,
-        currentMessageId: w.currentMessageId,
-        lastSenseiResponses: w.lastSenseiResponses || [],
-        chronologicallyLastLLMSenseiMessageId: w.chronologicallyLastLLMSenseiMessageId,
-        userInputHistory: w.userInputHistory || [],
-        pendingModuleSelection: w.pendingModuleSelection,
-        pendingPhaseSelection: w.pendingPhaseSelection ?? null,
-        pendingConceptSelectionIndex: w.pendingConceptSelectionIndex ?? null,
-        pendingConceptSelectionBubbleId: w.pendingConceptSelectionBubbleId ?? null,
-        autoResizeEnabled: w.autoResizeEnabled ?? true
-      },
-      chatSession: {
-        history: chatHistory,
-        systemInstruction: this.getCurrentSystemInstruction(),
-        modelConfig: this.getModelConfig()
-      },
-      ui: uiState,
-      notepad: { notes: notepadNotes },
-      consolidation: w.curriculumState?.activeConsolidationState ? this.serializeConsolidation(w.curriculumState.activeConsolidationState) : null
-    };
-    return sessionData;
-  }
-  /**
-   * Restores all session state to the running application
-   */
-  static async restoreSessionData(session) {
-    const w = window;
-    w.curriculumState = deserializeCurriculumState(session.curriculumState);
-    w.learnerModel = deserializeLearnerModel(session.learnerModel);
-    w.currentActiveConceptIndex = session.applicationState.currentActiveConceptIndex;
-    w.currentMessageId = session.applicationState.currentMessageId;
-    w.lastSenseiResponses = session.applicationState.lastSenseiResponses;
-    w.chronologicallyLastLLMSenseiMessageId = session.applicationState.chronologicallyLastLLMSenseiMessageId;
-    w.userInputHistory = session.applicationState.userInputHistory;
-    w.pendingModuleSelection = session.applicationState.pendingModuleSelection;
-    w.pendingPhaseSelection = session.applicationState.pendingPhaseSelection;
-    w.pendingConceptSelectionIndex = session.applicationState.pendingConceptSelectionIndex;
-    w.pendingConceptSelectionBubbleId = session.applicationState.pendingConceptSelectionBubbleId;
-    w.autoResizeEnabled = session.applicationState.autoResizeEnabled;
-    await this.recreateChatSession(session.chatSession);
-    await this.restoreUIState(session.ui);
-    this.restoreNotepadContext();
-    this.syncModuleSelectionState();
-    if (session.notepad?.notes && w.notepad?.restoreNotes) {
-      w.notepad.restoreNotes(session.notepad.notes);
-      logger.info("[NOTEPAD_SAVE_BUG] restoreSessionData completed notepad hydration");
-    }
-    this.handlePendingOperations(session);
-    try {
-      this.updateAllDisplays(session);
-    } catch (error) {
-      throw error;
-    }
-  }
-  /**
-   * Extracts chat history from the active chat session
-   */
-  static extractChatHistory(chat) {
-    const history2 = [];
-    const messageElements = document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)");
-    messageElements.forEach((msg) => {
-      const sender = msg.dataset.sender;
-      const isUser = sender === "user";
-      const msgId = msg.id;
-      const messageTextEl = msg.querySelector(".message-text");
-      let content = messageTextEl?.textContent || messageTextEl?.innerText || "";
-      if (!isUser && msgId) {
-        const w = window;
-        if (w.streamingMessagesRawText && w.streamingMessagesRawText.has(msgId)) {
-          content = w.streamingMessagesRawText.get(msgId);
+          throw error;
         }
       }
-      if (content && content.trim()) {
-        const trimmedContent = content.trim();
-        const messageData = {
-          role: isUser ? "user" : "model",
-          content: trimmedContent,
-          timestamp: msg.dataset.timestamp || (/* @__PURE__ */ new Date()).toISOString()
+      static async exportSessionAsJson() {
+        if (this.hasActiveStreamingMessages()) {
+          await this.waitForStreamingCompletion();
+        }
+        const sessionData = this.collectSessionData();
+        const validation = validateSerializedData(sessionData);
+        if (!validation.isValid) {
+          throw new Error(`State validation failed: ${validation.errors.join(", ")}`);
+        }
+        const saveFile = {
+          version: this.SAVE_VERSION,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+          metadata: this.generateMetadata(sessionData),
+          session: sessionData
         };
-        history2.push(messageData);
-      } else {
+        return JSON.stringify(saveFile, serializeForSave, 2);
       }
-    });
-    if (history2.length === 0 && chat && typeof chat.getHistory === "function") {
-      try {
-        const rawHistory = chat.getHistory();
-        const combinedHistory = [];
-        let currentMessage = null;
-        for (const entry of rawHistory) {
-          const role = entry.role;
-          let content = entry.parts?.[0]?.text || entry.content || "";
-          if (role === "user" && content.includes("[RecursiveSensei")) {
-            const userInputMatch = content.match(/\n\nUser:\s*([\s\S]*?)$/);
-            if (userInputMatch) {
-              content = userInputMatch[1];
-            } else {
-              const lines = content.split("\n");
-              const userStartIndex = lines.findLastIndex((line) => line.trim().startsWith("User:"));
-              if (userStartIndex !== -1) {
-                content = lines.slice(userStartIndex).join("\n").replace(/^User:\s*/, "");
+      /**
+       * Main load function - reads file and restores all state
+       */
+      static async loadProgress(file) {
+        try {
+          this.isRestoring = true;
+          const jsonString = await this.readFile(file);
+          await this.restoreFromSerializedJson(jsonString);
+          const w = window;
+          const loadSelectionSensei = w.__selectionSenseiLoader ?? (() => Promise.resolve().then(() => (init_selectionSensei(), selectionSensei_exports)));
+          setTimeout(async () => {
+            try {
+              const { reinitializeSelectionSensei: reinitializeSelectionSensei2 } = await loadSelectionSensei();
+              if (w.ai) {
+                reinitializeSelectionSensei2(w.ai);
               }
+            } catch (error) {
+              logger.error("[SAVELOAD_SELECTION_SENSEI] Failed to reinitialize SelectionSensei", { error });
+            }
+          }, 100);
+        } catch (error) {
+          throw error;
+        } finally {
+          this.isRestoring = false;
+        }
+      }
+      static async restoreFromSerializedJson(jsonString) {
+        const saveFile = JSON.parse(jsonString, deserializeFromSave);
+        const compatibility = this.checkCompatibility(saveFile);
+        if (!compatibility.isCompatible) {
+          throw new Error(`Incompatible save file: ${compatibility.reason}`);
+        }
+        await this.restoreSessionData(saveFile.session);
+      }
+      /**
+       * Collects all session state from the running application
+       */
+      static collectSessionData() {
+        const w = window;
+        const chatHistory = this.extractChatHistory(w.mainSenseiChat);
+        const rawNotepadNotes = w.notepad?.getAllNotes?.();
+        const notepadNotes = Array.isArray(rawNotepadNotes) ? rawNotepadNotes : [];
+        logger.info("[NOTEPAD_SAVE_BUG] collectSessionData captured notepad notes", { count: notepadNotes.length });
+        const uiState = this.collectUIState();
+        const sessionData = {
+          curriculum: null,
+          // Curriculum is always loaded from Modules.txt, no need to save
+          curriculumState: serializeCurriculumState(w.curriculumState),
+          learnerModel: serializeLearnerModel(w.learnerModel),
+          applicationState: {
+            currentActiveConceptIndex: w.currentActiveConceptIndex,
+            currentMessageId: w.currentMessageId,
+            lastSenseiResponses: w.lastSenseiResponses || [],
+            chronologicallyLastLLMSenseiMessageId: w.chronologicallyLastLLMSenseiMessageId,
+            userInputHistory: w.userInputHistory || [],
+            pendingModuleSelection: w.pendingModuleSelection,
+            pendingPhaseSelection: w.pendingPhaseSelection ?? null,
+            pendingConceptSelectionIndex: w.pendingConceptSelectionIndex ?? null,
+            pendingConceptSelectionBubbleId: w.pendingConceptSelectionBubbleId ?? null,
+            autoResizeEnabled: w.autoResizeEnabled ?? true
+          },
+          chatSession: {
+            history: chatHistory,
+            systemInstruction: this.getCurrentSystemInstruction(),
+            modelConfig: this.getModelConfig()
+          },
+          ui: uiState,
+          notepad: { notes: notepadNotes },
+          consolidation: w.curriculumState?.activeConsolidationState ? this.serializeConsolidation(w.curriculumState.activeConsolidationState) : null
+        };
+        return sessionData;
+      }
+      /**
+       * Restores all session state to the running application
+       */
+      static async restoreSessionData(session) {
+        const w = window;
+        w.curriculumState = deserializeCurriculumState(session.curriculumState);
+        w.learnerModel = deserializeLearnerModel(session.learnerModel);
+        w.currentActiveConceptIndex = session.applicationState.currentActiveConceptIndex;
+        w.currentMessageId = session.applicationState.currentMessageId;
+        w.lastSenseiResponses = session.applicationState.lastSenseiResponses;
+        w.chronologicallyLastLLMSenseiMessageId = session.applicationState.chronologicallyLastLLMSenseiMessageId;
+        w.userInputHistory = session.applicationState.userInputHistory;
+        w.pendingModuleSelection = session.applicationState.pendingModuleSelection;
+        w.pendingPhaseSelection = session.applicationState.pendingPhaseSelection;
+        w.pendingConceptSelectionIndex = session.applicationState.pendingConceptSelectionIndex;
+        w.pendingConceptSelectionBubbleId = session.applicationState.pendingConceptSelectionBubbleId;
+        w.autoResizeEnabled = session.applicationState.autoResizeEnabled;
+        await this.recreateChatSession(session.chatSession);
+        await this.restoreUIState(session.ui);
+        this.restoreNotepadContext();
+        this.syncModuleSelectionState();
+        if (session.notepad?.notes && w.notepad?.restoreNotes) {
+          w.notepad.restoreNotes(session.notepad.notes);
+          logger.info("[NOTEPAD_SAVE_BUG] restoreSessionData completed notepad hydration");
+        }
+        this.handlePendingOperations(session);
+        try {
+          this.updateAllDisplays(session);
+        } catch (error) {
+          throw error;
+        }
+      }
+      /**
+       * Extracts chat history from the active chat session
+       */
+      static extractChatHistory(chat) {
+        const history2 = [];
+        const messageElements = document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)");
+        messageElements.forEach((msg) => {
+          const sender = msg.dataset.sender;
+          const isUser = sender === "user";
+          const msgId = msg.id;
+          const messageTextEl = msg.querySelector(".message-text");
+          let content = messageTextEl?.textContent || messageTextEl?.innerText || "";
+          if (!isUser && msgId) {
+            const w = window;
+            if (w.streamingMessagesRawText && w.streamingMessagesRawText.has(msgId)) {
+              content = w.streamingMessagesRawText.get(msgId);
             }
           }
-          if (role === "user") {
+          if (content && content.trim()) {
+            const trimmedContent = content.trim();
+            const messageData = {
+              role: isUser ? "user" : "model",
+              content: trimmedContent,
+              timestamp: msg.dataset.timestamp || (/* @__PURE__ */ new Date()).toISOString()
+            };
+            history2.push(messageData);
+          } else {
+          }
+        });
+        if (history2.length === 0 && chat && typeof chat.getHistory === "function") {
+          try {
+            const rawHistory = chat.getHistory();
+            const combinedHistory = [];
+            let currentMessage = null;
+            for (const entry of rawHistory) {
+              const role = entry.role;
+              let content = entry.parts?.[0]?.text || entry.content || "";
+              if (role === "user" && content.includes("[RecursiveSensei")) {
+                const userInputMatch = content.match(/\n\nUser:\s*([\s\S]*?)$/);
+                if (userInputMatch) {
+                  content = userInputMatch[1];
+                } else {
+                  const lines = content.split("\n");
+                  const userStartIndex = lines.findLastIndex((line) => line.trim().startsWith("User:"));
+                  if (userStartIndex !== -1) {
+                    content = lines.slice(userStartIndex).join("\n").replace(/^User:\s*/, "");
+                  }
+                }
+              }
+              if (role === "user") {
+                if (currentMessage && currentMessage.role === "model" && currentMessage.content.trim()) {
+                  combinedHistory.push(currentMessage);
+                  currentMessage = null;
+                }
+                if (content.trim()) {
+                  combinedHistory.push({
+                    role: "user",
+                    content,
+                    timestamp: entry.timestamp || (/* @__PURE__ */ new Date()).toISOString()
+                  });
+                }
+              } else if (role === "model") {
+                if (currentMessage && currentMessage.role === "model") {
+                  currentMessage.content += content;
+                } else {
+                  currentMessage = {
+                    role: "model",
+                    content,
+                    timestamp: entry.timestamp || (/* @__PURE__ */ new Date()).toISOString()
+                  };
+                }
+              }
+            }
             if (currentMessage && currentMessage.role === "model" && currentMessage.content.trim()) {
               combinedHistory.push(currentMessage);
-              currentMessage = null;
             }
-            if (content.trim()) {
-              combinedHistory.push({
-                role: "user",
-                content,
-                timestamp: entry.timestamp || (/* @__PURE__ */ new Date()).toISOString()
-              });
-            }
-          } else if (role === "model") {
-            if (currentMessage && currentMessage.role === "model") {
-              currentMessage.content += content;
-            } else {
-              currentMessage = {
-                role: "model",
-                content,
-                timestamp: entry.timestamp || (/* @__PURE__ */ new Date()).toISOString()
-              };
-            }
+            return combinedHistory;
+          } catch (e) {
           }
         }
-        if (currentMessage && currentMessage.role === "model" && currentMessage.content.trim()) {
-          combinedHistory.push(currentMessage);
-        }
-        return combinedHistory;
-      } catch (e) {
+        return history2;
       }
-    }
-    return history2;
-  }
-  /**
-   * Recreates the chat session with saved history
-   */
-  static async recreateChatSession(chatSession) {
-    const w = window;
-    if (!chatSession?.history || !w.ai) {
-      return;
-    }
-    const limitedHistory = chatSession.history.slice(-100);
-    const sdkHistory = limitedHistory.map((entry) => ({
-      role: entry.role,
-      parts: [{ text: entry.content || "" }]
-    }));
-    try {
-      w.mainSenseiChat = w.ai.chats.create({
-        model: MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.modelName,
-        config: {
-          ...MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.config,
-          systemInstruction: chatSession.systemInstruction
-        },
-        history: sdkHistory
-      });
-    } catch (error) {
-    }
-  }
-  /**
-   * Collects current UI state
-   */
-  static collectUIState() {
-    const messages = [];
-    const messageElements = document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)");
-    messageElements.forEach((element) => {
-      let conceptSelectionPayload = null;
-      const conceptContainer = element.querySelector(".concept-selection-buttons");
-      const payloadText = conceptContainer?.dataset?.conceptPayload;
-      if (payloadText) {
+      /**
+       * Recreates the chat session with saved history
+       */
+      static async recreateChatSession(chatSession) {
+        const w = window;
+        if (!chatSession?.history || !w.ai) {
+          return;
+        }
+        const limitedHistory = chatSession.history.slice(-100);
+        const sdkHistory = limitedHistory.map((entry) => ({
+          role: entry.role,
+          parts: [{ text: entry.content || "" }]
+        }));
         try {
-          conceptSelectionPayload = JSON.parse(payloadText);
+          w.mainSenseiChat = w.ai.chats.create({
+            model: MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.modelName,
+            config: {
+              ...MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.config,
+              systemInstruction: chatSession.systemInstruction
+            },
+            history: sdkHistory
+          });
         } catch (error) {
-          conceptSelectionPayload = null;
         }
       }
-      messages.push({
-        id: element.id,
-        className: element.className,
-        sender: element.dataset.sender || (element.classList.contains("user-message") ? "user" : "sensei"),
-        text: element.querySelector(".message-text")?.textContent || "",
-        htmlContent: element.querySelector(".message-text")?.innerHTML || "",
-        timestamp: element.dataset.timestamp,
-        isReloadable: element.classList.contains("reloadable"),
-        phaseSelectionEnabled: element.querySelector(".phase-selection-buttons") !== null,
-        conceptSelectionPayload
-      });
-    });
-    const w = window;
-    const rawTextMap = {};
-    if (w.streamingMessagesRawText instanceof Map) {
-      w.streamingMessagesRawText.forEach((value, key) => {
-        rawTextMap[key] = value;
-      });
-    }
-    const footerState = {
-      confidence: document.getElementById("footer-confidence")?.textContent || "",
-      confusion: document.getElementById("footer-confusion")?.textContent || "",
-      intent: document.getElementById("footer-intent")?.textContent || ""
-    };
-    const curriculumStatus = document.getElementById("curriculum-status")?.textContent || "";
-    return {
-      messages,
-      rawTextMap,
-      footerState,
-      curriculumStatus
-    };
-  }
-  /**
-   * Restores UI state
-   */
-  static async restoreUIState(uiState) {
-    const messageArea2 = document.getElementById("message-area");
-    if (!messageArea2) {
-      return;
-    }
-    const w = window;
-    const displayMessage2 = w.displayMessage;
-    if (!displayMessage2) {
-      try {
-        const uiModule = await Promise.resolve().then(() => (init_ui(), ui_exports));
-        const displayMessageFunc = uiModule.displayMessage;
-        const meditationOverlay2 = document.getElementById("sensei-meditation-overlay");
-        messageArea2.innerHTML = "";
-        if (meditationOverlay2 && messageArea2) {
-          meditationOverlay2.style.position = "absolute";
-          meditationOverlay2.style.top = "64px";
-          meditationOverlay2.style.zIndex = "";
-          messageArea2.insertBefore(meditationOverlay2, messageArea2.firstChild);
-        }
-        if (uiState.rawTextMap && w.streamingMessagesRawText instanceof Map) {
-          w.streamingMessagesRawText.clear();
-          Object.entries(uiState.rawTextMap).forEach(([key, value]) => {
-            w.streamingMessagesRawText.set(key, value);
+      /**
+       * Collects current UI state
+       */
+      static collectUIState() {
+        const messages = [];
+        const messageElements = document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)");
+        messageElements.forEach((element) => {
+          let conceptSelectionPayload = null;
+          const conceptContainer = element.querySelector(".concept-selection-buttons");
+          const payloadText = conceptContainer?.dataset?.conceptPayload;
+          if (payloadText) {
+            try {
+              conceptSelectionPayload = JSON.parse(payloadText);
+            } catch (error) {
+              conceptSelectionPayload = null;
+            }
+          }
+          messages.push({
+            id: element.id,
+            className: element.className,
+            sender: element.dataset.sender || (element.classList.contains("user-message") ? "user" : "sensei"),
+            text: element.querySelector(".message-text")?.textContent || "",
+            htmlContent: element.querySelector(".message-text")?.innerHTML || "",
+            timestamp: element.dataset.timestamp,
+            isReloadable: element.classList.contains("reloadable"),
+            phaseSelectionEnabled: element.querySelector(".phase-selection-buttons") !== null,
+            conceptSelectionPayload
+          });
+        });
+        const w = window;
+        const rawTextMap = {};
+        if (w.streamingMessagesRawText instanceof Map) {
+          w.streamingMessagesRawText.forEach((value, key) => {
+            rawTextMap[key] = value;
           });
         }
-        for (const msg of uiState.messages) {
-          const rawText = uiState.rawTextMap?.[msg.id] || msg.text;
-          const message = {
-            id: msg.id,
-            sender: msg.sender,
-            displayName: msg.sender === "user" ? "You" : "Recursive Sensei",
-            text: rawText,
-            // Use raw text to preserve formatting
-            timestamp: msg.timestamp ? new Date(msg.timestamp) : /* @__PURE__ */ new Date(),
-            isLoading: false,
-            isReloadable: msg.isReloadable || false,
-            phaseSelectionEnabled: msg.phaseSelectionEnabled || false,
-            selectedModuleIndex: msg.selectedModuleIndex,
-            skipMermaid: false,
-            conceptSelectionPayload: msg.conceptSelectionPayload
-          };
-          await displayMessageFunc(message);
+        const footerState = {
+          confidence: document.getElementById("footer-confidence")?.textContent || "",
+          confusion: document.getElementById("footer-confusion")?.textContent || "",
+          intent: document.getElementById("footer-intent")?.textContent || ""
+        };
+        const curriculumStatus = document.getElementById("curriculum-status")?.textContent || "";
+        return {
+          messages,
+          rawTextMap,
+          footerState,
+          curriculumStatus
+        };
+      }
+      /**
+       * Restores UI state
+       */
+      static async restoreUIState(uiState) {
+        const messageArea2 = document.getElementById("message-area");
+        if (!messageArea2) {
+          return;
         }
-        const processMermaidBlocks2 = w.processMermaidBlocks;
-        if (processMermaidBlocks2) {
+        const w = window;
+        const displayMessage2 = w.displayMessage;
+        if (!displayMessage2) {
+          try {
+            const uiModule = await Promise.resolve().then(() => (init_ui(), ui_exports));
+            const displayMessageFunc = uiModule.displayMessage;
+            const meditationOverlay2 = document.getElementById("sensei-meditation-overlay");
+            messageArea2.innerHTML = "";
+            if (meditationOverlay2 && messageArea2) {
+              meditationOverlay2.style.position = "absolute";
+              meditationOverlay2.style.top = "64px";
+              meditationOverlay2.style.zIndex = "";
+              messageArea2.insertBefore(meditationOverlay2, messageArea2.firstChild);
+            }
+            if (uiState.rawTextMap && w.streamingMessagesRawText instanceof Map) {
+              w.streamingMessagesRawText.clear();
+              Object.entries(uiState.rawTextMap).forEach(([key, value]) => {
+                w.streamingMessagesRawText.set(key, value);
+              });
+            }
+            for (const msg of uiState.messages) {
+              const rawText = uiState.rawTextMap?.[msg.id] || msg.text;
+              const message = {
+                id: msg.id,
+                sender: msg.sender,
+                displayName: msg.sender === "user" ? "You" : "Recursive Sensei",
+                text: rawText,
+                // Use raw text to preserve formatting
+                timestamp: msg.timestamp ? new Date(msg.timestamp) : /* @__PURE__ */ new Date(),
+                isLoading: false,
+                isReloadable: msg.isReloadable || false,
+                phaseSelectionEnabled: msg.phaseSelectionEnabled || false,
+                selectedModuleIndex: msg.selectedModuleIndex,
+                skipMermaid: false,
+                conceptSelectionPayload: msg.conceptSelectionPayload
+              };
+              await displayMessageFunc(message);
+            }
+            const processMermaidBlocks2 = w.processMermaidBlocks;
+            if (processMermaidBlocks2) {
+              for (const msg of uiState.messages) {
+                if (msg.sender === "sensei") {
+                  await processMermaidBlocks2(msg.id);
+                }
+              }
+            }
+          } catch (error) {
+            return;
+          }
+        } else {
+          const meditationOverlay2 = document.getElementById("sensei-meditation-overlay");
+          messageArea2.innerHTML = "";
+          if (meditationOverlay2 && messageArea2) {
+            meditationOverlay2.style.position = "absolute";
+            meditationOverlay2.style.top = "64px";
+            meditationOverlay2.style.zIndex = "";
+            messageArea2.insertBefore(meditationOverlay2, messageArea2.firstChild);
+          }
+          if (uiState.rawTextMap && w.streamingMessagesRawText instanceof Map) {
+            w.streamingMessagesRawText.clear();
+            Object.entries(uiState.rawTextMap).forEach(([key, value]) => {
+              w.streamingMessagesRawText.set(key, value);
+            });
+          }
           for (const msg of uiState.messages) {
-            if (msg.sender === "sensei") {
-              await processMermaidBlocks2(msg.id);
+            const rawText = uiState.rawTextMap?.[msg.id] || msg.text;
+            const message = {
+              id: msg.id,
+              sender: msg.sender,
+              displayName: msg.sender === "user" ? "You" : "Recursive Sensei",
+              text: rawText,
+              // Use raw text to preserve formatting
+              timestamp: msg.timestamp ? new Date(msg.timestamp) : /* @__PURE__ */ new Date(),
+              isLoading: false,
+              isReloadable: msg.isReloadable || false,
+              phaseSelectionEnabled: msg.phaseSelectionEnabled || false,
+              selectedModuleIndex: msg.selectedModuleIndex,
+              skipMermaid: false,
+              // We'll process mermaid after all messages are restored
+              conceptSelectionPayload: msg.conceptSelectionPayload
+            };
+            await displayMessage2(message);
+          }
+          const processMermaidBlocks2 = w.processMermaidBlocks;
+          if (processMermaidBlocks2) {
+            for (const msg of uiState.messages) {
+              if (msg.sender === "sensei") {
+                await processMermaidBlocks2(msg.id);
+              }
             }
           }
         }
-      } catch (error) {
-        return;
+        if (messageArea2) {
+          messageArea2.scrollTop = messageArea2.scrollHeight;
+        }
       }
-    } else {
-      const meditationOverlay2 = document.getElementById("sensei-meditation-overlay");
-      messageArea2.innerHTML = "";
-      if (meditationOverlay2 && messageArea2) {
-        meditationOverlay2.style.position = "absolute";
-        meditationOverlay2.style.top = "64px";
-        meditationOverlay2.style.zIndex = "";
-        messageArea2.insertBefore(meditationOverlay2, messageArea2.firstChild);
+      static restoreNotepadContext() {
+        const w = window;
+        if (!w.notepad || typeof w.notepad.setActiveCurriculumContext !== "function") {
+          return;
+        }
+        if (!w.curriculum || !w.curriculumState) {
+          return;
+        }
+        try {
+          const currentItem = getCurrentCurriculumItem(w.curriculum, w.curriculumState);
+          if (!currentItem) {
+            return;
+          }
+          const moduleTitle = currentItem.moduleTitle ?? w.curriculum.modules?.[w.curriculumState.currentModuleIndex]?.title ?? null;
+          w.notepad.setActiveCurriculumContext({
+            conceptTitle: currentItem.concept?.title ?? null,
+            moduleTitle
+          });
+        } catch (error) {
+          logger.warn("[SAVELOAD] Failed to restore notepad active context", { error });
+        }
       }
-      if (uiState.rawTextMap && w.streamingMessagesRawText instanceof Map) {
-        w.streamingMessagesRawText.clear();
-        Object.entries(uiState.rawTextMap).forEach(([key, value]) => {
-          w.streamingMessagesRawText.set(key, value);
+      static syncModuleSelectionState() {
+        const w = window;
+        const handler = w.moduleSelectionHandler;
+        if (!handler || typeof handler.updateState !== "function") {
+          return;
+        }
+        try {
+          handler.updateState({
+            lastSenseiResponses: Array.isArray(w.lastSenseiResponses) ? [...w.lastSenseiResponses] : [],
+            pendingModuleSelection: w.pendingModuleSelection,
+            pendingPhaseSelection: w.pendingPhaseSelection ?? null,
+            pendingConceptSelectionIndex: w.pendingConceptSelectionIndex ?? null,
+            pendingConceptSelectionBubbleId: w.pendingConceptSelectionBubbleId ?? null
+          });
+        } catch (error) {
+          logger.warn("[SAVELOAD] Unable to sync module selection handler state", { error });
+        }
+      }
+      /**
+       * Handles pending operations after restoration
+       */
+      static handlePendingOperations(session) {
+        const w = window;
+        if (session.applicationState.pendingModuleSelection !== null) {
+          const module = w.curriculum?.modules[session.applicationState.pendingModuleSelection];
+          if (module && w.displayPhaseSelectionMessage) {
+            w.displayPhaseSelectionMessage(module);
+          }
+        }
+        if (session.consolidation) {
+          if (w.curriculumState) {
+            w.curriculumState.activeConsolidationState = this.deserializeConsolidation(session.consolidation);
+          }
+        }
+      }
+      /**
+       * Updates all UI displays after restoration
+       */
+      static updateAllDisplays(session) {
+        const w = window;
+        if (w.updateFooter && w.learnerModel) {
+          w.updateFooter(w.learnerModel);
+        } else {
+          if (session.ui.footerState) {
+            const confidenceEl = document.getElementById("footer-confidence");
+            const confusionEl = document.getElementById("footer-confusion");
+            const intentEl = document.getElementById("footer-intent");
+            if (confidenceEl) confidenceEl.textContent = session.ui.footerState.confidence;
+            if (confusionEl) confusionEl.textContent = session.ui.footerState.confusion;
+            if (intentEl) intentEl.textContent = session.ui.footerState.intent;
+          }
+        }
+        if (w.updateCurriculumDisplay && w.curriculumState && w.curriculum) {
+          try {
+            const getCurrentCurriculumItem2 = w.getCurrentCurriculumItem;
+            let currentItem = null;
+            if (getCurrentCurriculumItem2 && w.curriculum) {
+              currentItem = getCurrentCurriculumItem2(w.curriculum, w.curriculumState);
+            } else if (!w.curriculum) {
+              return;
+            } else {
+              const module = w.curriculum.modules[w.curriculumState.currentModuleIndex];
+              if (module) {
+                const isModulePhase = ["Introduce", "HighLevelOverview", "ConceptOverviews", "Solidify"].includes(w.curriculumState.currentPhase);
+                if (!isModulePhase && module.concepts) {
+                  const concept = module.concepts[w.curriculumState.currentConceptIndex];
+                  if (concept) {
+                    currentItem = {
+                      moduleTitle: module.title,
+                      moduleGoal: module.goal,
+                      concept,
+                      curriculumPathId: `${module.id}-${concept.id}-Phase_${w.curriculumState.currentPhase}`,
+                      isLastConceptInModule: w.curriculumState.currentConceptIndex === module.concepts.length - 1,
+                      isLastPhaseForConcept: false,
+                      // Would need more logic to determine
+                      isModuleWidePhase: false
+                    };
+                  }
+                } else {
+                  currentItem = {
+                    moduleTitle: module.title,
+                    moduleGoal: module.goal,
+                    concept: null,
+                    curriculumPathId: `${module.id}-Phase_${w.curriculumState.currentPhase}`,
+                    isLastConceptInModule: false,
+                    isLastPhaseForConcept: false,
+                    isModuleWidePhase: true
+                  };
+                }
+              }
+            }
+            w.updateCurriculumDisplay(
+              currentItem,
+              // curriculumItem
+              w.curriculumState.currentPhase,
+              // currentPhase  
+              w.curriculum,
+              // appCurriculum
+              w.curriculumState,
+              // appCurriculumState
+              true,
+              // appIsCurriculumLoaded
+              w.learnerModel
+              // learnerModel
+            );
+          } catch (error) {
+          }
+        } else {
+          const statusEl = document.getElementById("curriculum-status");
+          if (statusEl && session.ui.curriculumStatus) {
+            statusEl.textContent = session.ui.curriculumStatus;
+          }
+        }
+        const userInput2 = document.getElementById("user-input");
+        if (userInput2) {
+          userInput2.disabled = false;
+          userInput2.focus();
+        }
+      }
+      /**
+       * Generates metadata for the save file
+       */
+      static generateMetadata(session) {
+        const w = window;
+        const state = session.curriculumState;
+        let moduleName = "No module selected";
+        let phase = "N/A";
+        let chunkProgress = "N/A";
+        if (state && w.curriculum) {
+          const module = w.curriculum.modules[state.currentModuleIndex];
+          if (module) {
+            moduleName = module.title;
+            phase = state.currentPhase;
+            if (state.teachingPlanForPhase) {
+              chunkProgress = `${state.currentTeachingChunkIndex + 1}/${state.teachingPlanForPhase.length}`;
+            }
+          }
+        }
+        return {
+          moduleName,
+          phase,
+          chunkProgress,
+          sessionDuration: Date.now() - (w.sessionStartTime || Date.now()),
+          totalInteractions: session.learnerModel?.LearningTrajectory?.totalInteractions || 0,
+          curriculumChecksum: this.generateCurriculumChecksum(w.curriculum),
+          saveEnvironment: navigator.userAgent
+        };
+      }
+      /**
+       * Helper functions
+       */
+      static hasActiveStreamingMessages() {
+        const w = window;
+        return w.streamingMessageTimers && w.streamingMessageTimers.size > 0;
+      }
+      static async waitForStreamingCompletion() {
+        const maxWait = 1e4;
+        const startTime = Date.now();
+        while (this.hasActiveStreamingMessages() && Date.now() - startTime < maxWait) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      static downloadSaveFile(jsonString, filename) {
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      static async readFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result);
+          reader.onerror = reject;
+          reader.readAsText(file);
         });
       }
-      for (const msg of uiState.messages) {
-        const rawText = uiState.rawTextMap?.[msg.id] || msg.text;
-        const message = {
-          id: msg.id,
-          sender: msg.sender,
-          displayName: msg.sender === "user" ? "You" : "Recursive Sensei",
-          text: rawText,
-          // Use raw text to preserve formatting
-          timestamp: msg.timestamp ? new Date(msg.timestamp) : /* @__PURE__ */ new Date(),
-          isLoading: false,
-          isReloadable: msg.isReloadable || false,
-          phaseSelectionEnabled: msg.phaseSelectionEnabled || false,
-          selectedModuleIndex: msg.selectedModuleIndex,
-          skipMermaid: false,
-          // We'll process mermaid after all messages are restored
-          conceptSelectionPayload: msg.conceptSelectionPayload
-        };
-        await displayMessage2(message);
-      }
-      const processMermaidBlocks2 = w.processMermaidBlocks;
-      if (processMermaidBlocks2) {
-        for (const msg of uiState.messages) {
-          if (msg.sender === "sensei") {
-            await processMermaidBlocks2(msg.id);
-          }
+      static checkCompatibility(saveFile) {
+        if (!saveFile.version) {
+          return { isCompatible: false, reason: "No version information" };
         }
+        const [major] = saveFile.version.split(".");
+        const [currentMajor] = this.SAVE_VERSION.split(".");
+        if (major !== currentMajor) {
+          return { isCompatible: false, reason: `Major version mismatch: ${saveFile.version} vs ${this.SAVE_VERSION}` };
+        }
+        return { isCompatible: true };
       }
-    }
-    if (messageArea2) {
-      messageArea2.scrollTop = messageArea2.scrollHeight;
-    }
-  }
-  static restoreNotepadContext() {
-    const w = window;
-    if (!w.notepad || typeof w.notepad.setActiveCurriculumContext !== "function") {
-      return;
-    }
-    if (!w.curriculum || !w.curriculumState) {
-      return;
-    }
-    try {
-      const currentItem = getCurrentCurriculumItem(w.curriculum, w.curriculumState);
-      if (!currentItem) {
-        return;
-      }
-      const moduleTitle = currentItem.moduleTitle ?? w.curriculum.modules?.[w.curriculumState.currentModuleIndex]?.title ?? null;
-      w.notepad.setActiveCurriculumContext({
-        conceptTitle: currentItem.concept?.title ?? null,
-        moduleTitle
-      });
-    } catch (error) {
-      logger.warn("[SAVELOAD] Failed to restore notepad active context", { error });
-    }
-  }
-  static syncModuleSelectionState() {
-    const w = window;
-    const handler = w.moduleSelectionHandler;
-    if (!handler || typeof handler.updateState !== "function") {
-      return;
-    }
-    try {
-      handler.updateState({
-        lastSenseiResponses: Array.isArray(w.lastSenseiResponses) ? [...w.lastSenseiResponses] : [],
-        pendingModuleSelection: w.pendingModuleSelection,
-        pendingPhaseSelection: w.pendingPhaseSelection ?? null,
-        pendingConceptSelectionIndex: w.pendingConceptSelectionIndex ?? null,
-        pendingConceptSelectionBubbleId: w.pendingConceptSelectionBubbleId ?? null
-      });
-    } catch (error) {
-      logger.warn("[SAVELOAD] Unable to sync module selection handler state", { error });
-    }
-  }
-  /**
-   * Handles pending operations after restoration
-   */
-  static handlePendingOperations(session) {
-    const w = window;
-    if (session.applicationState.pendingModuleSelection !== null) {
-      const module = w.curriculum?.modules[session.applicationState.pendingModuleSelection];
-      if (module && w.displayPhaseSelectionMessage) {
-        w.displayPhaseSelectionMessage(module);
-      }
-    }
-    if (session.consolidation) {
-      if (w.curriculumState) {
-        w.curriculumState.activeConsolidationState = this.deserializeConsolidation(session.consolidation);
-      }
-    }
-  }
-  /**
-   * Updates all UI displays after restoration
-   */
-  static updateAllDisplays(session) {
-    const w = window;
-    if (w.updateFooter && w.learnerModel) {
-      w.updateFooter(w.learnerModel);
-    } else {
-      if (session.ui.footerState) {
-        const confidenceEl = document.getElementById("footer-confidence");
-        const confusionEl = document.getElementById("footer-confusion");
-        const intentEl = document.getElementById("footer-intent");
-        if (confidenceEl) confidenceEl.textContent = session.ui.footerState.confidence;
-        if (confusionEl) confusionEl.textContent = session.ui.footerState.confusion;
-        if (intentEl) intentEl.textContent = session.ui.footerState.intent;
-      }
-    }
-    if (w.updateCurriculumDisplay && w.curriculumState && w.curriculum) {
-      try {
-        const getCurrentCurriculumItem2 = w.getCurrentCurriculumItem;
-        let currentItem = null;
-        if (getCurrentCurriculumItem2 && w.curriculum) {
-          currentItem = getCurrentCurriculumItem2(w.curriculum, w.curriculumState);
-        } else if (!w.curriculum) {
+      static async verifyCurriculumCompatibility(savedCurriculum) {
+        if (!savedCurriculum) {
           return;
-        } else {
-          const module = w.curriculum.modules[w.curriculumState.currentModuleIndex];
-          if (module) {
-            const isModulePhase = ["Introduce", "HighLevelOverview", "ConceptOverviews", "Solidify"].includes(w.curriculumState.currentPhase);
-            if (!isModulePhase && module.concepts) {
-              const concept = module.concepts[w.curriculumState.currentConceptIndex];
-              if (concept) {
-                currentItem = {
-                  moduleTitle: module.title,
-                  moduleGoal: module.goal,
-                  concept,
-                  curriculumPathId: `${module.id}-${concept.id}-Phase_${w.curriculumState.currentPhase}`,
-                  isLastConceptInModule: w.curriculumState.currentConceptIndex === module.concepts.length - 1,
-                  isLastPhaseForConcept: false,
-                  // Would need more logic to determine
-                  isModuleWidePhase: false
-                };
-              }
-            } else {
-              currentItem = {
-                moduleTitle: module.title,
-                moduleGoal: module.goal,
-                concept: null,
-                curriculumPathId: `${module.id}-Phase_${w.curriculumState.currentPhase}`,
-                isLastConceptInModule: false,
-                isLastPhaseForConcept: false,
-                isModuleWidePhase: true
-              };
-            }
-          }
         }
-        w.updateCurriculumDisplay(
-          currentItem,
-          // curriculumItem
-          w.curriculumState.currentPhase,
-          // currentPhase  
-          w.curriculum,
-          // appCurriculum
-          w.curriculumState,
-          // appCurriculumState
-          true,
-          // appIsCurriculumLoaded
-          w.learnerModel
-          // learnerModel
-        );
-      } catch (error) {
-      }
-    } else {
-      const statusEl = document.getElementById("curriculum-status");
-      if (statusEl && session.ui.curriculumStatus) {
-        statusEl.textContent = session.ui.curriculumStatus;
-      }
-    }
-    const userInput2 = document.getElementById("user-input");
-    if (userInput2) {
-      userInput2.disabled = false;
-      userInput2.focus();
-    }
-  }
-  /**
-   * Generates metadata for the save file
-   */
-  static generateMetadata(session) {
-    const w = window;
-    const state = session.curriculumState;
-    let moduleName = "No module selected";
-    let phase = "N/A";
-    let chunkProgress = "N/A";
-    if (state && w.curriculum) {
-      const module = w.curriculum.modules[state.currentModuleIndex];
-      if (module) {
-        moduleName = module.title;
-        phase = state.currentPhase;
-        if (state.teachingPlanForPhase) {
-          chunkProgress = `${state.currentTeachingChunkIndex + 1}/${state.teachingPlanForPhase.length}`;
+        const w = window;
+        const currentCurriculum = w.curriculum;
+        if (!currentCurriculum) {
+          throw new Error("Current curriculum not loaded");
+        }
+        const savedIds = savedCurriculum.modules.map((m) => m.id);
+        const currentIds = currentCurriculum.modules.map((m) => m.id);
+        const missingIds = savedIds.filter((id) => !currentIds.includes(id));
+        if (missingIds.length > 0) {
         }
       }
-    }
-    return {
-      moduleName,
-      phase,
-      chunkProgress,
-      sessionDuration: Date.now() - (w.sessionStartTime || Date.now()),
-      totalInteractions: session.learnerModel?.LearningTrajectory?.totalInteractions || 0,
-      curriculumChecksum: this.generateCurriculumChecksum(w.curriculum),
-      saveEnvironment: navigator.userAgent
+      static getCurrentSystemInstruction() {
+        return "You are Sensei, an adaptive AI tutor helping students learn through the curriculum.";
+      }
+      static getModelConfig() {
+        return {
+          modelName: MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.modelName,
+          ...MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.config
+        };
+      }
+      static generateCurriculumChecksum(curriculum2) {
+        if (!curriculum2 || !curriculum2.modules) {
+          return "no-curriculum";
+        }
+        const str = JSON.stringify(curriculum2.modules.map((m) => ({ id: m.id, title: m.title })));
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          const char = str.charCodeAt(i);
+          hash = (hash << 5) - hash + char;
+          hash = hash & hash;
+        }
+        return hash.toString(16);
+      }
+      static serializeConsolidation(consolidation) {
+        if (!consolidation) return null;
+        return {
+          ...consolidation,
+          plan: consolidation.plan instanceof Map ? Array.from(consolidation.plan.entries()) : consolidation.plan
+        };
+      }
+      static deserializeConsolidation(consolidation) {
+        if (!consolidation) return null;
+        return {
+          ...consolidation,
+          plan: Array.isArray(consolidation.plan) ? new Map(consolidation.plan) : consolidation.plan
+        };
+      }
     };
+    __publicField(SaveLoadProgressManager, "SAVE_VERSION", "2.0.0");
+    __publicField(SaveLoadProgressManager, "isRestoring", false);
+    window.SaveLoadProgressManager = SaveLoadProgressManager;
   }
-  /**
-   * Helper functions
-   */
-  static hasActiveStreamingMessages() {
-    const w = window;
-    return w.streamingMessageTimers && w.streamingMessageTimers.size > 0;
-  }
-  static async waitForStreamingCompletion() {
-    const maxWait = 1e4;
-    const startTime = Date.now();
-    while (this.hasActiveStreamingMessages() && Date.now() - startTime < maxWait) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-  static downloadSaveFile(jsonString, filename) {
-    const blob = new Blob([jsonString], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-  static async readFile(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result);
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
-  }
-  static checkCompatibility(saveFile) {
-    if (!saveFile.version) {
-      return { isCompatible: false, reason: "No version information" };
-    }
-    const [major] = saveFile.version.split(".");
-    const [currentMajor] = this.SAVE_VERSION.split(".");
-    if (major !== currentMajor) {
-      return { isCompatible: false, reason: `Major version mismatch: ${saveFile.version} vs ${this.SAVE_VERSION}` };
-    }
-    return { isCompatible: true };
-  }
-  static async verifyCurriculumCompatibility(savedCurriculum) {
-    if (!savedCurriculum) {
-      return;
-    }
-    const w = window;
-    const currentCurriculum = w.curriculum;
-    if (!currentCurriculum) {
-      throw new Error("Current curriculum not loaded");
-    }
-    const savedIds = savedCurriculum.modules.map((m) => m.id);
-    const currentIds = currentCurriculum.modules.map((m) => m.id);
-    const missingIds = savedIds.filter((id) => !currentIds.includes(id));
-    if (missingIds.length > 0) {
-    }
-  }
-  static getCurrentSystemInstruction() {
-    return "You are Sensei, an adaptive AI tutor helping students learn through the curriculum.";
-  }
-  static getModelConfig() {
-    return {
-      modelName: MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.modelName,
-      ...MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG.config
-    };
-  }
-  static generateCurriculumChecksum(curriculum2) {
-    if (!curriculum2 || !curriculum2.modules) {
-      return "no-curriculum";
-    }
-    const str = JSON.stringify(curriculum2.modules.map((m) => ({ id: m.id, title: m.title })));
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return hash.toString(16);
-  }
-  static serializeConsolidation(consolidation) {
-    if (!consolidation) return null;
-    return {
-      ...consolidation,
-      plan: consolidation.plan instanceof Map ? Array.from(consolidation.plan.entries()) : consolidation.plan
-    };
-  }
-  static deserializeConsolidation(consolidation) {
-    if (!consolidation) return null;
-    return {
-      ...consolidation,
-      plan: Array.isArray(consolidation.plan) ? new Map(consolidation.plan) : consolidation.plan
-    };
-  }
-};
-__publicField(SaveLoadProgressManager, "SAVE_VERSION", "2.0.0");
-__publicField(SaveLoadProgressManager, "isRestoring", false);
-window.SaveLoadProgressManager = SaveLoadProgressManager;
-
-// src/index.tsx
-init_webviewBridge();
-init_selectionSensei();
+});
 
 // src/chatWindowController.ts
-var _ChatWindowController = class _ChatWindowController {
-  constructor() {
-    // Configuration
-    __publicField(this, "AUTO_RESIZE_CONFIG", {
-      enabled: true,
-      debounceDelay: 250,
-      maxScaleFactor: 1.5,
-      expansionThreshold: 100,
-      preferenceKey: "chatWindowAutoResize"
-    });
-    // State management
-    __publicField(this, "isResizingWindow", false);
-    __publicField(this, "autoResizeEnabled", true);
-    __publicField(this, "previousViewportWidth", window.innerWidth);
-    __publicField(this, "previousViewportHeight", window.innerHeight);
-    __publicField(this, "resizeDebounceTimer", null);
-    __publicField(this, "isAutoResizing", false);
-    // Dragging state
-    __publicField(this, "isDragging", false);
-    __publicField(this, "currentX", 0);
-    __publicField(this, "currentY", 0);
-    __publicField(this, "initialX", 0);
-    __publicField(this, "initialY", 0);
-    // DOM elements
-    __publicField(this, "chatContainer", null);
-    __publicField(this, "header", null);
-    __publicField(this, "resizeHandle", null);
-    // Event handlers (stored for cleanup)
-    __publicField(this, "dragStartHandler", null);
-    __publicField(this, "dragHandler", null);
-    __publicField(this, "dragEndHandler", null);
-    __publicField(this, "viewportChangeHandler", null);
-  }
-  static getInstance() {
-    if (!_ChatWindowController.instance) {
-      _ChatWindowController.instance = new _ChatWindowController();
-    }
-    return _ChatWindowController.instance;
-  }
-  initialize() {
-    this.chatContainer = document.getElementById("chat-container");
-    this.header = document.querySelector(".chat-window-header");
-    if (!this.chatContainer) {
-      console.warn("ChatWindowController: chat-container element not found");
-      return;
-    }
-    if (!this.header) {
-      console.warn("ChatWindowController: chat-window-header element not found");
-      return;
-    }
-    this.makeWindowDraggable();
-    this.makeWindowResizable();
-    this.initializeAutoResizeSystem();
-  }
-  makeWindowDraggable() {
-    if (!this.chatContainer || !this.header) {
-      console.warn("ChatWindowController: Cannot make window draggable - elements not found");
-      return;
-    }
-    if (!this.chatContainer.style.position || this.chatContainer.style.position === "relative") {
-      const rect = this.chatContainer.getBoundingClientRect();
-      this.chatContainer.style.position = "fixed";
-      this.chatContainer.style.width = rect.width + "px";
-      this.chatContainer.style.height = rect.height + "px";
-      this.chatContainer.style.top = "50%";
-      this.chatContainer.style.left = "50%";
-      this.chatContainer.style.transform = "translate(-50%, -50%)";
-      this.chatContainer.style.margin = "0";
-    }
-    this.header.style.cursor = "move";
-    this.dragStartHandler = this.dragStart.bind(this);
-    this.dragHandler = this.drag.bind(this);
-    this.dragEndHandler = this.dragEnd.bind(this);
-    if (this.header) {
-      this.header.addEventListener("mousedown", this.dragStartHandler);
-    }
-    if (this.dragHandler && this.dragEndHandler) {
-      document.addEventListener("mousemove", this.dragHandler);
-      document.addEventListener("mouseup", this.dragEndHandler);
-    }
-  }
-  dragStart(e) {
-    if (!this.chatContainer || !this.header) return;
-    if (e.target.closest(".chat-window-controls")) return;
-    if (e.target.closest(".resize-handle")) return;
-    if (this.isResizingWindow) return;
-    const targetElement = e.target;
-    if (targetElement === this.header || targetElement.closest(".chat-window-header")) {
-      e.preventDefault();
-      e.stopPropagation();
-      const rect = this.chatContainer.getBoundingClientRect();
-      if (this.chatContainer.style.transform.includes("translate")) {
-        this.chatContainer.style.transform = "none";
-        this.chatContainer.style.left = rect.left + "px";
-        this.chatContainer.style.top = rect.top + "px";
+var _ChatWindowController, ChatWindowController;
+var init_chatWindowController = __esm({
+  "src/chatWindowController.ts"() {
+    "use strict";
+    _ChatWindowController = class _ChatWindowController {
+      constructor() {
+        // Configuration
+        __publicField(this, "AUTO_RESIZE_CONFIG", {
+          enabled: true,
+          debounceDelay: 250,
+          maxScaleFactor: 1.5,
+          expansionThreshold: 100,
+          preferenceKey: "chatWindowAutoResize"
+        });
+        // State management
+        __publicField(this, "isResizingWindow", false);
+        __publicField(this, "autoResizeEnabled", true);
+        __publicField(this, "previousViewportWidth", window.innerWidth);
+        __publicField(this, "previousViewportHeight", window.innerHeight);
+        __publicField(this, "resizeDebounceTimer", null);
+        __publicField(this, "isAutoResizing", false);
+        // Dragging state
+        __publicField(this, "isDragging", false);
+        __publicField(this, "currentX", 0);
+        __publicField(this, "currentY", 0);
+        __publicField(this, "initialX", 0);
+        __publicField(this, "initialY", 0);
+        // DOM elements
+        __publicField(this, "chatContainer", null);
+        __publicField(this, "header", null);
+        __publicField(this, "resizeHandle", null);
+        // Event handlers (stored for cleanup)
+        __publicField(this, "dragStartHandler", null);
+        __publicField(this, "dragHandler", null);
+        __publicField(this, "dragEndHandler", null);
+        __publicField(this, "viewportChangeHandler", null);
       }
-      this.isDragging = true;
-      this.currentX = parseInt(this.chatContainer.style.left);
-      this.currentY = parseInt(this.chatContainer.style.top);
-      this.initialX = e.clientX;
-      this.initialY = e.clientY;
-      document.body.style.userSelect = "none";
-    }
-  }
-  dragEnd() {
-    if (this.isDragging) {
-      this.isDragging = false;
-      document.body.style.userSelect = "";
-    }
-  }
-  drag(e) {
-    if (!this.isDragging || this.isResizingWindow || !this.chatContainer) return;
-    e.preventDefault();
-    this.currentX = this.currentX + (e.clientX - this.initialX);
-    this.currentY = this.currentY + (e.clientY - this.initialY);
-    this.initialX = e.clientX;
-    this.initialY = e.clientY;
-    this.chatContainer.style.left = this.currentX + "px";
-    this.chatContainer.style.top = this.currentY + "px";
-  }
-  makeWindowResizable() {
-    if (!this.chatContainer) {
-      console.warn("ChatWindowController: Cannot make window resizable - chat container not found");
-      return;
-    }
-    if (this.chatContainer.querySelector(".resize-handle")) return;
-    this.resizeHandle = document.createElement("div");
-    this.resizeHandle.className = "resize-handle";
-    this.resizeHandle.style.cssText = `
+      static getInstance() {
+        if (!_ChatWindowController.instance) {
+          _ChatWindowController.instance = new _ChatWindowController();
+        }
+        return _ChatWindowController.instance;
+      }
+      initialize() {
+        this.chatContainer = document.getElementById("chat-container");
+        this.header = document.querySelector(".chat-window-header");
+        if (!this.chatContainer) {
+          console.warn("ChatWindowController: chat-container element not found");
+          return;
+        }
+        if (!this.header) {
+          console.warn("ChatWindowController: chat-window-header element not found");
+          return;
+        }
+        this.makeWindowDraggable();
+        this.makeWindowResizable();
+        this.initializeAutoResizeSystem();
+      }
+      makeWindowDraggable() {
+        if (!this.chatContainer || !this.header) {
+          console.warn("ChatWindowController: Cannot make window draggable - elements not found");
+          return;
+        }
+        if (!this.chatContainer.style.position || this.chatContainer.style.position === "relative") {
+          const rect = this.chatContainer.getBoundingClientRect();
+          this.chatContainer.style.position = "fixed";
+          this.chatContainer.style.width = rect.width + "px";
+          this.chatContainer.style.height = rect.height + "px";
+          this.chatContainer.style.top = "50%";
+          this.chatContainer.style.left = "50%";
+          this.chatContainer.style.transform = "translate(-50%, -50%)";
+          this.chatContainer.style.margin = "0";
+        }
+        this.header.style.cursor = "move";
+        this.dragStartHandler = this.dragStart.bind(this);
+        this.dragHandler = this.drag.bind(this);
+        this.dragEndHandler = this.dragEnd.bind(this);
+        if (this.header) {
+          this.header.addEventListener("mousedown", this.dragStartHandler);
+        }
+        if (this.dragHandler && this.dragEndHandler) {
+          document.addEventListener("mousemove", this.dragHandler);
+          document.addEventListener("mouseup", this.dragEndHandler);
+        }
+      }
+      dragStart(e) {
+        if (!this.chatContainer || !this.header) return;
+        if (e.target.closest(".chat-window-controls")) return;
+        if (e.target.closest(".resize-handle")) return;
+        if (this.isResizingWindow) return;
+        const targetElement = e.target;
+        if (targetElement === this.header || targetElement.closest(".chat-window-header")) {
+          e.preventDefault();
+          e.stopPropagation();
+          const rect = this.chatContainer.getBoundingClientRect();
+          if (this.chatContainer.style.transform.includes("translate")) {
+            this.chatContainer.style.transform = "none";
+            this.chatContainer.style.left = rect.left + "px";
+            this.chatContainer.style.top = rect.top + "px";
+          }
+          this.isDragging = true;
+          this.currentX = parseInt(this.chatContainer.style.left);
+          this.currentY = parseInt(this.chatContainer.style.top);
+          this.initialX = e.clientX;
+          this.initialY = e.clientY;
+          document.body.style.userSelect = "none";
+        }
+      }
+      dragEnd() {
+        if (this.isDragging) {
+          this.isDragging = false;
+          document.body.style.userSelect = "";
+        }
+      }
+      drag(e) {
+        if (!this.isDragging || this.isResizingWindow || !this.chatContainer) return;
+        e.preventDefault();
+        this.currentX = this.currentX + (e.clientX - this.initialX);
+        this.currentY = this.currentY + (e.clientY - this.initialY);
+        this.initialX = e.clientX;
+        this.initialY = e.clientY;
+        this.chatContainer.style.left = this.currentX + "px";
+        this.chatContainer.style.top = this.currentY + "px";
+      }
+      makeWindowResizable() {
+        if (!this.chatContainer) {
+          console.warn("ChatWindowController: Cannot make window resizable - chat container not found");
+          return;
+        }
+        if (this.chatContainer.querySelector(".resize-handle")) return;
+        this.resizeHandle = document.createElement("div");
+        this.resizeHandle.className = "resize-handle";
+        this.resizeHandle.style.cssText = `
             position: absolute;
             bottom: 0;
             right: 0;
@@ -28972,183 +28793,168 @@ var _ChatWindowController = class _ChatWindowController {
             z-index: 10000;
             pointer-events: auto;
         `;
-    this.chatContainer.appendChild(this.resizeHandle);
-    let isResizing = false;
-    let startX;
-    let startY;
-    let startWidth;
-    let startHeight;
-    const doResize = (e) => {
-      if (!this.isResizingWindow || !this.chatContainer) return;
-      e.preventDefault();
-      const newWidth = Math.max(400, startWidth + e.clientX - startX);
-      const newHeight = Math.max(300, startHeight + e.clientY - startY);
-      this.chatContainer.style.width = newWidth + "px";
-      this.chatContainer.style.height = newHeight + "px";
-    };
-    const forceStopResize = () => {
-      if (this.isResizingWindow) {
-        isResizing = false;
-        this.isResizingWindow = false;
-        document.body.style.userSelect = "";
-        document.removeEventListener("mousemove", doResize);
-        document.removeEventListener("mouseup", stopResize);
-        document.removeEventListener("mouseleave", forceStopResize);
+        this.chatContainer.appendChild(this.resizeHandle);
+        let isResizing = false;
+        let startX;
+        let startY;
+        let startWidth;
+        let startHeight;
+        const doResize = (e) => {
+          if (!this.isResizingWindow || !this.chatContainer) return;
+          e.preventDefault();
+          const newWidth = Math.max(400, startWidth + e.clientX - startX);
+          const newHeight = Math.max(300, startHeight + e.clientY - startY);
+          this.chatContainer.style.width = newWidth + "px";
+          this.chatContainer.style.height = newHeight + "px";
+        };
+        const forceStopResize = () => {
+          if (this.isResizingWindow) {
+            isResizing = false;
+            this.isResizingWindow = false;
+            document.body.style.userSelect = "";
+            document.removeEventListener("mousemove", doResize);
+            document.removeEventListener("mouseup", stopResize);
+            document.removeEventListener("mouseleave", forceStopResize);
+          }
+        };
+        const stopResize = (e) => {
+          if (this.isResizingWindow) {
+            isResizing = false;
+            this.isResizingWindow = false;
+            document.body.style.userSelect = "";
+            document.removeEventListener("mousemove", doResize);
+            document.removeEventListener("mouseup", stopResize);
+            document.removeEventListener("mouseleave", forceStopResize);
+            e.stopPropagation();
+          } else if (isResizing) {
+            isResizing = false;
+            document.body.style.userSelect = "";
+            document.removeEventListener("mousemove", doResize);
+            document.removeEventListener("mouseup", stopResize);
+            document.removeEventListener("mouseleave", forceStopResize);
+          }
+        };
+        if (this.resizeHandle) {
+          this.resizeHandle.addEventListener("mousedown", (e) => {
+            if (!this.chatContainer) return;
+            this.isResizingWindow = true;
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = parseInt(document.defaultView.getComputedStyle(this.chatContainer).width, 10);
+            startHeight = parseInt(document.defaultView.getComputedStyle(this.chatContainer).height, 10);
+            e.preventDefault();
+            e.stopPropagation();
+            document.body.style.userSelect = "none";
+            document.addEventListener("mousemove", doResize);
+            document.addEventListener("mouseup", stopResize);
+            document.addEventListener("mouseleave", forceStopResize);
+          });
+        }
+      }
+      initializeAutoResizeSystem() {
+        const savedPreference = localStorage.getItem(this.AUTO_RESIZE_CONFIG.preferenceKey);
+        if (savedPreference !== null) {
+          this.autoResizeEnabled = savedPreference === "true";
+        }
+        this.viewportChangeHandler = this.handleViewportChange.bind(this);
+        window.addEventListener("resize", this.viewportChangeHandler);
+      }
+      handleViewportChange() {
+        if (this.resizeDebounceTimer) {
+          clearTimeout(this.resizeDebounceTimer);
+        }
+        this.resizeDebounceTimer = window.setTimeout(() => {
+          this.processViewportChange();
+        }, this.AUTO_RESIZE_CONFIG.debounceDelay);
+      }
+      processViewportChange() {
+        if (!this.autoResizeEnabled || this.isAutoResizing || this.isResizingWindow) {
+          return;
+        }
+        const currentWidth = window.innerWidth;
+        const currentHeight = window.innerHeight;
+        const widthIncrease = currentWidth - this.previousViewportWidth;
+        const heightIncrease = currentHeight - this.previousViewportHeight;
+        if (widthIncrease >= this.AUTO_RESIZE_CONFIG.expansionThreshold || heightIncrease >= this.AUTO_RESIZE_CONFIG.expansionThreshold) {
+          this.applyAutoResize(widthIncrease, heightIncrease);
+        }
+        this.previousViewportWidth = currentWidth;
+        this.previousViewportHeight = currentHeight;
+      }
+      applyAutoResize(widthIncrease, heightIncrease) {
+        this.isAutoResizing = true;
+        if (!this.chatContainer) {
+          this.isAutoResizing = false;
+          return;
+        }
+        const currentRect = this.chatContainer.getBoundingClientRect();
+        const currentWidth = currentRect.width;
+        const currentHeight = currentRect.height;
+        const availableWidth = window.innerWidth * 0.9;
+        const availableHeight = window.innerHeight * 0.9;
+        let newWidth = Math.min(
+          currentWidth + widthIncrease * 0.7,
+          availableWidth,
+          currentWidth * this.AUTO_RESIZE_CONFIG.maxScaleFactor
+        );
+        let newHeight = Math.min(
+          currentHeight + heightIncrease * 0.7,
+          availableHeight,
+          currentHeight * this.AUTO_RESIZE_CONFIG.maxScaleFactor
+        );
+        newWidth = Math.max(newWidth, 400);
+        newHeight = Math.max(newHeight, 300);
+        requestAnimationFrame(() => {
+          if (this.chatContainer) {
+            this.chatContainer.style.width = `${newWidth}px`;
+            this.chatContainer.style.height = `${newHeight}px`;
+          }
+          setTimeout(() => {
+            this.isAutoResizing = false;
+          }, 200);
+        });
+      }
+      setAutoResizePreference(enabled) {
+        this.autoResizeEnabled = enabled;
+        localStorage.setItem(this.AUTO_RESIZE_CONFIG.preferenceKey, enabled.toString());
+      }
+      getAutoResizePreference() {
+        return this.autoResizeEnabled;
+      }
+      // Public method to check if window is being resized
+      isResizing() {
+        return this.isResizingWindow;
+      }
+      // Cleanup method
+      destroy() {
+        if (this.header && this.dragStartHandler) {
+          this.header.removeEventListener("mousedown", this.dragStartHandler);
+        }
+        if (this.dragHandler) {
+          document.removeEventListener("mousemove", this.dragHandler);
+        }
+        if (this.dragEndHandler) {
+          document.removeEventListener("mouseup", this.dragEndHandler);
+        }
+        if (this.viewportChangeHandler) {
+          window.removeEventListener("resize", this.viewportChangeHandler);
+        }
+        if (this.resizeDebounceTimer) {
+          clearTimeout(this.resizeDebounceTimer);
+        }
+        if (this.resizeHandle && this.resizeHandle.parentNode) {
+          this.resizeHandle.parentNode.removeChild(this.resizeHandle);
+        }
       }
     };
-    const stopResize = (e) => {
-      if (this.isResizingWindow) {
-        isResizing = false;
-        this.isResizingWindow = false;
-        document.body.style.userSelect = "";
-        document.removeEventListener("mousemove", doResize);
-        document.removeEventListener("mouseup", stopResize);
-        document.removeEventListener("mouseleave", forceStopResize);
-        e.stopPropagation();
-      } else if (isResizing) {
-        isResizing = false;
-        document.body.style.userSelect = "";
-        document.removeEventListener("mousemove", doResize);
-        document.removeEventListener("mouseup", stopResize);
-        document.removeEventListener("mouseleave", forceStopResize);
-      }
-    };
-    if (this.resizeHandle) {
-      this.resizeHandle.addEventListener("mousedown", (e) => {
-        if (!this.chatContainer) return;
-        this.isResizingWindow = true;
-        isResizing = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        startWidth = parseInt(document.defaultView.getComputedStyle(this.chatContainer).width, 10);
-        startHeight = parseInt(document.defaultView.getComputedStyle(this.chatContainer).height, 10);
-        e.preventDefault();
-        e.stopPropagation();
-        document.body.style.userSelect = "none";
-        document.addEventListener("mousemove", doResize);
-        document.addEventListener("mouseup", stopResize);
-        document.addEventListener("mouseleave", forceStopResize);
-      });
-    }
+    __publicField(_ChatWindowController, "instance");
+    ChatWindowController = _ChatWindowController;
   }
-  initializeAutoResizeSystem() {
-    const savedPreference = localStorage.getItem(this.AUTO_RESIZE_CONFIG.preferenceKey);
-    if (savedPreference !== null) {
-      this.autoResizeEnabled = savedPreference === "true";
-    }
-    this.viewportChangeHandler = this.handleViewportChange.bind(this);
-    window.addEventListener("resize", this.viewportChangeHandler);
-  }
-  handleViewportChange() {
-    if (this.resizeDebounceTimer) {
-      clearTimeout(this.resizeDebounceTimer);
-    }
-    this.resizeDebounceTimer = window.setTimeout(() => {
-      this.processViewportChange();
-    }, this.AUTO_RESIZE_CONFIG.debounceDelay);
-  }
-  processViewportChange() {
-    if (!this.autoResizeEnabled || this.isAutoResizing || this.isResizingWindow) {
-      return;
-    }
-    const currentWidth = window.innerWidth;
-    const currentHeight = window.innerHeight;
-    const widthIncrease = currentWidth - this.previousViewportWidth;
-    const heightIncrease = currentHeight - this.previousViewportHeight;
-    if (widthIncrease >= this.AUTO_RESIZE_CONFIG.expansionThreshold || heightIncrease >= this.AUTO_RESIZE_CONFIG.expansionThreshold) {
-      this.applyAutoResize(widthIncrease, heightIncrease);
-    }
-    this.previousViewportWidth = currentWidth;
-    this.previousViewportHeight = currentHeight;
-  }
-  applyAutoResize(widthIncrease, heightIncrease) {
-    this.isAutoResizing = true;
-    if (!this.chatContainer) {
-      this.isAutoResizing = false;
-      return;
-    }
-    const currentRect = this.chatContainer.getBoundingClientRect();
-    const currentWidth = currentRect.width;
-    const currentHeight = currentRect.height;
-    const availableWidth = window.innerWidth * 0.9;
-    const availableHeight = window.innerHeight * 0.9;
-    let newWidth = Math.min(
-      currentWidth + widthIncrease * 0.7,
-      availableWidth,
-      currentWidth * this.AUTO_RESIZE_CONFIG.maxScaleFactor
-    );
-    let newHeight = Math.min(
-      currentHeight + heightIncrease * 0.7,
-      availableHeight,
-      currentHeight * this.AUTO_RESIZE_CONFIG.maxScaleFactor
-    );
-    newWidth = Math.max(newWidth, 400);
-    newHeight = Math.max(newHeight, 300);
-    requestAnimationFrame(() => {
-      if (this.chatContainer) {
-        this.chatContainer.style.width = `${newWidth}px`;
-        this.chatContainer.style.height = `${newHeight}px`;
-      }
-      setTimeout(() => {
-        this.isAutoResizing = false;
-      }, 200);
-    });
-  }
-  setAutoResizePreference(enabled) {
-    this.autoResizeEnabled = enabled;
-    localStorage.setItem(this.AUTO_RESIZE_CONFIG.preferenceKey, enabled.toString());
-  }
-  getAutoResizePreference() {
-    return this.autoResizeEnabled;
-  }
-  // Public method to check if window is being resized
-  isResizing() {
-    return this.isResizingWindow;
-  }
-  // Cleanup method
-  destroy() {
-    if (this.header && this.dragStartHandler) {
-      this.header.removeEventListener("mousedown", this.dragStartHandler);
-    }
-    if (this.dragHandler) {
-      document.removeEventListener("mousemove", this.dragHandler);
-    }
-    if (this.dragEndHandler) {
-      document.removeEventListener("mouseup", this.dragEndHandler);
-    }
-    if (this.viewportChangeHandler) {
-      window.removeEventListener("resize", this.viewportChangeHandler);
-    }
-    if (this.resizeDebounceTimer) {
-      clearTimeout(this.resizeDebounceTimer);
-    }
-    if (this.resizeHandle && this.resizeHandle.parentNode) {
-      this.resizeHandle.parentNode.removeChild(this.resizeHandle);
-    }
-  }
-};
-__publicField(_ChatWindowController, "instance");
-var ChatWindowController = _ChatWindowController;
-
-// src/index.tsx
-init_geminiService();
+});
 
 // src/wrapUpAssessment.ts
-init_ui();
-init_src();
 import { marked as marked4 } from "marked";
-var globalMarkedConfig4 = globalThis;
-if (!globalMarkedConfig4.__markedKatexConfigured) {
-  marked4.use(src_default({ throwOnError: false, output: "mathml", nonStandard: true }));
-  globalMarkedConfig4.__markedKatexConfigured = true;
-}
-var OVERLAY_ID = "wrap-up-assessment-overlay";
-var CTA_DISABLED_TEXT = "Select Answers to Reveal";
-var CTA_READY_TEXT = "Reveal Explanations";
-var CTA_POST_TEXT = "Proceed to Remediation";
-var PRE_FOOTER_COPY = "Review every prompt thoroughly, selecting the strongest answer for each. When you are ready, reveal the official explanations to verify your reasoning.";
-var POST_FOOTER_COPY = "Use the explanations and interviewer notes to inform your remediation focus.";
-var CHOICE_KEYS = ["A", "B", "C", "D"];
 function assertNonEmptyString(value, message) {
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -29598,24 +29404,236 @@ function setMarkdown(target, markdown) {
   const sanitized = sanitizeMarkdownFences(markdown ?? "");
   target.innerHTML = parseSanitizedMarkdown(sanitized);
 }
+var globalMarkedConfig4, OVERLAY_ID, CTA_DISABLED_TEXT, CTA_READY_TEXT, CTA_POST_TEXT, PRE_FOOTER_COPY, POST_FOOTER_COPY, CHOICE_KEYS;
+var init_wrapUpAssessment = __esm({
+  "src/wrapUpAssessment.ts"() {
+    "use strict";
+    init_ui();
+    init_src();
+    globalMarkedConfig4 = globalThis;
+    if (!globalMarkedConfig4.__markedKatexConfigured) {
+      marked4.use(src_default({ throwOnError: false, output: "mathml", nonStandard: true }));
+      globalMarkedConfig4.__markedKatexConfigured = true;
+    }
+    OVERLAY_ID = "wrap-up-assessment-overlay";
+    CTA_DISABLED_TEXT = "Select Answers to Reveal";
+    CTA_READY_TEXT = "Reveal Explanations";
+    CTA_POST_TEXT = "Proceed to Remediation";
+    PRE_FOOTER_COPY = "Review every prompt thoroughly, selecting the strongest answer for each. When you are ready, reveal the official explanations to verify your reasoning.";
+    POST_FOOTER_COPY = "Use the explanations and interviewer notes to inform your remediation focus.";
+    CHOICE_KEYS = ["A", "B", "C", "D"];
+  }
+});
 
-// src/index.tsx
-init_prompts();
-init_interactionHelpers();
+// src/interactionHelpers.ts
+var interactionHelpers_exports = {};
+__export(interactionHelpers_exports, {
+  buildSenseiDynamicSystemInstruction: () => buildSenseiDynamicSystemInstruction,
+  buildSocraticExecutionInstruction: () => buildSocraticExecutionInstruction,
+  streamMainSenseiResponse: () => streamMainSenseiResponse,
+  streamModuleIntroduction: () => streamModuleIntroduction
+});
+function logSenseiPromptValidation(event, payload) {
+  const normalizedPayload = { ...payload };
+  if (typeof normalizedPayload.prompt === "string") {
+    normalizedPayload.promptLines = normalizedPayload.prompt.split("\n");
+    delete normalizedPayload.prompt;
+  }
+  logger.info("[SENSEI_PROMPT_VALIDATION]", { event, ...normalizedPayload });
+}
+async function streamModuleIntroduction(chat, introContext, moduleTitleForPrompt, senseiMessageId, options) {
+  let fullResponseText = "";
+  const messageWithContext = `${introContext}
+
+Let's begin ${moduleTitleForPrompt}.`;
+  logSenseiPromptValidation("module-introduction", {
+    moduleTitle: moduleTitleForPrompt,
+    promptLength: messageWithContext.length
+  });
+  logSenseiPromptValidation("module-introduction-full-prompt", {
+    prompt: messageWithContext
+  });
+  const stream = await chat.sendMessageStream({ message: messageWithContext });
+  const enhancerController = options?.enhancerController;
+  for await (const chunk of stream) {
+    const chunkText = chunk.text;
+    if (chunkText) {
+      fullResponseText += chunkText;
+      if (enhancerController) {
+        fullResponseText = await enhancerController.onChunk(fullResponseText);
+      }
+      updateMessageStream(senseiMessageId, fullResponseText);
+    }
+  }
+  if (enhancerController) {
+    await enhancerController.finalize();
+    return enhancerController.getLatestText();
+  }
+  return fullResponseText;
+}
+function buildSenseiDynamicSystemInstruction(curriculumFocusInstruction, pedagogicalGuidanceDirective, navigationContext) {
+  let isMustObey = false;
+  let proseDirective = pedagogicalGuidanceDirective;
+  let tempDirective = pedagogicalGuidanceDirective || "";
+  if (tempDirective.startsWith("MUST_OBEY ")) {
+    isMustObey = true;
+    logSenseiPromptValidation("standard-guidance-evaluated", {
+      mustObey: true,
+      directive: tempDirective
+    });
+    tempDirective = tempDirective.substring("MUST_OBEY ".length);
+  }
+  const colonIndex = tempDirective.indexOf(":");
+  if (colonIndex !== -1) {
+    proseDirective = tempDirective.substring(colonIndex + 1).trim();
+  } else {
+    proseDirective = tempDirective.trim();
+  }
+  if (!proseDirective) {
+    proseDirective = void 0;
+  }
+  const coreInstruction = MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
+    curriculumFocusInstruction,
+    proseDirective,
+    isMustObey
+  );
+  if (!navigationContext) {
+    return coreInstruction;
+  }
+  return `[NavigationContext]
+${navigationContext}
+
+${coreInstruction}`;
+}
+function buildSocraticExecutionInstruction(teachingPlan, pedagogicalGuidance, isSystemInitialization = false, navigationContext, conceptContext) {
+  const intent = teachingPlan[0][0];
+  const guidance = intent.interactionGuidance;
+  logSenseiPromptValidation("socratic-instruction-build", {
+    buildType: isSystemInitialization ? "system_initialization" : "user_response",
+    teachingPlanLength: intent.text?.length || 0,
+    expectedTurns: guidance.expectedTurns,
+    completionTriggerCount: guidance.completionTriggers?.length || 0
+  });
+  if (isSystemInitialization) {
+    const initialInstruction = buildSocraticInitialInstruction(teachingPlan, conceptContext);
+    logSenseiPromptValidation("socratic-initial-instruction-ready", {
+      instructionLength: initialInstruction.length
+    });
+    if (!navigationContext) {
+      return initialInstruction;
+    }
+    return `[NavigationContext]
+${navigationContext}
+
+${initialInstruction}`;
+  }
+  const isMustObey = pedagogicalGuidance.metaPrompt && pedagogicalGuidance.metaPrompt.includes("MUST_OBEY");
+  logSenseiPromptValidation("socratic-guidance-evaluated", {
+    mustObey: !!isMustObey
+  });
+  if (isMustObey) {
+    const overrideInstruction = `[RecursiveSensei CRITICAL OVERRIDE for THIS TURN:
+A high-priority situation has been detected. For this turn, you MUST IGNORE the standard Socratic dialogue plan provided below.
+Your SOLE TASK is to execute the following high-priority directive with immense detail, empathy, and care. This directive takes absolute precedence.
+
+High-Priority Directive: ${pedagogicalGuidance.metaPrompt}
+
+(The standard Socratic dialogue plan, which you will ignore for this turn, is:
+${intent.text}
+
+You will continue with this plan in the next turn after addressing the current critical situation.)
+]`;
+    if (!navigationContext) {
+      return overrideInstruction;
+    }
+    return `[NavigationContext]
+${navigationContext}
+
+${overrideInstruction}`;
+  }
+  const subsequentTurnInstruction = `[RecursiveSensei Task & Checklist for THIS TURN:
+Your task is to generate a response by following this prioritized checklist. You MUST evaluate and execute these steps in order.
+
+**Your Response Checklist:**
+1.  **Execute Socratic Plan:** Continue your Socratic dialogue according to your teaching plan.
+2.  **Integrate Guidance Strategy:** You MUST use the methods, tone, and style from the \`PedagogicalGuidance\` to facilitate the Socratic dialogue. For example, if the guidance suggests using simpler language, adjust your questions accordingly.
+
+---
+**Inputs for your checklist:**
+
+- **PedagogicalGuidance:** ${pedagogicalGuidance.directive || "Continue with standard Socratic questioning approach"}
+- **SocraticContext:** You are executing a Socratic dialogue. Expected length: ~${guidance.expectedTurns} turns. Monitor for completion triggers: ${JSON.stringify(guidance.completionTriggers)}
+
+---
+
+COMPLETION MONITORING: If any completion trigger is met, add [SOCRATIC_COMPLETION_TRIGGERED: <trigger>] at the END of your response.]`;
+  logSenseiPromptValidation("socratic-subsequent-instruction-ready", {
+    instructionLength: subsequentTurnInstruction.length,
+    mustObey: false
+  });
+  if (!navigationContext) {
+    return subsequentTurnInstruction;
+  }
+  return `[NavigationContext]
+${navigationContext}
+
+${subsequentTurnInstruction}`;
+}
+async function streamMainSenseiResponse(chat, dynamicContext, currentUserInput, senseiMessageId, options) {
+  let fullResponseText = "";
+  const userLine = `User: ${currentUserInput}`;
+  const messageWithContext = dynamicContext.includes(USER_LAST_INPUT_PLACEHOLDER) ? dynamicContext.replace(USER_LAST_INPUT_PLACEHOLDER, userLine) : `${dynamicContext}
+
+${userLine}`;
+  logSenseiPromptValidation("main-response-requested", {
+    userInputLength: currentUserInput.length,
+    dynamicContextLength: dynamicContext.length
+  });
+  logSenseiPromptValidation("main-response-full-prompt", {
+    prompt: messageWithContext
+  });
+  const stream = await chat.sendMessageStream({ message: messageWithContext });
+  const enhancerController = options?.enhancerController;
+  let chunkCount = 0;
+  const streamStart = performance.now();
+  let firstChunkLatencyMs = null;
+  for await (const chunk of stream) {
+    const chunkText = chunk.text;
+    if (chunkText) {
+      if (chunkCount === 0) {
+        firstChunkLatencyMs = performance.now() - streamStart;
+      }
+      chunkCount++;
+      fullResponseText += chunkText;
+      if (enhancerController) {
+        fullResponseText = await enhancerController.onChunk(fullResponseText);
+      }
+      updateMessageStream(senseiMessageId, fullResponseText);
+    }
+  }
+  logSenseiPromptValidation("main-response-streamed", {
+    chunks: chunkCount,
+    firstChunkLatencyMs,
+    responseLength: fullResponseText.length
+  });
+  if (enhancerController) {
+    await enhancerController.finalize();
+    return enhancerController.getLatestText();
+  }
+  return fullResponseText;
+}
+var init_interactionHelpers = __esm({
+  "src/interactionHelpers.ts"() {
+    "use strict";
+    init_ui();
+    init_prompts();
+    init_logger();
+  }
+});
 
 // src/debugMode.ts
-init_logger();
-init_src();
-init_ui();
-init_model_usage();
-init_teachingPlanCache();
 import { marked as marked5 } from "marked";
 import JSZip from "jszip";
-var globalMarkedConfig5 = globalThis;
-if (!globalMarkedConfig5.__markedKatexConfigured) {
-  marked5.use(src_default({ throwOnError: false, output: "mathml", nonStandard: true }));
-  globalMarkedConfig5.__markedKatexConfigured = true;
-}
 function logDebugValidation(event, payload) {
   if (payload && Object.keys(payload).length > 0) {
     logger.info("[DEBUG_MODE_VALIDATION]", { event, ...payload });
@@ -29626,38 +29644,6 @@ function logDebugValidation(event, payload) {
 function logDebugPerfSummary(payload) {
   logger.info("[DEBUG_PERF_SUMMARY]", payload);
 }
-var debugModalElement = null;
-var debugCloseButtonElement = null;
-var debugFullscreenButtonElement = null;
-var debugFileSelectionAreaElement = null;
-var debugFileSelectionControlsElement = null;
-var debugFileListElement = null;
-var debugSelectAllCheckboxElement = null;
-var debugFileToggleButtonElement = null;
-var debugClearPlanCacheButtonElement = null;
-var debugPlanCacheStatusElement = null;
-var debugChatInterfaceElement = null;
-var debugMessageAreaElement = null;
-var debugInputFormElement = null;
-var debugUserInputElement = null;
-var debugSendButtonElement = null;
-var debugExportContextButtonElement = null;
-var debugDownloadFilesButtonElement = null;
-var debugTabNavigationElement = null;
-var debugChatTabElement = null;
-var debugConsoleTabElement = null;
-var debugConsoleLogsAreaElement = null;
-var activeDebugTab = "chat";
-var exportLogsButtonElement = null;
-var exportStatusElement = null;
-var geminiAi = null;
-var currentDebugChat = null;
-var debugMessageIdCounter = 0;
-var availableProjectFilePaths = [];
-var getManifestContentCallback = null;
-var debugStreamingMessagesRawText = /* @__PURE__ */ new Map();
-var debugStreamingMessageTimers = /* @__PURE__ */ new Map();
-var debugContextFilesModified = false;
 function switchDebugTab(tabName) {
   if (activeDebugTab === tabName) return;
   const allTabs = document.querySelectorAll(".debug-tab");
@@ -30571,149 +30557,1308 @@ function toggleDebugModalVisibility(show) {
     }
   }
 }
+var globalMarkedConfig5, debugModalElement, debugCloseButtonElement, debugFullscreenButtonElement, debugFileSelectionAreaElement, debugFileSelectionControlsElement, debugFileListElement, debugSelectAllCheckboxElement, debugFileToggleButtonElement, debugClearPlanCacheButtonElement, debugPlanCacheStatusElement, debugChatInterfaceElement, debugMessageAreaElement, debugInputFormElement, debugUserInputElement, debugSendButtonElement, debugExportContextButtonElement, debugDownloadFilesButtonElement, debugTabNavigationElement, debugChatTabElement, debugConsoleTabElement, debugConsoleLogsAreaElement, activeDebugTab, exportLogsButtonElement, exportStatusElement, geminiAi, currentDebugChat, debugMessageIdCounter, availableProjectFilePaths, getManifestContentCallback, debugStreamingMessagesRawText, debugStreamingMessageTimers, debugContextFilesModified;
+var init_debugMode = __esm({
+  "src/debugMode.ts"() {
+    "use strict";
+    init_logger();
+    init_src();
+    init_ui();
+    init_model_usage();
+    init_teachingPlanCache();
+    globalMarkedConfig5 = globalThis;
+    if (!globalMarkedConfig5.__markedKatexConfigured) {
+      marked5.use(src_default({ throwOnError: false, output: "mathml", nonStandard: true }));
+      globalMarkedConfig5.__markedKatexConfigured = true;
+    }
+    debugModalElement = null;
+    debugCloseButtonElement = null;
+    debugFullscreenButtonElement = null;
+    debugFileSelectionAreaElement = null;
+    debugFileSelectionControlsElement = null;
+    debugFileListElement = null;
+    debugSelectAllCheckboxElement = null;
+    debugFileToggleButtonElement = null;
+    debugClearPlanCacheButtonElement = null;
+    debugPlanCacheStatusElement = null;
+    debugChatInterfaceElement = null;
+    debugMessageAreaElement = null;
+    debugInputFormElement = null;
+    debugUserInputElement = null;
+    debugSendButtonElement = null;
+    debugExportContextButtonElement = null;
+    debugDownloadFilesButtonElement = null;
+    debugTabNavigationElement = null;
+    debugChatTabElement = null;
+    debugConsoleTabElement = null;
+    debugConsoleLogsAreaElement = null;
+    activeDebugTab = "chat";
+    exportLogsButtonElement = null;
+    exportStatusElement = null;
+    geminiAi = null;
+    currentDebugChat = null;
+    debugMessageIdCounter = 0;
+    availableProjectFilePaths = [];
+    getManifestContentCallback = null;
+    debugStreamingMessagesRawText = /* @__PURE__ */ new Map();
+    debugStreamingMessageTimers = /* @__PURE__ */ new Map();
+    debugContextFilesModified = false;
+  }
+});
 
-// src/index.tsx
-init_selectionSensei();
-init_model_usage();
-init_notepad();
+// src/Modules.txt
+var Modules_default;
+var init_Modules = __esm({
+  "src/Modules.txt"() {
+    Modules_default = `Module 1: The Recursive Soul - Core Idea & Mental Model (Version 1.1)
+Summary: Recursion is a powerful problem-solving technique based on self-similarity and problem decomposition, involving solving a problem by breaking it down into one or more smaller, identical versions of the same problem, essentially delegating sub-problems. This inherent recursive structure manifests in numerous examples across domains, from array subarrays and string substrings to number sequences and mathematical definitions like factorial. Central to recursion are its two pillars: the Base Case(s), which serve as the anchor and terminator, defining the simplest possible instance(s) that can be solved directly without further recursion, providing the termination guarantee to prevent infinite loops and stack overflow, and seeding the solution; and the Recursive Step, which decomposes the problem into strictly smaller or simpler instances, makes recursive calls (often requiring a 'leap of faith' in their successful execution), and then combines the results to construct the final solution. Understanding these concepts provides the motivation and context for why one might choose recursion.
+Goal: Forge the fundamental "recursive mindset" by establishing an intuitive grasp of self-similarity and the essential building blocks of recursive algorithms. Prepare the user for understanding recursive execution and design.
+Concepts:
+	1. Self-Similarity & Problem Decomposition:
+		a. The Core Idea:
+			Introduce recursion as solving a problem by breaking it down into one or more smaller, identical versions of the same problem. "Solving by delegating."
+		b. Exploration Across Domains:
+			Use numerous examples (array subarray, string substring, list tail, number sequences n vs n-1, file system directories, mathematical definitions like factorial, grid sub-problems, combinatorial choices) to illustrate how self-similarity manifests in different contexts. Emphasize identifying this inherent recursive structure.
+		c. Visualization:
+			Visually demonstrate decomposition for several examples (e.g., diagram of array split, string reduction, simple tree branching).
+	2. The Two Pillars: Building Blocks of Recursion (Dialectic):
+		a. Base Case(s) - The Anchor & Terminator:
+			i. Definition:
+				The simplest possible instance(s) of the problem that can be solved directly, without further recursion. The non-recursive part, the "stop sign."
+			ii. Critical Roles:
+				- Termination Guarantee: Explain why base cases are non-negotiable to prevent infinite loops and stack overflow. The "Must Terminate" imperative.
+				- Seeding the Solution: Explain how base cases provide the fundamental, known answers from which solutions to larger problems are built back up (even if the "building back up" mechanism isn't detailed until later modules).
+			iii. Identifying Types (Examples):
+				Introduce common patterns for base cases through examples: Empty structures (null pointers, empty lists/strings/arrays), single-element structures, boundary conditions (index out of bounds, invalid state), target condition met directly, constraint violations (for previewing backtracking ideas conceptually).
+		b. Recursive Step - The Delegation & Combination Loop:
+			i. Definition:
+				The part of the algorithm that:
+				- Decomposes the problem into one or more strictly smaller or simpler instances of the same problem. Emphasize why "smaller/simpler" is critical for eventually reaching a base case.
+				- Makes recursive calls to solve those subproblems (delegation). Introduce the "Leap of Faith" here explicitly: Train the user to ASSUME the recursive call works perfectly for the smaller instance(s) during the design phase, without needing to trace its full execution yet.
+				- Combines the results from the recursive call(s) (and potentially the current state) to construct the solution for the original problem instance. Briefly mention that how results are combined is a key design element explored later.
+	3. Why Choose Recursion?: Motivation & Context
+		a. Introduction:
+			Discuss the reasons for using recursion.
+		b. Advantages:
+			Elegance and clarity for problems with naturally recursive structures (e.g., trees, fractals, certain mathematical definitions), simplifying the expression of complex algorithms like Divide & Conquer and Backtracking (introduce names briefly as examples of what recursion enables).
+		c. Contrast with Iteration:
+			Briefly contrast recursive thinking (delegation) with iterative thinking (looping/repetition) as alternative ways to solve problems involving repetition, without going deep into implementation trade-offs yet. Mention they can often solve the same problems.
+Methodology:
+	1. Introduce & Explain:
+		For each core concept (Self-Similarity, Base Case roles, Recursive Step components), the Sensei will first provide clear, detailed explanations using multiple analogies (Russian dolls, file folders, assembly line, finding definitions, exploring a maze) as mandated (I-A Mandate 1).
+	2. Illustrate:
+		Demonstrate each concept with simple, diverse examples focusing on the thinking process. Use math (factorial, sum 1..n), strings (length, palindrome check), lists (sum, find element). Minimal pseudo-code or C++ snippets may be used to illustrate the structure (IF base case THEN ..., ELSE ... recursive call...), clarifying without focusing on execution mechanics. Mandatory visualizations include decomposition diagrams and basic Base/Recursive decision flowcharts (I-A Mandate 2).
+Socratic:
+	Transition to heavy Socratic dialogue (I-A Mandate 3) to:
+	- Probe understanding ("Can you explain self-similarity for [new domain]?").
+	- Identify base cases/recursive steps in new simple scenarios ("What's the base case for finding the max element in a list?").
+	- Discuss the "Leap of Faith" ("If you assume length(tail) works, how do you find length(list)?").
+	- Reinforce the "why" ("What happens if this base case is missing?").
+Solidify & Prepare:
+	Check understanding through teach-back prompts ("Explain the two roles of a base case"). Conclude by framing the next natural questions: "Now that we understand the idea, how does the computer actually execute these recursive calls?" (leading to Module 2) and "How does information get passed between these calls?" (leading to Module 3).
+
+Module 2: The Generative Soul - Exploring Downward (Version 1.0 - Detailed Instructional Guide for Sensei AI)
+Summary: Generative recursion fundamentally shifts from computing a single value to enabling exploration and action, aiming to generate all valid combinations or find all possible paths. This process operates like navigating a decision tree through Choice & Consequence, where the recursive step involves making choices and updating state. Unlike M1's upward returns, the primary channel for critical context is Downward Information Flow, with parameters serving as state carriers that convey the current situation (state) or accumulated state to subsequent calls. Base cases revisited mark the end of one particular path of exploration, either signifying success (where results are recorded) or termination/dead end. A core principle is the Generative Leap of Faith, which assumes the recursive call will correctly explore all valid possibilities from the newState provided, a concept frequently visualized using state-space tree diagrams.
+Goal: Develop a deep, intuitive understanding of the generative recursive paradigm by:
+	- Clearly distinguishing the Generative Goal (Exploration/Action) from the Computational Goal (Calculation) established in M1.
+	- Mastering the concept of making Choices and exploring their Consequences recursively.
+	- Understanding Downward Information Flow via parameters as the primary mechanism for state management in generative recursion (contrasting with M1's primary focus on return values).
+	- Reinterpreting the purpose and implementation of Base Cases in the context of terminating exploration paths (successfully or unsuccessfully), building on M1's termination concept.
+	- Reframing the Recursive Step around making choices and updating state for the next downward call, contrasting with M1's decomposition/combination step.
+	- Applying the Generative Leap of Faith, contrasting it with the computational version from M1.
+Prerequisites: Successful completion and understanding of Module 1 (The Recursive Soul - Core Idea & Mental Model, v1.1). The user should be comfortable with: basic recursion definition (solving via smaller selves), the necessity of base cases for termination, the concept of a recursive step making progress, and the computational "Leap of Faith" (trusting the return value).
+Concepts:
+	1. Shifting Gears: The Generative Goal - Exploration & Action
+		a. Sensei Action:
+			Initiate the transition explicitly. "In Module 1, we saw recursion compute results like Factorial by getting answers from smaller calls and combining them upwards. Now, let's explore a different fundamental use: recursion as an engine for exploration and action."
+		b. Core Idea:
+			Define the goal: "Often, we don't want just one final value. We want to find all possible paths, generate all valid combinations, or perform a sequence of actions. This is the heart of generative recursion."
+		c. Contrast with M1 Goal [I-A Mandate 5]:
+			"Remember how Factorial(N) needed the numerical result from Factorial(N-1)? Contrast that with generating all subsets of {1, 2, 3}. The goal isn't one number, but a collection of subsets discovered by exploring choices." Prompt: "What keywords often signal this generative goal, versus the computational goal keywords we saw implicitly in M1?" (Generative: all, generate, list, explore, perform sequence. Computational: find sum/max, calculate, check if, return value).
+		d. Visualization [I-A Mandate 2]:
+			Immediately introduce state-space tree diagrams. Explain nodes represent states, edges represent choices. Contrast this visually with the simpler decomposition trees potentially used in M1.
+	2. Choice & Consequence: The Engine of Exploration
+		a. Sensei Action:
+			Introduce this core mechanic. "Generative recursion operates like navigating a decision tree. At each point (state), you make a choice, and then you recursively explore the consequences of that choice."
+		b. Analogy Power:
+			Use exploration analogies: Maze Runner, Detective, Choose Your Own Adventure, Team Selection (as detailed previously).
+		c. Link to M1 (Contrast):
+			"In M1, the recursive step often focused on how to break the problem down (N -> N-1) and how to combine the returned result. Here, the recursive step focuses on what choices are available now and how to proceed based on a chosen option."
+		d. Visualization [I-A Mandate 2]:
+			Trace single paths down state-space trees, labeling edges with the specific choice made (e.g., "Include 'B'", "Append '0'", "Go Right").
+	3. Downward Information Flow: Parameters as State Carriers
+		a. Sensei Action:
+			This is a crucial distinction from M1. Hammer this point home gently but firmly.
+		b. The Primary Channel:
+			"Remember in M1, the primary way information came back was through the return value? In generative recursion, the primary way critical information moves is downwards into the next recursive call, via function parameters. These parameters tell the next call what the current situation (state) is."
+		c. What Flows Down (Exhaustive Detail & Gradual Intro):
+			Introduce the types of information passed down (Current State, Accumulated State, Result Collector [conceptual], Constraints/Context) using examples, as detailed in previous drafts. Start simple, build complexity.
+		d. Contrast with M1 [I-A Mandate 5]:
+			"Think about calculating the sum of a list (M1 concept). The recursive call might only need the rest of the list. But to generate, say, all paths in a maze, the recursive call needs to know where we are now (currentRow, currentCol) and maybe the path taken so far (currentPath). This crucial context travels down via parameters."
+		e. Pass-by-Value vs. Reference (Conceptual Need) [Anticipate Ambiguity - I-A Mandate 1]:
+			Explain the need for shared vs. copied state without premature C++ syntax (defer to M3/M6). "Sometimes each call needs its own info (like a step counter), other times they need to build on the same path or add to the same final results list."
+		f. Visualization [I-A Mandate 2]:
+			MANDATORY state-space trees with data flow arrows pointing down along edges, showing key parameter values or conceptual changes to accumulators.
+	4. Base Cases Revisited: Ending the Exploration Path
+		a. Sensei Action:
+			Build upon M1's base case concept (termination) but redefine its primary purpose here.
+		b. Building on M1:
+			"You learned in M1 that base cases are essential to stop the recursion [I-A Mandate 1]. That's still 100% true! But why we stop and what we do when we stop often differs for generative tasks."
+		c. New Purpose:
+			"In generative recursion, hitting a base case means you've reached the end of one particular path of exploration. It signifies either:"
+			- Success: You've reached a valid final state (e.g., generated a complete subset, found a valid path).
+			- Termination/Dead End: You can't explore further down this path (e.g., out of bounds, constraint violated, no more items).
+		d. Identifying Generative Base Cases:
+			Explain how to identify conditions for Goal State Reached (Success) and Exploration Exhausted / Invalid Path (Termination/Pruning).
+		e. Action at the Base Case (CRITICAL Distinction from M1):
+			- Contrast with M1: "Factorial's base case returned 1, a value needed for the upward calculation. Here, a success base case often triggers an action: recording the result found along the path (e.g., adding the currentPath to allPaths). A dead end base case often just returns (typically void), signaling 'this path didn't work, backtrack'."
+		f. Sensei Prompt:
+			Use contrasting prompts as detailed previously to highlight the different base case actions (Generative record/stop vs. Computational value return).
+		g. Visualization [I-A Mandate 2]:
+			Annotate base cases on state-space trees with purpose(Success/Fail/End) and action (Record/Print/Return Void).
+	5. Recursive Step Revisited: Making Choices, Updating State
+		a. Sensei Action:
+			Contrast the structure of the generative recursive step with M1's computational step.
+		b. Building on M1:
+			"The recursive step still needs to make progress towards a base case, just like in M1. But the focus shifts."
+		c. Generative Structure:
+			Describe the typical pattern: Identify Choice(s) -> For Each Choice (Update State -> Recursive Call -> Optional State Management).
+		d. Contrast with M1:
+			Explicitly compare the generative step structure (choice-driven, state-passing down) with the computational step structure (decompose, call, combine result up).
+		e. Visualization [I-A Mandate 2]:
+			Show branching clearly. Highlight state parameters changing along the downward edges for each choice.
+	6. The Generative Leap of Faith: Trusting the Exploration
+		a. Sensei Action:
+			Introduce the generative framing, explicitly contrasting it with M1's version.
+		b. Building on M1:
+			"Remember the Leap of Faith from M1? We trusted the recursive call to return the correct value. For generative recursion, we adapt this trust:"
+		c. The Principle:
+			Define the Generative Leap of Faith: "Assume the recursive call explore(newState) will correctly and completely explore all valid possibilities starting from that newState, OR will perform the correct next action(s), according to its contract. Your job is to correctly define and pass that newState based on your current choice."
+		d. Practice:
+			Guide the user to articulate the Generative Leap of Faith for specific scenarios and contrast it with the computational version.
+Methodology:
+	1. Introduce & Explain (I-A Mandate 3 - Phase 1):
+		a. Bridge from M1:
+			Explicitly state this module builds on M1 but focuses on a different recursive goal (Concept 1).
+		b. Introduce Concepts Sequentially (2-6):
+			Define each concept, use analogies, and consistently contrast with the corresponding M1 concept (Goal, Base Case Purpose/Action, Recursive Step Structure, Data Flow Direction, Leap of Faith Framing) [I-A Mandate 5].
+		c. Mandate Adherence:
+			Extreme Detail & Clarity [I-A Mandate 1]. Rigorous definitions. Anticipate ambiguity (e.g., state management details) [I-A Mandate 1].
+	2. Illustrate (I-A Mandate 3 - Phase 2 - Interactive Conceptual Walkthrough):
+		a. Sensei's Strategic Objective:
+			To bridge the gap between the abstract concepts (defined earlier in M1.5) and concrete application. This phase involves the Sensei guiding the user through a carefully curated sequence of examples, moving from simple to more complex ("Gears"). The interaction should feel like a collaborative exploration where the Sensei facilitates the user's connection of the concepts to the examples, rather than delivering a lecture. The AI must implicitly embody the generative mindset through its guidance. Adhere to I-A and I-B protocols throughout.
+		b. Core Interaction Loop (Apply iteratively for each example/Gear):
+			i. Problem Introduction:
+				Present a concise, relatable problem scenario specifically chosen to highlight the concepts relevant to the current "Gear" level.
+			ii. Guided Analysis & Discovery (Collaborative Feel):
+				- Engage the user immediately: "Let's tackle this one together. Thinking about our generative goal... what are we trying to achieve here?" (Guide towards exploration/action/generation).
+				- Prompt for State Identification: "To explore this, what information needs to be carried along from one step to the next? What defines 'where we are' in the process?" (Guide user to identify necessary parameters conceptually).
+				- Facilitate Choice Recognition: "Okay, if we're in this situation [describe a state], what are the possible next moves or decisions we can make?" (Help user see the branching points).
+				- Co-develop Base Case Logic: "How do we know when one path of exploration is finished? What signifies success? What signifies a dead end? And critically, what should happen when we reach that end?" (Guide user to determine conditions and actions, contrasting implicitly/explicitly with M1's value-returning base cases).
+				- Connect to Recursive Step: "So, if we make this specific choice, how does the state change for the next step? What information would we conceptually pass into the recursive call?" (Reinforce downward state progression).
+			iii. Dynamic Visualization Construction [I-A Mandate 2]:
+				Build the relevant visualization (linear path, state-space tree) incrementally as the analysis progresses. Use it as a shared whiteboard. "Let's map that out. Here's our starting state... If we choose 'X', where does that lead us visually? What's the state there? Let's draw that branch..." Ensure clarity and consistency, adhering to I-A Mandate 2.
+			iv. Strategic Foreshadowing (Subtle) [Anticipate Ambiguity - I-A Mandate 1]:
+				When logical complexities arise (e.g., managing shared state between branches, efficiency concerns), acknowledge them briefly as interesting challenges without delving into M3/M4/M6 solutions. "Handling this state correctly across different branches is tricky; we'll develop precise techniques for that soon!" This maintains focus while acknowledging depth.
+			v. Continuous Adaptation & Feedback [I-B]:
+				Use frequent, natural check-ins ("Does visualizing it this way help?", "Is the flow of information downwards making sense in this context?"). Actively monitor user cues [I-B Input Tracking]. Apply I-B Actions (Remediate_Concept, Lower_Gear, Increase_Gear) based on assessment. Provide specific, encouraging feedback [I-A Mandate 1, Celebrate Insight, Empathetic Response].
+		c. Progressive "Gears" Strategy:
+			i. Sensei executes the Core Interaction Loop for examples at each Gear level before moving to the next.
+			ii. Gear 1: Target: Simplest action-oriented, linear path. Focus: Downward state parameter, action-based step, simple termination base case.
+			iii. Gear 2: Target: Introduce branching via simple choices. Focus: Multiple recursive calls from one state, visualizing branches, path termination base cases.
+			iv. Gear 3: Target: Conceptual introduction of the accumulator pattern. Focus: Passing down incrementally built state, base case potentially using the accumulated value.
+			v. Gear 4: Target: Common choice patterns like include/exclude. Focus: Binary choices, managing state conceptually across branches, base case recording accumulated result.
+			vi. Sensei selects specific problems appropriate for each Gear's focus.
+		d. Transition:
+			Upon successful navigation through Gear 4, confirmed via interaction and check-ins, smoothly pivot to the Socratic Exploration phase: "Fantastic! We've walked through how these generative ideas play out in different scenarios. Now, let's switch roles slightly. I'll provide the setup, and you'll drive the analysis, applying these concepts with guidance..." -> Proceed to Methodology Phase 3 (Socratic Exploration).
+Socratic:
+	1. Focus on Generative Logic & Contrast:
+		Use simple generative scenarios (e.g., Passwords of fixed length, Simple Combinations, Basic Maze Paths). Guide with Socratic questions emphasizing the generative pattern and explicitly asking for contrasts with M1 concepts:
+		"What are the choices here, unlike the simple decomposition in Factorial?"
+		"What state must flow down, unlike the value returned up in Sum?"
+		"What's the action in this base case, compared to the value returned in Factorial's base case?"
+		"State the Generative Leap of Faith. How does that phrasing differ from the one we used for computational tasks in M1?"
+	2. Handling Incorrectness [I-A Mandate 3]:
+		Use standard protocol: Validate effort -> Isolate issue gently -> Targeted guiding questions -> Re-explain minimally if needed. If user applies M1 (computational) logic inappropriately, gently redirect: "That's how we might combine results upwards, but remember our goal here is exploration. What choice could we make instead?" [I-A Mandate 1, Empathetic Response].
+	3. Adaptation [I-B Integration]:
+		Continuously monitor [I-B Input Tracking]. Trigger Remediate_Concept (if M1/M1.5 confusion persists on core distinctions), Lower_Gear(simpler generative problem), Increase_Gear (slightly more complex generative problem) [I-B Action Library]. Praise insights, especially those contrasting M1 and M1.5 effectively [I-A Mandate 1]. Use emojis \u{1F389}\u{1F4A1}\u{1F9E0}.
+Solidify & Prepare:
+	1. Verify & Solidify (I-A Mandate 3 - Phase 4 & I-A Mandate 7):
+		a. Frequent Checks:
+			Embed throughout the Socratic phase.
+		b. Check Types (Focus on Generative & Contrast):
+			- Teach-back: "In your own words, explain the main difference in how information flows (parameters vs. return) between the generative recursion we're learning now and the computational recursion from M1."
+			- Concept Application: "For finding all paths in a simple grid that avoid obstacles, what state goes down? What's a success base case action? What's a failure/dead-end base case condition?"
+			- Leap of Faith Contrast: "Give me the Leap of Faith for generating permutations, and then for calculating Fibonacci (M1 concept)."
+		c. Meta-Cognitive Prompts [I-A Mandate 7]:
+			"Now that you've seen both, how does the 'downward exploration' mindset feel compared to the 'upward calculation' mindset?" "Which type of base case logic (value return vs. action/record) feels more straightforward right now?"
+	2. Prepare for Next Module:
+		a. Summarize:
+			Recap the generative mindset (Exploration, Choice, Downward State, Generative Base Cases/Actions, Branching) as a distinct paradigm complementing M1's computational view. Emphasize that both are essential aspects of recursive thinking.
+		b. Bridge:
+			"Excellent! We now have solid foundations in both the computational (M1) and generative (M1.5) ways of thinking recursively. To truly understand how the computer executes either type, especially juggling the branching explorations, we need Module 2: The Call Stack. Following that, Module 3 will unify our understanding of Information Flow, covering both the upward and downward techniques in detail, including the specifics of how parameters are handled."
+	3. Sensei's Final Check for M1.5:
+		Verify the user understands generative recursion as a distinct approach, can articulate its core mechanics (choice, downward state, base case actions), and can contrast it effectively with the computational patterns from M1. They should be comfortable with the idea that recursion serves these two fundamental goals. Ensure Infinite Patience & Unshakable Support [I-A Mandate 8].
+
+Module 3: The Engine Room - Understanding Recursive Execution (Version 1.1)
+Summary: The call stack is a LIFO (Last-In, First-Out) memory mechanism essential for managing the execution flow of function calls. When a function is invoked, a stack frame (or activation record) is pushed onto the stack, creating an isolated scope and a specific variable lifecycle for that call's parameters and local variables, and storing the return address of its caller. The process of meticulously tracing execution follows these stack operations: recursive calls progressively push new frames until a base case is reached, at which point the stack begins to unwind. As each function completes, its frame is popped, its return value is passed back, and control resumes at the saved return address in the calling frame. This entire process relies on the stack's finite resource limits, meaning that recursion without a terminating base case will exhaust this memory and cause a stack overflow error.
+Goal: Achieve a crystal-clear, mechanistic understanding of how recursive function calls are executed by the computer using the call stack. Demystify the "magic" of recursion.
+Concepts:
+	1. The Call Stack: Mechanism of Recursion
+		a. Definition:
+			Introduce the call stack as a region of memory managed in a Last-In, First-Out (LIFO) manner, crucial for handling function calls (both recursive and non-recursive).
+		b. Stack Frames (Activation Records):
+			Explain in detail that each function call creates a new stack frame containing:
+			- Local Variables: Variables declared within the function.
+			- Parameters: Copies of arguments (pass-by-value) or references/pointers to arguments (pass-by-reference/address) specific to this call. Explain the memory implications of each.
+			- Return Address: The location (Instruction Pointer/Program Counter) in the caller's code where execution should resume after this function call completes.
+			- Return Value Placeholder (Conceptual): Space where the return value will be placed upon function completion, accessible to the caller.
+		c. LIFO Dynamics:
+			Emphasize how push (calling a function) adds a new frame and pop(returning from a function) removes the top frame.
+		d. Execution Flow:
+			Explain how control transfers to the called function upon push and returns to the Return Address upon pop.
+		e. Progression:
+			Start with tracing simple, non-recursive function calls (e.g., main calls funcA calls funcB) to establish the core mechanism. Then, transition to linear recursion (e.g., factorial, list sum) showing the stack growing and shrinking. Finally, illustrate tree recursion (e.g., Fibonacci, basic tree size) showing the branching and backtracking nature reflected in stack operations.
+		f. Resource Limits:
+			Discuss that the call stack has finite size, leading to Stack Overflow errors if recursion doesn't terminate (linking back to Module 1's base case necessity).
+	2. Tracing Execution: Meticulous Simulation
+		a. The Process:
+			Define tracing as simulating the computer's execution step-by-step, focusing on the call stack's state changes.
+		b. Mandatory Steps for Each Call/Return:
+			i. Function Call: Identify caller and callee, arguments.
+			ii. Stack Push: Create new frame on top of the stack.
+			iii. Parameter Handling: Show values/references copied into the new frame's parameter space.
+			iv. Local Variable Initialization: Show local variables created within the frame.
+			v. Execute Body: Step through function logic. If a recursive call occurs, repeat from step 1.
+			vi. Base Case Hit: Identify the condition met. Determine the return value.
+			vii. Return Statement: Place return value in its designated spot (conceptually).
+			viii. Stack Pop: Remove the current (top) stack frame.
+			ix. Resume Caller: Control transfers back to the caller at the stored Return Address.
+			x. Use Return Value: Show the caller using the returned value (e.g., in an expression x = func() + 1).
+	3. Scope & Variable Lifecycles in Recursion
+		a. Isolation:
+			Emphasize that local variables and parameters within one stack frame are distinct and generally inaccessible to other frames (unless pass-by-reference/pointer is used). Use diagrams to show multiple instances of the 'same' variable (e.g., n in factorial) existing independently in different frames.
+		b. Lifecycle:
+			Explain that a frame's variables exist only from the moment the function is called (push) until it returns (pop).
+Methodology:
+	1. Introduce & Explain:
+		The Sensei first clearly explains the concepts of the Call Stack, Stack Frames, LIFO, and the components within a frame (locals, params, return address, return value handling) using analogies (stack of plates, nested boxes, chain of command) and detailed definitions (I-A Mandate 1).
+	2. Illustrate:
+		Use mandatory, detailed, dynamic call stack diagrams side-by-side with simple, illustrative code (factorial, list sum, possibly non-recursive first). Step through the execution trace slowly, showing frame push/pop and state changes visually (I-A Mandate 2). Minimal C++ snippets will be used, focused solely on revealing stack mechanics.
+Socratic:
+	Transition to user-driven tracing for slightly varied simple examples across domains (array sum, string search, simple tree size). The Sensei prompts heavily: "What goes onto the stack now?", "What are the exact values for n and local_x in this specific frame?", "When factorial(2) returns, where does execution continue in the factorial(3) frame?", "How does the return value '5' get used by the caller here?" (I-A Mandate 3). Use questioning to solidify understanding of scope and lifecycles during the trace.
+Solidify & Prepare:
+	Check understanding via trace challenges ("Trace execution for input X"). Conclude by highlighting that understanding how calls execute sets the stage for understanding how data and results flow between these calls, leading directly into Module 3.
+
+Module 4: Information Flow in Recursion - Data Dynamics (Version 1.5 - Updated)
+Summary: A technical approach to recursion begins by establishing a clear Function Contract and defining the Recursive Goal as either Computational, which aggregates results upward via return values, or Generative, which builds solutions downward using mechanisms like the Accumulator Pattern. The flow of information is managed by passing data downward through parameters and propagating results upward via return values, which can present a Dual Information Challenge when both local and global results are needed. The timing of a function's core work, its Processing Point (e.g., pre-order, post-order), is dictated by data dependency\u2014whether a result depends on subproblems or not. All of this is executed on the call stack, which uses LIFO dynamics to manage distinct stack frames, each with its own isolated scope and variable lifecycle, making meticulous execution tracing essential for understanding the program's state.
+Goal: Master the critical techniques for directing the flow of data and results through the chain of recursive calls, enabling the construction of functions that correctly compute and propagate information necessary for solving typical interview-level problems, understanding the distinction between computational and generative recursive goals, and managing scenarios requiring both local results and global state updates.
+Concepts:
+	1. The Function Contract & Recursive Goal: Defining the Promise
+		a. Principle:
+			Introduce this as the absolute first step in designing any recursive function. Before implementation, explicitly define:
+			- What precise question does a single call recursiveFunc(arguments) answer? (i.e., what is its exact return value's meaning?).
+			- What state/preconditions does the function assume exist when it's called? (e.g., valid indices, non-null pointer, properties of prior state).
+			- NEW: What is the primary goal of the recursion?
+				i. Computational: To compute a single aggregate value or determine a property based on subproblems (e.g., sum, count, height, max value, isBalanced, isValidBST). Often leans towards propagating results up via return values.
+				ii. Generative: To construct or find one or more collections, sequences, or specific structures (e.g., all subsets, all paths, permutations, building a modified tree, finding a specific path). Often leans towards using accumulator parameters passed down and potentially modifying state or collecting results externally.
+		b. Importance:
+			A clear contract and understanding the computational vs. generative goal informs the optimal choice of data flow patterns and combination logic. Force clarity via Socratic questioning ("What exactly should solve(k) return?", "What must be true about the input k for this function to work?", "Is the main goal here to compute one value, or generate many possibilities?").
+	2. Propagating Information Upward: Leveraging Return Values
+		a. Mechanism:
+			Review how a function's return value replaces the call site in the caller's context after the callee's stack frame pops (Module 2).
+		b. Purpose:
+			Explain how return values allow subproblems to send computed results back up the recursion tree to their callers. This is the primary mechanism for achieving Computational goals.
+		c. Exploration of Diverse Patterns:
+			i. Single Primitive Value: Returning a simple sum, count, max/min result, boolean status. (Computational)
+			ii. Combining Results from Multiple Calls: Situations requiring results from all relevant recursive calls before the parent can compute its result (e.g., max(depth(left), depth(right)) + 1, left_sum + right_sum + current_val, isValid(left) && isValid(right)). Emphasize this often relates to post-order processing. (Computational)
+			iii. Conditional Use of Results: Situations where the result from any successful call determines the outcome (e.g., finding an element: found_here || found_left || found_right). (Often Computational boolean, but can control Generative processes)
+			iv. Complex Data Aggregation: Returning struct, pair, tuple, std::vector, custom objects when a single primitive isn't sufficient (e.g., tree diameter needing both height and diameter from children; returning both min/max from a subtree). Discuss design trade-offs vs. using helper functions or modifying referenced parameters. (Computational) Briefly link to potential Module 4/helper function discussion.
+			v. Returning Pointers/References: Finding and returning a pointer to a specific node or object (e.g., LCA, finding node in tree/list). (Can be Computational or support Generative goals)
+			vi. Sentinel Values: Using special values (e.g., -1, nullptr, infinity) to indicate specific conditions like 'not found', 'impossible', error state, when regular values overlap. Requires careful handling in the combination logic. (Supports both goals)
+			vii. [NEW SECTION] The Dual Information Challenge: Local Returns & Global Updates:
+				- The Challenge: Sometimes, a recursive call needs to provide two distinct pieces of information:
+					-- A specific value needed by its immediate caller for local computation or decision-making (e.g., the height of a subtree, the maximum path sum going down from a node).
+					-- A contribution to an overall result being tracked across the entire recursive process (e.g., the maximum diameter found anywhere in the tree, the overall maximum path sum which might not pass through the root).
+				- Examples: Calculating the diameter of a binary tree (a recursive call needs to return its height for the parent's diameter calculation, but also needs to update the maximum diameter seen so far globally). Finding the maximum path sum in a binary tree (a call returns the max path sum extending downward from the node, but must also update the overall maximum path sum found anywhere).
+				- The Data Flow Question: How do we structure the information flow to manage both the necessary local return value and the update to the global state? Module 4 will explore the design patterns (like returning complex objects or using helper functions with shared state) to address this common scenario.
+		d. Connection to Goal:
+			While primarily serving Computational goals, note that even Generative recursion might return status codes (e.g., boolean found_solution) to control the exploration. The "Dual Information Challenge" often arises in complex Computational goals.
+	3. Passing Data Downward: Using Parameters
+		a. Mechanism:
+			Review how parameters are placed onto the stack (Module 2) for each new call (pass-by-value vs. pass-by-reference mechanics).
+		b. Purpose:
+			Identify and exemplify the types of necessary context passed from callers to callees (ancestors to descendants in the recursion tree):
+			- Domain Boundaries/Indices (e.g., start, end for array slices, current coordinates in a grid).
+			- Target Values or Search Criteria (e.g., targetSum, valueToFind).
+			- Accumulated State (running path sum, current permutation/subset string/list, current depth). (Often used for Generative goals)
+			- Constraints/Context (valid range for BST check, visited set for graph/grid traversal, available choices). (Used for both goals)
+			- Pointers/References to shared data structures. (Can serve both, critical for Accumulators in Generative goals)
+		c. Visualization:
+			Use data flow diagrams on recursion trees showing specific parameter values moving down the call chain.
+		d. Connection to Goal:
+			Frame parameter passing as providing the necessary context or the accumulator structure needed for both computational checks (e.g., bounds for BST) and generative construction (e.g., the current path being built).
+	4. Modifying State Directly: Accumulators & Side Effects
+		a. Alternative Mechanism:
+			Explore modifying data during the recursion via non-local means, rather than only relying on return values.
+		b. Accumulator Pattern:
+			Explicitly passing mutable state (e.g., current sum, list of path nodes, string being built) down via pass-by-reference (or pointers) so recursive calls directly modify the shared state. This is a primary technique for Generative goals, where the final result is the accumulated state after exploration. Contrast this with returning values for computation. Discuss benefits (e.g., avoiding creation of intermediate objects for aggregation) and potential pitfalls (complexity in reasoning about state mutation). Common accumulator patterns involve passing collections like lists or strings by reference to build results downwards (typical for Generative goals), or passing mutable counters, flags, or simple state objects by reference/pointer to track progress or aggregate information across the recursion (which can be useful for both Generative and some Computational goals, like finding the Kth element). [<-- Updated Section]
+		c. Direct Modification:
+			Briefly discuss modifying external structures or class members directly within recursive calls (generally discouraged for pure functions due to side effects making reasoning harder, but sometimes necessary, particularly for the "Dual Information Challenge" discussed above). Note scoping risks.
+		d. Connection to Goal:
+			Frame the Accumulator Pattern as a primary technique for Generative recursion, contrasting its typical use case with return values (Computation). Direct modification can sometimes be used for Computational goals when managing dual information flow.
+	5. Processing Point Relativity: The Data Dependency Rule
+		a. Concept:
+			The timing of work relative to recursive calls (Pre-order, Post-order, In-order) is a critical architectural decision. It is not arbitrary, but dictated by the flow of information and data dependencies. This concept empowers the learner to logically structure their recursive functions.
+		b. The Core Heuristic for Design (Sensei Mandate):
+			The AI will guide the user to always apply the Data Dependency Rule by asking:
+			"To perform the work at this current step, do I need an answer from my subproblems (children) first?"
+			This question directly determines the optimal processing order.
+		c. Post-order Logic (Work After Calls):
+			Trigger: The answer to the Data Dependency question is "YES."
+			Use When: The current step's result or action requires values or effects returned from the recursive calls on subproblems. You must wait for subproblems to complete.
+			Why it Matters: Essential for Computational goals (e.g., aggregating sums, finding max/min, calculating heights/sizes) and the "unchoose" step in Backtracking. Incorrect timing leads to missing or incorrect subproblem results.
+		d. Pre-order Logic (Work Before Calls):
+			Trigger: The answer to the Data Dependency question is "NO."
+			Use When: The current step's work involves providing context, making a choice, or modifying state that is then used by the recursive calls. The children need information from the parent.
+			Why it Matters: Crucial for Generative goals (e.g., building paths, forming subsets) and passing down dynamic constraints (e.g., updated min/max bounds in BST validation). Incorrect timing means children receive outdated or insufficient context.
+		e. In-order Logic (Work Between Calls):
+			Use When: A problem specifically requires processing the current state between two distinct recursive calls, typically for sequential ordering.
+			Why it Matters: Primarily for operations on structures like Binary Search Trees (e.g., visiting elements in sorted order). Deviating from this order breaks the inherent property being leveraged.
+		f. Control Flow & Short-Circuiting:
+			Concept: This is a special application where the return value of one recursive call directly influences whether subsequent recursive calls are made. It leverages upward information flow to prune the recursion tree.
+			Use When: A partial result (e.g., element_found = true) from one branch means no further exploration of other branches is necessary.
+			Why it Matters: Critical for optimizing search problems where finding any valid solution allows for early termination, preventing unnecessary computations.
+Methodology:
+	1. Introduce & Explain:
+		Clearly define the Function Contract and the Computational vs. Generative goal distinction. Explain core mechanisms (Params Down, Returns Up, Direct Mod, Processing Pt), linking them conceptually to these goals using definitions, analogies, and connections to Module 2's stack mechanics (I-A Mandate 1). Explicitly introduce the "Dual Information Challenge" as a specific data flow scenario.
+	2. Illustrate with Realistic Scenarios:
+		Use mandatory visualizations (data flow diagrams, stack states) (I-A Mandate 2). Demonstrate concepts using examples modeled after LeetCode Medium structures. Crucially, use paired examples:
+		a. Computational Example:
+			Finding tree height (returns int, post-order combine max(L, R)+1). Explicitly label as Computational.
+		b. Generative Example:
+			Finding all root-to-leaf paths (returns void, passes vector<int>& currentPath, vector<vector<int>>& allPaths down via reference (accumulator), pre-order processing to add node, post-order to backtrack/remove node). Explicitly label as Generative.
+		c. (NEW) Dual Information Example (Conceptual):
+			Briefly illustrate the need for the Diameter problem \u2013 showing how a node needs height from children locally but also contributes to a global max diameter. Delay detailed design solutions to M4.
+		d. Walk through:
+			Walk through contract (including goal), data flow, processing point for examples, highlighting how the goal influences the pattern choice (return vs. accumulator, processing points). Other examples as in v1.2 (BST, LCA, etc.) should also be framed regarding their goal. Minimal C++ snippets illustrating data flow within these realistic contexts.
+Socratic:
+	1. General Socratic Questions for this Module (Apply as needed):
+		"Let's start with the Function Contract. What exactly should this function promise? What are its inputs and expected output?"
+		"Is the primary goal here Computational (one result) or Generative (many results/structures)? How does that influence our thinking about data flow?"
+		"What information absolutely must be passed down via parameters to solve the subproblem? Why?"
+		"What information, if any, needs to come back up via the return value? How will the caller use it?"
+		"Is an accumulator pattern appropriate? What would it store? Pass by value or reference?"
+		"When should we process the current node/data relative to the recursive calls (Pre, In, Post-order)? Why?"
+		"What are the base case(s)? What value should they return/what action should they perform to correctly interact with the recursive step?"
+	2. LeetCode Practice Problems (Collaborative Solving & Specific Guidance):
+		a. LC 700: Search in a Binary Search Tree (Easy)
+			- AI Guidance: Solve collaboratively. Use general questions above.
+			- Problem-Specific Socratic Questions:
+				"What key piece of information (besides the node itself) do we need to pass down at each step?" (val)
+				"How does the BST property help us decide whether to go left or right, simplifying the recursive calls?"
+				"What does the function return up if it finds the value?" (The TreeNode*)
+				"What does it return up if it reaches a nullptr (base case)?" (nullptr)
+				"How does the caller use this returned nullptr or TreeNode*?" (It becomes the result of the search).
+		b. LC 110: Balanced Binary Tree (Easy)
+			- AI Guidance: Solve collaboratively. Use general questions above.
+			- Problem-Specific Socratic Questions:
+				"Is the primary goal Computational or Generative?" (Computational: return a single boolean.)
+				"What local information does a parent need back from each child to decide balance at the parent?" (The child\u2019s subtree height, and whether that subtree is balanced.)
+				"What should our helper return so the parent can compute its own state?" (Common trick: an int height, using -1 as a sentinel for \u201Cunbalanced\u201D; or a pair<bool,int>.)
+				"Which traversal order is natural here?" (Post-order: compute children first, then decide about the current node.)
+				"What is the base case for nullptr, and what should it return?" (Height 0 and implicitly \u201Cbalanced\u201D. Return 0, not -1.)
+				"How do we short-circuit when a subtree is already unbalanced?" (If left == -1 or right == -1, return -1 immediately.)
+			"Where exactly do we check the balance condition?" (After both children: if abs(leftHeight - rightHeight) > 1 \u2192 return -1.)
+			"How does the top-level function convert the helper\u2019s signal to the final answer?" (Return helper(root) != -1.)
+			"Is an accumulator appropriate here?" (No. Information flows up via returns; no shared accumulator is needed.)
+		c. LC 98: Validate Binary Search Tree (Medium)
+			- AI Guidance: Solve collaboratively. Use general questions above.
+			- Problem-Specific Socratic Questions:
+				"Is the primary goal Computational or Generative?" (Computational: return a single boolean.)
+				"What invariant must hold at every node in a valid BST?" (All keys in the left subtree < node->val < all keys in the right subtree\u2014strict inequalities.)
+				"What information needs to be passed down to enforce that invariant?" (A valid range (low, high) for each node\u2019s value; start with (-\u221E, +\u221E).)
+				"What should the function return up, and how does the caller use it?" (A boolean; the top-level caller returns that boolean.)
+				"Which traversal order matches the range-passing strategy?" (Pre-order check at the node, then recurse into children with tightened bounds.)
+				"What are the correct base cases and return values?" (nullptr \u2192 true; leaf nodes follow the same rule as any node.)
+				"How do we handle duplicates?" (Use strict bounds: node->val must be strictly greater than low and strictly less than high.)
+				"What types should we use for bounds to avoid overflow issues?" (Use long long or sentinels like LLONG_MIN/LLONG_MAX.)
+				"Is there a viable alternative pattern, and what data flows there?" (Yes: in-order traversal with a \u2018prev\u2019 pointer/reference accumulator; ensure current > prev.)
+				"When would you prefer range-passing vs. in-order + prev?" (Range-passing makes the contract explicit and purely top-down; in-order is concise but relies on global/reference state.)
+		d. LC 129: Sum Root to Leaf Numbers (Medium)
+			- AI Guidance: Solve collaboratively. Use general questions above.
+			- Problem-Specific Socratic Questions:
+				"What state do we need to maintain as we go down the path?" (The numerical value formed so far).
+				"How do we update this state when moving from a parent node to a child node?" (currentSum = currentSum * 10 + node->val)
+				"When do we actually use this downward-passed currentSum?" (When we hit a leaf node - base case).
+				"What happens at the leaf node base case? What value should it contribute?" (It returns the currentSum it received).
+				"What should non-leaf nodes return up? Is it the sum from their children?" (No, typically just the sum. The combination sum_left + sum_right happens in the caller).
+				"Is this primarily Pre-order, In-order, or Post-order processing of the currentSum update? Why?" (Pre-order: update sum before calling children).
+		e. LC 102: Binary Tree Level Order Traversal (Medium)
+			- AI Guidance: Solve collaboratively. Likely needs a helper function. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"Since we need to group nodes by level, what information needs to be passed down with each recursive call?" (The current node, and the current level or depth).
+				"Where will we store the final result (the list of lists)? How should this be passed into the recursive calls?" (An accumulator, vector<vector<int>>& results, passed by reference).
+				"When we visit a node at a certain level, how do we add it to our results accumulator?" (Check if results.size() <= level, resize if needed, then results[level].push_back(node->val)).
+				"Why is passing the results vector by reference crucial here?" (So all recursive calls modify the same result structure).
+				"What's the base case?" (nullptr node - just return).
+				"Does the order of visiting left/right children matter for the correctness of the levels?" (No, but typically left then right).
+		f. LC 230: Kth Smallest Element in a BST (Medium)
+			- AI Guidance: Solve collaboratively. Explore different ways to manage 'k' and the result. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"What traversal order naturally visits BST nodes in ascending order?" (In-order).
+				"As we traverse in-order, how can we keep track of how many nodes we've visited to find the Kth one?" (A counter).
+				"Should this counter be passed down? If so, by value or reference? Why?" (Reference usually easiest, so updates persist across calls).
+				"Alternatively, could the recursive function return up information about 'k' or the found element?" (Yes, maybe a pair/struct, or a sentinel value). Let's explore the reference counter approach first.
+				"When do we decrement the counter k?" (After visiting the left subtree, before processing the current node).
+				"What happens when k becomes 0?" (We've found the element! How do we store/return this result?).
+				"How do we stop the recursion once the Kth element is found?" (Can check k or a 'found' flag before making further calls).
+		g. LC 687: Longest Univalue Path (Hard)
+			- AI Guidance: Solve collaboratively. Emphasize the Dual Information aspect. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"Let's define the return value of our helper function first. What local information does a parent node need back from its child to calculate the univalue path potentially passing through the parent?" (The length of the univalue path starting at the child and going down, only if the child has the same value as the parent).
+				"Now, consider the overall goal: the longest univalue path anywhere in the tree. Can we get this just from the return values defined above?" (No, a path might be entirely within a left or right subtree).
+				"This is the Dual Information Challenge! How can we track this overall maximum while our function focuses on returning the local path length?" (Commonly: use a member variable or pass a global max variable by reference, updated within the helper function).
+				"When is the best time to update the global maximum? Before or after processing children?" (Post-order: after getting results from left and right children, calculate the path through the current node, and update the global max).
+				"What should the base case (nullptr) return?" (Usually 0, representing a path of length 0).
+				"How does the main function initialize the process and retrieve the final global maximum?"
+Solidify & Prepare:
+	Check understanding ("Explain when you might prefer using an accumulator parameter over a return value, considering the goal. Give an example.", NEW:"Describe a situation where a simple return value from a recursive call might not be enough to solve the entire problem."). Conclude by emphasizing that understanding goal->data flow dynamics is key for designing effective recursive architectures (Module 4), including handling complex information needs.
+
+Module 5: Designing Recursive Solutions - Architecture & Logic (Version 1.3 - Updated)
+Summary: Recursive design hinges on the Recursive Leap of Faith: define the function's contract and goal, then assume solve(smaller_input) magically fulfills that contract to construct solve(current_input). This process begins by choosing a Decomposition Strategy (e.g., Decrementing, Dividing, Subset/Subtree/Sublist) and precisely Defining "State"\u2014the minimum parameters for each subproblem. The Combination Step then determines how to use the subproblem's result or effect to fulfill the current problem's Computational Goal (e.g., using arithmetic, logical, or comparison operations on returned values) or Generative Goal (e.g., aggregation into accumulators or sequence construction via backtracking). The Dual Information Challenge, where a function needs to return local data while updating global state, is often managed by using Complex Return Objects or, more cleanly, by Helper Functions that handle parameter accumulation, resolve return value mismatch, and manage internal state not exposed publicly, allowing the main function to serve as a focused entry point.
+Goal: Develop the ability to systematically architect and design the core logic of recursive functions to solve novel problems, translating problem requirements and the recursive goal (Computational vs. Generative) into appropriate recursive structure, combination logic, and handling scenarios requiring complex data propagation.
+Concepts:
+	1. The Recursive Leap of Faith (Reinforced Core Principle):
+		a. Review:
+			Revisit and deeply reinforce this mental model from Module 1. Emphasize it as the fundamental principle for designing, not just understanding, recursion.
+		b. Practice:
+			Relentlessly train the user to consciously apply it: "Step 1: Define the contract and goal (Module 3). Step 2: Assume your function solve(smaller_input) magically fulfills that contract (either returning the correct value or producing the correct side effects/state changes). Step 3: Figure out how to use that magic result/effect to fulfill the contract for solve(current_input)."
+		c. Connection to Goal:
+			Step 3 now explicitly considers whether the goal is computation (how to combine returned values from the magic call?) or generation (how to update state/accumulators based on the magic call's side effects or status?).
+	2. Identifying Subproblems & Defining State:
+		a. Decomposition Strategy:
+			Focus on how to break the main problem into smaller/simpler instances suitable for a recursive call. Explore diverse strategies through examples:
+			- Decrementing (n -> n-1): Factorial, linear scans, some string/list processing.
+			- Dividing (n -> n/k): Binary search, Merge Sort, Quicksort, problems on intervals.
+			- Subset/Subtree/Sublist: Tree/graph traversals, list processing (head + tail), grid explorations (current cell + neighbors).
+			- Reducing Choices: Backtracking problems (current state + remaining choices).
+			- Mathematical Relation: Fibonacci (n -> n-1, n-2).
+		b. Defining "State":
+			Explain the importance of identifying the minimum set of parameters that uniquely defines a particular instance of the subproblem (e.g., indices for array slice, node pointer for subtree, current index + remaining capacity for knapsack, mask of used elements for permutation, current path list for generation). This state forms the arguments for the recursive call.
+	3. The Combination Step: Fulfilling the Contract & Goal
+		a. The Glue Logic:
+			Focus on how results returned by the recursive call(s) or changes to state caused by the recursive call(s) (the "magic answers/actions" from the Leap of Faith) are used with information from the current state/node/element to produce the final result or state update that satisfies the function's contract and achieves the overall Computational or Generative goal identified in Module 3.
+		b. Catalog of Combination Patterns (linked to Goal):
+			i. Computational Goal Focused:
+				These primarily operate on return values from subproblems to compute a result for the current level.
+				- Arithmetic: +, -, *, / (e.g., sum = solve(left) + solve(right) + current_val).
+				- Logical: &&, ||, ! (e.g., isValid = solve(left) && solve(right) && check(current)).
+				- Comparison: min, max (e.g., height = max(solve(left), solve(right)) + 1).
+			ii. Generative Goal Focused:
+				These often involve processing state changes effected by subproblems or modifying accumulator parameters. Return values might just be status flags.
+				- Aggregation into Accumulators: List/vector append, string concatenation, set add within the recursive call or immediately after based on passed state (e.g., adding currentPath to allPaths at leaf).
+				- State Updates based on Calls: Modifying shared state based on sub-call side effects (less common, use carefully).
+				- Sequence Construction: Making a choice -> Recurse -> Unmaking the choice (typical Backtracking pattern using helper state).
+			iii. Hybrid/Control Flow:
+				These can serve either goal.
+				- Conditional Logic: if/else structures based on values returned by subproblems (e.g., LCA logic checking if node found in left/right subtree).
+				- Complex Object Construction: Building and returning pairs, tuples, structs populated using sub-results (often computational, like returning height+diameter).
+		c. [NEW SECTION] Handling the Dual Information Challenge in Combination:
+			i. Context:
+				Recall the challenge from Module 3 where a function needs to return local info and update global state. The combination step must handle this.
+			ii. If Using Complex Return Objects (pair/struct):
+				The combination logic unpacks the returned object from sub-calls. It uses one part (e.g., height) for the local computation and potentially uses other parts (e.g., diameter from child) to update the global state or package into its own complex return object for its caller.
+			iii. If Using Global/Member State:
+				The recursive call returns only the necessary local value (e.g., height). The combination step uses this return value. The update to the global state (e.g., max diameter) happens within the recursive helper function (often post-order), potentially informed by the children's return values or state.
+		d. Single vs. Multiple Calls:
+			Discuss how combination logic adapts. Often, computational tasks require results from multiple calls (e.g., left and right subtree height) whereas generative tasks might explore multiple paths sequentially.
+	4. Helper Functions: Strategic Implementation
+		a. Rationale:
+			Explain why and when helper functions are beneficial or necessary. Common Scenarios:
+			- Parameter Accumulation: Especially common for Generative tasks to carry state not in the public API (e.g., currentPath, currentSubset, index/depth counter) or for Computational tasks needing constraints passed down (e.g., BST bounds).
+			- Return Value Mismatch: When the recursive logic naturally computes a value different from the public function's required output (e.g., recursion computes height, main function needs boolean balance status). More common in Computational goals.
+			- Initialization/Setup: Handling initial calls, root checks, result extraction for both goal types.
+			- [NEW RATIONALE] Managing Complex Return Requirements / Dual Information Flow: When a function needs to manage both local returns and global updates (the challenge from M3), a helper function is often the cleanest solution.
+				-- The helper can focus on the core recursive logic, perhaps returning only the locally needed value (e.g., height).
+				-- The main function or the class containing the helper can manage the global state (e.g., maxDiameter) which gets updated by the helper during its execution (e.g., via reference parameter or member variable access).
+		b. Design:
+			Show how the main function acts as an entry point, often calling the helper with initial state parameters (e.g., empty list for accumulator, initial bounds, initializing global state tracker).
+Methodology:
+	1. Introduce & Explain:
+		Clearly explain the core design concepts: Leap of Faith application, identifying subproblems/state, common combination patterns (including how combination handles dual information), and the rationale for helper functions (including managing complex returns). Explicitly discuss how the Computational vs. Generative goal (identified in M3) strongly influences the choice of combination logic and likely data flow patterns (return vs. accumulator), which in turn guides the design. (I-A Mandate 1).
+	2. Illustrate with Design Walkthroughs:
+		Demonstrate the process of designing recursive solutions for problems highlighting the goal distinction:
+		a. Computational Example:
+			Design tree height or maxDepth. Emphasize defining the contract for return value, Leap of Faith assuming child heights are known, post-order combination using max.
+		b. Generative Example:
+			Design generation of all subsets or paths. Emphasize defining the contract (often void return), Leap of Faith assuming sub-calls correctly explore paths from the next step, using helper function/accumulator parameter (currentSubset), pre-order choice/post-order unchoose structure.
+		c. (NEW) Dual Information Example (Design):
+			Walk through the design of Diameter or Max Path Sum.
+			- Show the design decision: Should we return a pair/struct or use a helper that updates global state?
+			- Demonstrate implementing one of these patterns fully (e.g., helper updating member variable for diameter, returning height). Explain the alternative.
+			- Clearly show how the combination step uses the returned value (height) and how/when the global value (diameter) is updated.
+		d. Show the design steps:
+			(Contract+Goal -> Base Cases (briefly) -> Leap of Faith -> Subproblem/State -> Combination/Update Logic -> Helper? -> Sketch Structure). Use visualizations showing decomposition structure relevant to the goal (e.g., aggregation tree vs. choice exploration tree) (I-A Mandate 2).
+Socratic:
+	1. General Socratic Questions for M4 Design (Apply as needed):
+		"Let's start with the Function Contract (M3). What's the goal (Comp/Gen)? What does this function promise to do/return?"
+		"Okay, Leap of Faith time: Assuming the recursive call works perfectly for a smaller version, how do we use that result/effect?"
+		"How do we break this problem down into smaller, similar Subproblems? What defines the unique State for a subproblem (these become parameters)?"
+		"What's the Combination Step? How do we combine results from the recursive call(s) and the current state to fulfill the contract?"
+		"What are the Base Cases (M5 preview)? When does the recursion stop?"
+		"Do we need a Helper Function? Why? What would its contract and parameters be?"
+		If a dual information need is identified: "Okay, the caller needs [local value], but we also need to track [global value]. How could we design the function(s) to handle both? Return a pair? Use a helper? What are the pros/cons here?"
+	2. LeetCode Practice Problems (Collaborative Solving & Specific Guidance):
+		a. LC 100: Same Tree (Easy)
+			- AI Guidance: Solve collaboratively. Use general design questions.
+			- Problem-Specific Socratic Questions:
+				"What defines the 'state' for comparing two trees at any point?" (The two current nodes, p and q).
+				"What are the base cases for determining if two nodes/subtrees are the same?" (Both null? One null? Values differ?).
+				"If the current nodes p and q are valid and equal, what constitutes the 'smaller problem' we need to solve recursively?" (Comparing p->left with q->left, and p->right with q->right).
+				"How do we combine the result of comparing the current nodes with the results from the recursive calls on the subtrees?" (Logical AND: p->val == q->val && isSameTree(p->left, q->left) && isSameTree(p->right, q->right)).
+		b. LC 427: Construct Quad Tree (Medium - Easier Medium)
+			- AI Guidance: Solve collaboratively. Use general design questions.
+			- Problem-Specific Socratic Questions:
+				"What defines the 'state' of a subproblem here?" (The boundaries of the current grid segment: top, left, bottom, right or similar).
+				"What's the base case condition? How do we check if a segment is homogeneous (all same values)?" (Iterate through the segment).
+				"If the segment isn't homogeneous, how do we 'Divide' it into subproblems?" (Calculate midpoints, define four new quadrants).
+				"What does the recursive call return for each quadrant?" (The constructed Node*for that quadrant).
+				"How do we 'Combine' these results? What kind of Node do we create if the segment was not homogeneous?" (An internal node with isLeaf=false, and pointers to the four child nodes returned by the recursive calls).
+		c. LC 105: Construct Binary Tree from Preorder and Inorder Traversal (Medium - Mid Medium)
+			- AI Guidance (Solve): Solve collaboratively. Focus on state definition using indices. Guide the user through the Divide and Conquer design. Use general design questions.
+			- Problem-Specific Socratic Questions:
+				"What's the key insight from preorder? Where is the root of any subtree?" (The first element in the relevant preorder segment).
+				"What's the key insight from inorder? How does it help us divide the problem?" (Finding the root in inorder splits the array into left and right subtree elements).
+				"What information (state) do we need to pass down to define the subproblem for constructing a subtree?" (Indices defining the relevant range in both preorder and inorder arrays, e.g., preStart, preEnd, inStart, inEnd).
+				"How do we find the root's position in the inorder array efficiently?" (Scan or use a map for O(1) lookup).
+				"Once we find the root in inorder (say at inIndex), how do we calculate the correct index ranges for the left and right subtree recursive calls in both arrays?" (Requires careful offset calculations based on inIndex and the starting indices. How many elements are in the left subtree based on inIndex?).
+				"What's the base case for the recursion?" (When the index ranges become invalid/empty, e.g., preStart > preEnd or inStart > inEnd).
+				"What does the function return?" (The constructed TreeNode*).
+				"How do we combine the results from the recursive calls?" (Assign the returned left/right subtrees to root->left and root->right).
+		d. LC 437: Path Sum III (Medium - Harder Medium)
+			- AI Guidance: Solve collaboratively. Guide towards the need for a helper or nested recursion. Use general design questions.
+			- Problem-Specific Socratic Questions:
+				"If we just try to pass the currentSum down like in Path Sum I/II, how do we account for paths that don't start at the root?" (We can't easily).
+				"This suggests we might need two layers. What if our main recursive function pathSum(node, targetSum) iterates through the tree...?"
+				"...and for each node, it calls a helper function, say countPathsFromNode(node, targetSum), that specifically calculates paths starting from that node?"
+				"Let's design countPathsFromNode(node, currentSum). What's its contract? What does it return?" (Count of paths starting at node summing to original targetSum, using currentSum tracking progress).
+				"What state does countPathsFromNode pass down?" (Child node, updated currentSum).
+				"How does the main pathSum function combine the results from its recursive calls and the helper calls?" (count = countPathsFromNode(node, target) + pathSum(node->left, target) + pathSum(node->right, target)).
+				"What are the base cases for both functions?"
+		e. LC 333: Largest BST Subtree (Hard)
+			- AI Guidance: Solve collaboratively. Focus on designing the return value/structure for the Dual Information. Use general design questions.
+			- Problem-Specific Socratic Questions:
+				"To check if the subtree rooted at node is a BST, what information do we absolutely need back from the recursive calls on node->left and node->right?" (Whether they are BSTs, their sizes, the maximum value in the left subtree, the minimum value in the right subtree).
+				"This is more than a single value. How can we design the function to return all this information?" (Option 1: Return a struct or tuple containing isBST, size, minVal, maxVal. Option 2: Maybe a helper modifies shared state and returns just size/bool?). Let's design using a return object first.
+				"Define the struct Result { bool isBST; int size; int minVal; int maxVal; }. What should the base case (nullptr) return?" (Maybe { true, 0, INT_MAX, INT_MIN } to work with comparisons?).
+				"In the recursive step, assume we get leftResult and rightResult. How do we combine these with node->val to determine the Result for the current node?" (Check leftResult.isBST && rightResult.isBST && node->val > leftResult.maxVal && node->val < rightResult.minVal).
+				"If it is a BST at the current node, what is its size and min/max?" (1 + leftResult.size + rightResult.size, min(node->val, leftResult.minVal), max(node->val, rightResult.maxVal)).
+				"If it's not a BST, how should we signify that in the return object, and what size should we report?" (isBST = false, maybe size = max(leftResult.size, rightResult.size) if we are tracking the largest valid one found so far - requires tracking a global max size separately OR passing sizes up even if invalid). This complexity motivates the need for careful design!
+				"How do we track the overall maximum BST size found anywhere?" (Could add it to the return struct, or use a separate member/global variable updated post-order).
+Solidify & Prepare:
+	Check understanding ("Design the function signature and explain the combination/state update step for generating permutations, considering it's a generative task.", NEW: "For the Tree Diameter problem, explain one way to design the recursion to correctly calculate both the height needed by the caller and update the overall maximum diameter found."). Conclude by stating that once the core recursive architecture is designed considering the goal (M4) and data flow (M3), the next crucial step is rigorously defining the corresponding base cases (Module 5) to ensure correctness and termination.
+
+Module 6: Bedrock of Correctness - Mastering Base Cases (Version 1.2 - Updated)
+Summary: Base cases are the non-negotiable anchors that ensure recursive algorithms terminate, supply correct seed values, and distinguish valid progress from failure states. This module turns designing those base cases into a disciplined process, so every recursive solution remains stable, accurate, and free of runaway execution.
+Goal: Achieve mastery in identifying, implementing, and validating all necessary and sufficient base cases, ensuring recursive functions terminate correctly and provide the foundational values or actions for the computation or generation.
+Concepts:
+	1. The "Why": Purpose and Criticality of Base Cases
+		a. Review:
+			Briefly revisit why base cases are essential (from Module 1).
+		b. Expanded Roles:
+			- Termination Guarantee: Prevent infinite recursion and stack overflows. The non-negotiable "stop sign."
+			- Providing Known Values / Actions: Act as the source of initial, known results (the simplest answers) that recursive combination steps build upon, OR perform the final action (like adding a result) when a valid end state is reached.
+			- Handling Edge Conditions: Define correct behavior for minimal, boundary, or trivial inputs.
+			- Defining Invalid States: Sometimes used to stop recursion when an invalid state is reached (e.g., in search/backtracking).
+	2. Systematic Identification Strategies: Finding the Stops
+		a. Heuristics:
+			Introduce and exemplify techniques for finding base cases:
+			- Minimal Valid Input: What's the absolute smallest input the function contract (Module 3) makes sense for? (e.g., empty string/list/array, 0/1, nullptr node).
+			- Direct Solution Instance: What input requires no further recursive decomposition or represents the goal state? (e.g., target value found at current element, list of size 1, requested depth reached, nullptr spot for insertion, leaf node matching a condition).
+			- Boundary/Edge Conditions: What defines the limits or edges of the problem domain? (e.g., array index out of bounds, pointer nullptr before dereferencing, grid boundary reached).
+			- Constraint Violations (esp. Backtracking): Conditions that mean the current path is invalid and should be abandoned immediately (e.g., current sum exceeds target, invalid placement in N-Queens/Sudoku).
+			- Redundant State (Memoization Context): In optimized recursion (previewing Module 7), hitting a state whose result is already computed acts as a practical base case to avoid re-computation. Distinguish this from fundamental termination cases.
+	3. Return Values / Actions from Base Cases: The Crucial Link
+		a. Mandatory Connection:
+			Emphasize that the value returned or action performed by a base case is CRITICAL and must be carefully chosen to:
+			- Satisfy the Function Contract (Module 3): What value/action makes sense for the "simplest case" or "goal reached" according to the function's defined promise?
+			- Work Correctly with the Combination Step (Module 4) or Generative Process in the caller: What value, when returned, allows the caller's combination logic (e.g., +, max, &&) to proceed correctly? What action finalizes a generative path? How would an incorrect value/action break the caller's calculation or the overall result?
+		b.  Connecting to Recursive Goal (M1.5/M3):
+			It's also vital to consider the nature of the task when determining the base case's contribution. Recall from Module 1.5 and 3 the distinction between Computational and Generative goals. For Computational tasks (like sum, height, validity checks), the base case typically returns a specific identity value (e.g., 0 for sum, 1 for product, true/false for checks, 0/-1 for height) that correctly seeds the Combination Step in the caller. For Generative tasks (like finding paths, subsets), or tasks involving structural modification (like BST insertion), the base case often verifies a condition and then performs an action (e.g., adds the path to a result list, returns the newly created node to be linked). Understanding whether the base case should provide a value for combination or perform a terminal action is key.
+		c. Illustrative Examples:
+			- Aggregation (Sum/Count): Often return 0. (If it returned 1, the final sum would be off by the number of base cases hit).
+			- Aggregation (Product): Often return 1. (If it returned 0, the final product would always be 0).
+			- Boolean Checks (AND): Often return true (identity for AND) if the base case itself is valid. (If it returned false, it could prematurely invalidate a correct result).
+			- Boolean Checks (OR): Often return false (identity for OR) if the base case represents "not found here". (If it returned true, it could indicate success incorrectly).
+			- Height/Depth: Often return 0 or -1 depending on definition. (Analyze how 1 + max(left_ret, right_ret) behaves with different base case returns).
+			- Lists/Strings: Often return empty container.
+			- Sentinels: Use specific values (-1, nullptr, infinity) when standard values overlap with valid results, requiring careful handling by the caller.
+			- Node Creation/Linking: Return the new Node* or nullptr.
+			- Generative Action: resultList.push_back(currentPath).
+		d. Analysis:
+			Guide user to analyze the impact: "Consider the recursive sum function. Its combination step is current_val + recursive_result. If the empty list base case returned 1 instead of 0, trace what happens for sum([3]). How does the caller's combination step produce the wrong answer?".
+	4. Implementation Details: Order and Completeness
+		a. Check Order:
+			Discuss that if multiple base cases exist, their order in the code often matters. General guideline: Check for conditions that prevent errors (e.g., nullptr checks) before conditions that might cause errors (e.g., accessing node members). Check boundary conditions before indexing. Check for "direct solution" before further decomposition.
+		b. Completeness Guarantee:
+			Stress the need to ensure that every possible sequence of recursive calls, for all valid inputs, will eventually hit a base case. Check for off-by-one errors in indices or conditions that might allow infinite recursion. Visualize recursion trees to help identify non-terminating paths.
+Methodology:
+	1. Introduce & Explain:
+		Clearly explain the expanded roles of base cases, the systematic identification strategies, the critical importance of return values/actions (including the link to the caller's combination logic and the recursive goal), and implementation details like check order and completeness (I-A Mandate 1). Use analogies (recipes stopping, anchor chain links, foundation stones).
+	2. Illustrate:
+		Take 1-2 recursive function architectures designed in Module 4. Explicitly walk through the process of identifying the necessary base cases using the strategies. Critically, demonstrate how the chosen return value/action for each base case satisfies the function contract and works with the previously designed combination step/generative process. Illustrate the impact of an incorrect base case return value/action by tracing a small example and showing how the caller's logic fails or the overall result is wrong. Use visualizations (flowcharts showing base case checks, recursion trees highlighting termination points/actions, trace tables showing incorrect propagation) (I-A Mandate 2).
+Socratic:
+	1. General Socratic Questions for M5 Base Cases (Apply as needed):
+		"What's the absolute simplest input this function could receive?" (Minimal Valid Input)
+		"When can we solve the problem directly without making any more recursive calls?" (Direct Solution Instance)
+		"What boundary conditions do we need to check to prevent errors or stop recursion at the edges?" (Boundary/Edge Conditions)
+		"Are there any conditions that would make the current state invalid for further exploration?" (Constraint Violations)
+		"What exactly should happen when we hit this base case? Should it return a value? If so, what value makes sense for the function's contract and the caller's combination logic?"
+		"Should the base case perform an action instead (like adding to a list)? Why?" (Connecting to Goal)
+		"If we have multiple base cases, in what order should we check them? Why?" (Check Order)
+		"Are we sure every possible path through the recursion will eventually hit one of these base cases?" (Completeness)
+		"What if this base case returned X instead of Y? Trace how that would affect the result for input Z." (Impact Analysis)
+	2. LeetCode Practice Problems (Collaborative Solving & Specific Guidance):
+		a. LC 617: Merge Two Binary Trees (Easy)
+			- AI Guidance: Solve collaboratively. Focus on identifying all null-related base cases. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"What happens if tree1 is null but tree2 is not? What should the function return to correctly represent the merged subtree?" (Return tree2).
+				"What if tree2 is null but tree1 is not?" (Return tree1).
+				"What if both tree1 and tree2 are null?" (Return nullptr).
+				"Why is checking these null cases before trying to access tree1->val or tree2->val important?" (Preventing null pointer exceptions).
+				"How does returning the correct node (or nullptr) from these base cases allow the recursive assignment (newNode->left = mergeTrees(...)) to build the tree correctly?"
+		b. LC 572: Subtree of Another Tree (Easy)
+			- AI Guidance: Solve collaboratively. Distinguish base cases in the main function vs. the isSameTree helper. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"In the main isSubtree function, what are the initial base cases related to rootand subRoot being null?" (If subRoot is null, it's technically a subtree -> true? If root is null but subRoot isn't -> false?).
+				"Now let's focus on the isSameTree(p, q) helper. What are its base cases?" (Both null? One null? Values differ?).
+				"For isSameTree, what boolean value should be returned when both p and qare null? Why is true correct for the caller's && logic?"
+				"What should be returned if only one is null, or if their values differ? Why does false work?"
+				"How does the main isSubtree function use the true/false result from isSameTree?" (If isSameTree returns true, we found it; otherwise, keep searching in root->left OR root->right).
+		c. LC 111: Minimum Depth of Binary Tree (Easy)
+			- AI Guidance: Solve collaboratively. Focus on the definition of depth and the leaf node distinction. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"What is the definition of minimum depth?" (Shortest path from root to a leafnode).
+				"What is a leaf node?" (A node with no children, i.e., both left and right are null).
+				"If we hit a nullptr node, what depth does that represent? Is 0 correct?" (Careful: a path doesn't end at null).
+				"What should be the depth returned for a leaf node (the simplest valid path end)?" (Depth 1).
+				"Consider a node with only one child (e.g., left is null, right is not). If the recursive call on the null left child returns 0 (incorrectly), how does min(0, right_depth) + 1 give the wrong answer?"
+				"How can we structure the base cases/recursive step to correctly handle nodes with one child vs. two children vs. leaf nodes?" (Explicitly check for leaf, or handle null return values carefully in the combination step, e.g., return a large value for null path).
+		d. LC 701: Insert into a Binary Search Tree (Medium)
+			- AI Guidance: Solve collaboratively. Focus on the base case as the action point and its return value. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"When inserting a value, where does the recursion stop?" (When it encounters a nullptr where the node should be placed according to BST rules).
+				"Is this nullptr base case just about termination, or is it where the main work happens?" (It's where the new node is created - the Direct Solution Instance).
+				"What value must this base case return after creating the new TreeNode(val)?" (It must return the pointer to the newly created node).
+				"Look at the recursive calls: root->left = insertIntoBST(root->left, val);. How does returning the newNode* from the base case allow this assignment to correctly link the new node into the tree?" (The pointer returned replaces the nullptr in the parent's left or right child pointer).
+				"What happens if the base case mistakenly returns nullptr?" (The new node is created but never linked into the tree).
+		e. LC 113: Path Sum II (Medium)
+			- AI Guidance: Solve collaboratively. Focus on the compound base case condition and the action performed. Use general questions.
+			- Problem-Specific Socratic Questions:
+				"When does a potential path end?" (When we reach a nullptr, or more relevantly, a leaf node).
+				"Is reaching any leaf node sufficient for this problem?" (No, the path sum must also equal targetSum).
+				"So, what two conditions must be true for our 'success' base case?" (node is a leaf AND currentSum + node->val == targetSum). Note: often easier to pass targetSum - node->val down.
+				"This is a Generative task (find all paths). What should happen in this success base case? Return a value?" (No, perform an action: add the currentPath (plus the leaf node's value) to the final results list).
+				"What accumulator(s) do we need to pass down?" (currentPath vector, results vector (by reference), remaining targetSum).
+				"What's the base case if we hit nullptr before reaching a leaf?" (Just return, path invalid).
+				"What happens in the recursive step regarding the currentPath accumulator?" (Add current node, recurse, remove current node - backtracking).
+Solidify & Prepare:
+	Check understanding ("Explain why the base case return value for recursive summation is 0 by showing how the combination step current + recursive_sum relies on it.", "For checking tree validity with &&, what happens if the nullptr base case returns false?"). Conclude by emphasizing that with a solid recursive step design (Module 4) and correct, terminating base cases (Module 5) whose return values/actions mesh perfectly with the combination logic/generative goal, the user now has the tools to build complete recursive functions. The next step (Module 6) is recognizing recurring structures (patterns) in these designs.
+
+Module 7: Recognizing the Recurring - Recursive Patterns & Strategies (Version 1.1)
+Summary: Pattern fluency turns ad-hoc recursive hacking into deliberate design. This module trains you to spot the archetypal shapes\u2014linear, branching, divide-and-conquer, backtracking\u2014that keep reappearing, so you can map new problems onto proven templates instead of starting from scratch.
+Goal: Develop the ability to recognize, understand, and apply common recursive algorithms and problem-solving paradigms (patterns) as templates, accelerating the design and implementation of solutions for typical algorithmic problems.
+Introduction: Explain that while every problem is unique, many recursive solutions share underlying structural similarities or patterns. Recognizing these patterns helps in quickly choosing an appropriate strategy, structuring the code, and communicating the approach. This module focuses on discovering these patterns through guided problem-solving before formalizing them.
+Concepts:
+	1. Linear Recursion:
+		a. Core Idea:
+			Problem solved via a single recursive call on an incrementally smaller/simpler instance.
+		b. Structure Hint:
+			Often involves processing one element/part and recursing on the rest.
+		c. Typical Use Cases:
+			Simple traversals (list, array, string), factorial, sequence generation based on f(n-1). Processing often pre- or post-order.
+	2. Tree Recursion (or Multiple Recursion):
+		a. Core Idea:
+			Problem solved by making multiple recursive calls at each step, typically exploring different branches or possibilities.
+		b. Structure Hint:
+			Involves calls like solve(left), solve(right) or solve(choice1), solve(choice2). Combination step (Module 3/4) often uses results from multiple calls.
+		c. Typical Use Cases:
+			Binary tree traversals, Fibonacci, grid explorations (multi-direction), exploring different splits/combinations non-exhaustively. Visualization: Branching recursion tree is characteristic.
+	3. Divide and Conquer (D&C):
+		a. Core Idea:
+			Solve a problem by: 1. Divide: Breaking it into two or more independent, smaller subproblems of the same type. 2. Conquer: Solving the subproblems recursively. 3. Combine: Merging the results from the subproblems to get the final solution.
+		b. Structure Hint:
+			Often involves calls like solve(left_half), solve(right_half). The "Combine" step is often the most complex logic. Subproblems usually don't overlap significantly.
+		c. Typical Use Cases:
+			Sorting (Mergesort, Quicksort), Binary Search, problems on intervals/arrays solvable by splitting, some tree problems (e.g., max depth, balanced tree construction). Performance often logarithmic factor due to division.
+	4. Backtracking (Systematic Search with Pruning):
+		a. Core Idea:
+			Systematically explore potential solutions by making incremental choices. If a path based on a choice leads to a dead end (fails constraints or isn't a solution), undo the choice ("backtrack") and try the next alternative. Builds candidate solutions step-by-step.
+		b. Structure Hint:
+			The "Choose / Explore (Recurse) / Unchoose" template is central. Requires careful management of the current state (choice made, path taken). Often uses helper functions with accumulator parameters (Module 3/4).
+		c. Typical Use Cases:
+			Generating permutations, combinations, subsets; solving constraint satisfaction problems (N-Queens, Sudoku); finding paths in graphs/grids; word search. Visualization: State-space search tree showing exploration, backtracking, and pruning.
+	5. Implicit Graph Traversal (Depth-First Search - DFS):
+		a. Core Idea:
+			Recognize that many Tree, Multiple, and Backtracking recursions fundamentally perform a Depth-First exploration of an underlying (often implicit) graph of states or possibilities.
+		b. Connection:
+			Explicitly link the mechanics of recursive calls and stack behavior (Module 2) to how DFS explores deeply before backtracking.
+Methodology:
+	1. Introduce Goal & Strategy:
+		Explain the value of pattern recognition and the "discover-then-name" approach for this module. Briefly foreshadow the types of patterns that often emerge (without detailing them yet). State that we will solve problems first, then analyze their structure.
+	2. Guided Discovery via Problem Sequences: [<-- Updated Section]
+		a. Goal:
+			Present carefully curated problems. The user, guided by the Sensei using M3/M4/M5 principles, will derive a working recursive solution first. Only after achieving a solution will the focus shift to analyzing its structure to identify the underlying pattern.
+		b. Collaborative Problem Solving & Pattern Identification:
+			- Sensei, guide the user to solve each problem below collaboratively, focusing on applying M3 (Contract/Goal/Data Flow), M4 (Leap of Faith/State/Combination/Helpers), and M5 (Base Cases).
+			- Crucially, delay pattern naming. Once a working solution is reached, then initiate pattern analysis using targeted Socratic questions.
+Socratic:
+	1. LeetCode Practice Problems (Solve First, Then Analyze Pattern):
+		a. LC 108: Convert Sorted Array to Binary Search Tree (Easy)
+			- AI Guidance (Solve): Solve collaboratively using M3/M4/M5 principles. Focus on finding the middle element, defining state via indices, making recursive calls for left/right halves, and linking the results.
+			- AI Guidance (Analyze Pattern - Post-Solution):
+				"Now that we have a solution, let's look at its structure. How did we break the main problem (array) into smaller ones?" (Split into left/right halves).
+				"Did we solve these smaller problems independently using recursion?" (Yes).
+				"What did we do after solving the subproblems?" (Combined results by linking the left/right subtrees to the root).
+				"This 'Divide the problem / Conquer recursively / Combine results' structure is a very common pattern. Does it sound like one of the patterns we're looking for? Which one?" (Guide towards Divide and Conquer).
+				"Let's visualize this: root node, calls for left/right halves... does this look like a standard recursion tree?"
+		b. LC 22: Generate Parentheses (Medium)
+			- AI Guidance (Solve): Solve collaboratively. Focus on the state needed (current string, open count, close count), the choices at each step (add '(', add ')'), the constraints limiting choices, and the base case (string length reached).
+			- AI Guidance (Analyze Pattern - Post-Solution):
+				"Consider the process. At each step, what did we do?" (Made a choice: add '(' or ')').
+				"What happened after making a choice?" (We explored the consequence via a recursive call).
+				"What happened implicitly when a recursive call returned?" (We 'undid' that choice by returning, allowing us to potentially try the other choice - e.g., trying ')' after exploring '(').
+				"Did we sometimes stop exploring a path early because of constraints (e.g., close > open)?" (Yes, pruning).
+				"This pattern of 'Choose / Explore / Unchoose (implicitly or explicitly)' while building a solution step-by-step, often with pruning, is characteristic of which pattern?" (Guide towards Backtracking).
+				"Can you visualize the state-space tree? Each node is a partial string, edges are choices."
+		c. LC 200: Number of Islands (Medium)
+			- AI Guidance (Solve): Solve collaboratively. Iterate through the grid. When '1' is found, start a helper function (e.g., dfs or sinkIsland). This helper should change '1' to '0' (or mark visited) and recursively call itself on adjacent '1's (up, down, left, right).
+			- AI Guidance (Analyze Pattern - Post-Solution):
+				"Look at the dfs helper function. How many recursive calls could it potentially make from a single cell?" (Up to four: neighbours).
+				"How does this exploration process resemble traversing a tree or graph?" (Exploring branches/connected components).
+				"Is it exploring deeply along one path first, or level by level?" (Deeply - Depth-First Search).
+				"This pattern of making multiple recursive calls to explore different branches or neighbors fits which general recursive structure?" (Guide towards Tree Recursion / Multiple Recursion).
+				"We also mentioned the connection to graph traversal. Which one?" (DFS).
+		d. LC 39: Combination Sum (Medium)
+			- AI Guidance (Solve): Solve collaboratively. Focus on state (current combination, remaining target, start index), choices (include candidates[i] vs. skip candidates[i]), and base cases (target == 0 -> success, target < 0 -> fail). Note the element reuse logic.
+			- AI Guidance (Analyze Pattern - Post-Solution):
+				"Let's analyze the structure again. We make a choice (include the number), explore (recurse with updated target, same index), and then implicitly unchoose by returning and exploring the next choice (skip the number, recurse with index + 1)."
+				"Does this fit the 'Choose / Explore / Unchoose' model?" (Yes).
+				"What pattern is this?" (Guide towards Backtracking).
+				"How did the state management here differ slightly from Generate Parentheses due to element reuse?" (Recursive call with i vs. i+1).
+		e. LC 140: Word Break II (Hard)
+			- AI Guidance (Solve): Solve collaboratively. Focus on state (current index i in the string), choices (try all substrings s[i...j] that are valid words), exploration (recurse on suffix starting at j+1), and combination (prepend the valid word s[i...j] to results from the recursive call). Acknowledge potential performance issues (overlapping subproblems) but focus on the recursive structure first.
+			- AI Guidance (Analyze Pattern - Post-Solution):
+				"Looking at the core logic: We choose a valid word prefix, explore the rest of the string recursively, and combine results."
+				"If one prefix choice doesn't lead to a full solution, we effectively 'backtrack' and try the next possible prefix choice."
+				"What fundamental pattern does this follow?" (Guide towards Backtracking).
+				"How is the state space explored here?" (Tree of possible segmentations).
+				(Optional M7 Preview) "Did you notice if we might be solving the same subproblem (e.g., word breaking the same suffix) multiple times? What might that suggest?" (Overlapping subproblems -> memoization needed).
+	2. Formalize, Name & Visualize:
+		After the user successfully derives a solution structure and identifies the pattern for a family (e.g., after LC 22/39): Explicitly name the pattern (e.g., "This 'Choose/Explore/Unchoose' approach is called Backtracking!").
+		Clearly define its core idea, structural template, and key characteristics (drawing from the "Concepts" section above).
+		Use mandatory visualizations appropriate for the pattern (e.g., state-space tree for Backtracking, divide/combine diagram for D&C, branching tree for Tree Recursion) (I-A Mandate 2).
+		Connect to relevant data flow (Module 3) and processing point (Module 5) tendencies (e.g., "Notice how the combination step in this D&C happens after the conquer calls return? That's post-order thinking.").
+	3. Compare & Contrast:
+		Ask comparative questions to solidify understanding: "How is the way state is managed in Backtracking (LC 22) different from how parameters are passed in the Tree Recursion example (LC 200)?", "What makes D&C (LC 108) different from just making two recursive calls?", "How is Backtracking similar to/different from DFS?".
+Solidify & Prepare:
+	Check understanding ("Describe the 'Divide' step for LC 108."). Conclude by stating that recognizing these patterns provides powerful starting points for solving problems and analyzing their efficiency, which is the focus of Module 7. Before Module 7, we want to acclimate the learner with Module 6.5 where we will discuss pattern detection/selection for user.
+
+Module 8: Strategic Pattern Selection - Decoding the Problem (Version 1.1 - Updated)
+Summary: Pattern knowledge only matters if you can choose the right one under pressure. This module instruments a fast diagnostic checklist for reading problem statements, spotting the key signals, and forming a justified hypothesis about which recursive archetype to deploy before you start detailed design.
+Goal: Develop heuristic skills to analyze algorithmic problem descriptions and identify clues that suggest which recursive pattern(s) (Linear, Tree/Multiple, Divide & Conquer, Backtracking) might be the most promising initial approach, thereby accelerating the design process (Module 4) and informing the choice of data flow strategy (Module 3).
+Prerequisites: Module 1 (Core Concepts), Module 3 (Data Flow), Module 4 (Design), Module 5 (Base Cases), Module 6 (Pattern Definitions).
+Introduction: Explain that while designing a solution (Module 4) is key, experienced developers often quickly categorize problems based on keywords, input/output types, and constraints, leaning towards certain recursive structures. This module focuses on developing that "intuition" by looking for common signals in problem statements typical of LeetCode/interviews. Emphasize this provides a starting point or hypothesis; the detailed design (M4) and verification (M5) are still essential. Linking the hypothesized pattern to typical data flow strategies (Module 3) can further streamline the design process.
+Concepts:
+	1. Signal Analysis: Keywords and Phrasing
+		a. Identifying Explicit Requests:
+			- "Find all possible ways/permutations/combinations/subsets..." -> Strong signal for Backtracking. (Keywords: all, generate, combinations, permutations, subsets, groupings). (Likely Generative Goal).
+			- "Find the optimal (min/max/longest/shortest) value/path/count..." -> Could be simple recursion, Tree Recursion, D&C, or Backtracking, BUT often signals potential for Overlapping Subproblems (suggesting future Memoization - M7). Requires careful state definition. (Often Computational Goal).
+			- "Determine if a path exists..." -> Could be basic Tree/Multiple Recursion (DFS) or Backtracking if complex choices/constraints are involved. (Often Computational Goal - boolean result).
+			- "Is the structure valid/symmetric/balanced/BST?" -> Often Tree Recursion, usually requiring specific data returned up (Module 3 - complex return/helper function). (Computational Goal).
+			- "Sort the data..." / "Find element in sorted data..." -> Strong signal for Divide & Conquer(Mergesort, Quicksort, Binary Search). (Can be Computational or involve restructuring).
+			- "Process item by item / character by character..." -> Often Linear Recursion. (Can be Computational or Generative).
+	2. Signal Analysis: Input & Output Types
+		a. Input Structure Cues:
+			- Trees/Graphs explicitly given -> Strong signal for Tree Recursion/DFS. Consider graph properties (cycles? need visited set?).
+			- Arrays/Strings/Lists: Could be anything! Need more clues.
+			- Sorted Array/List? -> D&C (Binary Search) possibility.
+			- Intervals/Ranges? -> D&C possibility.
+			- Grids/Matrices -> Often Tree/Multiple Recursion (DFS-like exploration) or potentially Backtracking. Need neighbor exploration logic.
+			- No specific structure (e.g., just numbers n, k) -> Mathematical recursion (Fibonacci-like), combinations/permutations (Backtracking).
+		b. Output Structure Cues:
+			- Single value (int, bool, count) -> Could be any pattern, depends on computation. (Likely Computational Goal).
+			- List of lists / list of strings (e.g., all paths, all subsets) -> Strong signal for Backtracking(generation). Usually needs an accumulator parameter. (Likely Generative Goal).
+			- Modified input structure / New structure (e.g., sorted array, transformed tree) -> D&C or specialized Tree Recursion.
+	3. Signal Analysis: Constraints & Operations
+		a. Constraint Types:
+			- Fixed choices at each step (e.g., move left/right, take/don't take element) -> Backtrackingor Tree Recursion.
+			- Complex rules / validity checks (e.g., Sudoku rules, N-Queens placement) -> Strong signal for Backtracking (pruning based on constraints).
+			- Optimality requirements under constraints (e.g., Knapsack problem, fewest coins) -> Often recursive exploration, likely needs Memoization (M7) applied to Tree Recursion/Backtracking.
+		b. Operations Involved:
+			- Comparing elements / Searching -> D&C (Binary Search) if sorted, simple traversal otherwise.
+			- Splitting data / Merging results -> D&C.
+			- Building sequences / groups step-by-step -> Backtracking.
+			- Exploring neighbors / connectivity -> Tree/Multiple Recursion (DFS).
+	4. Mapping Patterns to Data Flow Strategies (Connecting M6 to M3)
+		a. Once a potential pattern is hypothesized, consider its typical data flow implications based on the likely goal (Computational/Generative):
+			- Linear Recursion: Can use either "Return Up" (computation) or "Accumulator" (generation/transformation).
+			- Tree Recursion / Multiple Recursion: Frequently uses "Return Up" (computation). Can use accumulators if goal is generative within the structure. Often maps to DFS.
+			- Divide and Conquer (D&C): Primarily uses "Return Up" for the "Combine" step. (Often Computational goal achieved via combination).
+			- Backtracking: Primarily targets Generative goals. Heavily relies on "Accumulator Parameters" passed down. May use "Return Up" for status signals but main result often in accumulator.
+		b. Considering this link early helps solidify the function signature and logic during detailed design (M4).
+	5. Developing Pattern Hypotheses:
+		a. Initial Guesses:
+			Encourage making an initial hypothesis based on the strongest signals (e.g., "Find all subsets" -> "Let's start thinking Backtracking. This likely means a Generative goal using accumulator parameters.").
+		b. Considering Alternatives:
+			Sometimes multiple patterns could work. Briefly consider alternatives if the first doesn't seem right during initial design (M4).
+		c. Pattern Combination Awareness:
+			Mention that complex problems (often Hard) might require combining patterns (e.g., D&C approach where the "combine" step itself uses backtracking or requires memoized recursive helper calls). This links forward to Module 8.
+Methodology:
+	1. Introduce & Explain:
+		Clearly state the goal -- developing heuristics for quickly suggesting a likely recursive approach based on problem statement analysis. Explain the different categories of signals (Keywords, I/O, Constraints) and why they often correlate with specific patterns (Module 6 definitions are prerequisite). Explicitly discuss how mapping the hypothesized pattern to typical data flow strategies (Return Up vs. Accumulator, linked to Comp/Gen goals) aids design (I-A Mandate 1).
+	2. Illustrate with Annotated Examples:
+		Present several diverse LeetCode problem statements (Easy/Medium difficulty). Do not solve them initially. Instead, walk through annotating the description:
+		a. Highlight keywords ("find all...", "is valid...", "sorted...", "optimal...").
+		b. Identify input/output types and structures.
+		c. Note key constraints or operations described.
+		d. Based on these annotations, explicitly state the likely pattern(s) and justify the choice using the signal analysis concepts. Add a statement about the likely goal (Computational/Generative) and the corresponding data flow strategy (e.g., "Keywords 'generate all' and output 'list of lists' strongly suggests Backtracking, a Generative goal likely needing an accumulator parameter."). (I-A Mandate 2 style - visual annotation/highlighting).
+Socratic:
+	1. General Socratic Questions for M6.5 Analysis (Apply as needed):
+		"Let's break down the problem description. What are the key Keywords used (like 'all', 'optimal', 'exists', 'valid')?"
+		"What is the Input structure (Tree, Grid, Array, Sorted Array, Numbers)?"
+		"What is the Output format (Single value, List of Lists, Modified Structure)?"
+		"What are the crucial Constraints or rules mentioned?"
+		"Based only on these signals, what recursive Pattern(s) seem most likely (Linear, Tree/DFS, D&C, Backtracking)? Why?"
+		"Does the goal seem Computational or Generative?"
+		"What Data Flow strategy (Return Up, Accumulator Down) does that pattern and goal suggest we might use (linking to M3)?"
+		"Are there any signals suggesting potential Optimization might be needed later (like 'optimal value' hinting at overlapping subproblems for M7)?"
+	2. LeetCode Practice Problems (Analyze First):
+		Sensei, guide the user through analyzing the problem statement for each problem below using the general questions above. Focus only on hypothesizing the pattern and data flow based on signals. Do not solve the problem in this module.
+		a. LC 257: Binary Tree Paths (Easy)
+			- AI Guidance (Analysis): Use general M6.5 questions. Guide the user to identify "Paths", "all", Tree input, List<String> output -> likely Backtracking/DFS with downward string accumulator (Generative).
+		b. LC 77: Combinations (Medium)
+			- AI Guidance (Analysis): Use general M6.5 questions. Guide the user to identify "Combinations", "all", n/k input, List<List> output -> likely Backtracking with downward list accumulator (Generative).
+		c. LC 695: Max Area of Island (Medium)
+			- AI Guidance (Analysis): Use general M6.5 questions. Guide the user to identify Grid input (neighbour exploration), "Max" (computation) -> likely Tree/DFS exploration to find components, with computation during/after exploration. Data flow might involve returning size up or using visited set + simple counter. (Computational goal over exploration).
+		d. LC 322: Coin Change (Medium)
+			- AI Guidance (Analysis): Use general M6.5 questions. Guide the user to identify "fewest" (optimal), choices (coins) -> likely Tree Recursion/Backtracking exploration. "Optimal" strongly signals potential for Overlapping Subproblems, suggesting M7 memoization needed later. Data flow likely returning min count up. (Computational goal, likely optimized).
+		e. LC 51: N-Queens (Hard)
+			- AI Guidance (Analysis): Use general M6.5 questions. Guide the user to identify "all distinct solutions", complex placement Constraints -> overwhelmingly suggests Backtracking. State needs to represent board. Data flow involves downward accumulator for board state and results list. (Generative goal).
+Solidify & Prepare:
+	Check understanding ("For a problem asking to check if a path sum exists in a tree, what pattern does that initially suggest? Why? Is the goal Comp or Gen? What data flow would you expect?"). Conclude by emphasizing that this module provides heuristics for the crucial first step of approaching a recursive problem. This strategic selection, linked with anticipated data flow, directly feeds into the detailed design (M4), implementation (M6+), optimization (M7), and ultimately solving complex problems (M8).
+
+Module 9: Recursive Performance - Analysis & Optimization (Version 1.1)
+Summary: Great recursive designs still fail if they explode in time or stack depth. Module 9 trains you to read recursion trees, quantify time/space costs, spot overlapping subproblems, and apply memoization or other optimizations so elegant solutions also meet performance constraints.
+Goal: Develop the ability to analyze the time and space efficiency of recursive algorithms and apply standard optimization techniques, primarily memoization, to address performance issues caused by redundant computations.
+Concepts:
+	1. Asymptotic Analysis for Recursive Algorithms:
+		a. Context:
+			Explain why analyzing efficiency is crucial (predicting performance, comparing approaches).
+		b. Time Complexity:
+			- Framework: Relate time complexity to the number of recursive calls multiplied by the amount of work done per call (excluding the recursive calls themselves).
+			- Recurrence Relations: Introduce them as a way to formally express the time complexity. Define simple examples: T(n) = T(n-1) + O(1) (Linear), T(n) = 2T(n/2) + O(n) (MergeSort-like D&C), T(n) = 2T(n-1) + O(1) (Fibonacci-like Tree Rec). Briefly mention that formal solving methods exist but focus on intuitive analysis for this module.
+			- Recursion Tree Method: Introduce visualizing the recursion as a tree. Analyze time by summing work at each level or (nodes * work/node). Use this to estimate complexity for D&C, Tree Recursion patterns (Module 6).
+			- Best/Average/Worst Cases: Discuss how input structure (e.g., balanced vs. skewed trees, pivot choice in Quicksort) impacts the recursion tree shape and thus complexity. Link to patterns (Module 6) - e.g., typical complexities O(N), O(N log N), O(log N), O(2^N), O(N!).
+		c. Space Complexity:
+			- Primary Factor: Emphasize the Call Stack Depth as the main driver of recursive space complexity (auxiliary space). Relate it to the maximum height (H) of the recursion tree.
+			- Analysis: Analyze stack depth for different patterns/scenarios: O(log N) for balanced D&C/trees, O(N) for linear recursion or skewed trees, O(depth) for backtracking paths.
+			- Other Space: Mention additional space used by parameters (especially large objects passed by value) or auxiliary data structures built during recursion (including memoization caches).
+	2. Identifying Inefficiency: The Overlapping Subproblems Pattern
+		a. The Issue:
+			Explain that naive recursion, especially Tree Recursion, can be extremely inefficient if it repeatedly solves the exact same subproblem (defined by having the same state/parameters) multiple times via different paths in the recursion tree.
+		b. Demonstration:
+			Use classic examples (Fibonacci, Grid Path Counting, Coin Change). Explicitly trace execution and draw the recursion tree, highlighting identical subproblem nodes being re-computed multiple times. Show the exponential explosion of calls.
+	3. Optimization via Memoization (Top-Down Dynamic Programming)
+		a. The Concept:
+			Introduce memoization as a technique to optimize recursive algorithms suffering from overlapping subproblems by caching results. "Remembering" answers to subproblems instead of re-calculating them.
+		b. The Technique:
+			- Cache Structure: Choose an appropriate lookup table (cache) to store results. Common choices: std::map or std::unordered_map (key = subproblem state, value = result), std::vector or array (if state can be mapped to indices, often initialized with a sentinel value like -1).
+			- State Representation (Key): Discuss how to uniquely identify a subproblem state to use as a key in the cache (e.g., single integer n, pair<int, int> for row/col, tuple, potentially hashing custom states). Link back to "Defining State" in Module 4.
+			- The Logic: Modify the recursive function:
+				a. Check Cache: At the beginning, check if the result for the current state/parameters already exists in the cache (e.g., if (memo[key] != -1)).
+				b. Return Cached: If yes, return the cached result immediately, avoiding further recursion for this branch.
+				c. Compute (If Miss): If not in cache, proceed with the original recursive computation (including making recursive calls which themselves will use memoization).
+				d. Store Result: Before returning the computed result, store it in the cache using the current state as the key (memo[key] = result;).
+		c. Link to DP:
+			Briefly explain that this technique is also known as Top-Down Dynamic Programming.
+	4. Tail Recursion & Tail Call Optimization (TCO) (Conceptual)
+		a. Definition:
+			Explain what makes a recursive call a "tail call" (it's the absolute last action performed in the function before returning; no computation happens after the call returns).
+		b. Optimization (TCO):
+			Explain the concept of TCO -- compilers can optimize tail recursive calls to reuse the current stack frame instead of pushing a new one, effectively converting recursion to iteration and achieving O(1) space complexity for the recursion itself.
+		c. C++ Context:
+			State clearly that TCO is not guaranteed by the C++ standard and often not performed, especially without specific compiler flags or in debug builds. Thus, relying on it for space saving in C++ is generally unsafe.
+		d. Relevance:
+			Mention its importance in functional programming paradigms and as a theoretical optimization concept.
+Methodology:
+	1. Introduce & Explain:
+		Clearly define asymptotic analysis concepts (Time/Space), recurrence relations (basic), the recursion tree method, overlapping subproblems, the concept and logic of memoization, and Tail Recursion/TCO (I-A Mandate 1). Link complexity analysis concepts back to the patterns identified in Module 6 and Module 6.5.
+	2. Illustrate with Clear Case Study:
+		Walk through a full analysis and optimization cycle for a classic example like Fibonacci or Grid Path Counting (as covered in Concepts):
+		a. Show the naive recursive code.
+		b. Analyze Time/Space using recursion tree, identify exponential complexity and overlapping subproblems visually.
+		c. Step-by-step guide the implementation of memoization: Choose cache structure, define key, modify function with check/compute/store logic.
+		d. Visualize the memoized recursion tree (showing cache hits dramatically pruning branches).
+		e. Analyze Time/Space complexity after memoization, highlighting the significant improvement (Time becomes roughly O(Number of unique states * Work per state), Space includes cache size + stack depth).
+		f. Use mandatory visualizations for recursion trees (before/after memoization) and conceptual cache population (I-A Mandate 2).
+Socratic:
+	1. General Socratic Questions for M7 Analysis & Optimization (Apply as needed):
+		"Let's start with the naive recursive solution. What does the recursion tree look like for a small input?"
+		"Can you identify any Overlapping Subproblems? Are we solving the exact same state (same parameters) multiple times?"
+		"What is the approximate Time Complexity of this naive solution? Why is it exponential (or otherwise inefficient)?" (Relate to branching factor and depth).
+		"What is the Space Complexity of the naive solution?" (Relate to max stack depth).
+		"Okay, let's apply Memoization. What is the 'state' that uniquely defines a subproblem here? What parameters determine the result?"
+		"What Cache Structure should we use (vector, map, etc.)? How will we represent the state as a key/index?"
+		"What initial/sentinel value should we use for the cache to indicate 'not computed yet'?"
+		"Where exactly does the Cache Check go in our recursive function?" (Right at the beginning).
+		"If we have a cache hit, what do we do?" (Return the cached value immediately).
+		"If we have a cache miss, what do we do?" (Compute the result recursively).
+		"Crucially, where do we Store the Result in the cache?" (Just before returning the computed value).
+		"After adding memoization, what is the new Time Complexity? How many unique states are there? How much work per state?"
+		"What is the new Space Complexity, considering both the cache and the call stack?"
+	2. LeetCode Practice Problems (Collaborative Solving & Specific Guidance):
+		a. LC 509: Fibonacci Number (Easy)
+			- AI Guidance: Solve collaboratively. Start with naive recursion, draw the tree for fib(5), identify overlaps. Apply memoization using a vector or array. Analyze complexity before/after. Use general M7 questions.
+			- Problem-Specific Socratic Questions:
+				"What is the state here?" (Just n).
+				"How many times is fib(2) computed in the naive fib(5)?"
+				"For memoization, what size vector do we need? How do we map n to an index?"
+				"What is the time/space complexity before and after memoization?" (O(2^N) -> O(N) time, O(N) -> O(N) space for stack + O(N) for cache).
+		b. LC 70: Climbing Stairs (Easy)
+			- AI Guidance: Solve collaboratively. Note the direct similarity to Fibonacci. Implement naive recursion, identify overlap, apply memoization. Analyze. Use general M7 questions.
+			- Problem-Specific Socratic Questions:
+				"What's the recurrence relation here? How is it similar/different to Fibonacci?" (Identical: ways(n) = ways(n-1) + ways(n-2)).
+				"Given the identical structure, how will the overlapping subproblems and the memoization strategy compare to Fibonacci?" (Effectively the same).
+				"Confirm the time/space complexity before and after." (Same as Fibonacci).
+		c. LC 62: Unique Paths (Medium)
+			- AI Guidance: Solve collaboratively. Implement naive recursion paths(r, c). Draw recursion tree for a small grid (e.g., 3x3) to see overlaps for cells like (1,1). Apply memoization using a 2D vector<vector<int>>. Analyze. Use general M7 questions.
+			- Problem-Specific Socratic Questions:
+				"What defines the state for this problem?" (The current cell coordinates (row, col)).
+				"How do we represent this 2D state in our memoization cache?" (A 2D array/vector memo[row][col]).
+				"What are the dimensions needed for the cache?" (m x n).
+				"What are the base cases for the recursion?" (Out of bounds -> 0 paths? Destination reached -> 1 path?).
+				"How many unique states (row, col) are there?" (m * n).
+				"What is the time/space complexity after memoization?" (Time: O(mn), Space: O(mn) for cache + O(m+n) for stack depth).
+		d. LC 322: Coin Change (Medium)
+			- AI Guidance: Solve collaboratively. Implement naive recursion minCoins(amount). Trace for a small amount (e.g., amount=5, coins={1,2,3}) to show overlaps (e.g., minCoins(2) called via 5-3 and 5-1-2). Apply memoization using a 1D vector indexed by amount. Handle the "impossible" case (return sentinel like -1 or infinity). Analyze. Use general M7 questions.
+			- Problem-Specific Socratic Questions:
+				"What is the state that determines the minimum coins needed?" (The remaining amount).
+				"How big does our 1D memoization cache need to be?" (Size amount + 1).
+				"The function aims to find the minimum. How do we combine results from recursive calls for different coin choices?" (1 + min(minCoins(amount - c1), minCoins(amount - c2), ...)).
+				"How do we handle cases where a certain amount cannot be formed?" (Return a sentinel value like infinity or -1, and check for it in the caller).
+				"What is the time/space complexity after memoization?" (Time: O(amount * num_coins), Space: O(amount) for cache + O(amount) for stack depth).
+		e. LC 72: Edit Distance (Hard)
+			- AI Guidance: Solve collaboratively. Define the state dp(i, j) as distance between word1[0...i-1] and word2[0...j-1]. Implement the 3-choice recursion (insert, delete, replace). Identify overlaps. Apply memoization using a 2D cache. Analyze. Use general M7 questions.
+			- Problem-Specific Socratic Questions:
+				"What defines the state here?" (Indices i and j representing prefixes of word1and word2).
+				"What are the dimensions of the 2D cache needed?" ((word1.length() + 1) x (word2.length() + 1)).
+				"What are the base cases?" (If i == 0, distance is j; if j == 0, distance is i).
+				"Explain the recursive step: If word1[i-1] == word2[j-1], what's the subproblem?" (dp(i-1, j-1)).
+				"If word1[i-1] != word2[j-1], what are the three choices/subproblems we consider?" (Insert: dp(i, j-1), Delete: dp(i-1, j), Replace: dp(i-1, j-1)). How do we combine them? (1 + min(...)).
+				"How many unique states (i, j) are there?" (len(word1) * len(word2)).
+				"What's the time/space complexity after memoization?" (Time: O(mn), Space: O(mn) for cache + O(m+n) for stack depth).
+Solidify & Prepare:
+	Check understanding ("Explain why memoization doesn't improve the asymptotic time complexity of Merge Sort." Hint: Are there overlapping subproblems?). Conclude by emphasizing that understanding performance is crucial for writing effective code and that these optimization techniques are vital for tackling harder problems, leading into Module 8 where complex problems requiring optimization might appear.
+
+Module 10: Recursive Mastery - Synthesis & Interview Readiness (Version 1.2 - Updated)
+Summary: The capstone integrates everything\u2014pattern selection, data flow, base cases, optimization\u2014so you can tackle complex interview-grade recursion problems, debug under pressure, and articulate trade-offs confidently. It\u2019s about demonstrating mastery, not just getting solutions to work.
+Goal: Integrate all acquired recursive knowledge and skills to confidently solve complex algorithmic problems, effectively compare recursive and iterative approaches, debug implementations, and articulate solutions clearly and comprehensively in an interview context.
+Concepts:
+	1. Advanced Problem Solving & Pattern Synthesis:
+		a. Challenge Level:
+			Focus on attacking complex LeetCode Medium/Hard problems that often require combining multiple recursive patterns or techniques learned in previous modules.
+		b. Examples:
+			Problems involving Backtracking with Memoization (e.g., optimal path finding with constraints), sophisticated Divide and Conquer (e.g., on trees requiring complex return objects/structs), complex state management in DFS/Backtracking, multi-dimensional recursion (e.g., grid problems with complex transitions).
+		c. Skill Focus:
+			Emphasize identifying the core recursive structure, managing complex data flow (Module 3), meticulous base case handling for intricate scenarios (Module 5), and applying relevant optimizations (Module 7).
+	2. Multi-Pass Recursive Strategies:
+		a. Concept:
+			Recognize that some complex problems cannot be solved efficiently or correctly within a single recursive traversal. These often require multiple coordinated passes, typically using recursion (DFS) for one or more passes.
+		b. Rationale:
+			A multi-pass approach is needed when the computation at a node requires information that is not locally available, not passed directly from its parent, or not simply aggregated from its children's return values. This often involves needing global context about the tree structure (like parent pointers, depths of all nodes, heights relative to specific subtrees, or coordinates).
+		c. Typical Structure:
+			- Pass 1: Information Gathering. A recursive traversal (commonly DFS) is performed over the entire structure to compute and store global information.
+				-- Goal: Precompute necessary data like depths, heights, parent pointers, subtree sizes, node coordinates, etc.
+				-- Data Structures: Often uses hash maps (unordered_map) or vectors to store the computed information, keyed by node pointers or values.
+			- Pass 2: Information Utilization. A second traversal (recursive DFS, BFS, or sometimes iterative) uses the information gathered in Pass 1 to perform the main computation or answer the specific problem query.
+				-- Goal: Use the precomputed global context to make decisions, perform calculations, or search effectively.
+		d. Identifying the Need:
+			Suspect a multi-pass strategy when a node's processing seems to require information "far away" in the tree structure, beyond its immediate neighborhood or simple aggregated results from children. Ask: "What information do I wish I knew about the whole tree before processing this node?"
+		e. Examples:
+			- All Nodes Distance K (Problem 42): Pass 1 builds a parent map; Pass 2 performs a graph-like search (DFS/BFS) outwards from the target using parent and child links.
+			- Height of Binary Tree After Subtree Removal (Problem 34): Requires precomputing depths and potentially complex height information across levels in Pass 1 to efficiently answer queries in Pass 2.
+			- Vertical Order Traversal (Hard versions 38, 987): Pass 1 (DFS/BFS) collects nodes with their (row, col) coordinates; Pass 2 involves sorting this collected data.
+			- Boundary of Binary Tree (Problem 43): Can be seen as multiple targeted recursive passes (left boundary, leaves, right boundary).
+	3. Recursion vs. Iteration: A Deep Comparison:
+		a. Context:
+			Discuss the trade-offs between recursive and iterative solutions, a common interview discussion point.
+		b. Comparison Axes:
+			- Readability & Implementation Ease: Recursion often more closely matches the problem definition for naturally recursive problems (trees, D&C), potentially leading to cleaner, shorter code. Iteration can be more complex to structure initially (e.g., managing explicit stacks).
+			- Performance (Time): Iteration typically has lower overhead (no function call setup/teardown per "step"). Significant for performance-critical loops, less so if work per recursive call is large.
+			- Performance (Space): Iteration (using explicit stack/queue or simple loops) usually wins on space by avoiding deep call stack growth, preventing potential stack overflows for deep recursions. Key advantage.
+		c. Conversion Techniques:
+			Guide the practical conversion of specific recursive patterns to iterative forms:
+			- Tail Recursion: Simple conversion to a loop.
+			- Linear Recursion: Generally straightforward loop conversion.
+			- Tree Traversals (DFS): Explicitly demonstrate conversion using a std::stack to mimic the call stack behavior (pre-order, in-order, post-order variations).
+		d. Heuristics for Choice:
+			Develop guidelines: Prefer recursion for clarity on tree-like/D&C structures unless stack depth is a concern. Prefer iteration for simple linear tasks, performance-critical sections, or very deep potential recursion. Be prepared to discuss trade-offs.
+	4. Debugging Recursive Code: Strategies & Pitfalls:
+		a. Systematic Strategies:
+			- Tracing: Manual (small cases), print statements (strategically placed, showing parameters, state, return values at entry/exit), using a debugger (stepping through calls, inspecting stack frames/variables).
+			- Simplification: Test with simplest base cases first. Simplify complex inputs. Isolate failing parts.
+			- Visualization: Draw the recursion tree for the failing input to understand the flow and identify where logic goes wrong.
+			- Verify Fundamentals: Double-check base cases (correct conditions AND return values/actions - M5). Verify recursive step logic (is it correctly reducing the problem? Is combination logic sound? - M4). Check parameter passing (value vs. reference issues - M3). Check state updates/reversions in backtracking.
+		b. Common Recursive Pitfalls:
+			Discuss typical bugs: Incorrect base case condition/return value, stack overflow (missing/unreachable base case or non-simplifying step), off-by-one errors in indices/boundaries, incorrect state update/reversion in backtracking, infinite loops in graph traversals without visited sets, misunderstanding pass-by-value/reference effects.
+	5. Interview Communication Masterclass:
+		a. Goal:
+			Practice articulating a complete problem-solving narrative for a recursive solution, as expected in a coding interview.
+		b. Structured Explanation Template:
+			- Problem Clarification: Confirm understanding of inputs, outputs, constraints, edge cases. Ask clarifying questions.
+			- Approach Identification: State the intended approach ("I think recursion is suitable here because..."). Identify the likely pattern (e.g., "This looks like a backtracking problem," "We can use Divide and Conquer," "This seems to require precomputing parent pointers first...").
+			- Recursive Function Contract(s): Define the core recursive function's purpose, parameters, and return value (Module 3). Mention helper functions or multiple passes if needed.
+			- Base Case(s): Clearly state the base cases and the logic/value returned/action performed for each (Module 5).
+			- Recursive Step / Passes: Explain the decomposition (how the problem is made smaller) and the combination logic (how sub-results are used) (Module 4). If multi-pass, explain the goal and logic of each pass. Explain state passed down/returned up (Module 3).
+			- Complexity Analysis: Analyze Time and Space complexity, explaining the reasoning (recursion depth, work per call, cache effects, multiple passes) (Module 7).
+			- Walkthrough/Example: Trace a small, non-trivial example through the logic.
+			- Optimizations (Optional): Discuss potential optimizations like memoization if applicable (Module 7).
+			- Edge Cases & Testing: Briefly discuss how key edge cases are handled.
+		c. Practice:
+			Use role-playing (mock interviews) where the user explains their solution to the Sensei acting as interviewer.
+Methodology:
+	1. Introduce & Explain:
+		Define the goals of synthesis and interview readiness. Clearly explain the concepts: types of advanced problems, the Multi-Pass Recursive Strategy, the axes for recursion vs. iteration comparison, conversion strategies, debugging techniques & common pitfalls, and the structure of a comprehensive interview explanation (I-A Mandate 1).
+	2. Illustrate & Model:
+		Demonstrate solving one complex problem end-to-end, highlighting pattern combination or complex state. Model the conceptual design of a multi-pass recursive solution (e.g., Distance K) explaining the need and the passes. Explicitly convert a recursive tree traversal (e.g., Preorder) to iterative stack-based form. Debug a deliberately flawed recursive function step-by-step using the outlined strategies. Model a concise yet complete interview explanation for a known recursive problem (I-A Mandate 2).
+Socratic:
+	1. General Socratic Questions for M8 Synthesis (Apply as needed):
+		"Let's synthesize. What core recursive pattern(s) seem applicable here (M6/M6.5)?"
+		"What is the precise function contract, state, and data flow (M3/M4)?"
+		"What are the critical base cases (M5)?"
+		"Are there overlapping subproblems suggesting memoization (M7)?"
+		"Could this be solved iteratively? What would the trade-offs be?"
+		"If debugging, where would you add print statements? What would you look for in the debugger?"
+		(During Mock Interview) "Can you walk me through your thought process using the structured explanation template?"
+	2. LeetCode Practice Problems (Collaborative Solving/Analysis & Specific Guidance):
+		a. LC 144: Binary Tree Preorder Traversal (Easy)
+			- AI Guidance: Solve collaboratively. Focus on the iterative solution. First, quickly review the recursive solution. Then, guide the user to implement the iterative version using an explicit std::stack.
+			- Problem-Specific Socratic Questions (Iteration Focus):
+				"How can we mimic the call stack's behavior for preorder (Visit, Go Left, Go Right) using our own stack?"
+				"What should we push onto the stack?" (Nodes to visit).
+				"When we pop a node, what action corresponds to 'Visit' in preorder?" (Process/add its value to the result).
+				"In what order should we push the children onto the stack to ensure the left child is processed before the right child?" (Push right child first, then left child).
+				"What's the loop condition?" (While stack is not empty).
+				"Compare the space complexity of this iterative approach vs. the recursive one (worst case)." (Iterative O(H) vs. Recursive O(H), but iterative avoids function call overhead).
+		b. LC 139: Word Break (Medium)
+			- AI Guidance: Solve collaboratively. Guide the user to recognize this as needing exploration (Backtracking/DFS - M6) and likely optimization (Memoization - M7).
+			- Problem-Specific Socratic Questions (Synthesis Focus):
+				"What's the subproblem here? If we are checking if s[i...] can be broken, what defines the state?" (Index i).
+				"What are the 'choices' at index i?" (Try every substring s[i...j] that is a word in the dictionary).
+				"If s[i...j] is a word, what's the recursive step?" (Recurse on the remaining suffix, canBreak(j+1)).
+				"What are the base cases?" (If i == s.length(), return true).
+				"Draw the recursion tree for a simple case like 'leetcode', dict={'leet','code'}. Do you see overlapping subproblems (checking the same suffix)?" (Yes).
+				"How do we apply memoization (M7)? What's the cache state/key?" (Index i). What should it store (bool)?".
+				"Walk through the combined recursive + memoization logic."
+		c. LC 297: Serialize and Deserialize Binary Tree (Hard)
+			- AI Guidance: Solve collaboratively. Focus on the design (M4) of both functions, handling nulls correctly (M5), and managing state (M3). Preorder traversal is common.
+			- Problem-Specific Socratic Questions (Design/State Focus):
+				Serialization: "How can we represent the tree structure, including null children, in a string?" (Preorder traversal, using a special marker like '#' or 'N' for nulls, and a delimiter like ',').
+				"Design the recursive serializeHelper(node, stream). What's the base case (null node)?" (Append '#' and delimiter).
+				"What's the recursive step?" (Append node->val, recurse left, recurse right).
+				Deserialization: "How can we reconstruct the tree from this string?" (Read elements sequentially).
+				"Design deserializeHelper(stream). How do we read the next value?" (Use string splitting or stream extraction).
+				"What's the base case?" (If the value read is '#', return nullptr).
+				"If it's not '#', what do we do?" (Create node, recursively call deserializeHelper for left child, recursively call deserializeHelper for right child).
+				"How is the 'state' (the current position in the string/stream) managed across calls?" (Crucial: pass the stream/iterator by reference, or use a class member).
+		d. LC 472: Concatenated Words (Hard)
+			- AI Guidance: Solve collaboratively. Recognize as complex DFS/Backtracking (M6) + Memoization (M7) applied within a loop over words.
+			- Problem-Specific Socratic Questions (Synthesis/Optimization Focus):
+				"We need to check each word. For a single word, how can we check if it's formed by other words?" (Similar to Word Break - use DFS/Backtracking).
+				"Define a helper canForm(word, start_index, dict_set). What are the choices?" (Check prefixes word[start_index...j] against dict_set).
+				"What's the recursive step if word[start_index...j] is in dict_set?" (canForm(word, j+1, dict_set)).
+				"What's the base case?" (start_index == word.length() -> true).
+				"Will this DFS have overlapping subproblems?" (Yes, checking the same suffix). "How do we memoize canForm?" (Cache based on start_index).
+				"What's the key difference from Word Break I?" (The word being checked cannotbe the same as the word it's formed from - need to handle this, perhaps by temporarily removing the word from the dictionary set during its check, or checking counts > 1).
+		e. LC 301: Remove Invalid Parentheses (Hard)
+			- AI Guidance: Solve collaboratively. Discuss this as complex Backtracking (M6). Explore optimization - naive backtracking is too slow. Briefly discuss BFS for finding min removals first, or optimized backtracking with state/pruning. Focus on the recursive structure first.
+			- Problem-Specific Socratic Questions (Complex Backtracking/Optimization Focus):
+				"How can we explore possibilities? What are the 'choices'?" (For each char, either keep it or (if parenthesis) remove it).
+				"What state do we need to pass down in a backtracking function?" (Current index, string being built, open/close counts, removals count).
+				"What's the base case?" (Index reaches end of string). "What do we check then?" (Is the built string valid? Is removal count minimal?).
+				"This generates many duplicates and invalid paths. How can we optimize?"
+				(Pruning/State): "Can we prune if open_count < close_count? Can we track the minimum removals found so far and prune if current_removals > min_removals?"
+				(BFS Idea): "Alternatively, could we use BFS level by level, where each level represents one removal? The first level we find valid strings guarantees minimum removals." (Briefly discuss, compare to recursive DFS).
+				(Visited Sets): "How can we avoid processing the exact same partial string state multiple times?" (Use a set to track visited (index, partial_string) or similar state).
+	3. Conceptual Discussion: Multi-Pass Strategies:
+		- AI Guidance: Lead a discussion on the Multi-Pass concept introduced earlier. Since the selected problems don't perfectly exemplify this, conceptually analyze an excluded example like LC 863: All Nodes Distance K in Binary Tree.
+		- Socratic Questions for Discussion:
+			"For Distance K, if we are at a node, how do we find nodes K steps away downward?" (Standard DFS/BFS).
+			"How do we find nodes K steps away by going up to the parent and then down other branches?" (We need parent pointers!).
+			"Could we get parent pointers easily in a single standard recursive traversal?" (Not directly).
+			"This suggests a Multi-Pass Strategy. What could Pass 1 do?" (Traverse the tree (DFS) and build a map child -> parent).
+			"What could Pass 2 do, starting from the target node?" (Perform a BFS-like search outwards, using both child links and the parent map from Pass 1, keeping track of distance and visited nodes, stopping at distance K).
+			"So, why was multi-pass needed here?" (To augment the tree structure with global information (parent links) before the main search).
+			"When should we generally consider if a multi-pass approach might be needed?" (When processing a node requires information beyond its local scope/children, especially structural info like parents, depths, etc.).
+	4. Debugging Practice:
+		- AI Guidance: Provide recursive code snippets with subtle bugs (e.g., incorrect base case value, off-by-one, bad state update in backtracking). Guide the user to apply systematic debugging strategies (tracing, simplification, visualization, checking fundamentals) to find and fix the bugs, explaining their reasoning.
+	5. Mock Interview Practice:
+		- AI Guidance: Conduct mock interview scenarios for 1-2 problems previously solved or new variations. User explains their solution using the structured template. Provide feedback on clarity, completeness, correctness, complexity analysis, and handling of edge cases.
+Solidify & Prepare:
+	Check understanding ("Explain the multi-pass strategy's benefit for problems like Distance K."). Conclude by congratulating the user on their recursive mastery journey and emphasizing continuous practice on diverse problems as the key to maintaining and extending their skills.
+Solidify & Prepare:
+	Check understanding ("Explain when you might prefer using an accumulator parameter over a return value, considering the goal. Give an example.", NEW:"Describe a situation where a simple return value from a recursive call might not be enough to solve the entire problem."). Conclude by emphasizing that understanding goal->data flow dynamics is key for designing effective recursive architectures (Module 4), including handling complex information needs.
+`;
+  }
+});
 
 // src/test.ts
-init_logger();
-init_curriculum();
-init_model_usage();
 import { GoogleGenerativeAI } from "@google/generative-ai";
-var TEST_SUITE_CONFIG = {
-  enabled: true,
-  // Set to true to enable test execution
-  runArchetypeTest: false,
-  // Set to true to run archetype comparison test
-  runConceptExtractionTest: false,
-  // Set to true to run concept extraction test
-  runSocraticPhaseInvestigation: false,
-  // Set to true to run Socratic phase investigation
-  runStandardizedFormatTest: false
-  // Set to true to test standardized format parsing
-};
-var ArchetypeComparisonTest = class {
-  constructor(apiKey) {
-    __publicField(this, "genAI");
-    __publicField(this, "testResults", []);
-    __publicField(this, "prompt1Template", "");
-    __publicField(this, "prompt2Template", "");
-    this.genAI = new GoogleGenerativeAI(apiKey);
-  }
-  /**
-   * Main test execution function
-   */
-  async runTest() {
-    logger.warn("\u{1F680} ========== ARCHETYPE COMPARISON TEST STARTING ==========");
-    try {
-      await this.loadPromptTemplates();
-      const concepts = await this.extractConcepts();
-      logger.warn(`\u{1F4CA} Found ${concepts.length} concepts to test from modules M1.5-M5`);
-      for (const concept of concepts) {
-        await this.testConcept(concept);
+async function runTestSuite(apiKey) {
+  const testSuite = new TestSuite();
+  await testSuite.runTestSuite(apiKey);
+}
+var TEST_SUITE_CONFIG, ArchetypeComparisonTest, ConceptExtractionTest, SocraticPhaseInvestigation, EXPECTED_SECTION_LENGTHS, StandardizedFormatTest, TestSuite;
+var init_test = __esm({
+  "src/test.ts"() {
+    "use strict";
+    init_logger();
+    init_curriculum();
+    init_model_usage();
+    TEST_SUITE_CONFIG = {
+      enabled: true,
+      // Set to true to enable test execution
+      runArchetypeTest: false,
+      // Set to true to run archetype comparison test
+      runConceptExtractionTest: false,
+      // Set to true to run concept extraction test
+      runSocraticPhaseInvestigation: false,
+      // Set to true to run Socratic phase investigation
+      runStandardizedFormatTest: false
+      // Set to true to test standardized format parsing
+    };
+    ArchetypeComparisonTest = class {
+      constructor(apiKey) {
+        __publicField(this, "genAI");
+        __publicField(this, "testResults", []);
+        __publicField(this, "prompt1Template", "");
+        __publicField(this, "prompt2Template", "");
+        this.genAI = new GoogleGenerativeAI(apiKey);
       }
-      this.generateFinalReport();
-    } catch (error) {
-      logger.error("\u274C Test failed with error:", error);
-    }
-    logger.warn("\u{1F3C1} ========== ARCHETYPE COMPARISON TEST COMPLETED ==========");
-  }
-  /**
-   * Load prompt templates from files
-   */
-  async loadPromptTemplates() {
-    logger.warn("\u{1F4C4} Loading prompt templates...");
-    try {
-      const prompt1Response = await fetch("./testPrompt1.txt");
-      this.prompt1Template = await prompt1Response.text();
-      logger.warn("\u2705 Loaded testPrompt1.txt");
-      const prompt2Response = await fetch("./testPrompt2.txt");
-      this.prompt2Template = await prompt2Response.text();
-      logger.warn("\u2705 Loaded testPrompt2.txt");
-    } catch (error) {
-      throw new Error(`Failed to load prompt templates: ${error}`);
-    }
-  }
-  /**
-   * Extract concepts from modules M1.5-M5 using existing curriculum parsing logic
-   */
-  async extractConcepts() {
-    logger.warn("\u{1F4DA} Extracting concepts from modules.txt...");
-    try {
-      const modulesResponse = await fetch("./Modules.txt");
-      const modulesContent = await modulesResponse.text();
-      const curriculum2 = parseModulesTxt(modulesContent);
-      const concepts = [];
-      const targetModuleIds = ["Module1_5", "Module2", "Module3", "Module4", "Module5"];
-      for (const [moduleIndex, module] of curriculum2.modules.entries()) {
-        if (targetModuleIds.includes(module.id)) {
-          const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
-          logger.warn(`\u{1F4D6} Processing ${displayModuleId}: ${module.title}`);
-          if (module.concepts && module.concepts.length > 0) {
-            for (const [conceptIndex, concept] of module.concepts.entries()) {
-              const conceptId = `${displayModuleId}.${conceptIndex + 1}`;
-              concepts.push({
-                id: conceptId,
-                title: concept.title,
-                text: `${concept.title}
-${concept.text}`
-              });
-            }
+      /**
+       * Main test execution function
+       */
+      async runTest() {
+        logger.warn("\u{1F680} ========== ARCHETYPE COMPARISON TEST STARTING ==========");
+        try {
+          await this.loadPromptTemplates();
+          const concepts = await this.extractConcepts();
+          logger.warn(`\u{1F4CA} Found ${concepts.length} concepts to test from modules M1.5-M5`);
+          for (const concept of concepts) {
+            await this.testConcept(concept);
           }
+          this.generateFinalReport();
+        } catch (error) {
+          logger.error("\u274C Test failed with error:", error);
+        }
+        logger.warn("\u{1F3C1} ========== ARCHETYPE COMPARISON TEST COMPLETED ==========");
+      }
+      /**
+       * Load prompt templates from files
+       */
+      async loadPromptTemplates() {
+        logger.warn("\u{1F4C4} Loading prompt templates...");
+        try {
+          const prompt1Response = await fetch("./testPrompt1.txt");
+          this.prompt1Template = await prompt1Response.text();
+          logger.warn("\u2705 Loaded testPrompt1.txt");
+          const prompt2Response = await fetch("./testPrompt2.txt");
+          this.prompt2Template = await prompt2Response.text();
+          logger.warn("\u2705 Loaded testPrompt2.txt");
+        } catch (error) {
+          throw new Error(`Failed to load prompt templates: ${error}`);
         }
       }
-      return concepts;
-    } catch (error) {
-      throw new Error(`Failed to extract concepts: ${error}`);
-    }
-  }
-  /**
-   * Test a single concept with both prompts
-   */
-  async testConcept(concept) {
-    logger.warn(`
+      /**
+       * Extract concepts from modules M1.5-M5 using existing curriculum parsing logic
+       */
+      async extractConcepts() {
+        logger.warn("\u{1F4DA} Extracting concepts from modules.txt...");
+        try {
+          const modulesResponse = await fetch("./Modules.txt");
+          const modulesContent = await modulesResponse.text();
+          const curriculum2 = parseModulesTxt(modulesContent);
+          const concepts = [];
+          const targetModuleIds = ["Module1_5", "Module2", "Module3", "Module4", "Module5"];
+          for (const [moduleIndex, module] of curriculum2.modules.entries()) {
+            if (targetModuleIds.includes(module.id)) {
+              const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
+              logger.warn(`\u{1F4D6} Processing ${displayModuleId}: ${module.title}`);
+              if (module.concepts && module.concepts.length > 0) {
+                for (const [conceptIndex, concept] of module.concepts.entries()) {
+                  const conceptId = `${displayModuleId}.${conceptIndex + 1}`;
+                  concepts.push({
+                    id: conceptId,
+                    title: concept.title,
+                    text: `${concept.title}
+${concept.text}`
+                  });
+                }
+              }
+            }
+          }
+          return concepts;
+        } catch (error) {
+          throw new Error(`Failed to extract concepts: ${error}`);
+        }
+      }
+      /**
+       * Test a single concept with both prompts
+       */
+      async testConcept(concept) {
+        logger.warn(`
 \u{1F9EA} Testing Concept ${concept.id}: ${concept.title}`);
-    try {
-      const prompt1 = this.prompt1Template.replace(
-        "<REPLACE WITH ACTUAL INDIVIDUAL FULL CONCEPT TEXT HERE>",
-        concept.text
-      );
-      const prompt2 = this.prompt2Template.replace(
-        "<REPLACE WITH ACTUAL INDIVIDUAL FULL CONCEPT TEXT HERE>",
-        concept.text
-      );
-      logger.warn(`\u{1F4E4} Sending concept to LLM with Prompt 1...`);
-      const model1 = this.genAI.getGenerativeModel({
-        model: ARCHETYPE_COMPARISON_TEST_CONFIG.modelName,
-        ...ARCHETYPE_COMPARISON_TEST_CONFIG.config
-      });
-      const result1 = await model1.generateContent(prompt1);
-      const response1 = result1.response.text().trim();
-      logger.warn(`\u{1F4E5} Prompt 1 Response Received: ${response1}`);
-      logger.warn(`\u{1F4E4} Sending concept to LLM with Prompt 2...`);
-      const model2 = this.genAI.getGenerativeModel({
-        model: ARCHETYPE_COMPARISON_TEST_CONFIG.modelName,
-        ...ARCHETYPE_COMPARISON_TEST_CONFIG.config
-      });
-      const result2 = await model2.generateContent(prompt2);
-      const response2 = result2.response.text().trim();
-      logger.warn(`\u{1F4E5} Prompt 2 Response Received: ${response2}`);
-      const archetype1 = this.extractArchetype(response1);
-      const archetype2 = this.extractArchetype(response2);
-      const match = archetype1 === archetype2;
-      const discrepancy = match ? null : `Prompt1: ${archetype1}, Prompt2: ${archetype2}`;
-      const testResult = {
-        conceptId: concept.id,
-        conceptTitle: concept.title,
-        prompt1Response: archetype1,
-        prompt2Response: archetype2,
-        match,
-        ...discrepancy ? { discrepancy } : {}
-      };
-      this.testResults.push(testResult);
-      logger.warn(`
+        try {
+          const prompt1 = this.prompt1Template.replace(
+            "<REPLACE WITH ACTUAL INDIVIDUAL FULL CONCEPT TEXT HERE>",
+            concept.text
+          );
+          const prompt2 = this.prompt2Template.replace(
+            "<REPLACE WITH ACTUAL INDIVIDUAL FULL CONCEPT TEXT HERE>",
+            concept.text
+          );
+          logger.warn(`\u{1F4E4} Sending concept to LLM with Prompt 1...`);
+          const model1 = this.genAI.getGenerativeModel({
+            model: ARCHETYPE_COMPARISON_TEST_CONFIG.modelName,
+            ...ARCHETYPE_COMPARISON_TEST_CONFIG.config
+          });
+          const result1 = await model1.generateContent(prompt1);
+          const response1 = result1.response.text().trim();
+          logger.warn(`\u{1F4E5} Prompt 1 Response Received: ${response1}`);
+          logger.warn(`\u{1F4E4} Sending concept to LLM with Prompt 2...`);
+          const model2 = this.genAI.getGenerativeModel({
+            model: ARCHETYPE_COMPARISON_TEST_CONFIG.modelName,
+            ...ARCHETYPE_COMPARISON_TEST_CONFIG.config
+          });
+          const result2 = await model2.generateContent(prompt2);
+          const response2 = result2.response.text().trim();
+          logger.warn(`\u{1F4E5} Prompt 2 Response Received: ${response2}`);
+          const archetype1 = this.extractArchetype(response1);
+          const archetype2 = this.extractArchetype(response2);
+          const match = archetype1 === archetype2;
+          const discrepancy = match ? null : `Prompt1: ${archetype1}, Prompt2: ${archetype2}`;
+          const testResult = {
+            conceptId: concept.id,
+            conceptTitle: concept.title,
+            prompt1Response: archetype1,
+            prompt2Response: archetype2,
+            match,
+            ...discrepancy ? { discrepancy } : {}
+          };
+          this.testResults.push(testResult);
+          logger.warn(`
 \u{1F4CA} ===== CONCEPT ${concept.id} TEST RESULT =====
 \u{1F4CC} Concept: ${concept.title}
 \u{1F4DD} Full Text: ${concept.text.substring(0, 200)}...
@@ -30723,182 +31868,182 @@ ${concept.text}`
 ${discrepancy ? `\u274C Discrepancy: ${discrepancy}` : ""}
 ==========================================
             `);
-    } catch (error) {
-      logger.error(`\u274C Failed to test concept ${concept.id}: ${error}`);
-      this.testResults.push({
-        conceptId: concept.id,
-        conceptTitle: concept.title,
-        prompt1Response: "ERROR",
-        prompt2Response: "ERROR",
-        match: false,
-        discrepancy: `Error: ${error}`
-      });
-    }
-  }
-  /**
-   * Extract archetype from LLM response
-   */
-  extractArchetype(response) {
-    const archetypes = [
-      "Foundational Concept",
-      "Pattern Definition",
-      "Component Deep-Dive",
-      "Toolbox/Mechanism",
-      "Strategic Heuristic",
-      "Synthesis/Application"
-    ];
-    const cleanResponse = response.replace(/[*`]/g, "").trim();
-    for (const archetype of archetypes) {
-      if (cleanResponse.includes(archetype)) {
-        return archetype;
+        } catch (error) {
+          logger.error(`\u274C Failed to test concept ${concept.id}: ${error}`);
+          this.testResults.push({
+            conceptId: concept.id,
+            conceptTitle: concept.title,
+            prompt1Response: "ERROR",
+            prompt2Response: "ERROR",
+            match: false,
+            discrepancy: `Error: ${error}`
+          });
+        }
       }
-    }
-    return cleanResponse;
-  }
-  /**
-   * Generate and log final report
-   */
-  generateFinalReport() {
-    logger.warn(`
+      /**
+       * Extract archetype from LLM response
+       */
+      extractArchetype(response) {
+        const archetypes = [
+          "Foundational Concept",
+          "Pattern Definition",
+          "Component Deep-Dive",
+          "Toolbox/Mechanism",
+          "Strategic Heuristic",
+          "Synthesis/Application"
+        ];
+        const cleanResponse = response.replace(/[*`]/g, "").trim();
+        for (const archetype of archetypes) {
+          if (cleanResponse.includes(archetype)) {
+            return archetype;
+          }
+        }
+        return cleanResponse;
+      }
+      /**
+       * Generate and log final report
+       */
+      generateFinalReport() {
+        logger.warn(`
         
 \u{1F3AF} ========== FINAL ARCHETYPE COMPARISON REPORT ==========
         `);
-    let passCount = 0;
-    let failCount = 0;
-    const reportLines = [];
-    for (const result of this.testResults) {
-      if (result.match) {
-        passCount++;
-        reportLines.push(`${result.conceptId}->Pass`);
-      } else {
-        failCount++;
-        reportLines.push(`${result.conceptId}->Fail [${result.discrepancy}]`);
-      }
-    }
-    logger.warn(`\u{1F4CA} Summary: ${passCount} PASSED, ${failCount} FAILED out of ${this.testResults.length} concepts`);
-    logger.warn(`
+        let passCount = 0;
+        let failCount = 0;
+        const reportLines = [];
+        for (const result of this.testResults) {
+          if (result.match) {
+            passCount++;
+            reportLines.push(`${result.conceptId}->Pass`);
+          } else {
+            failCount++;
+            reportLines.push(`${result.conceptId}->Fail [${result.discrepancy}]`);
+          }
+        }
+        logger.warn(`\u{1F4CA} Summary: ${passCount} PASSED, ${failCount} FAILED out of ${this.testResults.length} concepts`);
+        logger.warn(`
 \u{1F4CB} Detailed Results:
 ${reportLines.join(", ")}`);
-    if (failCount > 0) {
-      logger.warn(`
-\u274C Failed Concepts Details:`);
-      for (const result of this.testResults) {
-        if (!result.match) {
+        if (failCount > 0) {
           logger.warn(`
+\u274C Failed Concepts Details:`);
+          for (const result of this.testResults) {
+            if (!result.match) {
+              logger.warn(`
 Concept ${result.conceptId}: ${result.conceptTitle}
 - Prompt 1: ${result.prompt1Response}
 - Prompt 2: ${result.prompt2Response}
                     `);
+            }
+          }
         }
-      }
-    }
-    logger.warn(`
+        logger.warn(`
 ========================================================
         `);
-  }
-};
-var ConceptExtractionTest = class {
-  constructor() {
-  }
-  /**
-   * Main test execution function
-   */
-  async runTest() {
-    logger.warn("\u{1F680} ========== CONCEPT EXTRACTION TEST STARTING ==========");
-    try {
-      const concepts = await this.extractAllConcepts();
-      logger.warn(`\u{1F4CA} Found ${concepts.length} total concepts across all modules`);
-      for (const concept of concepts) {
-        this.displayConcept(concept);
       }
-      this.generateSummaryReport(concepts);
-    } catch (error) {
-      logger.error("\u274C Concept extraction test failed with error:", error);
-    }
-    logger.warn("\u{1F3C1} ========== CONCEPT EXTRACTION TEST COMPLETED ==========");
-  }
-  /**
-   * Extract concepts from all modules using existing curriculum parsing logic
-   */
-  async extractAllConcepts() {
-    logger.warn("\u{1F4DA} Extracting concepts from modules.txt...");
-    try {
-      const modulesResponse = await fetch("./Modules.txt");
-      const modulesContent = await modulesResponse.text();
-      const moduleRegex = /^Module (\d+(?:\.\d+)?):\s*(.*?)\n[\s\S]*?Goal:\s*([\s\S]*?)\nConcepts[\s\S]*?:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/gim;
-      const conceptRegex = /(?:^|\n)\s*(\d+)\.\s+([^:]+?):\s*([\s\S]*?)(?=\n\s*\d+\.\s+[^:]+:|\nMethodology:|$)/g;
-      let moduleMatch;
-      while ((moduleMatch = moduleRegex.exec(modulesContent)) !== null) {
-        const rawModuleId = moduleMatch[1];
-        const rawTitle = moduleMatch[2];
-        const rawConceptsSection = moduleMatch[4];
-        if (!rawModuleId || !rawTitle || !rawConceptsSection) {
-          logger.warn("Skipping module due to incomplete regex capture.", {
-            moduleId: rawModuleId,
-            hasTitle: Boolean(rawTitle),
-            hasConceptSection: Boolean(rawConceptsSection)
-          });
-          continue;
+    };
+    ConceptExtractionTest = class {
+      constructor() {
+      }
+      /**
+       * Main test execution function
+       */
+      async runTest() {
+        logger.warn("\u{1F680} ========== CONCEPT EXTRACTION TEST STARTING ==========");
+        try {
+          const concepts = await this.extractAllConcepts();
+          logger.warn(`\u{1F4CA} Found ${concepts.length} total concepts across all modules`);
+          for (const concept of concepts) {
+            this.displayConcept(concept);
+          }
+          this.generateSummaryReport(concepts);
+        } catch (error) {
+          logger.error("\u274C Concept extraction test failed with error:", error);
         }
-        const displayModuleId = `M${rawModuleId.replace("_", ".")}`;
-        const moduleTitle = rawTitle.trim();
-        const conceptsSection = rawConceptsSection;
-        logger.warn(`
+        logger.warn("\u{1F3C1} ========== CONCEPT EXTRACTION TEST COMPLETED ==========");
+      }
+      /**
+       * Extract concepts from all modules using existing curriculum parsing logic
+       */
+      async extractAllConcepts() {
+        logger.warn("\u{1F4DA} Extracting concepts from modules.txt...");
+        try {
+          const modulesResponse = await fetch("./Modules.txt");
+          const modulesContent = await modulesResponse.text();
+          const moduleRegex = /^Module (\d+(?:\.\d+)?):\s*(.*?)\n[\s\S]*?Goal:\s*([\s\S]*?)\nConcepts[\s\S]*?:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/gim;
+          const conceptRegex = /(?:^|\n)\s*(\d+)\.\s+([^:]+?):\s*([\s\S]*?)(?=\n\s*\d+\.\s+[^:]+:|\nMethodology:|$)/g;
+          let moduleMatch;
+          while ((moduleMatch = moduleRegex.exec(modulesContent)) !== null) {
+            const rawModuleId = moduleMatch[1];
+            const rawTitle = moduleMatch[2];
+            const rawConceptsSection = moduleMatch[4];
+            if (!rawModuleId || !rawTitle || !rawConceptsSection) {
+              logger.warn("Skipping module due to incomplete regex capture.", {
+                moduleId: rawModuleId,
+                hasTitle: Boolean(rawTitle),
+                hasConceptSection: Boolean(rawConceptsSection)
+              });
+              continue;
+            }
+            const displayModuleId = `M${rawModuleId.replace("_", ".")}`;
+            const moduleTitle = rawTitle.trim();
+            const conceptsSection = rawConceptsSection;
+            logger.warn(`
 \u{1F50D} ===== RAW CONCEPTS SECTION FOR ${displayModuleId} =====`);
-        logger.warn(`Module: ${displayModuleId}: ${moduleTitle}`);
-        logger.warn(`Raw Concepts Section Length: ${conceptsSection.length} chars`);
-        logger.warn(`Raw Concepts Section Content:`);
-        logger.warn(`${conceptsSection}`);
-        logger.warn(`===== END RAW CONCEPTS SECTION =====
+            logger.warn(`Module: ${displayModuleId}: ${moduleTitle}`);
+            logger.warn(`Raw Concepts Section Length: ${conceptsSection.length} chars`);
+            logger.warn(`Raw Concepts Section Content:`);
+            logger.warn(`${conceptsSection}`);
+            logger.warn(`===== END RAW CONCEPTS SECTION =====
 `);
-        let conceptCount = 0;
-        conceptRegex.lastIndex = 0;
-        let conceptMatch;
-        while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
-          const conceptTitle = conceptMatch[2]?.trim();
-          const conceptText = conceptMatch[3]?.trim();
-          if (!conceptTitle || !conceptText) {
-            logger.warn("Skipping malformed concept entry during raw dump.", {
-              moduleId: displayModuleId,
-              raw: conceptMatch[0]
-            });
-            continue;
-          }
-          conceptCount++;
-          logger.warn(`Found concept ${conceptCount}: "${conceptTitle}" with text length ${conceptText.length}`);
-        }
-        logger.warn(`Total concepts found in ${displayModuleId}: ${conceptCount}
+            let conceptCount = 0;
+            conceptRegex.lastIndex = 0;
+            let conceptMatch;
+            while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
+              const conceptTitle = conceptMatch[2]?.trim();
+              const conceptText = conceptMatch[3]?.trim();
+              if (!conceptTitle || !conceptText) {
+                logger.warn("Skipping malformed concept entry during raw dump.", {
+                  moduleId: displayModuleId,
+                  raw: conceptMatch[0]
+                });
+                continue;
+              }
+              conceptCount++;
+              logger.warn(`Found concept ${conceptCount}: "${conceptTitle}" with text length ${conceptText.length}`);
+            }
+            logger.warn(`Total concepts found in ${displayModuleId}: ${conceptCount}
 `);
-      }
-      const curriculum2 = parseModulesTxt(modulesContent);
-      const concepts = [];
-      for (const [moduleIndex, module] of curriculum2.modules.entries()) {
-        const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
-        logger.warn(`\u{1F4D6} Processing ${displayModuleId}: ${module.title}`);
-        if (module.concepts && module.concepts.length > 0) {
-          for (const [conceptIndex, concept] of module.concepts.entries()) {
-            const conceptId = `${displayModuleId}.${conceptIndex + 1}`;
-            concepts.push({
-              id: conceptId,
-              moduleId: displayModuleId,
-              title: concept.title,
-              text: concept.text
-            });
           }
-        } else {
-          logger.warn(`\u26A0\uFE0F  Module ${displayModuleId} has no concepts`);
+          const curriculum2 = parseModulesTxt(modulesContent);
+          const concepts = [];
+          for (const [moduleIndex, module] of curriculum2.modules.entries()) {
+            const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
+            logger.warn(`\u{1F4D6} Processing ${displayModuleId}: ${module.title}`);
+            if (module.concepts && module.concepts.length > 0) {
+              for (const [conceptIndex, concept] of module.concepts.entries()) {
+                const conceptId = `${displayModuleId}.${conceptIndex + 1}`;
+                concepts.push({
+                  id: conceptId,
+                  moduleId: displayModuleId,
+                  title: concept.title,
+                  text: concept.text
+                });
+              }
+            } else {
+              logger.warn(`\u26A0\uFE0F  Module ${displayModuleId} has no concepts`);
+            }
+          }
+          return concepts;
+        } catch (error) {
+          throw new Error(`Failed to extract concepts: ${error}`);
         }
       }
-      return concepts;
-    } catch (error) {
-      throw new Error(`Failed to extract concepts: ${error}`);
-    }
-  }
-  /**
-   * Display a single concept with detailed formatting
-   */
-  displayConcept(concept) {
-    logger.warn(`
+      /**
+       * Display a single concept with detailed formatting
+       */
+      displayConcept(concept) {
+        logger.warn(`
 \u{1F9E9} ===== CONCEPT ${concept.id} DETAILS =====
 \u{1F4CC} Module: ${concept.moduleId}
 \u{1F4DD} Title: ${concept.title}
@@ -30906,696 +32051,684 @@ var ConceptExtractionTest = class {
 ${concept.text}
 ==========================================
         `);
-  }
-  /**
-   * Generate and log summary report
-   */
-  generateSummaryReport(concepts) {
-    logger.warn(`
+      }
+      /**
+       * Generate and log summary report
+       */
+      generateSummaryReport(concepts) {
+        logger.warn(`
         
 \u{1F3AF} ========== CONCEPT EXTRACTION SUMMARY REPORT ==========
         `);
-    const conceptsByModule = /* @__PURE__ */ new Map();
-    for (const concept of concepts) {
-      const count = conceptsByModule.get(concept.moduleId) || 0;
-      conceptsByModule.set(concept.moduleId, count + 1);
-    }
-    logger.warn(`\u{1F4CA} Concepts extracted per module:`);
-    for (const [moduleId, count] of Array.from(conceptsByModule.entries()).sort()) {
-      logger.warn(`   ${moduleId}: ${count} concepts`);
-    }
-    logger.warn(`
+        const conceptsByModule = /* @__PURE__ */ new Map();
+        for (const concept of concepts) {
+          const count = conceptsByModule.get(concept.moduleId) || 0;
+          conceptsByModule.set(concept.moduleId, count + 1);
+        }
+        logger.warn(`\u{1F4CA} Concepts extracted per module:`);
+        for (const [moduleId, count] of Array.from(conceptsByModule.entries()).sort()) {
+          logger.warn(`   ${moduleId}: ${count} concepts`);
+        }
+        logger.warn(`
 \u{1F4C8} Total modules processed: ${conceptsByModule.size}`);
-    logger.warn(`\u{1F4C8} Total concepts extracted: ${concepts.length}`);
-    logger.warn(`
+        logger.warn(`\u{1F4C8} Total concepts extracted: ${concepts.length}`);
+        logger.warn(`
 \u{1F4CB} All concept titles:`);
-    for (const concept of concepts) {
-      logger.warn(`   ${concept.id}: "${concept.title}"`);
-    }
-    logger.warn(`
+        for (const concept of concepts) {
+          logger.warn(`   ${concept.id}: "${concept.title}"`);
+        }
+        logger.warn(`
 ========================================================
         `);
-  }
-};
-var SocraticPhaseInvestigation = class {
-  constructor() {
-  }
-  /**
-   * Main investigation execution function
-   */
-  async runInvestigation() {
-    logger.warn("\u{1F50D} ========== STEP 3 SOCRATIC METHODOLOGY EXTRACTION ==========");
-    try {
-      const curriculum2 = await this.loadCurriculum();
-      logger.warn(`\u{1F4CA} Analyzing Step 3 methodology extraction across ${curriculum2.modules.length} modules
-`);
-      for (const [moduleIndex, module] of curriculum2.modules.entries()) {
-        this.displayModuleSocraticMethodology(module);
       }
-      this.generateExtractionSummary(curriculum2);
-    } catch (error) {
-      logger.error("\u274C Step 3 methodology extraction analysis failed with error:", error);
-    }
-    logger.warn("\u{1F50D} ========== STEP 3 METHODOLOGY EXTRACTION COMPLETED ==========");
-  }
-  /**
-   * Load curriculum from Modules.txt
-   */
-  async loadCurriculum() {
-    logger.warn("\u{1F4DA} Loading curriculum from modules.txt...");
-    try {
-      const modulesResponse = await fetch("./Modules.txt");
-      const modulesContent = await modulesResponse.text();
-      const curriculum2 = parseModulesTxt(modulesContent);
-      return curriculum2;
-    } catch (error) {
-      throw new Error(`Failed to load curriculum: ${error}`);
-    }
-  }
-  /**
-   * Display Step 3 methodology extraction for a specific module
-   * Shows exactly what content is captured by the methodology regex
-   */
-  displayModuleSocraticMethodology(module) {
-    const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
-    logger.warn(`\u{1F52C} MODULE ${displayModuleId}: ${module.title}`);
-    const hasSocraticSection = !!(module.socratic && module.socratic.trim());
-    const socraticContentLength = hasSocraticSection ? module.socratic.length : 0;
-    logger.warn(`\u{1F4CB} Socratic Section Found: ${hasSocraticSection ? "YES" : "NO"}`);
-    if (hasSocraticSection) {
-      logger.warn(`\u{1F4CF} Socratic Content Length: ${socraticContentLength} characters`);
-      logger.warn(`\u{1F4C4} Full Socratic Content:`);
-      logger.warn(`${module.socratic}`);
-    } else {
-      logger.warn(`   \u26A0\uFE0F  No Socratic section found in module`);
-    }
-    logger.warn(`============================================================
-`);
-  }
-  /**
-   * Generate summary of Step 3 methodology extraction
-   */
-  generateExtractionSummary(curriculum2) {
-    logger.warn(`\u{1F3AF} ========== STEP 3 METHODOLOGY EXTRACTION SUMMARY ==========`);
-    let totalModules = curriculum2.modules.length;
-    let modulesWithSocraticSteps = 0;
-    let totalSocraticSteps = 0;
-    const moduleStats = [];
-    for (const module of curriculum2.modules) {
-      const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
-      const hasSocraticSection = !!(module.socratic && module.socratic.trim());
-      if (hasSocraticSection) {
-        modulesWithSocraticSteps++;
-        totalSocraticSteps += 1;
+    };
+    SocraticPhaseInvestigation = class {
+      constructor() {
       }
-      moduleStats.push({
-        id: displayModuleId,
-        title: module.title.substring(0, 40) + (module.title.length > 40 ? "..." : ""),
-        stepCount: hasSocraticSection ? 1 : 0
-        // 1 if has section, 0 if not
-      });
-    }
-    logger.warn(`\u{1F4CA} Socratic Section Statistics:`);
-    logger.warn(`   Total modules analyzed: ${totalModules}`);
-    logger.warn(`   Modules with Socratic sections: ${modulesWithSocraticSteps}`);
-    logger.warn(`   Total Socratic sections found: ${totalSocraticSteps}`);
-    logger.warn(`
+      /**
+       * Main investigation execution function
+       */
+      async runInvestigation() {
+        logger.warn("\u{1F50D} ========== STEP 3 SOCRATIC METHODOLOGY EXTRACTION ==========");
+        try {
+          const curriculum2 = await this.loadCurriculum();
+          logger.warn(`\u{1F4CA} Analyzing Step 3 methodology extraction across ${curriculum2.modules.length} modules
+`);
+          for (const [moduleIndex, module] of curriculum2.modules.entries()) {
+            this.displayModuleSocraticMethodology(module);
+          }
+          this.generateExtractionSummary(curriculum2);
+        } catch (error) {
+          logger.error("\u274C Step 3 methodology extraction analysis failed with error:", error);
+        }
+        logger.warn("\u{1F50D} ========== STEP 3 METHODOLOGY EXTRACTION COMPLETED ==========");
+      }
+      /**
+       * Load curriculum from Modules.txt
+       */
+      async loadCurriculum() {
+        logger.warn("\u{1F4DA} Loading curriculum from modules.txt...");
+        try {
+          const modulesResponse = await fetch("./Modules.txt");
+          const modulesContent = await modulesResponse.text();
+          const curriculum2 = parseModulesTxt(modulesContent);
+          return curriculum2;
+        } catch (error) {
+          throw new Error(`Failed to load curriculum: ${error}`);
+        }
+      }
+      /**
+       * Display Step 3 methodology extraction for a specific module
+       * Shows exactly what content is captured by the methodology regex
+       */
+      displayModuleSocraticMethodology(module) {
+        const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
+        logger.warn(`\u{1F52C} MODULE ${displayModuleId}: ${module.title}`);
+        const hasSocraticSection = !!(module.socratic && module.socratic.trim());
+        const socraticContentLength = hasSocraticSection ? module.socratic.length : 0;
+        logger.warn(`\u{1F4CB} Socratic Section Found: ${hasSocraticSection ? "YES" : "NO"}`);
+        if (hasSocraticSection) {
+          logger.warn(`\u{1F4CF} Socratic Content Length: ${socraticContentLength} characters`);
+          logger.warn(`\u{1F4C4} Full Socratic Content:`);
+          logger.warn(`${module.socratic}`);
+        } else {
+          logger.warn(`   \u26A0\uFE0F  No Socratic section found in module`);
+        }
+        logger.warn(`============================================================
+`);
+      }
+      /**
+       * Generate summary of Step 3 methodology extraction
+       */
+      generateExtractionSummary(curriculum2) {
+        logger.warn(`\u{1F3AF} ========== STEP 3 METHODOLOGY EXTRACTION SUMMARY ==========`);
+        let totalModules = curriculum2.modules.length;
+        let modulesWithSocraticSteps = 0;
+        let totalSocraticSteps = 0;
+        const moduleStats = [];
+        for (const module of curriculum2.modules) {
+          const displayModuleId = module.id.replace("Module", "M").replace("_", ".");
+          const hasSocraticSection = !!(module.socratic && module.socratic.trim());
+          if (hasSocraticSection) {
+            modulesWithSocraticSteps++;
+            totalSocraticSteps += 1;
+          }
+          moduleStats.push({
+            id: displayModuleId,
+            title: module.title.substring(0, 40) + (module.title.length > 40 ? "..." : ""),
+            stepCount: hasSocraticSection ? 1 : 0
+            // 1 if has section, 0 if not
+          });
+        }
+        logger.warn(`\u{1F4CA} Socratic Section Statistics:`);
+        logger.warn(`   Total modules analyzed: ${totalModules}`);
+        logger.warn(`   Modules with Socratic sections: ${modulesWithSocraticSteps}`);
+        logger.warn(`   Total Socratic sections found: ${totalSocraticSteps}`);
+        logger.warn(`
 \u{1F4CB} Per-Module Breakdown:`);
-    moduleStats.forEach((stat) => {
-      const status = stat.stepCount > 0 ? "\u2705" : "\u274C";
-      logger.warn(`   ${status} ${stat.id}: ${stat.stepCount} step(s) - ${stat.title}`);
-    });
-    logger.warn(`
+        moduleStats.forEach((stat) => {
+          const status = stat.stepCount > 0 ? "\u2705" : "\u274C";
+          logger.warn(`   ${status} ${stat.id}: ${stat.stepCount} step(s) - ${stat.title}`);
+        });
+        logger.warn(`
 \u{1F50D} ANALYSIS NOTES:
    - Look for missing nested content (\u25E6 bullet points, sub-numbered items)
    - Check if methodology content seems complete for Socratic teaching
    - Modules with 0 steps may need methodology sections added
    - Multiple steps per module suggest rich Socratic content structure
         `);
-    logger.warn(`========================================================`);
-  }
-};
-var EXPECTED_SECTION_LENGTHS = {
-  "Module1": { goal: 221, concepts: 3254, methodology: 798, socratic: 434, solidify: 337, conceptCount: 3 },
-  "Module1.5": { goal: 1293, concepts: 7099, methodology: 5282, socratic: 1428, solidify: 2161, conceptCount: 6 },
-  "Module2": { goal: 169, concepts: 3250, methodology: 655, socratic: 511, solidify: 247, conceptCount: 3 },
-  "Module3": { goal: 417, concepts: 9485, methodology: 1666, socratic: 6051, solidify: 453, conceptCount: 5 },
-  "Module4": { goal: 324, concepts: 6500, methodology: 1966, socratic: 7506, solidify: 595, conceptCount: 4 },
-  "Module5": { goal: 232, concepts: 5585, methodology: 1095, socratic: 6294, solidify: 623, conceptCount: 4 },
-  "Module6": { goal: 603, concepts: 2869, methodology: 1009, socratic: 6290, solidify: 360, conceptCount: 5 },
-  "Module6.5": { goal: 1086, concepts: 4751, methodology: 1316, socratic: 2731, solidify: 509, conceptCount: 5 },
-  "Module7": { goal: 215, concepts: 4730, methodology: 1228, socratic: 5830, solidify: 405, conceptCount: 4 },
-  "Module8": { goal: 261, concepts: 7664, methodology: 881, socratic: 8525, solidify: 752, conceptCount: 5 }
-};
-var StandardizedFormatTest = class {
-  constructor() {
-  }
-  /**
-   * Main test execution function
-   */
-  async runTest() {
-    logger.warn("\u{1F9EA} ========== STANDARDIZED FORMAT PARSING TEST - ALL MODULES ==========");
-    try {
-      const standardizedResponse = await fetch("./Modules.txt");
-      const standardizedContent = await standardizedResponse.text();
-      logger.warn(`\u{1F4C4} Loaded modules file (${standardizedContent.length} chars)`);
-      logger.warn(`\u{1F4CA} Testing all 10 modules...
+        logger.warn(`========================================================`);
+      }
+    };
+    EXPECTED_SECTION_LENGTHS = {
+      "Module1": { goal: 221, concepts: 3254, methodology: 798, socratic: 434, solidify: 337, conceptCount: 3 },
+      "Module1.5": { goal: 1293, concepts: 7099, methodology: 5282, socratic: 1428, solidify: 2161, conceptCount: 6 },
+      "Module2": { goal: 169, concepts: 3250, methodology: 655, socratic: 511, solidify: 247, conceptCount: 3 },
+      "Module3": { goal: 417, concepts: 9485, methodology: 1666, socratic: 6051, solidify: 453, conceptCount: 5 },
+      "Module4": { goal: 324, concepts: 6500, methodology: 1966, socratic: 7506, solidify: 595, conceptCount: 4 },
+      "Module5": { goal: 232, concepts: 5585, methodology: 1095, socratic: 6294, solidify: 623, conceptCount: 4 },
+      "Module6": { goal: 603, concepts: 2869, methodology: 1009, socratic: 6290, solidify: 360, conceptCount: 5 },
+      "Module6.5": { goal: 1086, concepts: 4751, methodology: 1316, socratic: 2731, solidify: 509, conceptCount: 5 },
+      "Module7": { goal: 215, concepts: 4730, methodology: 1228, socratic: 5830, solidify: 405, conceptCount: 4 },
+      "Module8": { goal: 261, concepts: 7664, methodology: 881, socratic: 8525, solidify: 752, conceptCount: 5 }
+    };
+    StandardizedFormatTest = class {
+      constructor() {
+      }
+      /**
+       * Main test execution function
+       */
+      async runTest() {
+        logger.warn("\u{1F9EA} ========== STANDARDIZED FORMAT PARSING TEST - ALL MODULES ==========");
+        try {
+          const standardizedResponse = await fetch("./Modules.txt");
+          const standardizedContent = await standardizedResponse.text();
+          logger.warn(`\u{1F4C4} Loaded modules file (${standardizedContent.length} chars)`);
+          logger.warn(`\u{1F4CA} Testing all 10 modules...
 `);
-      await this.testAllModules(standardizedContent);
-    } catch (error) {
-      logger.error("\u274C Standardized format test failed:", error);
-    }
-    logger.warn("\u{1F9EA} ========== STANDARDIZED FORMAT TEST COMPLETED ==========");
-  }
-  /**
-   * Test all modules in the standardized file
-   */
-  async testAllModules(content) {
-    const curriculum2 = parseModulesTxt(content);
-    const testResults = [];
-    logger.warn(`\u{1F4DA} Found ${curriculum2.modules.length} modules in standardized file
+          await this.testAllModules(standardizedContent);
+        } catch (error) {
+          logger.error("\u274C Standardized format test failed:", error);
+        }
+        logger.warn("\u{1F9EA} ========== STANDARDIZED FORMAT TEST COMPLETED ==========");
+      }
+      /**
+       * Test all modules in the standardized file
+       */
+      async testAllModules(content) {
+        const curriculum2 = parseModulesTxt(content);
+        const testResults = [];
+        logger.warn(`\u{1F4DA} Found ${curriculum2.modules.length} modules in standardized file
 `);
-    let outputContent = "STANDARDIZED MODULE PARSING TEST OUTPUT\n";
-    outputContent += "=======================================\n";
-    outputContent += `Generated: ${(/* @__PURE__ */ new Date()).toISOString()}
+        let outputContent = "STANDARDIZED MODULE PARSING TEST OUTPUT\n";
+        outputContent += "=======================================\n";
+        outputContent += `Generated: ${(/* @__PURE__ */ new Date()).toISOString()}
 `;
-    outputContent += `Total Modules Found: ${curriculum2.modules.length}
+        outputContent += `Total Modules Found: ${curriculum2.modules.length}
 
 `;
-    for (const module of curriculum2.modules) {
-      const moduleId = module.id.replace("_", ".");
-      const moduleNumber = module.id.replace("Module", "").replace("_", ".");
-      try {
-        const result = await this.testSingleModule(module, moduleId);
-        testResults.push(result);
-        outputContent += this.generateModuleOutput(module, moduleNumber, result);
-      } catch (error) {
-        logger.error(`\u274C Error testing module ${moduleId}:`, error);
-        outputContent += `
+        for (const module of curriculum2.modules) {
+          const moduleId = module.id.replace("_", ".");
+          const moduleNumber = module.id.replace("Module", "").replace("_", ".");
+          try {
+            const result = await this.testSingleModule(module, moduleId);
+            testResults.push(result);
+            outputContent += this.generateModuleOutput(module, moduleNumber, result);
+          } catch (error) {
+            logger.error(`\u274C Error testing module ${moduleId}:`, error);
+            outputContent += `
 
 ERROR TESTING MODULE ${moduleNumber}: ${error}
 
 `;
+          }
+        }
+        try {
+          const blob = new Blob([outputContent], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "test_output.txt";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          logger.warn(`\u{1F4DD} Test output written to test_output.txt`);
+        } catch (error) {
+          logger.error(`\u274C Failed to write test output file: ${error}`);
+        }
+        this.generateTestSummary(testResults);
       }
-    }
-    try {
-      const blob = new Blob([outputContent], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "test_output.txt";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      logger.warn(`\u{1F4DD} Test output written to test_output.txt`);
-    } catch (error) {
-      logger.error(`\u274C Failed to write test output file: ${error}`);
-    }
-    this.generateTestSummary(testResults);
-  }
-  /**
-   * Generate detailed output for a single module
-   */
-  generateModuleOutput(module, moduleNumber, testResult) {
-    let output = `${"=".repeat(80)}
+      /**
+       * Generate detailed output for a single module
+       */
+      generateModuleOutput(module, moduleNumber, testResult) {
+        let output = `${"=".repeat(80)}
 `;
-    output += `MODULE ${moduleNumber}: ${module.title}
+        output += `MODULE ${moduleNumber}: ${module.title}
 `;
-    output += `${"=".repeat(80)}
+        output += `${"=".repeat(80)}
 
 `;
-    output += `Module ID: ${module.id}
+        output += `Module ID: ${module.id}
 
 `;
-    output += `GOAL SECTION:
+        output += `GOAL SECTION:
 `;
-    output += `-`.repeat(40) + `
+        output += `-`.repeat(40) + `
 `;
-    output += `Length: ${module.goal.length} characters
+        output += `Length: ${module.goal.length} characters
 `;
-    output += `Expected: ${testResult.sections.goal.expected} characters
+        output += `Expected: ${testResult.sections.goal.expected} characters
 `;
-    output += `Status: ${testResult.sections.goal.passed ? "PASSED" : "FAILED"}
+        output += `Status: ${testResult.sections.goal.passed ? "PASSED" : "FAILED"}
 `;
-    output += `Content:
+        output += `Content:
 `;
-    output += `${"-".repeat(40)}
+        output += `${"-".repeat(40)}
 `;
-    output += `${module.goal}
+        output += `${module.goal}
 `;
-    output += `${"-".repeat(40)}
+        output += `${"-".repeat(40)}
 `;
-    output += `[END OF GOAL]
+        output += `[END OF GOAL]
 
 `;
-    output += `CONCEPTS SECTION:
+        output += `CONCEPTS SECTION:
 `;
-    output += `-`.repeat(40) + `
+        output += `-`.repeat(40) + `
 `;
-    output += `Number of Concepts: ${module.concepts.length}
+        output += `Number of Concepts: ${module.concepts.length}
 `;
-    output += `Expected: ${testResult.sections.concepts.conceptCount.expected} concepts
+        output += `Expected: ${testResult.sections.concepts.conceptCount.expected} concepts
 `;
-    let totalConceptsLength = 0;
-    module.concepts.forEach((concept, index) => {
-      const conceptLength = concept.title.length + concept.text.length;
-      totalConceptsLength += conceptLength;
-      output += `
+        let totalConceptsLength = 0;
+        module.concepts.forEach((concept, index) => {
+          const conceptLength = concept.title.length + concept.text.length;
+          totalConceptsLength += conceptLength;
+          output += `
 ${"~".repeat(60)}
 `;
-      output += `Concept ${index + 1}: "${concept.title}"
+          output += `Concept ${index + 1}: "${concept.title}"
 `;
-      output += `${"~".repeat(60)}
+          output += `${"~".repeat(60)}
 `;
-      output += `  Title Length: ${concept.title.length} chars
+          output += `  Title Length: ${concept.title.length} chars
 `;
-      output += `  Text Length: ${concept.text.length} chars
+          output += `  Text Length: ${concept.text.length} chars
 `;
-      output += `  Total Length: ${conceptLength} chars
+          output += `  Total Length: ${conceptLength} chars
 `;
-      output += `  Full Text:
+          output += `  Full Text:
 `;
-      output += `  ${"-".repeat(58)}
+          output += `  ${"-".repeat(58)}
 `;
-      output += `${concept.text}
+          output += `${concept.text}
 `;
-      output += `  ${"-".repeat(58)}
+          output += `  ${"-".repeat(58)}
 `;
-    });
-    output += `
+        });
+        output += `
 Total Concepts Content Length: ${totalConceptsLength} characters
 `;
-    output += `Expected (with formatting): ${testResult.sections.concepts.expected} characters
+        output += `Expected (with formatting): ${testResult.sections.concepts.expected} characters
 `;
-    output += `Status: ${testResult.sections.concepts.passed ? "PASSED" : "FAILED"}
+        output += `Status: ${testResult.sections.concepts.passed ? "PASSED" : "FAILED"}
 `;
-    output += `[END OF CONCEPTS]
+        output += `[END OF CONCEPTS]
 
 `;
-    output += `METHODOLOGY SECTION:
+        output += `METHODOLOGY SECTION:
 `;
-    output += `-`.repeat(40) + `
+        output += `-`.repeat(40) + `
 `;
-    output += `Number of Steps: ${module.methodology.length}
+        output += `Number of Steps: ${module.methodology.length}
 `;
-    let totalMethodologyLength = 0;
-    if (module.methodology.length > 0) {
-      module.methodology.forEach((step, index) => {
-        const stepLength = step.title.length + step.text.length;
-        totalMethodologyLength += stepLength;
-        output += `
+        let totalMethodologyLength = 0;
+        if (module.methodology.length > 0) {
+          module.methodology.forEach((step, index) => {
+            const stepLength = step.title.length + step.text.length;
+            totalMethodologyLength += stepLength;
+            output += `
 ${"~".repeat(60)}
 `;
-        output += `Step ${index + 1}: "${step.title}"
+            output += `Step ${index + 1}: "${step.title}"
 `;
-        output += `${"~".repeat(60)}
+            output += `${"~".repeat(60)}
 `;
-        output += `  Title Length: ${step.title.length} chars
+            output += `  Title Length: ${step.title.length} chars
 `;
-        output += `  Text Length: ${step.text.length} chars
+            output += `  Text Length: ${step.text.length} chars
 `;
-        output += `  Total Length: ${stepLength} chars
+            output += `  Total Length: ${stepLength} chars
 `;
-        output += `  Full Text:
+            output += `  Full Text:
 `;
-        output += `  ${"-".repeat(58)}
+            output += `  ${"-".repeat(58)}
 `;
-        output += `${step.text}
+            output += `${step.text}
 `;
-        output += `  ${"-".repeat(58)}
+            output += `  ${"-".repeat(58)}
 `;
-      });
-      output += `
+          });
+          output += `
 Total Methodology Content Length: ${totalMethodologyLength} characters
 `;
-    } else {
-      output += `No methodology steps parsed (may be in different format)
+        } else {
+          output += `No methodology steps parsed (may be in different format)
 `;
-    }
-    output += `Expected: ${testResult.sections.methodology.expected} characters
+        }
+        output += `Expected: ${testResult.sections.methodology.expected} characters
 `;
-    output += `Status: ${testResult.sections.methodology.passed ? "PASSED" : "FAILED"}
+        output += `Status: ${testResult.sections.methodology.passed ? "PASSED" : "FAILED"}
 `;
-    output += `[END OF METHODOLOGY]
+        output += `[END OF METHODOLOGY]
 
 `;
-    output += `SOCRATIC SECTION:
+        output += `SOCRATIC SECTION:
 `;
-    output += `-`.repeat(40) + `
+        output += `-`.repeat(40) + `
 `;
-    output += `Length: ${module.socratic.length} characters
+        output += `Length: ${module.socratic.length} characters
 `;
-    output += `Expected: ${testResult.sections.socratic.expected} characters
+        output += `Expected: ${testResult.sections.socratic.expected} characters
 `;
-    output += `Status: ${testResult.sections.socratic.passed ? "PASSED" : "FAILED"}
+        output += `Status: ${testResult.sections.socratic.passed ? "PASSED" : "FAILED"}
 `;
-    output += `Full Content:
+        output += `Full Content:
 `;
-    output += `${"-".repeat(40)}
+        output += `${"-".repeat(40)}
 `;
-    output += `${module.socratic}
+        output += `${module.socratic}
 `;
-    output += `${"-".repeat(40)}
+        output += `${"-".repeat(40)}
 `;
-    output += `[END OF SOCRATIC]
+        output += `[END OF SOCRATIC]
 
 `;
-    output += `SOLIDIFY & PREPARE SECTION:
+        output += `SOLIDIFY & PREPARE SECTION:
 `;
-    output += `-`.repeat(40) + `
+        output += `-`.repeat(40) + `
 `;
-    output += `Length: ${module.solidify.length} characters
+        output += `Length: ${module.solidify.length} characters
 `;
-    output += `Expected: ${testResult.sections.solidify.expected} characters
+        output += `Expected: ${testResult.sections.solidify.expected} characters
 `;
-    output += `Status: ${testResult.sections.solidify.passed ? "PASSED" : "FAILED"}
+        output += `Status: ${testResult.sections.solidify.passed ? "PASSED" : "FAILED"}
 `;
-    output += `Content:
+        output += `Content:
 `;
-    output += `${"-".repeat(40)}
+        output += `${"-".repeat(40)}
 `;
-    output += `${module.solidify}
+        output += `${module.solidify}
 `;
-    output += `${"-".repeat(40)}
+        output += `${"-".repeat(40)}
 `;
-    output += `[END OF SOLIDIFY]
+        output += `[END OF SOLIDIFY]
 
 `;
-    output += `MODULE TEST RESULT: ${testResult.passed ? "PASSED" : "FAILED"}
+        output += `MODULE TEST RESULT: ${testResult.passed ? "PASSED" : "FAILED"}
 
 
 `;
-    return output;
-  }
-  /**
-   * Test a single module's parsing results against expected values
-   */
-  async testSingleModule(module, moduleId) {
-    const moduleNumber = module.id.replace("Module", "").replace("_", ".");
-    const expected = EXPECTED_SECTION_LENGTHS[moduleId];
-    if (!expected) {
-      logger.warn(`No expectations defined for module ${moduleId}; skipping detailed validation.`);
-      const fallbackSections = {
-        goal: { expected: 0, actual: module.goal.length, passed: false },
-        concepts: {
-          expected: 0,
-          actual: module.concepts.reduce((sum, concept) => sum + concept.title.length + concept.text.length, 0),
-          passed: false,
-          conceptCount: { expected: 0, actual: module.concepts.length, passed: false }
-        },
-        methodology: { expected: 0, actual: module.methodology.reduce((sum, step) => sum + step.title.length + step.text.length, 0), passed: false },
-        socratic: { expected: 0, actual: module.socratic.length, passed: false },
-        solidify: { expected: 0, actual: module.solidify.length, passed: false }
-      };
-      return {
-        moduleId,
-        moduleNumber,
-        title: module.title,
-        passed: false,
-        sections: fallbackSections
-      };
-    }
-    logger.warn(`
+        return output;
+      }
+      /**
+       * Test a single module's parsing results against expected values
+       */
+      async testSingleModule(module, moduleId) {
+        const moduleNumber = module.id.replace("Module", "").replace("_", ".");
+        const expected = EXPECTED_SECTION_LENGTHS[moduleId];
+        if (!expected) {
+          logger.warn(`No expectations defined for module ${moduleId}; skipping detailed validation.`);
+          const fallbackSections = {
+            goal: { expected: 0, actual: module.goal.length, passed: false },
+            concepts: {
+              expected: 0,
+              actual: module.concepts.reduce((sum, concept) => sum + concept.title.length + concept.text.length, 0),
+              passed: false,
+              conceptCount: { expected: 0, actual: module.concepts.length, passed: false }
+            },
+            methodology: { expected: 0, actual: module.methodology.reduce((sum, step) => sum + step.title.length + step.text.length, 0), passed: false },
+            socratic: { expected: 0, actual: module.socratic.length, passed: false },
+            solidify: { expected: 0, actual: module.solidify.length, passed: false }
+          };
+          return {
+            moduleId,
+            moduleNumber,
+            title: module.title,
+            passed: false,
+            sections: fallbackSections
+          };
+        }
+        logger.warn(`
 \u{1F52C} TESTING MODULE ${moduleNumber}: ${module.title}`);
-    logger.warn(`============================================================`);
-    const goalLength = module.goal.length;
-    const goalPassed = Math.abs(goalLength - expected.goal) < 10;
-    logger.warn(`\u{1F4DD} Goal: ${goalPassed ? "\u2705" : "\u274C"} Expected: ${expected.goal}, Actual: ${goalLength}`);
-    let conceptsLength = 0;
-    for (const concept of module.concepts) {
-      conceptsLength += concept.title.length + concept.text.length + 10;
-    }
-    const conceptsPassed = Math.abs(conceptsLength - expected.concepts) < 100;
-    const conceptCountPassed = module.concepts.length === expected.conceptCount;
-    logger.warn(`\u{1F4DA} Concepts: ${conceptsPassed ? "\u2705" : "\u274C"} Expected: ${expected.concepts}, Actual: ${conceptsLength}`);
-    logger.warn(`   Concept Count: ${conceptCountPassed ? "\u2705" : "\u274C"} Expected: ${expected.conceptCount}, Actual: ${module.concepts.length}`);
-    let methodologyLength = 0;
-    for (const step of module.methodology) {
-      methodologyLength += step.title.length + step.text.length + 10;
-    }
-    if (module.methodology.length === 0 && expected.methodology > 0) {
-      methodologyLength = expected.methodology;
-    }
-    const methodologyPassed = Math.abs(methodologyLength - expected.methodology) < 100;
-    logger.warn(`\u{1F4D6} Methodology: ${methodologyPassed ? "\u2705" : "\u274C"} Expected: ${expected.methodology}, Actual: ${methodologyLength}`);
-    const socraticLength = module.socratic.length;
-    const socraticPassed = Math.abs(socraticLength - expected.socratic) < 100;
-    logger.warn(`\u2753 Socratic: ${socraticPassed ? "\u2705" : "\u274C"} Expected: ${expected.socratic}, Actual: ${socraticLength}`);
-    const solidifyLength = module.solidify.length;
-    const solidifyPassed = Math.abs(solidifyLength - expected.solidify) < 50;
-    logger.warn(`\u{1F3AF} Solidify: ${solidifyPassed ? "\u2705" : "\u274C"} Expected: ${expected.solidify}, Actual: ${solidifyLength}`);
-    const conceptsSectionDetail = {
-      expected: expected.concepts,
-      actual: conceptsLength,
-      passed: conceptsPassed && conceptCountPassed,
-      conceptCount: {
-        expected: expected.conceptCount,
-        actual: module.concepts.length,
-        passed: conceptCountPassed
-      }
-    };
-    const sections = {
-      goal: { expected: expected.goal, actual: goalLength, passed: goalPassed },
-      concepts: conceptsSectionDetail,
-      methodology: { expected: expected.methodology, actual: methodologyLength, passed: methodologyPassed },
-      socratic: { expected: expected.socratic, actual: socraticLength, passed: socraticPassed },
-      solidify: { expected: expected.solidify, actual: solidifyLength, passed: solidifyPassed }
-    };
-    const overallPassed = goalPassed && conceptsPassed && conceptCountPassed && methodologyPassed && socraticPassed && solidifyPassed;
-    logger.warn(`
+        logger.warn(`============================================================`);
+        const goalLength = module.goal.length;
+        const goalPassed = Math.abs(goalLength - expected.goal) < 10;
+        logger.warn(`\u{1F4DD} Goal: ${goalPassed ? "\u2705" : "\u274C"} Expected: ${expected.goal}, Actual: ${goalLength}`);
+        let conceptsLength = 0;
+        for (const concept of module.concepts) {
+          conceptsLength += concept.title.length + concept.text.length + 10;
+        }
+        const conceptsPassed = Math.abs(conceptsLength - expected.concepts) < 100;
+        const conceptCountPassed = module.concepts.length === expected.conceptCount;
+        logger.warn(`\u{1F4DA} Concepts: ${conceptsPassed ? "\u2705" : "\u274C"} Expected: ${expected.concepts}, Actual: ${conceptsLength}`);
+        logger.warn(`   Concept Count: ${conceptCountPassed ? "\u2705" : "\u274C"} Expected: ${expected.conceptCount}, Actual: ${module.concepts.length}`);
+        let methodologyLength = 0;
+        for (const step of module.methodology) {
+          methodologyLength += step.title.length + step.text.length + 10;
+        }
+        if (module.methodology.length === 0 && expected.methodology > 0) {
+          methodologyLength = expected.methodology;
+        }
+        const methodologyPassed = Math.abs(methodologyLength - expected.methodology) < 100;
+        logger.warn(`\u{1F4D6} Methodology: ${methodologyPassed ? "\u2705" : "\u274C"} Expected: ${expected.methodology}, Actual: ${methodologyLength}`);
+        const socraticLength = module.socratic.length;
+        const socraticPassed = Math.abs(socraticLength - expected.socratic) < 100;
+        logger.warn(`\u2753 Socratic: ${socraticPassed ? "\u2705" : "\u274C"} Expected: ${expected.socratic}, Actual: ${socraticLength}`);
+        const solidifyLength = module.solidify.length;
+        const solidifyPassed = Math.abs(solidifyLength - expected.solidify) < 50;
+        logger.warn(`\u{1F3AF} Solidify: ${solidifyPassed ? "\u2705" : "\u274C"} Expected: ${expected.solidify}, Actual: ${solidifyLength}`);
+        const conceptsSectionDetail = {
+          expected: expected.concepts,
+          actual: conceptsLength,
+          passed: conceptsPassed && conceptCountPassed,
+          conceptCount: {
+            expected: expected.conceptCount,
+            actual: module.concepts.length,
+            passed: conceptCountPassed
+          }
+        };
+        const sections = {
+          goal: { expected: expected.goal, actual: goalLength, passed: goalPassed },
+          concepts: conceptsSectionDetail,
+          methodology: { expected: expected.methodology, actual: methodologyLength, passed: methodologyPassed },
+          socratic: { expected: expected.socratic, actual: socraticLength, passed: socraticPassed },
+          solidify: { expected: expected.solidify, actual: solidifyLength, passed: solidifyPassed }
+        };
+        const overallPassed = goalPassed && conceptsPassed && conceptCountPassed && methodologyPassed && socraticPassed && solidifyPassed;
+        logger.warn(`
 \u{1F4CA} Module ${moduleNumber} Overall: ${overallPassed ? "\u2705 PASSED" : "\u274C FAILED"}`);
-    if (!overallPassed) {
-      logger.warn(`
+        if (!overallPassed) {
+          logger.warn(`
 \u26A0\uFE0F  Module ${moduleNumber} extraction details:`);
-      if (!goalPassed) {
-        logger.warn(`Goal content preview: "${module.goal.substring(0, 100)}..."`);
+          if (!goalPassed) {
+            logger.warn(`Goal content preview: "${module.goal.substring(0, 100)}..."`);
+          }
+          if (!conceptCountPassed) {
+            logger.warn(`Concepts found:`);
+            module.concepts.forEach((c, i) => {
+              logger.warn(`  ${i + 1}. ${c.title}`);
+            });
+          }
+        }
+        return {
+          moduleId,
+          moduleNumber,
+          title: module.title,
+          passed: overallPassed,
+          sections
+        };
       }
-      if (!conceptCountPassed) {
-        logger.warn(`Concepts found:`);
-        module.concepts.forEach((c, i) => {
-          logger.warn(`  ${i + 1}. ${c.title}`);
-        });
-      }
-    }
-    return {
-      moduleId,
-      moduleNumber,
-      title: module.title,
-      passed: overallPassed,
-      sections
-    };
-  }
-  /**
-   * Generate test summary report
-   */
-  generateTestSummary(results) {
-    logger.warn(`
+      /**
+       * Generate test summary report
+       */
+      generateTestSummary(results) {
+        logger.warn(`
 
 \u{1F3AF} ========== TEST SUMMARY REPORT ==========`);
-    const totalModules = results.length;
-    const passedModules = results.filter((r) => r.passed).length;
-    const failedModules = totalModules - passedModules;
-    logger.warn(`\u{1F4CA} Overall Results: ${passedModules}/${totalModules} modules passed`);
-    logger.warn(`\u2705 Passed: ${passedModules}`);
-    logger.warn(`\u274C Failed: ${failedModules}
+        const totalModules = results.length;
+        const passedModules = results.filter((r) => r.passed).length;
+        const failedModules = totalModules - passedModules;
+        logger.warn(`\u{1F4CA} Overall Results: ${passedModules}/${totalModules} modules passed`);
+        logger.warn(`\u2705 Passed: ${passedModules}`);
+        logger.warn(`\u274C Failed: ${failedModules}
 `);
-    const sectionNames = ["goal", "concepts", "methodology", "socratic", "solidify"];
-    const sectionStats = {
-      goal: { passed: 0, total: 0 },
-      concepts: { passed: 0, total: 0 },
-      methodology: { passed: 0, total: 0 },
-      socratic: { passed: 0, total: 0 },
-      solidify: { passed: 0, total: 0 }
-    };
-    results.forEach((result) => {
-      sectionNames.forEach((section) => {
-        sectionStats[section].total += 1;
-        if (result.sections[section].passed) {
-          sectionStats[section].passed += 1;
-        }
-      });
-    });
-    logger.warn(`\u{1F4CB} Section-wise Results:`);
-    sectionNames.forEach((section) => {
-      const stats = sectionStats[section];
-      const percentage = stats.total > 0 ? Math.round(stats.passed / stats.total * 100) : 0;
-      logger.warn(`   ${section}: ${stats.passed}/${stats.total} (${percentage}%)`);
-    });
-    if (failedModules > 0) {
-      logger.warn(`
-\u274C Failed Modules:`);
-      results.filter((r) => !r.passed).forEach((r) => {
-        logger.warn(`   Module ${r.moduleNumber}: ${r.title}`);
-        sectionNames.forEach((section) => {
-          const data = r.sections[section];
-          if (!data.passed) {
-            logger.warn(`      - ${section}: Expected ${data.expected}, Got ${data.actual}`);
-          }
+        const sectionNames = ["goal", "concepts", "methodology", "socratic", "solidify"];
+        const sectionStats = {
+          goal: { passed: 0, total: 0 },
+          concepts: { passed: 0, total: 0 },
+          methodology: { passed: 0, total: 0 },
+          socratic: { passed: 0, total: 0 },
+          solidify: { passed: 0, total: 0 }
+        };
+        results.forEach((result) => {
+          sectionNames.forEach((section) => {
+            sectionStats[section].total += 1;
+            if (result.sections[section].passed) {
+              sectionStats[section].passed += 1;
+            }
+          });
         });
-      });
-    }
-    logger.warn(`
+        logger.warn(`\u{1F4CB} Section-wise Results:`);
+        sectionNames.forEach((section) => {
+          const stats = sectionStats[section];
+          const percentage = stats.total > 0 ? Math.round(stats.passed / stats.total * 100) : 0;
+          logger.warn(`   ${section}: ${stats.passed}/${stats.total} (${percentage}%)`);
+        });
+        if (failedModules > 0) {
+          logger.warn(`
+\u274C Failed Modules:`);
+          results.filter((r) => !r.passed).forEach((r) => {
+            logger.warn(`   Module ${r.moduleNumber}: ${r.title}`);
+            sectionNames.forEach((section) => {
+              const data = r.sections[section];
+              if (!data.passed) {
+                logger.warn(`      - ${section}: Expected ${data.expected}, Got ${data.actual}`);
+              }
+            });
+          });
+        }
+        logger.warn(`
 ========================================
 `);
-  }
-  /**
-   * Legacy test function - kept for reference
-   * Use testAllModules instead
-   */
-  testModuleExtractionLegacy(content) {
-    logger.warn("\n\u{1F4CB} ===== TESTING MODULE EXTRACTION WITH IMPROVED REGEX =====");
-    const moduleHeaderRegex = /^Module (\d+(?:\.\d+)?):\s*(.*?)$/m;
-    const headerMatch = moduleHeaderRegex.exec(content);
-    if (!headerMatch) {
-      logger.error("\u274C Module header not matched!");
-      return;
-    }
-    logger.warn("\u2705 Module Header matched successfully!");
-    logger.warn(`Module Number: ${headerMatch[1]}`);
-    logger.warn(`Module Title: ${headerMatch[2]}`);
-    const goalRegex = /\nGoal:\s*([\s\S]*?)(?=\nConcepts:|\nModule|$)/;
-    const goalMatch = goalRegex.exec(content);
-    if (goalMatch && goalMatch[1]) {
-      const goalContent = goalMatch[1];
-      logger.warn(`
+      }
+      /**
+       * Legacy test function - kept for reference
+       * Use testAllModules instead
+       */
+      testModuleExtractionLegacy(content) {
+        logger.warn("\n\u{1F4CB} ===== TESTING MODULE EXTRACTION WITH IMPROVED REGEX =====");
+        const moduleHeaderRegex = /^Module (\d+(?:\.\d+)?):\s*(.*?)$/m;
+        const headerMatch = moduleHeaderRegex.exec(content);
+        if (!headerMatch) {
+          logger.error("\u274C Module header not matched!");
+          return;
+        }
+        logger.warn("\u2705 Module Header matched successfully!");
+        logger.warn(`Module Number: ${headerMatch[1]}`);
+        logger.warn(`Module Title: ${headerMatch[2]}`);
+        const goalRegex = /\nGoal:\s*([\s\S]*?)(?=\nConcepts:|\nModule|$)/;
+        const goalMatch = goalRegex.exec(content);
+        if (goalMatch && goalMatch[1]) {
+          const goalContent = goalMatch[1];
+          logger.warn(`
 \u{1F4DD} GOAL SECTION (${goalContent.length} chars):`);
-      logger.warn("========== GOAL CONTENT ==========");
-      logger.warn(goalContent);
-      logger.warn("========== END GOAL ==========\n");
-    } else {
-      logger.error("\u274C Goal section not matched!");
-    }
-    const conceptsSectionRegex = /\nConcepts:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/;
-    const conceptsMatch = conceptsSectionRegex.exec(content);
-    if (!conceptsMatch || !conceptsMatch[1]) {
-      logger.error("\u274C Concepts section not matched!");
-      return;
-    }
-    const conceptsSection = conceptsMatch[1];
-    logger.warn(`\u{1F4DA} CONCEPTS SECTION (${conceptsSection.length} chars):`);
-    logger.warn("========== RAW CONCEPTS CONTENT ==========");
-    logger.warn(conceptsSection);
-    logger.warn("========== END RAW CONCEPTS ==========\n");
-    logger.warn("\u{1F50D} Extracting individual concepts...");
-    const conceptRegex = /(?:^|\n)\s*(\d+)\.\s+([^:]+?):\s*([\s\S]*?)(?=\n\s*\d+\.\s+[^:]+:|\nMethodology:|$)/g;
-    let conceptCount = 0;
-    conceptRegex.lastIndex = 0;
-    let conceptMatch;
-    while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
-      const conceptNumber = conceptMatch[1];
-      const conceptTitle = conceptMatch[2];
-      const conceptContent = conceptMatch[3];
-      if (!conceptNumber || !conceptTitle || !conceptContent) {
-        logger.warn("Skipping malformed concept capture in legacy extractor.", {
-          raw: conceptMatch[0]
-        });
-        continue;
-      }
-      conceptCount++;
-      logger.warn(`
-\u{1F4CC} CONCEPT ${conceptCount}:`);
-      logger.warn(`Number: ${conceptNumber}`);
-      logger.warn(`Title: ${conceptTitle}`);
-      logger.warn(`Content Length: ${conceptContent.length} chars`);
-      logger.warn("---------- CONCEPT CONTENT ----------");
-      logger.warn(conceptContent);
-      logger.warn("---------- END CONCEPT ----------");
-    }
-    logger.warn(`
-\u{1F4CA} Total concepts extracted: ${conceptCount}`);
-    const methodologyRegex = /\nMethodology:\s*([\s\S]*?)(?=\nSocratic:|\nModule|$)/g;
-    const methodologyMatch = methodologyRegex.exec(content);
-    if (methodologyMatch && methodologyMatch[1]) {
-      const methodologyContent = methodologyMatch[1];
-      logger.warn(`
-\u{1F4D6} METHODOLOGY SECTION (${methodologyContent.length} chars):`);
-      logger.warn("========== METHODOLOGY CONTENT ==========");
-      logger.warn(methodologyContent);
-      logger.warn("========== END METHODOLOGY ==========");
-    }
-    const socraticRegex = /\nSocratic:\s*([\s\S]*?)(?=\nSolidify & Prepare:|\nModule|$)/g;
-    const socraticMatch = socraticRegex.exec(content);
-    if (socraticMatch && socraticMatch[1]) {
-      const socraticContent = socraticMatch[1];
-      logger.warn(`
-\u2753 SOCRATIC SECTION (${socraticContent.length} chars):`);
-      logger.warn("========== SOCRATIC CONTENT ==========");
-      logger.warn(socraticContent);
-      logger.warn("========== END SOCRATIC ==========");
-    }
-    const solidifyRegex = /\nSolidify & Prepare:\s*([\s\S]*?)(?=\nModule|$)/g;
-    const solidifyMatch = solidifyRegex.exec(content);
-    if (solidifyMatch && solidifyMatch[1]) {
-      const solidifyContent = solidifyMatch[1];
-      logger.warn(`
-\u{1F3AF} SOLIDIFY & PREPARE SECTION (${solidifyContent.length} chars):`);
-      logger.warn("========== SOLIDIFY CONTENT ==========");
-      logger.warn(solidifyContent);
-      logger.warn("========== END SOLIDIFY ==========");
-    }
-  }
-};
-var TestSuite = class {
-  constructor() {
-  }
-  /**
-   * Run the complete test suite based on configuration
-   */
-  async runTestSuite(apiKey) {
-    if (!TEST_SUITE_CONFIG.enabled) {
-      logger.warn("\u{1F512} Test Suite is DISABLED. Set TEST_SUITE_CONFIG.enabled = true to run tests.");
-      return;
-    }
-    const testsEnabled = TEST_SUITE_CONFIG.runConceptExtractionTest || TEST_SUITE_CONFIG.runArchetypeTest || TEST_SUITE_CONFIG.runSocraticPhaseInvestigation || TEST_SUITE_CONFIG.runStandardizedFormatTest;
-    if (!testsEnabled) {
-      logger.warn("\u26A0\uFE0F  No tests enabled in TEST_SUITE_CONFIG");
-      return;
-    }
-    logger.warn("\u{1F3AC} ========== TEST SUITE EXECUTION STARTING ==========");
-    try {
-      if (TEST_SUITE_CONFIG.runConceptExtractionTest) {
-        const conceptTest = new ConceptExtractionTest();
-        await conceptTest.runTest();
-      }
-      if (TEST_SUITE_CONFIG.runSocraticPhaseInvestigation) {
-        const socraticInvestigation = new SocraticPhaseInvestigation();
-        await socraticInvestigation.runInvestigation();
-      }
-      if (TEST_SUITE_CONFIG.runStandardizedFormatTest) {
-        const standardizedTest = new StandardizedFormatTest();
-        await standardizedTest.runTest();
-      }
-      if (TEST_SUITE_CONFIG.runArchetypeTest) {
-        if (!apiKey) {
-          logger.error("\u274C API key required for Archetype Comparison Test");
+          logger.warn("========== GOAL CONTENT ==========");
+          logger.warn(goalContent);
+          logger.warn("========== END GOAL ==========\n");
         } else {
-          const archetypeTest = new ArchetypeComparisonTest(apiKey);
-          await archetypeTest.runTest();
+          logger.error("\u274C Goal section not matched!");
+        }
+        const conceptsSectionRegex = /\nConcepts:\s*([\s\S]*?)(?=\nMethodology:|\nModule|$)/;
+        const conceptsMatch = conceptsSectionRegex.exec(content);
+        if (!conceptsMatch || !conceptsMatch[1]) {
+          logger.error("\u274C Concepts section not matched!");
+          return;
+        }
+        const conceptsSection = conceptsMatch[1];
+        logger.warn(`\u{1F4DA} CONCEPTS SECTION (${conceptsSection.length} chars):`);
+        logger.warn("========== RAW CONCEPTS CONTENT ==========");
+        logger.warn(conceptsSection);
+        logger.warn("========== END RAW CONCEPTS ==========\n");
+        logger.warn("\u{1F50D} Extracting individual concepts...");
+        const conceptRegex = /(?:^|\n)\s*(\d+)\.\s+([^:]+?):\s*([\s\S]*?)(?=\n\s*\d+\.\s+[^:]+:|\nMethodology:|$)/g;
+        let conceptCount = 0;
+        conceptRegex.lastIndex = 0;
+        let conceptMatch;
+        while ((conceptMatch = conceptRegex.exec(conceptsSection)) !== null) {
+          const conceptNumber = conceptMatch[1];
+          const conceptTitle = conceptMatch[2];
+          const conceptContent = conceptMatch[3];
+          if (!conceptNumber || !conceptTitle || !conceptContent) {
+            logger.warn("Skipping malformed concept capture in legacy extractor.", {
+              raw: conceptMatch[0]
+            });
+            continue;
+          }
+          conceptCount++;
+          logger.warn(`
+\u{1F4CC} CONCEPT ${conceptCount}:`);
+          logger.warn(`Number: ${conceptNumber}`);
+          logger.warn(`Title: ${conceptTitle}`);
+          logger.warn(`Content Length: ${conceptContent.length} chars`);
+          logger.warn("---------- CONCEPT CONTENT ----------");
+          logger.warn(conceptContent);
+          logger.warn("---------- END CONCEPT ----------");
+        }
+        logger.warn(`
+\u{1F4CA} Total concepts extracted: ${conceptCount}`);
+        const methodologyRegex = /\nMethodology:\s*([\s\S]*?)(?=\nSocratic:|\nModule|$)/g;
+        const methodologyMatch = methodologyRegex.exec(content);
+        if (methodologyMatch && methodologyMatch[1]) {
+          const methodologyContent = methodologyMatch[1];
+          logger.warn(`
+\u{1F4D6} METHODOLOGY SECTION (${methodologyContent.length} chars):`);
+          logger.warn("========== METHODOLOGY CONTENT ==========");
+          logger.warn(methodologyContent);
+          logger.warn("========== END METHODOLOGY ==========");
+        }
+        const socraticRegex = /\nSocratic:\s*([\s\S]*?)(?=\nSolidify & Prepare:|\nModule|$)/g;
+        const socraticMatch = socraticRegex.exec(content);
+        if (socraticMatch && socraticMatch[1]) {
+          const socraticContent = socraticMatch[1];
+          logger.warn(`
+\u2753 SOCRATIC SECTION (${socraticContent.length} chars):`);
+          logger.warn("========== SOCRATIC CONTENT ==========");
+          logger.warn(socraticContent);
+          logger.warn("========== END SOCRATIC ==========");
+        }
+        const solidifyRegex = /\nSolidify & Prepare:\s*([\s\S]*?)(?=\nModule|$)/g;
+        const solidifyMatch = solidifyRegex.exec(content);
+        if (solidifyMatch && solidifyMatch[1]) {
+          const solidifyContent = solidifyMatch[1];
+          logger.warn(`
+\u{1F3AF} SOLIDIFY & PREPARE SECTION (${solidifyContent.length} chars):`);
+          logger.warn("========== SOLIDIFY CONTENT ==========");
+          logger.warn(solidifyContent);
+          logger.warn("========== END SOLIDIFY ==========");
         }
       }
-    } catch (error) {
-      logger.error("\u274C Test Suite failed with error:", error);
-    }
-    logger.warn("\u{1F3AC} ========== TEST SUITE EXECUTION COMPLETED ==========");
+    };
+    TestSuite = class {
+      constructor() {
+      }
+      /**
+       * Run the complete test suite based on configuration
+       */
+      async runTestSuite(apiKey) {
+        if (!TEST_SUITE_CONFIG.enabled) {
+          logger.warn("\u{1F512} Test Suite is DISABLED. Set TEST_SUITE_CONFIG.enabled = true to run tests.");
+          return;
+        }
+        const testsEnabled = TEST_SUITE_CONFIG.runConceptExtractionTest || TEST_SUITE_CONFIG.runArchetypeTest || TEST_SUITE_CONFIG.runSocraticPhaseInvestigation || TEST_SUITE_CONFIG.runStandardizedFormatTest;
+        if (!testsEnabled) {
+          logger.warn("\u26A0\uFE0F  No tests enabled in TEST_SUITE_CONFIG");
+          return;
+        }
+        logger.warn("\u{1F3AC} ========== TEST SUITE EXECUTION STARTING ==========");
+        try {
+          if (TEST_SUITE_CONFIG.runConceptExtractionTest) {
+            const conceptTest = new ConceptExtractionTest();
+            await conceptTest.runTest();
+          }
+          if (TEST_SUITE_CONFIG.runSocraticPhaseInvestigation) {
+            const socraticInvestigation = new SocraticPhaseInvestigation();
+            await socraticInvestigation.runInvestigation();
+          }
+          if (TEST_SUITE_CONFIG.runStandardizedFormatTest) {
+            const standardizedTest = new StandardizedFormatTest();
+            await standardizedTest.runTest();
+          }
+          if (TEST_SUITE_CONFIG.runArchetypeTest) {
+            if (!apiKey) {
+              logger.error("\u274C API key required for Archetype Comparison Test");
+            } else {
+              const archetypeTest = new ArchetypeComparisonTest(apiKey);
+              await archetypeTest.runTest();
+            }
+          }
+        } catch (error) {
+          logger.error("\u274C Test Suite failed with error:", error);
+        }
+        logger.warn("\u{1F3AC} ========== TEST SUITE EXECUTION COMPLETED ==========");
+      }
+    };
   }
-};
-async function runTestSuite(apiKey) {
-  const testSuite = new TestSuite();
-  await testSuite.runTestSuite(apiKey);
-}
-
-// src/moduleSelectionHandler.ts
-init_logger();
-init_curriculum();
-init_ui();
-init_geminiService();
-init_prompts();
-init_interactionHelpers();
+});
 
 // src/keyTakeawayEnhancerController.ts
-init_logger();
-var enhancerCache = /* @__PURE__ */ new Map();
 function hasKeyTakeawayEnhancerCacheEntry(key) {
   return enhancerCache.has(key);
 }
@@ -31607,267 +32740,272 @@ function computeKeyTakeawayEnhancerPromptHash(text2) {
   }
   return (hash >>> 0).toString(16);
 }
-var KeyTakeawayEnhancerController = class {
-  constructor(options) {
-    __publicField(this, "ai");
-    __publicField(this, "modelName");
-    __publicField(this, "modelConfig");
-    __publicField(this, "promptText");
-    __publicField(this, "placeholder");
-    __publicField(this, "messageId");
-    __publicField(this, "updateMessageStream");
-    __publicField(this, "cacheKey");
-    __publicField(this, "postStreamGraceMs");
-    __publicField(this, "enhancerPromise", null);
-    __publicField(this, "enhancerResolvedText", null);
-    __publicField(this, "latestFullText", "");
-    __publicField(this, "placeholderDetected", false);
-    __publicField(this, "placeholderReplaced", false);
-    __publicField(this, "placeholderRemoved", false);
-    __publicField(this, "startTime", Date.now());
-    __publicField(this, "graceTimer", null);
-    this.ai = options.ai;
-    this.modelName = options.modelName;
-    this.modelConfig = options.modelConfig;
-    this.promptText = options.promptText;
-    this.placeholder = options.placeholderToken;
-    this.messageId = options.messageId;
-    this.updateMessageStream = options.updateMessageStream;
-    this.cacheKey = options.cacheKey;
-    this.postStreamGraceMs = options.postStreamGraceMs;
-  }
-  start() {
-    const cached = enhancerCache.get(this.cacheKey);
-    if (cached) {
-      logger.info("[KEY_TAKE_AWAY_SENSEI] CACHE_HIT", { messageId: this.messageId, reason: "prompt-unchanged" });
-      logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_REQUEST_START", { messageId: this.messageId, cacheUsed: true });
-      this.enhancerResolvedText = cached;
-      this.enhancerPromise = Promise.resolve(cached);
-      logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_RESPONSE_RECEIVED", { messageId: this.messageId, source: "cache", text: cached });
-      return;
-    }
-    logger.info("[KEY_TAKE_AWAY_SENSEI] CACHE_MISS", { messageId: this.messageId, reason: "promptChanged" });
-    logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_REQUEST_START", { messageId: this.messageId, cacheUsed: false });
-    logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_PROMPT_READY", {
-      messageId: this.messageId,
-      promptHash: this.cacheKey,
-      prompt: this.promptText
-    });
-    const chat = this.ai.chats.create({
-      model: this.modelName,
-      config: {
-        ...this.modelConfig
-      },
-      history: []
-    });
-    this.enhancerPromise = chat.sendMessage({ message: this.promptText }).then((response) => (response.text ?? "").trim()).then((text2) => {
-      logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_RESPONSE_RECEIVED", { messageId: this.messageId, source: "fresh", text: text2 });
-      enhancerCache.set(this.cacheKey, text2);
-      this.handleEnhancerReady(text2);
-      return text2;
-    }).catch((error) => {
-      logger.error("[KEY_TAKE_AWAY_SENSEI] ENHANCER_REQUEST_FAILED", { messageId: this.messageId, error: error.message });
-      throw error;
-    });
-  }
-  async onChunk(fullText) {
-    this.latestFullText = fullText;
-    const index = this.findPlaceholderIndex(fullText);
-    if (index === -1) {
-      return fullText;
-    }
-    if (!this.placeholderDetected) {
-      this.placeholderDetected = true;
-      logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_DETECTED", { messageId: this.messageId });
-    }
-    if (this.enhancerResolvedText) {
-      const replaced = this.insertEnhancerText(fullText, index, this.enhancerResolvedText);
-      if (replaced) {
-        this.placeholderReplaced = true;
-        this.latestFullText = replaced;
-        const latencyMs = Date.now() - this.startTime;
-        logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REPLACED", { messageId: this.messageId, latencyMs });
-        return replaced;
+var enhancerCache, KeyTakeawayEnhancerController;
+var init_keyTakeawayEnhancerController = __esm({
+  "src/keyTakeawayEnhancerController.ts"() {
+    "use strict";
+    init_logger();
+    enhancerCache = /* @__PURE__ */ new Map();
+    KeyTakeawayEnhancerController = class {
+      constructor(options) {
+        __publicField(this, "ai");
+        __publicField(this, "modelName");
+        __publicField(this, "modelConfig");
+        __publicField(this, "promptText");
+        __publicField(this, "placeholder");
+        __publicField(this, "messageId");
+        __publicField(this, "updateMessageStream");
+        __publicField(this, "cacheKey");
+        __publicField(this, "postStreamGraceMs");
+        __publicField(this, "enhancerPromise", null);
+        __publicField(this, "enhancerResolvedText", null);
+        __publicField(this, "latestFullText", "");
+        __publicField(this, "placeholderDetected", false);
+        __publicField(this, "placeholderReplaced", false);
+        __publicField(this, "placeholderRemoved", false);
+        __publicField(this, "startTime", Date.now());
+        __publicField(this, "graceTimer", null);
+        this.ai = options.ai;
+        this.modelName = options.modelName;
+        this.modelConfig = options.modelConfig;
+        this.promptText = options.promptText;
+        this.placeholder = options.placeholderToken;
+        this.messageId = options.messageId;
+        this.updateMessageStream = options.updateMessageStream;
+        this.cacheKey = options.cacheKey;
+        this.postStreamGraceMs = options.postStreamGraceMs;
       }
-    }
-    return fullText;
-  }
-  async finalize() {
-    if (!this.placeholderDetected || this.placeholderReplaced || this.placeholderRemoved) {
-      return;
-    }
-    if (!this.enhancerPromise) {
-      this.removePlaceholder("request-not-started");
-      return;
-    }
-    const timeoutPromise = new Promise((resolve, reject) => {
-      this.graceTimer = setTimeout(() => reject(new Error("timeout")), this.postStreamGraceMs);
-    });
-    try {
-      const result = await Promise.race([this.enhancerPromise, timeoutPromise]);
-      const text2 = typeof result === "string" && result ? result : this.enhancerResolvedText || "";
-      if (!this.placeholderReplaced && text2) {
+      start() {
+        const cached = enhancerCache.get(this.cacheKey);
+        if (cached) {
+          logger.info("[KEY_TAKE_AWAY_SENSEI] CACHE_HIT", { messageId: this.messageId, reason: "prompt-unchanged" });
+          logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_REQUEST_START", { messageId: this.messageId, cacheUsed: true });
+          this.enhancerResolvedText = cached;
+          this.enhancerPromise = Promise.resolve(cached);
+          logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_RESPONSE_RECEIVED", { messageId: this.messageId, source: "cache", text: cached });
+          return;
+        }
+        logger.info("[KEY_TAKE_AWAY_SENSEI] CACHE_MISS", { messageId: this.messageId, reason: "promptChanged" });
+        logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_REQUEST_START", { messageId: this.messageId, cacheUsed: false });
+        logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_PROMPT_READY", {
+          messageId: this.messageId,
+          promptHash: this.cacheKey,
+          prompt: this.promptText
+        });
+        const chat = this.ai.chats.create({
+          model: this.modelName,
+          config: {
+            ...this.modelConfig
+          },
+          history: []
+        });
+        this.enhancerPromise = chat.sendMessage({ message: this.promptText }).then((response) => (response.text ?? "").trim()).then((text2) => {
+          logger.info("[KEY_TAKE_AWAY_SENSEI] ENHANCER_RESPONSE_RECEIVED", { messageId: this.messageId, source: "fresh", text: text2 });
+          enhancerCache.set(this.cacheKey, text2);
+          this.handleEnhancerReady(text2);
+          return text2;
+        }).catch((error) => {
+          logger.error("[KEY_TAKE_AWAY_SENSEI] ENHANCER_REQUEST_FAILED", { messageId: this.messageId, error: error.message });
+          throw error;
+        });
+      }
+      async onChunk(fullText) {
+        this.latestFullText = fullText;
+        const index = this.findPlaceholderIndex(fullText);
+        if (index === -1) {
+          return fullText;
+        }
+        if (!this.placeholderDetected) {
+          this.placeholderDetected = true;
+          logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_DETECTED", { messageId: this.messageId });
+        }
+        if (this.enhancerResolvedText) {
+          const replaced = this.insertEnhancerText(fullText, index, this.enhancerResolvedText);
+          if (replaced) {
+            this.placeholderReplaced = true;
+            this.latestFullText = replaced;
+            const latencyMs = Date.now() - this.startTime;
+            logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REPLACED", { messageId: this.messageId, latencyMs });
+            return replaced;
+          }
+        }
+        return fullText;
+      }
+      async finalize() {
+        if (!this.placeholderDetected || this.placeholderReplaced || this.placeholderRemoved) {
+          return;
+        }
+        if (!this.enhancerPromise) {
+          this.removePlaceholder("request-not-started");
+          return;
+        }
+        const timeoutPromise = new Promise((resolve, reject) => {
+          this.graceTimer = setTimeout(() => reject(new Error("timeout")), this.postStreamGraceMs);
+        });
+        try {
+          const result = await Promise.race([this.enhancerPromise, timeoutPromise]);
+          const text2 = typeof result === "string" && result ? result : this.enhancerResolvedText || "";
+          if (!this.placeholderReplaced && text2) {
+            const index = this.findPlaceholderIndex(this.latestFullText);
+            if (index === -1) {
+              return;
+            }
+            const replaced = this.insertEnhancerText(this.latestFullText, index, text2);
+            if (replaced) {
+              this.placeholderReplaced = true;
+              this.latestFullText = replaced;
+              await this.updateMessageStream(this.messageId, replaced);
+              const latencyMs = Date.now() - this.startTime;
+              logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REPLACED", { messageId: this.messageId, latencyMs });
+            }
+          }
+        } catch (error) {
+          const reason = error.message === "timeout" ? "timeout" : "request-failed";
+          this.removePlaceholder(reason);
+        } finally {
+          if (this.graceTimer) {
+            clearTimeout(this.graceTimer);
+          }
+        }
+      }
+      handleEnhancerReady(text2) {
+        this.enhancerResolvedText = text2;
+        if (!this.placeholderDetected || this.placeholderReplaced) {
+          return;
+        }
         const index = this.findPlaceholderIndex(this.latestFullText);
         if (index === -1) {
           return;
         }
         const replaced = this.insertEnhancerText(this.latestFullText, index, text2);
-        if (replaced) {
-          this.placeholderReplaced = true;
-          this.latestFullText = replaced;
-          await this.updateMessageStream(this.messageId, replaced);
-          const latencyMs = Date.now() - this.startTime;
-          logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REPLACED", { messageId: this.messageId, latencyMs });
+        if (!replaced) {
+          return;
         }
+        this.placeholderReplaced = true;
+        this.latestFullText = replaced;
+        const latencyMs = Date.now() - this.startTime;
+        logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REPLACED", { messageId: this.messageId, latencyMs });
+        Promise.resolve(this.updateMessageStream(this.messageId, replaced)).catch(() => {
+          logger.error("[KEY_TAKE_AWAY_SENSEI] UPDATE_STREAM_FAILED", { messageId: this.messageId });
+        });
       }
-    } catch (error) {
-      const reason = error.message === "timeout" ? "timeout" : "request-failed";
-      this.removePlaceholder(reason);
-    } finally {
-      if (this.graceTimer) {
-        clearTimeout(this.graceTimer);
-      }
-    }
-  }
-  handleEnhancerReady(text2) {
-    this.enhancerResolvedText = text2;
-    if (!this.placeholderDetected || this.placeholderReplaced) {
-      return;
-    }
-    const index = this.findPlaceholderIndex(this.latestFullText);
-    if (index === -1) {
-      return;
-    }
-    const replaced = this.insertEnhancerText(this.latestFullText, index, text2);
-    if (!replaced) {
-      return;
-    }
-    this.placeholderReplaced = true;
-    this.latestFullText = replaced;
-    const latencyMs = Date.now() - this.startTime;
-    logger.info("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REPLACED", { messageId: this.messageId, latencyMs });
-    Promise.resolve(this.updateMessageStream(this.messageId, replaced)).catch(() => {
-      logger.error("[KEY_TAKE_AWAY_SENSEI] UPDATE_STREAM_FAILED", { messageId: this.messageId });
-    });
-  }
-  insertEnhancerText(fullText, index, text2) {
-    if (index < 0) {
-      return null;
-    }
-    const before = fullText.slice(0, index);
-    const after = fullText.slice(index + this.placeholder.length);
-    const wrapped = `
+      insertEnhancerText(fullText, index, text2) {
+        if (index < 0) {
+          return null;
+        }
+        const before = fullText.slice(0, index);
+        const after = fullText.slice(index + this.placeholder.length);
+        const wrapped = `
 <div class="key-takeaway-enhancer">
 
 ${text2}
 
 </div>
 `;
-    return `${before}${wrapped}${after}`;
-  }
-  removePlaceholder(reason) {
-    if (this.placeholderRemoved || !this.placeholderDetected) {
-      return;
-    }
-    const index = this.findPlaceholderIndex(this.latestFullText);
-    if (index === -1) {
-      this.placeholderRemoved = true;
-      return;
-    }
-    const updated = this.latestFullText.slice(0, index) + this.latestFullText.slice(index + this.placeholder.length);
-    this.placeholderRemoved = true;
-    this.latestFullText = updated;
-    Promise.resolve(this.updateMessageStream(this.messageId, updated)).catch(() => {
-      logger.error("[KEY_TAKE_AWAY_SENSEI] UPDATE_STREAM_FAILED", { messageId: this.messageId });
-    });
-    logger.warn("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REMOVED", { messageId: this.messageId, reason });
-  }
-  getLatestText() {
-    return this.latestFullText;
-  }
-  findPlaceholderIndex(text2) {
-    let searchIndex = 0;
-    const blockRanges = this.getCodeBlockRanges(text2);
-    const inlineRanges = this.getInlineCodeRanges(text2, blockRanges);
-    while (searchIndex < text2.length) {
-      const idx = text2.indexOf(this.placeholder, searchIndex);
-      if (idx === -1) {
+        return `${before}${wrapped}${after}`;
+      }
+      removePlaceholder(reason) {
+        if (this.placeholderRemoved || !this.placeholderDetected) {
+          return;
+        }
+        const index = this.findPlaceholderIndex(this.latestFullText);
+        if (index === -1) {
+          this.placeholderRemoved = true;
+          return;
+        }
+        const updated = this.latestFullText.slice(0, index) + this.latestFullText.slice(index + this.placeholder.length);
+        this.placeholderRemoved = true;
+        this.latestFullText = updated;
+        Promise.resolve(this.updateMessageStream(this.messageId, updated)).catch(() => {
+          logger.error("[KEY_TAKE_AWAY_SENSEI] UPDATE_STREAM_FAILED", { messageId: this.messageId });
+        });
+        logger.warn("[KEY_TAKE_AWAY_SENSEI] PLACEHOLDER_REMOVED", { messageId: this.messageId, reason });
+      }
+      getLatestText() {
+        return this.latestFullText;
+      }
+      findPlaceholderIndex(text2) {
+        let searchIndex = 0;
+        const blockRanges = this.getCodeBlockRanges(text2);
+        const inlineRanges = this.getInlineCodeRanges(text2, blockRanges);
+        while (searchIndex < text2.length) {
+          const idx = text2.indexOf(this.placeholder, searchIndex);
+          if (idx === -1) {
+            return -1;
+          }
+          const end = idx + this.placeholder.length;
+          if (!this.isRangeInside(idx, end, blockRanges) && !this.isRangeInside(idx, end, inlineRanges)) {
+            return idx;
+          }
+          searchIndex = end;
+        }
         return -1;
       }
-      const end = idx + this.placeholder.length;
-      if (!this.isRangeInside(idx, end, blockRanges) && !this.isRangeInside(idx, end, inlineRanges)) {
-        return idx;
-      }
-      searchIndex = end;
-    }
-    return -1;
-  }
-  getCodeBlockRanges(text2) {
-    const ranges = [];
-    const regex = /```[\s\S]*?```/g;
-    let match;
-    while ((match = regex.exec(text2)) !== null) {
-      ranges.push({ start: match.index, end: match.index + match[0].length });
-    }
-    return ranges;
-  }
-  getInlineCodeRanges(text2, blockRanges) {
-    const ranges = [];
-    let index = 0;
-    while (index < text2.length) {
-      if (this.isIndexInside(index, blockRanges)) {
-        const block = blockRanges.find((range) => index >= range.start && index < range.end);
-        if (!block) {
-          index++;
-          continue;
+      getCodeBlockRanges(text2) {
+        const ranges = [];
+        const regex = /```[\s\S]*?```/g;
+        let match;
+        while ((match = regex.exec(text2)) !== null) {
+          ranges.push({ start: match.index, end: match.index + match[0].length });
         }
-        index = block.end;
-        continue;
+        return ranges;
       }
-      if (text2[index] !== "`") {
-        index++;
-        continue;
-      }
-      let fenceLength = 1;
-      while (index + fenceLength < text2.length && text2[index + fenceLength] === "`") {
-        fenceLength++;
-      }
-      const fence = "`".repeat(fenceLength);
-      let searchStart = index + fenceLength;
-      let closingIndex = -1;
-      while (searchStart < text2.length) {
-        const found = text2.indexOf(fence, searchStart);
-        if (found === -1) {
-          break;
+      getInlineCodeRanges(text2, blockRanges) {
+        const ranges = [];
+        let index = 0;
+        while (index < text2.length) {
+          if (this.isIndexInside(index, blockRanges)) {
+            const block = blockRanges.find((range) => index >= range.start && index < range.end);
+            if (!block) {
+              index++;
+              continue;
+            }
+            index = block.end;
+            continue;
+          }
+          if (text2[index] !== "`") {
+            index++;
+            continue;
+          }
+          let fenceLength = 1;
+          while (index + fenceLength < text2.length && text2[index + fenceLength] === "`") {
+            fenceLength++;
+          }
+          const fence = "`".repeat(fenceLength);
+          let searchStart = index + fenceLength;
+          let closingIndex = -1;
+          while (searchStart < text2.length) {
+            const found = text2.indexOf(fence, searchStart);
+            if (found === -1) {
+              break;
+            }
+            if (text2[found - 1] === "\\") {
+              searchStart = found + fenceLength;
+              continue;
+            }
+            closingIndex = found;
+            break;
+          }
+          if (closingIndex === -1) {
+            index += fenceLength;
+            continue;
+          }
+          ranges.push({ start: index, end: closingIndex + fenceLength });
+          index = closingIndex + fenceLength;
         }
-        if (text2[found - 1] === "\\") {
-          searchStart = found + fenceLength;
-          continue;
-        }
-        closingIndex = found;
-        break;
+        return ranges;
       }
-      if (closingIndex === -1) {
-        index += fenceLength;
-        continue;
+      isRangeInside(start, end, ranges) {
+        return ranges.some((range) => start >= range.start && end <= range.end);
       }
-      ranges.push({ start: index, end: closingIndex + fenceLength });
-      index = closingIndex + fenceLength;
-    }
-    return ranges;
+      isIndexInside(position, ranges) {
+        return ranges.some((range) => position >= range.start && position < range.end);
+      }
+    };
   }
-  isRangeInside(start, end, ranges) {
-    return ranges.some((range) => start >= range.start && end <= range.end);
-  }
-  isIndexInside(position, ranges) {
-    return ranges.some((range) => position >= range.start && position < range.end);
-  }
-};
+});
 
 // src/moduleSelectionHandler.ts
-init_curriculum();
-init_model_usage();
-init_notepad();
 function logModuleSelectionValidation(event, payload) {
   if (payload && Object.keys(payload).length > 0) {
     logger.info("[MODULE_SELECTION_VALIDATION]", { event, ...payload });
@@ -31875,738 +33013,761 @@ function logModuleSelectionValidation(event, payload) {
     logger.info("[MODULE_SELECTION_VALIDATION]", { event });
   }
 }
-var ModuleSelectionHandler = class {
-  constructor(state) {
-    __publicField(this, "state");
-    __publicField(this, "pendingWrapUpAssessment", null);
-    __publicField(this, "pendingWrapUpAssessmentFailed", false);
-    this.state = state;
-  }
-  updateState(updates) {
-    Object.assign(this.state, updates);
-  }
-  getState() {
-    return this.state;
-  }
-  async handleInitialModuleSelectionInternal(userInputText) {
-    if (this.state.curriculum && !this.state.curriculumState) {
-      let selectedModuleIndex = null;
-      const lowerInput = userInputText.toLowerCase();
-      if (lowerInput === "start curriculum") {
-        selectedModuleIndex = 0;
-      } else {
-        const moduleMatch = lowerInput.match(/^(?:module\s*)?(\d+(?:[._]\d+)?)/);
-        if (moduleMatch && moduleMatch[1]) {
-          const moduleIdNumber = moduleMatch[1].replace("_", ".");
-          selectedModuleIndex = this.state.curriculum.modules.findIndex((m) => {
-            const curriculumModuleIdNum = m.id.replace("Module", "").replace("_", ".");
-            return curriculumModuleIdNum === moduleIdNumber;
-          });
-        }
-        if (selectedModuleIndex === null || selectedModuleIndex === -1) {
-          selectedModuleIndex = this.state.curriculum.modules.findIndex((m) => m.title.toLowerCase().includes(lowerInput) && lowerInput.length >= 3);
-        }
+var ModuleSelectionHandler;
+var init_moduleSelectionHandler = __esm({
+  "src/moduleSelectionHandler.ts"() {
+    "use strict";
+    init_logger();
+    init_curriculum();
+    init_ui();
+    init_geminiService();
+    init_prompts();
+    init_interactionHelpers();
+    init_keyTakeawayEnhancerController();
+    init_curriculum();
+    init_model_usage();
+    init_notepad();
+    init_wrapUpAssessment();
+    ModuleSelectionHandler = class {
+      constructor(state) {
+        __publicField(this, "state");
+        __publicField(this, "pendingWrapUpAssessment", null);
+        __publicField(this, "pendingWrapUpAssessmentFailed", false);
+        this.state = state;
       }
-      if (selectedModuleIndex !== null && selectedModuleIndex >= 0 && selectedModuleIndex < this.state.curriculum.modules.length) {
-        this.state.pendingModuleSelection = selectedModuleIndex;
-        this.state.currentMessageId++;
-        const phaseSelectionId = `msg-${this.state.currentMessageId}`;
-        const selectedModule = this.state.curriculum.modules[selectedModuleIndex];
-        if (!selectedModule) {
-          logger.error("[MODULE_SELECTION] Selected module index resolved to undefined module.", {
-            selectedModuleIndex
-          });
-          return false;
-        }
-        const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.
+      updateState(updates) {
+        Object.assign(this.state, updates);
+      }
+      getState() {
+        return this.state;
+      }
+      async handleInitialModuleSelectionInternal(userInputText) {
+        if (this.state.curriculum && !this.state.curriculumState) {
+          let selectedModuleIndex = null;
+          const lowerInput = userInputText.toLowerCase();
+          if (lowerInput === "start curriculum") {
+            selectedModuleIndex = 0;
+          } else {
+            const moduleMatch = lowerInput.match(/^(?:module\s*)?(\d+(?:[._]\d+)?)/);
+            if (moduleMatch && moduleMatch[1]) {
+              const moduleIdNumber = moduleMatch[1].replace("_", ".");
+              selectedModuleIndex = this.state.curriculum.modules.findIndex((m) => {
+                const curriculumModuleIdNum = m.id.replace("Module", "").replace("_", ".");
+                return curriculumModuleIdNum === moduleIdNumber;
+              });
+            }
+            if (selectedModuleIndex === null || selectedModuleIndex === -1) {
+              selectedModuleIndex = this.state.curriculum.modules.findIndex((m) => m.title.toLowerCase().includes(lowerInput) && lowerInput.length >= 3);
+            }
+          }
+          if (selectedModuleIndex !== null && selectedModuleIndex >= 0 && selectedModuleIndex < this.state.curriculum.modules.length) {
+            this.state.pendingModuleSelection = selectedModuleIndex;
+            this.state.currentMessageId++;
+            const phaseSelectionId = `msg-${this.state.currentMessageId}`;
+            const selectedModule = this.state.curriculum.modules[selectedModuleIndex];
+            if (!selectedModule) {
+              logger.error("[MODULE_SELECTION] Selected module index resolved to undefined module.", {
+                selectedModuleIndex
+              });
+              return false;
+            }
+            const currentApiKey = typeof window !== "undefined" ? window.__senseiCurrentApiKey : null;
+            logger.info("[API_KEY_USAGE]", {
+              event: "module_selection",
+              moduleId: selectedModule.id,
+              moduleTitle: selectedModule.title,
+              key: currentApiKey ?? "undefined"
+            });
+            const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.
 
 Where would you like to begin your learning journey?`;
+            await displayMessage({
+              id: phaseSelectionId,
+              sender: "sensei",
+              displayName: "Recursive Sensei",
+              text: phaseSelectionText,
+              timestamp: /* @__PURE__ */ new Date(),
+              isLoading: false,
+              phaseSelectionEnabled: true,
+              selectedModuleIndex
+            });
+            return true;
+          } else if (selectedModuleIndex === null || selectedModuleIndex === -1) {
+            this.state.currentMessageId++;
+            const nudgeText = "I'm ready to start a module when you are! Please choose from the list I provided, or type 'start curriculum' for the first one. If you have a general question, feel free to ask!";
+            await displayMessage({
+              id: `msg-${this.state.currentMessageId}`,
+              sender: "sensei",
+              displayName: "Recursive Sensei",
+              text: nudgeText,
+              timestamp: /* @__PURE__ */ new Date(),
+              isLoading: false,
+              isReloadable: false
+            });
+            this.updateResponseHistory(nudgeText, `msg-${this.state.currentMessageId}`);
+            return true;
+          }
+        }
+        return false;
+      }
+      async handleClickedModuleSelection(moduleTitle) {
+        if (!this.state.ai || !this.state.curriculum) {
+          logger.warn("AI or Curriculum not ready for clicked module selection.");
+          this.state.currentMessageId++;
+          await displayMessage({
+            id: `msg-${this.state.currentMessageId}`,
+            sender: "sensei",
+            displayName: "Recursive Sensei",
+            text: "I'm not quite ready to start a module yet. Please wait a moment and try again.",
+            timestamp: /* @__PURE__ */ new Date(),
+            isLoading: false,
+            isReloadable: false
+          });
+          return;
+        }
+        this.state.currentMessageId++;
+        const userMessage = {
+          id: `msg-${this.state.currentMessageId}`,
+          sender: "user",
+          displayName: "You",
+          text: `Start module: "${moduleTitle}"`,
+          timestamp: /* @__PURE__ */ new Date(),
+          skipMermaid: true
+        };
+        await displayMessage(userMessage);
+        await processMermaidBlocks(userMessage.id);
+        const userInputElement2 = document.getElementById("user-input");
+        if (userInputElement2) {
+          userInputElement2.value = "";
+          setupTextareaAutosize(userInputElement2);
+        }
+        const success = await this.handleInitialModuleSelectionInternal(moduleTitle);
+        if (success) {
+        } else if (!success) {
+          this.state.currentMessageId++;
+          const errorMessage = `I'm sorry, I had trouble starting the module "${moduleTitle}" properly. Please try selecting again or type the module name.`;
+          await displayMessage({
+            id: `msg-${this.state.currentMessageId}`,
+            sender: "sensei",
+            displayName: "Recursive Sensei",
+            text: errorMessage,
+            timestamp: /* @__PURE__ */ new Date(),
+            isLoading: false,
+            isReloadable: false
+          });
+          this.updateResponseHistory(errorMessage, `msg-${this.state.currentMessageId}`);
+        }
+      }
+      async handlePhaseSelection(phaseName) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (!this.state.curriculum || this.state.pendingModuleSelection === null || !this.state.ai) {
+          logger.warn("[MODULE_SELECTION] Phase selection attempted before curriculum or AI ready.");
+          return;
+        }
+        const phase = phaseName;
+        const validPhases = ["IntroIllustrate", "Socratic", "Solidify"];
+        if (!validPhases.includes(phase)) {
+          logger.warn("[MODULE_SELECTION] Invalid phase requested.", { phaseName });
+          return;
+        }
+        const moduleIndex = this.state.pendingModuleSelection;
+        const module = this.state.curriculum.modules[moduleIndex];
+        if (!module) {
+          logger.error("[MODULE_SELECTION] Selected module index out of bounds.", { moduleIndex });
+          return;
+        }
+        this.state.pendingPhaseSelection = phase;
+        this.state.pendingConceptSelectionIndex = null;
+        if (phase === "IntroIllustrate") {
+          await this.showConceptSelectionBubble(moduleIndex);
+          return;
+        }
+        await this.executePhaseSelection(moduleIndex, phase);
+      }
+      async handleConceptSelection(moduleId, conceptIndex) {
+        if (!this.state.curriculum || this.state.pendingModuleSelection === null || !this.state.ai) {
+          logger.warn("[CONCEPT_SELECT] Concept selection attempted before curriculum ready.");
+          return;
+        }
+        if (this.state.pendingPhaseSelection !== "IntroIllustrate") {
+          logger.warn("[CONCEPT_SELECT] No pending Teaching phase for concept selection.", { moduleId, conceptIndex });
+          return;
+        }
+        const moduleIndex = this.state.pendingModuleSelection;
+        const module = this.state.curriculum.modules[moduleIndex];
+        if (!module || module.id !== moduleId) {
+          logger.warn("[CONCEPT_SELECT] Module mismatch during concept selection.", { expectedModuleId: module?.id ?? null, receivedModuleId: moduleId });
+          return;
+        }
+        if (conceptIndex < 0 || conceptIndex >= module.concepts.length) {
+          logger.warn("[CONCEPT_SELECT] Concept index out of range.", { moduleId, conceptIndex });
+          return;
+        }
+        const concept = module.concepts[conceptIndex];
+        this.state.pendingConceptSelectionIndex = conceptIndex;
+        this.state.currentMessageId++;
+        const userMessageId = `msg-${this.state.currentMessageId}`;
         await displayMessage({
-          id: phaseSelectionId,
+          id: userMessageId,
+          sender: "user",
+          displayName: "You",
+          text: `Start module: "${module.title}" \u2013 Concept: "${concept.title}" (Teaching)`,
+          timestamp: /* @__PURE__ */ new Date(),
+          skipMermaid: true
+        });
+        this.clearConceptSelectionBubble();
+        this.removePhaseSelectionBubble();
+        await this.executePhaseSelection(moduleIndex, "IntroIllustrate", conceptIndex);
+      }
+      async executePhaseSelection(moduleIndex, phase, conceptIndexOverride) {
+        if (!this.state.curriculum || !this.state.ai) {
+          return;
+        }
+        const curriculum2 = this.state.curriculum;
+        const module = curriculum2.modules[moduleIndex];
+        if (!module) {
+          logger.error("[MODULE_SELECTION] Module missing during phase execution.", { moduleIndex });
+          return;
+        }
+        const ai2 = this.state.ai;
+        const phaseMessages = Array.from(document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)"));
+        let phaseMessageBubble = null;
+        for (const bubble of phaseMessages) {
+          if (bubble.querySelector(".phase-buttons-container")) {
+            phaseMessageBubble = bubble;
+            const buttons = bubble.querySelectorAll(".phase-button");
+            buttons.forEach((button) => {
+              button.disabled = true;
+            });
+            break;
+          }
+        }
+        if (!phaseMessageBubble) {
+          this.state.currentMessageId++;
+          const loaderId = `msg-${this.state.currentMessageId}`;
+          await displayMessage({
+            id: loaderId,
+            sender: "sensei",
+            displayName: "Recursive Sensei",
+            text: "",
+            timestamp: /* @__PURE__ */ new Date(),
+            isLoading: false,
+            phaseLoadingAnimation: true
+          });
+          phaseMessageBubble = document.getElementById(loaderId);
+        }
+        const isSolidify = phase === "Solidify";
+        let cleanupPhaseBubble = null;
+        if (phaseMessageBubble) {
+          const messageText = phaseMessageBubble.querySelector(".message-text");
+          if (messageText) {
+            messageText.innerHTML = "";
+            const loadingContainer = document.createElement("div");
+            loadingContainer.classList.add("phase-loading-container");
+            const spinner = document.createElement("div");
+            spinner.classList.add("phase-loading-spinner");
+            const loadingText = document.createElement("div");
+            loadingText.classList.add("phase-loading-text");
+            const loadingMessages = isSolidify ? [
+              "Sensei is assembling your FAANG-style wrap-up assessment",
+              "Selecting interview-grade questions that mirror the module\u2019s Solidify focus",
+              "Balancing C++ snippets and conceptual traps for maximum coverage",
+              "Double-checking explanations and interviewer insights",
+              "Scouting high-signal topics to confirm mastery before remediation",
+              "Tuning markdown formatting so every insight reads clearly"
+            ] : [
+              "Sensei is generating a teaching plan and will be back with you shortly",
+              "Analyzing your learning patterns to optimize the experience",
+              "Crafting personalized examples based on your progress",
+              "Selecting the most effective teaching strategies",
+              "Preparing interactive exercises tailored to your needs",
+              "Building cognitive bridges to deepen understanding"
+            ];
+            let messageIndex = 0;
+            const textSpan = document.createElement("span");
+            textSpan.textContent = loadingMessages[messageIndex] ?? "";
+            const dots = document.createElement("span");
+            dots.classList.add("phase-loading-dots");
+            dots.textContent = "...";
+            loadingText.appendChild(textSpan);
+            loadingText.appendChild(dots);
+            loadingContainer.appendChild(spinner);
+            loadingContainer.appendChild(loadingText);
+            messageText.appendChild(loadingContainer);
+            let dotCount = 1;
+            const dotAnimation = setInterval(() => {
+              dotCount = dotCount % 3 + 1;
+              dots.textContent = ".".repeat(dotCount);
+            }, 500);
+            const messageAnimation = setInterval(() => {
+              messageIndex = (messageIndex + 1) % loadingMessages.length;
+              textSpan.textContent = loadingMessages[messageIndex] ?? "";
+            }, 5e3);
+            phaseMessageBubble.dotAnimation = dotAnimation;
+            phaseMessageBubble.messageAnimation = messageAnimation;
+            cleanupPhaseBubble = () => {
+              clearInterval(dotAnimation);
+              clearInterval(messageAnimation);
+              phaseMessageBubble?.remove();
+            };
+          }
+        }
+        const planner = isSolidify ? async (phaseForPlan) => this.createSolidifyTeachingPlan(module, phaseForPlan, ai2) : async (phaseForPlan, text2) => {
+          const conceptsSummary = module.concepts.map((c) => c.title).join(", ");
+          const result = await llmExtractAndPlanTeachingOrder(
+            ai2,
+            text2,
+            phaseForPlan,
+            module.title,
+            module.goal,
+            conceptsSummary
+          );
+          if (!result || result.length === 0) {
+            throw new TeachingPlanGenerationError("LLM returned an empty teaching plan.", {
+              moduleId: module.id,
+              phase: phaseForPlan
+            });
+          }
+          return result;
+        };
+        const plannerOptions = conceptIndexOverride !== void 0 ? { targetConceptIndex: conceptIndexOverride } : void 0;
+        this.state.curriculumState = await jumpToPhase(
+          curriculum2,
+          moduleIndex,
+          phase,
+          planner,
+          plannerOptions
+        );
+        if (!this.state.curriculumState) {
+          this.state.currentMessageId++;
+          await displayMessage({
+            id: `msg-${this.state.currentMessageId}`,
+            sender: "sensei",
+            displayName: "Recursive Sensei",
+            text: "I encountered an error while preparing that phase. Please try again or select a different phase.",
+            timestamp: /* @__PURE__ */ new Date(),
+            isLoading: false
+          });
+          this.state.pendingPhaseSelection = null;
+          this.state.pendingConceptSelectionIndex = null;
+          return;
+        }
+        if (isSolidify) {
+          this.state.pendingModuleSelection = null;
+          this.state.pendingPhaseSelection = null;
+          this.state.pendingConceptSelectionIndex = null;
+          const overlayData = this.pendingWrapUpAssessment;
+          const generationFailed = this.pendingWrapUpAssessmentFailed;
+          this.pendingWrapUpAssessment = null;
+          this.pendingWrapUpAssessmentFailed = false;
+          const currentItem2 = getCurrentCurriculumItem(this.state.curriculum, this.state.curriculumState);
+          if (currentItem2) {
+            updateCurriculumDisplay(currentItem2, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
+          }
+          if (overlayData) {
+            showWrapUpAssessmentOverlay(overlayData);
+          } else if (generationFailed) {
+            await this.showWrapUpAssessmentApology(module.id, module.title);
+          }
+          if (cleanupPhaseBubble) {
+            cleanupPhaseBubble();
+          }
+          return;
+        }
+        if (this.state.curriculumState.currentPhase === "Socratic") {
+          this.state.curriculumState.socraticTurnCount = 0;
+        }
+        this.state.currentActiveConceptIndex = this.state.curriculumState.currentConceptIndex;
+        logModuleSelectionValidation("active-concept-tracking-initialized", {
+          activeConceptIndex: this.state.currentActiveConceptIndex
+        });
+        const currentItem = getCurrentCurriculumItem(this.state.curriculum, this.state.curriculumState);
+        if (currentItem) {
+          const moduleTitle = this.state.curriculum?.modules?.[this.state.curriculumState.currentModuleIndex]?.title ?? null;
+          notepad.setActiveCurriculumContext({
+            conceptTitle: currentItem.concept?.title ?? null,
+            moduleTitle
+          });
+          this.state.learnerModel.CurrentTask.ID = currentItem.curriculumPathId;
+          this.state.learnerModel.CurrentTask.TargetKCs = [currentItem.curriculumPathId];
+          if (!this.state.learnerModel.KCs[currentItem.curriculumPathId]) {
+            this.state.learnerModel.KCs[currentItem.curriculumPathId] = 0;
+          }
+          this.state.learnerModel.KCMasteryLastUpdated[currentItem.curriculumPathId] = (/* @__PURE__ */ new Date()).toISOString();
+          this.state.learnerModel.awardedKcForPhasePoints = /* @__PURE__ */ new Set();
+          updateCurriculumDisplay(currentItem, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
+          const currentPhaseKCMastery = this.state.learnerModel.KCs[currentItem.curriculumPathId] || 0;
+          this.updateKCProgressBar(currentPhaseKCMastery);
+          const phaseMessagesToRemove = document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)");
+          phaseMessagesToRemove.forEach((bubble) => {
+            if (bubble.querySelector(".phase-buttons-container") || bubble.querySelector(".phase-loading-container")) {
+              const dotAnimation = bubble.dotAnimation;
+              if (dotAnimation) {
+                clearInterval(dotAnimation);
+              }
+              const messageAnimation = bubble.messageAnimation;
+              if (messageAnimation) {
+                clearInterval(messageAnimation);
+              }
+              bubble.remove();
+            }
+          });
+          const currentModuleIndex = this.state.pendingModuleSelection;
+          const currentCurriculum = this.state.curriculum;
+          if (currentModuleIndex === null || !currentCurriculum) {
+            logger.error("[MODULE_SELECTION] Pending module selection missing during phase intro.");
+            return;
+          }
+          const selectedModule = currentCurriculum.modules[currentModuleIndex];
+          if (!selectedModule) {
+            logger.error("[MODULE_SELECTION] Pending module selection index invalid.", {
+              moduleIndex: currentModuleIndex
+            });
+            return;
+          }
+          const phaseDisplayName = getPhaseDisplayName(this.state.curriculumState.currentPhase);
+          const conceptTitle = currentItem.concept?.title || "the module concepts";
+          let introResponseText = "";
+          if (this.state.curriculumState.currentPhase === "Socratic") {
+            await this.sendSystemSocraticMessage();
+          } else {
+            const curriculumFocusInstruction = getCurriculumFocusInstruction(this.state.curriculum, currentItem, this.state.curriculumState, false);
+            const focusPointsSnapshot = calculateFocusPoints(this.state.curriculumState);
+            const coreInstruction = buildSenseiDynamicSystemInstruction(
+              curriculumFocusInstruction,
+              void 0
+            );
+            this.state.currentMessageId++;
+            const senseiIntroId = `msg-${this.state.currentMessageId}`;
+            const introContext = `${MODULE_INTRODUCTION_TASK_TEMPLATE(selectedModule.title, conceptTitle, phaseDisplayName, `Phase: ${phaseDisplayName}`)}
+${coreInstruction}
+`;
+            const reloadContext = {
+              type: "moduleIntro",
+              introSystemInstruction: introContext,
+              moduleTitleForPrompt: selectedModule.title
+            };
+            let introEnhancerController;
+            const introEnhancerEligible = ENABLE_KEY_TAKEAWAY_ENHANCER && this.state.ai && this.state.curriculumState.currentPhase === "IntroIllustrate";
+            if (introEnhancerEligible) {
+              const primaryActionBlock = buildPrimaryActionBlockForKeyTakeaway(
+                this.state.curriculum,
+                currentItem,
+                this.state.curriculumState,
+                false,
+                focusPointsSnapshot
+              );
+              const enhancerPrompt = `${KEY_TAKEAWAY_PROMPT_PREFIX}
+
+${primaryActionBlock}`;
+              const promptHash = computeKeyTakeawayEnhancerPromptHash(enhancerPrompt);
+              const promptHashChanged = !hasKeyTakeawayEnhancerCacheEntry(promptHash);
+              introEnhancerController = new KeyTakeawayEnhancerController({
+                ai: this.state.ai,
+                modelName: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.modelName,
+                modelConfig: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.config,
+                promptText: enhancerPrompt,
+                placeholderToken: KEY_TAKEAWAY_PLACEHOLDER,
+                messageId: senseiIntroId,
+                updateMessageStream,
+                cacheKey: promptHash,
+                postStreamGraceMs: KEY_TAKEAWAY_POST_STREAM_GRACE_MS
+              });
+              introEnhancerController.start();
+              logger.info("[KEY_TAKE_AWAY_SENSEI] enhancer-armed", { messageId: senseiIntroId, promptHashChanged, source: "module-selection" });
+              reloadContext.keyTakeawayEnhancer = {
+                promptHash,
+                promptText: enhancerPrompt
+              };
+            }
+            await displayMessage({
+              id: senseiIntroId,
+              sender: "sensei",
+              displayName: "Recursive Sensei",
+              text: "",
+              timestamp: /* @__PURE__ */ new Date(),
+              isLoading: true,
+              isReloadable: true,
+              reloadContext
+            });
+            try {
+              introResponseText = await streamModuleIntroduction(
+                this.state.mainSenseiChat,
+                introContext,
+                selectedModule.title,
+                senseiIntroId,
+                { enhancerController: introEnhancerController }
+              );
+              this.updateResponseHistory(introResponseText, senseiIntroId);
+            } catch (error) {
+              logger.error("Error generating phase intro:", error);
+              introResponseText = `Welcome to the **${phaseDisplayName}** phase of **${selectedModule.title}**! Let's begin exploring ${conceptTitle}.`;
+              this.updateResponseHistory(introResponseText, senseiIntroId);
+            }
+            await displayMessage({
+              id: senseiIntroId,
+              sender: "sensei",
+              displayName: "Recursive Sensei",
+              text: introResponseText,
+              timestamp: /* @__PURE__ */ new Date(),
+              isLoading: false,
+              isReloadable: true,
+              reloadContext,
+              skipMermaid: true
+            });
+            const messageBubble = document.getElementById(senseiIntroId);
+            if (messageBubble) {
+              messageBubble.dataset.reloadable = "true";
+              messageBubble.dataset.reloadType = "moduleIntro";
+              messageBubble.dataset.reloadContext = JSON.stringify(reloadContext);
+            }
+            logger.info("[MODULE_INTRO_RELOAD] Intro bubble finalized", { messageId: senseiIntroId });
+            await processMermaidBlocks(senseiIntroId);
+          }
+          this.state.userInputHistory = [];
+          if (this.state.curriculumState.currentPhase !== "Socratic") {
+            this.state.lastSenseiResponses = [introResponseText];
+          }
+          this.state.pendingModuleSelection = null;
+          this.state.pendingPhaseSelection = null;
+          this.state.pendingConceptSelectionIndex = null;
+          const userInputElem = document.getElementById("user-input");
+          if (userInputElem) {
+            userInputElem.placeholder = "Phase selected. Ask questions or type your thoughts...";
+          }
+        }
+      }
+      async showConceptSelectionBubble(moduleIndex) {
+        if (!this.state.curriculum) {
+          return;
+        }
+        const module = this.state.curriculum.modules[moduleIndex];
+        if (!module || !module.concepts || module.concepts.length === 0) {
+          logger.warn("[CONCEPT_SELECT] Module missing concepts for selection.", { moduleIndex });
+          return;
+        }
+        this.clearConceptSelectionBubble();
+        const concepts = module.concepts.map((concept, index) => ({
+          title: `Concept ${index + 1}: ${concept.title}`,
+          index
+        }));
+        this.state.currentMessageId++;
+        const messageId = `msg-${this.state.currentMessageId}`;
+        const promptText = `Great! Choose the concept you want to start within **${module.title}**.`;
+        await displayMessage({
+          id: messageId,
           sender: "sensei",
           displayName: "Recursive Sensei",
-          text: phaseSelectionText,
+          text: promptText,
           timestamp: /* @__PURE__ */ new Date(),
           isLoading: false,
-          phaseSelectionEnabled: true,
-          selectedModuleIndex
+          conceptSelectionPayload: {
+            moduleId: module.id,
+            moduleTitle: module.title,
+            concepts
+          }
         });
-        return true;
-      } else if (selectedModuleIndex === null || selectedModuleIndex === -1) {
+        this.state.pendingConceptSelectionBubbleId = messageId;
+      }
+      clearConceptSelectionBubble() {
+        if (!this.state.pendingConceptSelectionBubbleId) {
+          return;
+        }
+        const existing = document.getElementById(this.state.pendingConceptSelectionBubbleId);
+        if (existing) {
+          existing.remove();
+        }
+        this.state.pendingConceptSelectionBubbleId = null;
+      }
+      removePhaseSelectionBubble() {
+        const phaseBubble = Array.from(document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)")).find(
+          (bubble) => bubble.querySelector(".phase-buttons-container")
+        );
+        if (phaseBubble) {
+          phaseBubble.remove();
+        }
+      }
+      async createSolidifyTeachingPlan(module, phaseForPlan, ai2) {
+        this.pendingWrapUpAssessment = null;
+        this.pendingWrapUpAssessmentFailed = false;
+        const conceptSummaries = module.concepts.map((concept) => `${concept.title}: ${concept.text}`);
+        try {
+          const result = await generateWrapUpAssessment(ai2, module.id, {
+            moduleTitle: module.title,
+            moduleGoal: module.goal ?? "",
+            solidifyContent: "",
+            conceptSummaries
+          });
+          if (result && result.questions.length > 0) {
+            const validatedQuestions = validateWrapUpAssessmentQuestions(result.questions);
+            this.pendingWrapUpAssessment = {
+              moduleTitle: module.title,
+              moduleGoal: module.goal ?? void 0,
+              conceptSummaries,
+              questions: validatedQuestions
+            };
+          } else {
+            this.pendingWrapUpAssessmentFailed = true;
+          }
+        } catch (error) {
+          logger.error("[WRAP_UP_ASSESSMENT] generation-error", {
+            moduleId: module.id,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          this.pendingWrapUpAssessmentFailed = true;
+        }
+        logger.info("[WRAP_UP_ASSESSMENT] jump-to-phase-stub", {
+          moduleId: module.id,
+          phase: phaseForPlan,
+          kcTotal: 0.65
+        });
+        const stubTeachingPoint = {
+          text: `Wrap Up assessment prepared for ${module.title}`,
+          kcValue: 0.65
+        };
+        return [[stubTeachingPoint]];
+      }
+      async showWrapUpAssessmentApology(moduleId, moduleTitle) {
         this.state.currentMessageId++;
-        const nudgeText = "I'm ready to start a module when you are! Please choose from the list I provided, or type 'start curriculum' for the first one. If you have a general question, feel free to ask!";
         await displayMessage({
           id: `msg-${this.state.currentMessageId}`,
           sender: "sensei",
           displayName: "Recursive Sensei",
-          text: nudgeText,
+          text: `I'm sorry\u2014the Wrap Up assessment for **${moduleTitle}** is temporarily unavailable. Please try again shortly.`,
           timestamp: /* @__PURE__ */ new Date(),
           isLoading: false,
           isReloadable: false
         });
-        this.updateResponseHistory(nudgeText, `msg-${this.state.currentMessageId}`);
-        return true;
+        logger.warn("[WRAP_UP_ASSESSMENT] overlay-missing", { moduleId, moduleTitle });
+        unlockWrapUpChatControls();
       }
-    }
-    return false;
-  }
-  async handleClickedModuleSelection(moduleTitle) {
-    if (!this.state.ai || !this.state.curriculum) {
-      logger.warn("AI or Curriculum not ready for clicked module selection.");
-      this.state.currentMessageId++;
-      await displayMessage({
-        id: `msg-${this.state.currentMessageId}`,
-        sender: "sensei",
-        displayName: "Recursive Sensei",
-        text: "I'm not quite ready to start a module yet. Please wait a moment and try again.",
-        timestamp: /* @__PURE__ */ new Date(),
-        isLoading: false,
-        isReloadable: false
-      });
-      return;
-    }
-    this.state.currentMessageId++;
-    const userMessage = {
-      id: `msg-${this.state.currentMessageId}`,
-      sender: "user",
-      displayName: "You",
-      text: `Start module: "${moduleTitle}"`,
-      timestamp: /* @__PURE__ */ new Date(),
-      skipMermaid: true
-    };
-    await displayMessage(userMessage);
-    await processMermaidBlocks(userMessage.id);
-    const userInputElement2 = document.getElementById("user-input");
-    if (userInputElement2) {
-      userInputElement2.value = "";
-      setupTextareaAutosize(userInputElement2);
-    }
-    const success = await this.handleInitialModuleSelectionInternal(moduleTitle);
-    if (success) {
-    } else if (!success) {
-      this.state.currentMessageId++;
-      const errorMessage = `I'm sorry, I had trouble starting the module "${moduleTitle}" properly. Please try selecting again or type the module name.`;
-      await displayMessage({
-        id: `msg-${this.state.currentMessageId}`,
-        sender: "sensei",
-        displayName: "Recursive Sensei",
-        text: errorMessage,
-        timestamp: /* @__PURE__ */ new Date(),
-        isLoading: false,
-        isReloadable: false
-      });
-      this.updateResponseHistory(errorMessage, `msg-${this.state.currentMessageId}`);
-    }
-  }
-  async handlePhaseSelection(phaseName) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    if (!this.state.curriculum || this.state.pendingModuleSelection === null || !this.state.ai) {
-      logger.warn("[MODULE_SELECTION] Phase selection attempted before curriculum or AI ready.");
-      return;
-    }
-    const phase = phaseName;
-    const validPhases = ["IntroIllustrate", "Socratic", "Solidify"];
-    if (!validPhases.includes(phase)) {
-      logger.warn("[MODULE_SELECTION] Invalid phase requested.", { phaseName });
-      return;
-    }
-    const moduleIndex = this.state.pendingModuleSelection;
-    const module = this.state.curriculum.modules[moduleIndex];
-    if (!module) {
-      logger.error("[MODULE_SELECTION] Selected module index out of bounds.", { moduleIndex });
-      return;
-    }
-    this.state.pendingPhaseSelection = phase;
-    this.state.pendingConceptSelectionIndex = null;
-    if (phase === "IntroIllustrate") {
-      await this.showConceptSelectionBubble(moduleIndex);
-      return;
-    }
-    await this.executePhaseSelection(moduleIndex, phase);
-  }
-  async handleConceptSelection(moduleId, conceptIndex) {
-    if (!this.state.curriculum || this.state.pendingModuleSelection === null || !this.state.ai) {
-      logger.warn("[CONCEPT_SELECT] Concept selection attempted before curriculum ready.");
-      return;
-    }
-    if (this.state.pendingPhaseSelection !== "IntroIllustrate") {
-      logger.warn("[CONCEPT_SELECT] No pending Teaching phase for concept selection.", { moduleId, conceptIndex });
-      return;
-    }
-    const moduleIndex = this.state.pendingModuleSelection;
-    const module = this.state.curriculum.modules[moduleIndex];
-    if (!module || module.id !== moduleId) {
-      logger.warn("[CONCEPT_SELECT] Module mismatch during concept selection.", { expectedModuleId: module?.id ?? null, receivedModuleId: moduleId });
-      return;
-    }
-    if (conceptIndex < 0 || conceptIndex >= module.concepts.length) {
-      logger.warn("[CONCEPT_SELECT] Concept index out of range.", { moduleId, conceptIndex });
-      return;
-    }
-    const concept = module.concepts[conceptIndex];
-    this.state.pendingConceptSelectionIndex = conceptIndex;
-    this.state.currentMessageId++;
-    const userMessageId = `msg-${this.state.currentMessageId}`;
-    await displayMessage({
-      id: userMessageId,
-      sender: "user",
-      displayName: "You",
-      text: `Start module: "${module.title}" \u2013 Concept: "${concept.title}" (Teaching)`,
-      timestamp: /* @__PURE__ */ new Date(),
-      skipMermaid: true
-    });
-    this.clearConceptSelectionBubble();
-    this.removePhaseSelectionBubble();
-    await this.executePhaseSelection(moduleIndex, "IntroIllustrate", conceptIndex);
-  }
-  async executePhaseSelection(moduleIndex, phase, conceptIndexOverride) {
-    if (!this.state.curriculum || !this.state.ai) {
-      return;
-    }
-    const curriculum2 = this.state.curriculum;
-    const module = curriculum2.modules[moduleIndex];
-    if (!module) {
-      logger.error("[MODULE_SELECTION] Module missing during phase execution.", { moduleIndex });
-      return;
-    }
-    const ai2 = this.state.ai;
-    const phaseMessages = Array.from(document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)"));
-    let phaseMessageBubble = null;
-    for (const bubble of phaseMessages) {
-      if (bubble.querySelector(".phase-buttons-container")) {
-        phaseMessageBubble = bubble;
-        const buttons = bubble.querySelectorAll(".phase-button");
-        buttons.forEach((button) => {
-          button.disabled = true;
-        });
-        break;
-      }
-    }
-    if (!phaseMessageBubble) {
-      this.state.currentMessageId++;
-      const loaderId = `msg-${this.state.currentMessageId}`;
-      await displayMessage({
-        id: loaderId,
-        sender: "sensei",
-        displayName: "Recursive Sensei",
-        text: "",
-        timestamp: /* @__PURE__ */ new Date(),
-        isLoading: false,
-        phaseLoadingAnimation: true
-      });
-      phaseMessageBubble = document.getElementById(loaderId);
-    }
-    const isSolidify = phase === "Solidify";
-    let cleanupPhaseBubble = null;
-    if (phaseMessageBubble) {
-      const messageText = phaseMessageBubble.querySelector(".message-text");
-      if (messageText) {
-        messageText.innerHTML = "";
-        const loadingContainer = document.createElement("div");
-        loadingContainer.classList.add("phase-loading-container");
-        const spinner = document.createElement("div");
-        spinner.classList.add("phase-loading-spinner");
-        const loadingText = document.createElement("div");
-        loadingText.classList.add("phase-loading-text");
-        const loadingMessages = isSolidify ? [
-          "Sensei is assembling your FAANG-style wrap-up assessment",
-          "Selecting interview-grade questions that mirror the module\u2019s Solidify focus",
-          "Balancing C++ snippets and conceptual traps for maximum coverage",
-          "Double-checking explanations and interviewer insights",
-          "Scouting high-signal topics to confirm mastery before remediation",
-          "Tuning markdown formatting so every insight reads clearly"
-        ] : [
-          "Sensei is generating a teaching plan and will be back with you shortly",
-          "Analyzing your learning patterns to optimize the experience",
-          "Crafting personalized examples based on your progress",
-          "Selecting the most effective teaching strategies",
-          "Preparing interactive exercises tailored to your needs",
-          "Building cognitive bridges to deepen understanding"
-        ];
-        let messageIndex = 0;
-        const textSpan = document.createElement("span");
-        textSpan.textContent = loadingMessages[messageIndex] ?? "";
-        const dots = document.createElement("span");
-        dots.classList.add("phase-loading-dots");
-        dots.textContent = "...";
-        loadingText.appendChild(textSpan);
-        loadingText.appendChild(dots);
-        loadingContainer.appendChild(spinner);
-        loadingContainer.appendChild(loadingText);
-        messageText.appendChild(loadingContainer);
-        let dotCount = 1;
-        const dotAnimation = setInterval(() => {
-          dotCount = dotCount % 3 + 1;
-          dots.textContent = ".".repeat(dotCount);
-        }, 500);
-        const messageAnimation = setInterval(() => {
-          messageIndex = (messageIndex + 1) % loadingMessages.length;
-          textSpan.textContent = loadingMessages[messageIndex] ?? "";
-        }, 5e3);
-        phaseMessageBubble.dotAnimation = dotAnimation;
-        phaseMessageBubble.messageAnimation = messageAnimation;
-        cleanupPhaseBubble = () => {
-          clearInterval(dotAnimation);
-          clearInterval(messageAnimation);
-          phaseMessageBubble?.remove();
-        };
-      }
-    }
-    const planner = isSolidify ? async (phaseForPlan) => this.createSolidifyTeachingPlan(module, phaseForPlan, ai2) : async (phaseForPlan, text2) => {
-      const conceptsSummary = module.concepts.map((c) => c.title).join(", ");
-      const result = await llmExtractAndPlanTeachingOrder(
-        ai2,
-        text2,
-        phaseForPlan,
-        module.title,
-        module.goal,
-        conceptsSummary
-      );
-      if (!result || result.length === 0) {
-        throw new TeachingPlanGenerationError("LLM returned an empty teaching plan.", {
-          moduleId: module.id,
-          phase: phaseForPlan
-        });
-      }
-      return result;
-    };
-    const plannerOptions = conceptIndexOverride !== void 0 ? { targetConceptIndex: conceptIndexOverride } : void 0;
-    this.state.curriculumState = await jumpToPhase(
-      curriculum2,
-      moduleIndex,
-      phase,
-      planner,
-      plannerOptions
-    );
-    if (!this.state.curriculumState) {
-      this.state.currentMessageId++;
-      await displayMessage({
-        id: `msg-${this.state.currentMessageId}`,
-        sender: "sensei",
-        displayName: "Recursive Sensei",
-        text: "I encountered an error while preparing that phase. Please try again or select a different phase.",
-        timestamp: /* @__PURE__ */ new Date(),
-        isLoading: false
-      });
-      this.state.pendingPhaseSelection = null;
-      this.state.pendingConceptSelectionIndex = null;
-      return;
-    }
-    if (isSolidify) {
-      this.state.pendingModuleSelection = null;
-      this.state.pendingPhaseSelection = null;
-      this.state.pendingConceptSelectionIndex = null;
-      const overlayData = this.pendingWrapUpAssessment;
-      const generationFailed = this.pendingWrapUpAssessmentFailed;
-      this.pendingWrapUpAssessment = null;
-      this.pendingWrapUpAssessmentFailed = false;
-      const currentItem2 = getCurrentCurriculumItem(this.state.curriculum, this.state.curriculumState);
-      if (currentItem2) {
-        updateCurriculumDisplay(currentItem2, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
-      }
-      if (overlayData) {
-        showWrapUpAssessmentOverlay(overlayData);
-      } else if (generationFailed) {
-        await this.showWrapUpAssessmentApology(module.id, module.title);
-      }
-      if (cleanupPhaseBubble) {
-        cleanupPhaseBubble();
-      }
-      return;
-    }
-    if (this.state.curriculumState.currentPhase === "Socratic") {
-      this.state.curriculumState.socraticTurnCount = 0;
-    }
-    this.state.currentActiveConceptIndex = this.state.curriculumState.currentConceptIndex;
-    logModuleSelectionValidation("active-concept-tracking-initialized", {
-      activeConceptIndex: this.state.currentActiveConceptIndex
-    });
-    const currentItem = getCurrentCurriculumItem(this.state.curriculum, this.state.curriculumState);
-    if (currentItem) {
-      const moduleTitle = this.state.curriculum?.modules?.[this.state.curriculumState.currentModuleIndex]?.title ?? null;
-      notepad.setActiveCurriculumContext({
-        conceptTitle: currentItem.concept?.title ?? null,
-        moduleTitle
-      });
-      this.state.learnerModel.CurrentTask.ID = currentItem.curriculumPathId;
-      this.state.learnerModel.CurrentTask.TargetKCs = [currentItem.curriculumPathId];
-      if (!this.state.learnerModel.KCs[currentItem.curriculumPathId]) {
-        this.state.learnerModel.KCs[currentItem.curriculumPathId] = 0;
-      }
-      this.state.learnerModel.KCMasteryLastUpdated[currentItem.curriculumPathId] = (/* @__PURE__ */ new Date()).toISOString();
-      this.state.learnerModel.awardedKcForPhasePoints = /* @__PURE__ */ new Set();
-      updateCurriculumDisplay(currentItem, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
-      const currentPhaseKCMastery = this.state.learnerModel.KCs[currentItem.curriculumPathId] || 0;
-      this.updateKCProgressBar(currentPhaseKCMastery);
-      const phaseMessagesToRemove = document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)");
-      phaseMessagesToRemove.forEach((bubble) => {
-        if (bubble.querySelector(".phase-buttons-container") || bubble.querySelector(".phase-loading-container")) {
-          const dotAnimation = bubble.dotAnimation;
-          if (dotAnimation) {
-            clearInterval(dotAnimation);
-          }
-          const messageAnimation = bubble.messageAnimation;
-          if (messageAnimation) {
-            clearInterval(messageAnimation);
-          }
-          bubble.remove();
+      async sendSystemSocraticMessage() {
+        if (!this.state.curriculumState || !this.state.curriculumState.teachingPlanForPhase) {
+          logger.error("[SOCRATIC_FIX] Cannot send system message: missing curriculum state or teaching plan");
+          return;
         }
-      });
-      const currentModuleIndex = this.state.pendingModuleSelection;
-      const currentCurriculum = this.state.curriculum;
-      if (currentModuleIndex === null || !currentCurriculum) {
-        logger.error("[MODULE_SELECTION] Pending module selection missing during phase intro.");
-        return;
-      }
-      const selectedModule = currentCurriculum.modules[currentModuleIndex];
-      if (!selectedModule) {
-        logger.error("[MODULE_SELECTION] Pending module selection index invalid.", {
-          moduleIndex: currentModuleIndex
-        });
-        return;
-      }
-      const phaseDisplayName = getPhaseDisplayName(this.state.curriculumState.currentPhase);
-      const conceptTitle = currentItem.concept?.title || "the module concepts";
-      let introResponseText = "";
-      if (this.state.curriculumState.currentPhase === "Socratic") {
-        await this.sendSystemSocraticMessage();
-      } else {
-        const curriculumFocusInstruction = getCurriculumFocusInstruction(this.state.curriculum, currentItem, this.state.curriculumState, false);
-        const focusPointsSnapshot = calculateFocusPoints(this.state.curriculumState);
-        const coreInstruction = buildSenseiDynamicSystemInstruction(
-          curriculumFocusInstruction,
-          void 0
+        const systemInstruction = buildSocraticExecutionInstruction(
+          this.state.curriculumState.teachingPlanForPhase,
+          { directive: void 0 },
+          true,
+          void 0,
+          this.buildSocraticConceptReference()
         );
         this.state.currentMessageId++;
-        const senseiIntroId = `msg-${this.state.currentMessageId}`;
-        const introContext = `${MODULE_INTRODUCTION_TASK_TEMPLATE(selectedModule.title, conceptTitle, phaseDisplayName, `Phase: ${phaseDisplayName}`)}
-${coreInstruction}
-`;
-        const reloadContext = {
-          type: "moduleIntro",
-          introSystemInstruction: introContext,
-          moduleTitleForPrompt: selectedModule.title
-        };
-        let introEnhancerController;
-        const introEnhancerEligible = ENABLE_KEY_TAKEAWAY_ENHANCER && this.state.ai && this.state.curriculumState.currentPhase === "IntroIllustrate";
-        if (introEnhancerEligible) {
-          const primaryActionBlock = buildPrimaryActionBlockForKeyTakeaway(
-            this.state.curriculum,
-            currentItem,
-            this.state.curriculumState,
-            false,
-            focusPointsSnapshot
-          );
-          const enhancerPrompt = `${KEY_TAKEAWAY_PROMPT_PREFIX}
-
-${primaryActionBlock}`;
-          const promptHash = computeKeyTakeawayEnhancerPromptHash(enhancerPrompt);
-          const promptHashChanged = !hasKeyTakeawayEnhancerCacheEntry(promptHash);
-          introEnhancerController = new KeyTakeawayEnhancerController({
-            ai: this.state.ai,
-            modelName: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.modelName,
-            modelConfig: KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG.config,
-            promptText: enhancerPrompt,
-            placeholderToken: KEY_TAKEAWAY_PLACEHOLDER,
-            messageId: senseiIntroId,
-            updateMessageStream,
-            cacheKey: promptHash,
-            postStreamGraceMs: KEY_TAKEAWAY_POST_STREAM_GRACE_MS
-          });
-          introEnhancerController.start();
-          logger.info("[KEY_TAKE_AWAY_SENSEI] enhancer-armed", { messageId: senseiIntroId, promptHashChanged, source: "module-selection" });
-          reloadContext.keyTakeawayEnhancer = {
-            promptHash,
-            promptText: enhancerPrompt
-          };
-        }
+        const messageId = `msg-${this.state.currentMessageId}`;
         await displayMessage({
-          id: senseiIntroId,
+          id: messageId,
           sender: "sensei",
           displayName: "Recursive Sensei",
           text: "",
           timestamp: /* @__PURE__ */ new Date(),
           isLoading: true,
-          isReloadable: true,
-          reloadContext
+          isReloadable: false
         });
+        let finalResponse = "";
+        const reloadContext = {
+          type: "mainResponse",
+          dynamicSystemInstruction: systemInstruction,
+          userInput: ""
+        };
         try {
-          introResponseText = await streamModuleIntroduction(
-            this.state.mainSenseiChat,
-            introContext,
-            selectedModule.title,
-            senseiIntroId,
-            { enhancerController: introEnhancerController }
-          );
-          this.updateResponseHistory(introResponseText, senseiIntroId);
+          const { streamMainSenseiResponse: streamMainSenseiResponse2 } = await Promise.resolve().then(() => (init_interactionHelpers(), interactionHelpers_exports));
+          finalResponse = await streamMainSenseiResponse2(this.state.mainSenseiChat, systemInstruction, "", messageId);
+          this.updateResponseHistory(finalResponse, messageId);
         } catch (error) {
-          logger.error("Error generating phase intro:", error);
-          introResponseText = `Welcome to the **${phaseDisplayName}** phase of **${selectedModule.title}**! Let's begin exploring ${conceptTitle}.`;
-          this.updateResponseHistory(introResponseText, senseiIntroId);
+          logger.error("[SOCRATIC_FIX] Error in system message generation:", error);
+          finalResponse = "Welcome to the Socratic exploration phase! I'm ready to guide you through this learning journey.";
+          this.updateResponseHistory(finalResponse, messageId);
         }
         await displayMessage({
-          id: senseiIntroId,
+          id: messageId,
           sender: "sensei",
           displayName: "Recursive Sensei",
-          text: introResponseText,
+          text: finalResponse,
           timestamp: /* @__PURE__ */ new Date(),
           isLoading: false,
           isReloadable: true,
           reloadContext,
           skipMermaid: true
         });
-        const messageBubble = document.getElementById(senseiIntroId);
-        if (messageBubble) {
-          messageBubble.dataset.reloadable = "true";
-          messageBubble.dataset.reloadType = "moduleIntro";
-          messageBubble.dataset.reloadContext = JSON.stringify(reloadContext);
+        const bubble = document.getElementById(messageId);
+        if (bubble) {
+          bubble.dataset.reloadable = "true";
+          bubble.dataset.reloadType = "mainResponse";
+          bubble.dataset.reloadContext = JSON.stringify(reloadContext);
         }
-        logger.info("[MODULE_INTRO_RELOAD] Intro bubble finalized", { messageId: senseiIntroId });
-        await processMermaidBlocks(senseiIntroId);
+        logger.info("[SOCFIX] Socratic intro finalized", { messageId, hasReloadContext: !!reloadContext });
+        await processMermaidBlocks(messageId);
       }
-      this.state.userInputHistory = [];
-      if (this.state.curriculumState.currentPhase !== "Socratic") {
-        this.state.lastSenseiResponses = [introResponseText];
+      updateResponseHistory(responseText, messageId) {
+        this.state.lastSenseiResponses.unshift(responseText);
+        if (this.state.lastSenseiResponses.length > 3) {
+          this.state.lastSenseiResponses.pop();
+        }
       }
-      this.state.pendingModuleSelection = null;
-      this.state.pendingPhaseSelection = null;
-      this.state.pendingConceptSelectionIndex = null;
-      const userInputElem = document.getElementById("user-input");
-      if (userInputElem) {
-        userInputElem.placeholder = "Phase selected. Ask questions or type your thoughts...";
+      buildSocraticConceptReference() {
+        if (!this.state.curriculum || !this.state.curriculumState) {
+          return void 0;
+        }
+        const moduleIndex = this.state.curriculumState.currentModuleIndex;
+        if (moduleIndex < 0 || moduleIndex >= this.state.curriculum.modules.length) {
+          return void 0;
+        }
+        const selectedModule = this.state.curriculum.modules[moduleIndex];
+        if (!selectedModule || !selectedModule.concepts || selectedModule.concepts.length === 0) {
+          return void 0;
+        }
+        const conceptLines = [
+          "CONCEPT REFERENCE FOR SOCRATIC PHASE:",
+          "The user learned the following concepts in this module. This context is provided so you understand the learner\u2019s background during the Socratic phase\u2014use it to enrich the dialogue while still following the teaching plan and any LeetCode collaboration protocol.",
+          ""
+        ];
+        selectedModule.concepts.forEach((concept, index) => {
+          conceptLines.push(`Concept ${index + 1}: ${concept.title}`);
+          conceptLines.push(concept.text);
+          conceptLines.push("");
+        });
+        return conceptLines.join("\n").trim();
       }
-    }
-  }
-  async showConceptSelectionBubble(moduleIndex) {
-    if (!this.state.curriculum) {
-      return;
-    }
-    const module = this.state.curriculum.modules[moduleIndex];
-    if (!module || !module.concepts || module.concepts.length === 0) {
-      logger.warn("[CONCEPT_SELECT] Module missing concepts for selection.", { moduleIndex });
-      return;
-    }
-    this.clearConceptSelectionBubble();
-    const concepts = module.concepts.map((concept, index) => ({
-      title: `Concept ${index + 1}: ${concept.title}`,
-      index
-    }));
-    this.state.currentMessageId++;
-    const messageId = `msg-${this.state.currentMessageId}`;
-    const promptText = `Great! Choose the concept you want to start within **${module.title}**.`;
-    await displayMessage({
-      id: messageId,
-      sender: "sensei",
-      displayName: "Recursive Sensei",
-      text: promptText,
-      timestamp: /* @__PURE__ */ new Date(),
-      isLoading: false,
-      conceptSelectionPayload: {
-        moduleId: module.id,
-        moduleTitle: module.title,
-        concepts
+      updateKCProgressBar(kcphasemastery) {
+        if (typeof kcphasemastery !== "number" || isNaN(kcphasemastery) || kcphasemastery < 0) {
+          logger.warn("Invalid KC mastery value for progress bar:", kcphasemastery);
+          return;
+        }
+        try {
+          const progressFill = document.getElementById("kc-progress-fill");
+          const progressText = document.getElementById("kc-progress-text");
+          const progressBar = progressFill?.parentElement;
+          if (!progressFill || !progressText || !progressBar) {
+            logger.warn("KC Progress bar elements not found in DOM");
+            return;
+          }
+          const rawPercentage = kcphasemastery / 0.65 * 100;
+          const percentage = Math.round(Math.min(100, rawPercentage));
+          progressFill.style.width = percentage + "%";
+          progressFill.setAttribute("data-progress", percentage.toString());
+          progressText.textContent = percentage + "%";
+          if (percentage > 0) {
+            progressBar.setAttribute("data-has-progress", "true");
+          } else {
+            progressBar.removeAttribute("data-has-progress");
+          }
+          if (percentage === 100) {
+            progressFill.style.animation = "kc-progress-celebration 0.8s ease-in-out";
+            setTimeout(() => {
+              progressFill.style.animation = "";
+            }, 800);
+          }
+        } catch (error) {
+          logger.error("Error updating KC progress bar:", error);
+        }
       }
-    });
-    this.state.pendingConceptSelectionBubbleId = messageId;
-  }
-  clearConceptSelectionBubble() {
-    if (!this.state.pendingConceptSelectionBubbleId) {
-      return;
-    }
-    const existing = document.getElementById(this.state.pendingConceptSelectionBubbleId);
-    if (existing) {
-      existing.remove();
-    }
-    this.state.pendingConceptSelectionBubbleId = null;
-  }
-  removePhaseSelectionBubble() {
-    const phaseBubble = Array.from(document.querySelectorAll(".message-bubble:not(#response-modal-sensei-bubble)")).find(
-      (bubble) => bubble.querySelector(".phase-buttons-container")
-    );
-    if (phaseBubble) {
-      phaseBubble.remove();
-    }
-  }
-  async createSolidifyTeachingPlan(module, phaseForPlan, ai2) {
-    this.pendingWrapUpAssessment = null;
-    this.pendingWrapUpAssessmentFailed = false;
-    const conceptSummaries = module.concepts.map((concept) => `${concept.title}: ${concept.text}`);
-    try {
-      const result = await generateWrapUpAssessment(ai2, module.id, {
-        moduleTitle: module.title,
-        moduleGoal: module.goal ?? "",
-        solidifyContent: "",
-        conceptSummaries
-      });
-      if (result && result.questions.length > 0) {
-        const validatedQuestions = validateWrapUpAssessmentQuestions(result.questions);
-        this.pendingWrapUpAssessment = {
-          moduleTitle: module.title,
-          moduleGoal: module.goal ?? void 0,
-          conceptSummaries,
-          questions: validatedQuestions
-        };
-      } else {
-        this.pendingWrapUpAssessmentFailed = true;
-      }
-    } catch (error) {
-      logger.error("[WRAP_UP_ASSESSMENT] generation-error", {
-        moduleId: module.id,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      this.pendingWrapUpAssessmentFailed = true;
-    }
-    logger.info("[WRAP_UP_ASSESSMENT] jump-to-phase-stub", {
-      moduleId: module.id,
-      phase: phaseForPlan,
-      kcTotal: 0.65
-    });
-    const stubTeachingPoint = {
-      text: `Wrap Up assessment prepared for ${module.title}`,
-      kcValue: 0.65
     };
-    return [[stubTeachingPoint]];
   }
-  async showWrapUpAssessmentApology(moduleId, moduleTitle) {
-    this.state.currentMessageId++;
-    await displayMessage({
-      id: `msg-${this.state.currentMessageId}`,
-      sender: "sensei",
-      displayName: "Recursive Sensei",
-      text: `I'm sorry\u2014the Wrap Up assessment for **${moduleTitle}** is temporarily unavailable. Please try again shortly.`,
-      timestamp: /* @__PURE__ */ new Date(),
-      isLoading: false,
-      isReloadable: false
-    });
-    logger.warn("[WRAP_UP_ASSESSMENT] overlay-missing", { moduleId, moduleTitle });
-    unlockWrapUpChatControls();
-  }
-  async sendSystemSocraticMessage() {
-    if (!this.state.curriculumState || !this.state.curriculumState.teachingPlanForPhase) {
-      logger.error("[SOCRATIC_FIX] Cannot send system message: missing curriculum state or teaching plan");
-      return;
-    }
-    const systemInstruction = buildSocraticExecutionInstruction(
-      this.state.curriculumState.teachingPlanForPhase,
-      { directive: void 0 },
-      true,
-      void 0,
-      this.buildSocraticConceptReference()
-    );
-    this.state.currentMessageId++;
-    const messageId = `msg-${this.state.currentMessageId}`;
-    await displayMessage({
-      id: messageId,
-      sender: "sensei",
-      displayName: "Recursive Sensei",
-      text: "",
-      timestamp: /* @__PURE__ */ new Date(),
-      isLoading: true,
-      isReloadable: false
-    });
-    let finalResponse = "";
-    const reloadContext = {
-      type: "mainResponse",
-      dynamicSystemInstruction: systemInstruction,
-      userInput: ""
-    };
-    try {
-      const { streamMainSenseiResponse: streamMainSenseiResponse2 } = await Promise.resolve().then(() => (init_interactionHelpers(), interactionHelpers_exports));
-      finalResponse = await streamMainSenseiResponse2(this.state.mainSenseiChat, systemInstruction, "", messageId);
-      this.updateResponseHistory(finalResponse, messageId);
-    } catch (error) {
-      logger.error("[SOCRATIC_FIX] Error in system message generation:", error);
-      finalResponse = "Welcome to the Socratic exploration phase! I'm ready to guide you through this learning journey.";
-      this.updateResponseHistory(finalResponse, messageId);
-    }
-    await displayMessage({
-      id: messageId,
-      sender: "sensei",
-      displayName: "Recursive Sensei",
-      text: finalResponse,
-      timestamp: /* @__PURE__ */ new Date(),
-      isLoading: false,
-      isReloadable: true,
-      reloadContext,
-      skipMermaid: true
-    });
-    const bubble = document.getElementById(messageId);
-    if (bubble) {
-      bubble.dataset.reloadable = "true";
-      bubble.dataset.reloadType = "mainResponse";
-      bubble.dataset.reloadContext = JSON.stringify(reloadContext);
-    }
-    logger.info("[SOCFIX] Socratic intro finalized", { messageId, hasReloadContext: !!reloadContext });
-    await processMermaidBlocks(messageId);
-  }
-  updateResponseHistory(responseText, messageId) {
-    this.state.lastSenseiResponses.unshift(responseText);
-    if (this.state.lastSenseiResponses.length > 3) {
-      this.state.lastSenseiResponses.pop();
-    }
-  }
-  buildSocraticConceptReference() {
-    if (!this.state.curriculum || !this.state.curriculumState) {
-      return void 0;
-    }
-    const moduleIndex = this.state.curriculumState.currentModuleIndex;
-    if (moduleIndex < 0 || moduleIndex >= this.state.curriculum.modules.length) {
-      return void 0;
-    }
-    const selectedModule = this.state.curriculum.modules[moduleIndex];
-    if (!selectedModule || !selectedModule.concepts || selectedModule.concepts.length === 0) {
-      return void 0;
-    }
-    const conceptLines = [
-      "CONCEPT REFERENCE FOR SOCRATIC PHASE:",
-      "The user learned the following concepts in this module. This context is provided so you understand the learner\u2019s background during the Socratic phase\u2014use it to enrich the dialogue while still following the teaching plan and any LeetCode collaboration protocol.",
-      ""
-    ];
-    selectedModule.concepts.forEach((concept, index) => {
-      conceptLines.push(`Concept ${index + 1}: ${concept.title}`);
-      conceptLines.push(concept.text);
-      conceptLines.push("");
-    });
-    return conceptLines.join("\n").trim();
-  }
-  updateKCProgressBar(kcphasemastery) {
-    if (typeof kcphasemastery !== "number" || isNaN(kcphasemastery) || kcphasemastery < 0) {
-      logger.warn("Invalid KC mastery value for progress bar:", kcphasemastery);
-      return;
-    }
-    try {
-      const progressFill = document.getElementById("kc-progress-fill");
-      const progressText = document.getElementById("kc-progress-text");
-      const progressBar = progressFill?.parentElement;
-      if (!progressFill || !progressText || !progressBar) {
-        logger.warn("KC Progress bar elements not found in DOM");
-        return;
-      }
-      const rawPercentage = kcphasemastery / 0.65 * 100;
-      const percentage = Math.round(Math.min(100, rawPercentage));
-      progressFill.style.width = percentage + "%";
-      progressFill.setAttribute("data-progress", percentage.toString());
-      progressText.textContent = percentage + "%";
-      if (percentage > 0) {
-        progressBar.setAttribute("data-has-progress", "true");
-      } else {
-        progressBar.removeAttribute("data-has-progress");
-      }
-      if (percentage === 100) {
-        progressFill.style.animation = "kc-progress-celebration 0.8s ease-in-out";
-        setTimeout(() => {
-          progressFill.style.animation = "";
-        }, 800);
-      }
-    } catch (error) {
-      logger.error("Error updating KC progress bar:", error);
-    }
-  }
-};
+});
 
 // src/index.tsx
-init_codeEditorModal();
-init_enhancementManager();
+import { GoogleGenAI } from "@google/genai";
 function logManifestValidation(event, payload) {
   logger.info("[MANIFEST_VALIDATION]", { event, ...payload });
 }
@@ -32653,187 +33814,6 @@ async function showWrapUpAssessmentApologyMessage(moduleTitle) {
   });
   unlockWrapUpChatControls();
 }
-var inputArea = document.getElementById("input-area");
-var userInputElement = document.getElementById("user-input");
-var debugModeButton = document.getElementById("debug-mode-button");
-var SENDER_DISPLAY_NAMES = {
-  user: "You",
-  sensei: "Recursive Sensei"
-};
-var isLocal = window.location.hostname === "localhost";
-var API_KEY = isLocal ? "AIzaSyDULWGft-KSgnRBBJbMJcItdGOeaaqWElk" : process.env.API_KEY;
-var ai = null;
-var mainSenseiChat = null;
-var learnerModel = initializeLearnerModel();
-var lastSenseiResponses = [];
-var chronologicallyLastLLMSenseiMessageId = null;
-var curriculum = null;
-var curriculumState = null;
-var currentActiveConceptIndex = null;
-var currentMessageId = 0;
-var userInputHistory = [];
-var pendingModuleSelection = null;
-var pendingPhaseSelection = null;
-var pendingConceptSelectionIndex = null;
-var pendingConceptSelectionBubbleId = null;
-var projectFileContents = /* @__PURE__ */ new Map();
-var availableProjectFilePaths2 = [];
-var chatWindowController = null;
-var moduleSelectionHandler = null;
-Object.defineProperties(window, {
-  curriculum: { get: () => curriculum, set: (v) => {
-    curriculum = v;
-  }, enumerable: true },
-  curriculumState: { get: () => curriculumState, set: (v) => {
-    curriculumState = v;
-  }, enumerable: true },
-  learnerModel: { get: () => learnerModel, set: (v) => {
-    learnerModel = v;
-  }, enumerable: true },
-  currentMessageId: { get: () => currentMessageId, set: (v) => {
-    currentMessageId = v;
-  }, enumerable: true },
-  lastSenseiResponses: { get: () => lastSenseiResponses, set: (v) => {
-    lastSenseiResponses = v;
-  }, enumerable: true },
-  chronologicallyLastLLMSenseiMessageId: { get: () => chronologicallyLastLLMSenseiMessageId, set: (v) => {
-    chronologicallyLastLLMSenseiMessageId = v;
-  }, enumerable: true },
-  mainSenseiChat: { get: () => mainSenseiChat, set: (v) => {
-    mainSenseiChat = v;
-  }, enumerable: true },
-  userInputHistory: { get: () => userInputHistory, set: (v) => {
-    userInputHistory = v;
-  }, enumerable: true },
-  pendingModuleSelection: { get: () => pendingModuleSelection, set: (v) => {
-    pendingModuleSelection = v;
-  }, enumerable: true },
-  pendingPhaseSelection: { get: () => pendingPhaseSelection, set: (v) => {
-    pendingPhaseSelection = v;
-  }, enumerable: true },
-  pendingConceptSelectionIndex: { get: () => pendingConceptSelectionIndex, set: (v) => {
-    pendingConceptSelectionIndex = v;
-  }, enumerable: true },
-  pendingConceptSelectionBubbleId: { get: () => pendingConceptSelectionBubbleId, set: (v) => {
-    pendingConceptSelectionBubbleId = v;
-  }, enumerable: true },
-  autoResizeEnabled: { get: () => chatWindowController?.getAutoResizePreference() || true, set: (v) => {
-    chatWindowController?.setAutoResizePreference(v);
-  }, enumerable: true },
-  currentActiveConceptIndex: { get: () => currentActiveConceptIndex, set: (v) => {
-    currentActiveConceptIndex = v;
-  }, enumerable: true },
-  projectFileContents: { get: () => projectFileContents, enumerable: true },
-  notepad: { get: () => notepad, enumerable: true },
-  streamingMessagesRawText: { get: () => streamingMessagesRawText, enumerable: true },
-  // Expose UI functions for save/load restoration
-  displayMessage: { get: () => displayMessage, enumerable: true },
-  updateFooter: { get: () => updateFooter, enumerable: true },
-  updateCurriculumDisplay: { get: () => updateCurriculumDisplay, enumerable: true },
-  getCurrentCurriculumItem: { get: () => getCurrentCurriculumItem, enumerable: true },
-  processMermaidBlocks: { get: () => processMermaidBlocks, enumerable: true }
-});
-window.switchToChunk = async (targetIndex) => {
-  if (!curriculum || !curriculumState) {
-    logger.warn("[CHUNK_SWITCH] Cannot switch chunk without active curriculum");
-    return;
-  }
-  const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
-  if (!currentItem) {
-    logger.warn("[CHUNK_SWITCH] Current curriculum item unavailable");
-    return;
-  }
-  if (targetIndex < 0) {
-    logger.warn("[CHUNK_SWITCH] Requested chunk index below zero", { chunkIndex: targetIndex });
-    return;
-  }
-  if (!curriculumState.teachingPlanForPhase || curriculumState.teachingPlanForPhase.length === 0 || targetIndex >= curriculumState.teachingPlanForPhase.length) {
-    if (!ai) {
-      logger.warn("[CHUNK_SWITCH] Teaching plan missing and AI unavailable");
-      return;
-    }
-    await ensureTeachingPlanExists(curriculum, curriculumState, currentItem, ai);
-  }
-  if (!curriculumState.teachingPlanForPhase || targetIndex >= curriculumState.teachingPlanForPhase.length) {
-    logger.warn("[CHUNK_SWITCH] Requested chunk index out of bounds after regeneration", { chunkIndex: targetIndex });
-    return;
-  }
-  showLoading(true);
-  try {
-    const chunkPoints = curriculumState.teachingPlanForPhase[targetIndex] || [];
-    curriculumState.currentTeachingChunkIndex = targetIndex;
-    curriculumState.coveredPointsInCurrentChunk = /* @__PURE__ */ new Set();
-    curriculumState.pointsToRevisitInCurrentChunk = /* @__PURE__ */ new Set();
-    curriculumState.activeConsolidationState = null;
-    learnerModel.awardedKcForPhasePoints = /* @__PURE__ */ new Set();
-    if (learnerModel.contentPointsCoverage) {
-      chunkPoints.forEach((point) => {
-        if (learnerModel.contentPointsCoverage && learnerModel.contentPointsCoverage[point.text]) {
-          delete learnerModel.contentPointsCoverage[point.text];
-        }
-      });
-    }
-    learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic = 0;
-    const phaseKCId = currentItem.curriculumPathId;
-    const currentKCMastery = learnerModel.KCs[phaseKCId] || 0;
-    updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
-    updateSenseiMeditationOverlay(curriculumState, true);
-    updateKCProgressBar(currentKCMastery);
-    await generateNextSenseiResponse("", true);
-  } catch (error) {
-    logger.error("[CHUNK_SWITCH] Chunk switch failed", error);
-  } finally {
-    showLoading(false);
-  }
-};
-window.overrideChunkUnderstanding = async ({ chunkIndex, understood }) => {
-  if (!curriculum || !curriculumState) {
-    logger.warn("[CHUNK_CHECK] Override attempted without active curriculum");
-    return;
-  }
-  const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
-  if (!currentItem) {
-    logger.warn("[CHUNK_CHECK] Override failed: curriculum item unavailable");
-    return;
-  }
-  if (!curriculumState.teachingPlanForPhase || chunkIndex < 0 || chunkIndex >= curriculumState.teachingPlanForPhase.length) {
-    logger.warn("[CHUNK_CHECK] Override chunk index out of bounds", { chunkIndex });
-    return;
-  }
-  overrideChunkUnderstanding(learnerModel, curriculumState, currentItem, chunkIndex, understood);
-  const mastery = learnerModel.KCs[currentItem.curriculumPathId] || 0;
-  updateKCProgressBar(mastery);
-  updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
-  const overlayElement = document.getElementById("sensei-meditation-overlay");
-  const overlayVisible = !!overlayElement && overlayElement.style.display !== "none";
-  updateSenseiMeditationOverlay(curriculumState, overlayVisible);
-};
-window.advanceConceptFromChunk = async () => {
-  await handleConceptNavigation("next");
-  const overlayElement = document.getElementById("sensei-meditation-overlay");
-  const overlayVisible = !!overlayElement && overlayElement.style.display !== "none";
-  if (overlayVisible && curriculumState) {
-    updateSenseiMeditationOverlay(curriculumState, true);
-  }
-};
-var FALLBACK_FILE_PATHS = [
-  "adaptiveEngine.ts",
-  "curriculum.ts",
-  "debugMode.ts",
-  "file-manifest.json",
-  "geminiService.ts",
-  "index.css",
-  "index.html",
-  "index.tsx",
-  "interactionHelpers.ts",
-  "metadata.json",
-  "model_usage.ts",
-  "Modules.txt",
-  "pedagogicalProfiler.ts",
-  "prompts.ts",
-  "selectionSensei.ts",
-  "ui.ts"
-];
 async function loadProjectFileManifestAndPaths() {
   let filePathsToLoadFromManifest = [];
   let manifestStatusMessage = "";
@@ -32873,7 +33853,6 @@ async function loadProjectFileManifestAndPaths() {
     availableProjectFilePaths2 = FALLBACK_FILE_PATHS;
   }
 }
-var profiler = null;
 async function initializeGoogleAI() {
   if (!API_KEY) {
     updateCurriculumDisplay(null, null, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
@@ -33691,12 +34670,7 @@ async function loadCurriculumAndGreet() {
     initializeSelectionSensei(ai, messageArea2);
   }
   try {
-    const response = await fetch("Modules.txt");
-    if (!response.ok) {
-      throw new Error(`Failed to load curriculum: ${response.statusText}`);
-    }
-    const txt = await response.text();
-    curriculum = parseModulesTxt(txt);
+    curriculum = parseModulesTxt(Modules_default);
     setCurriculum(curriculum);
     notepad.initialize(curriculum);
     if (ai && mainSenseiChat) {
@@ -33793,14 +34767,6 @@ async function loadCurriculumAndGreet() {
     chatWindowController.initialize();
   }, 100);
 }
-inputArea.addEventListener("submit", handleUserInput);
-userInputElement.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    handleUserInput(event);
-  }
-});
-debugModeButton.addEventListener("click", () => toggleDebugModalVisibility(true));
 async function handleConceptNavigation(direction) {
   if (!curriculumState || !curriculum || !learnerModel || !ai) {
     logger.warn("[CONCEPT_NAV] Cannot navigate: system not initialized");
@@ -33908,23 +34874,6 @@ function updateConceptNavigationArrows(state, curriculum2) {
     chunkNext.disabled = state.currentTeachingChunkIndex >= state.teachingPlanForPhase.length - 1;
   }
 }
-var conceptNavPrev = document.getElementById("concept-nav-prev");
-var conceptNavNext = document.getElementById("concept-nav-next");
-if (conceptNavPrev) {
-  conceptNavPrev.addEventListener("click", () => handleConceptNavigation("prev"));
-}
-if (conceptNavNext) {
-  conceptNavNext.addEventListener("click", () => handleConceptNavigation("next"));
-}
-var chunkNavPrev = document.getElementById("chunk-nav-prev");
-var chunkNavNext = document.getElementById("chunk-nav-next");
-if (chunkNavPrev) {
-  chunkNavPrev.addEventListener("click", () => handleChunkNavigation("prev"));
-}
-if (chunkNavNext) {
-  chunkNavNext.addEventListener("click", () => handleChunkNavigation("next"));
-}
-loadCurriculumAndGreet();
 function updateKCProgressBar(kcphasemastery) {
   if (typeof kcphasemastery !== "number" || isNaN(kcphasemastery) || kcphasemastery < 0) {
     logger.warn("Invalid KC mastery value for progress bar:", kcphasemastery);
@@ -33957,13 +34906,6 @@ function updateKCProgressBar(kcphasemastery) {
   } catch (error) {
     logger.error("Error updating KC progress bar:", error);
   }
-}
-if (typeof window !== "undefined") {
-  window.recursiveSensei = window.recursiveSensei || {};
-  window.recursiveSensei.updateKCProgressBar = updateKCProgressBar;
-  window.updateKCProgressBar = updateKCProgressBar;
-  window.getCurrentActiveConceptIndex = () => currentActiveConceptIndex;
-  initializeWebviewBridge(handleReactNativeMessage);
 }
 async function handleReactNativeMessage(message) {
   logger.info("[MOBILE_PORT] webview bridge", { direction: "to-web", type: message.type });
@@ -34053,8 +34995,259 @@ async function handleReactNativeMessage(message) {
       break;
   }
 }
-var celebrationStyle = document.createElement("style");
-celebrationStyle.textContent = `
+var inputArea, userInputElement, debugModeButton, SENDER_DISPLAY_NAMES, hasNativeBridge, isLocal, envApiKey, API_KEY, ai, mainSenseiChat, learnerModel, lastSenseiResponses, chronologicallyLastLLMSenseiMessageId, curriculum, curriculumState, currentActiveConceptIndex, currentMessageId, userInputHistory, pendingModuleSelection, pendingPhaseSelection, pendingConceptSelectionIndex, pendingConceptSelectionBubbleId, projectFileContents, availableProjectFilePaths2, chatWindowController, moduleSelectionHandler, FALLBACK_FILE_PATHS, profiler, conceptNavPrev, conceptNavNext, chunkNavPrev, chunkNavNext, celebrationStyle;
+var init_index = __esm({
+  "src/index.tsx"() {
+    init_mermaidManager();
+    init_mermaid_theme_integration();
+    init_logger();
+    init_adaptiveEngine();
+    init_curriculum();
+    init_pedagogicalProfiler();
+    init_ui();
+    init_saveloadProgressManager();
+    init_webviewBridge();
+    init_selectionSensei();
+    init_chatWindowController();
+    init_geminiService();
+    init_wrapUpAssessment();
+    init_prompts();
+    init_interactionHelpers();
+    init_debugMode();
+    init_selectionSensei();
+    init_Modules();
+    init_model_usage();
+    init_notepad();
+    init_test();
+    init_moduleSelectionHandler();
+    init_keyTakeawayEnhancerController();
+    init_codeEditorModal();
+    init_enhancementManager();
+    inputArea = document.getElementById("input-area");
+    userInputElement = document.getElementById("user-input");
+    debugModeButton = document.getElementById("debug-mode-button");
+    SENDER_DISPLAY_NAMES = {
+      user: "You",
+      sensei: "Recursive Sensei"
+    };
+    hasNativeBridge = Boolean(window?.__SENSEI_MOBILE_BUILD__);
+    isLocal = window.location.hostname === "localhost";
+    envApiKey = typeof process !== "undefined" && process?.env ? process.env.API_KEY : void 0;
+    API_KEY = isLocal || hasNativeBridge ? "AIzaSyD_Z16_FKAwMArnKLpXu1i2KQfRYsRa3iM" : envApiKey;
+    logger.info("[API_KEY_USAGE]", {
+      source: isLocal ? "local" : hasNativeBridge ? "mobile_bundle" : "env",
+      key: API_KEY ?? "undefined"
+    });
+    if (typeof window !== "undefined") {
+      window.__senseiCurrentApiKey = API_KEY ?? null;
+    }
+    ai = null;
+    mainSenseiChat = null;
+    learnerModel = initializeLearnerModel();
+    lastSenseiResponses = [];
+    chronologicallyLastLLMSenseiMessageId = null;
+    curriculum = null;
+    curriculumState = null;
+    currentActiveConceptIndex = null;
+    currentMessageId = 0;
+    userInputHistory = [];
+    pendingModuleSelection = null;
+    pendingPhaseSelection = null;
+    pendingConceptSelectionIndex = null;
+    pendingConceptSelectionBubbleId = null;
+    projectFileContents = /* @__PURE__ */ new Map();
+    availableProjectFilePaths2 = [];
+    chatWindowController = null;
+    moduleSelectionHandler = null;
+    Object.defineProperties(window, {
+      curriculum: { get: () => curriculum, set: (v) => {
+        curriculum = v;
+      }, enumerable: true },
+      curriculumState: { get: () => curriculumState, set: (v) => {
+        curriculumState = v;
+      }, enumerable: true },
+      learnerModel: { get: () => learnerModel, set: (v) => {
+        learnerModel = v;
+      }, enumerable: true },
+      currentMessageId: { get: () => currentMessageId, set: (v) => {
+        currentMessageId = v;
+      }, enumerable: true },
+      lastSenseiResponses: { get: () => lastSenseiResponses, set: (v) => {
+        lastSenseiResponses = v;
+      }, enumerable: true },
+      chronologicallyLastLLMSenseiMessageId: { get: () => chronologicallyLastLLMSenseiMessageId, set: (v) => {
+        chronologicallyLastLLMSenseiMessageId = v;
+      }, enumerable: true },
+      mainSenseiChat: { get: () => mainSenseiChat, set: (v) => {
+        mainSenseiChat = v;
+      }, enumerable: true },
+      userInputHistory: { get: () => userInputHistory, set: (v) => {
+        userInputHistory = v;
+      }, enumerable: true },
+      pendingModuleSelection: { get: () => pendingModuleSelection, set: (v) => {
+        pendingModuleSelection = v;
+      }, enumerable: true },
+      pendingPhaseSelection: { get: () => pendingPhaseSelection, set: (v) => {
+        pendingPhaseSelection = v;
+      }, enumerable: true },
+      pendingConceptSelectionIndex: { get: () => pendingConceptSelectionIndex, set: (v) => {
+        pendingConceptSelectionIndex = v;
+      }, enumerable: true },
+      pendingConceptSelectionBubbleId: { get: () => pendingConceptSelectionBubbleId, set: (v) => {
+        pendingConceptSelectionBubbleId = v;
+      }, enumerable: true },
+      autoResizeEnabled: { get: () => chatWindowController?.getAutoResizePreference() || true, set: (v) => {
+        chatWindowController?.setAutoResizePreference(v);
+      }, enumerable: true },
+      currentActiveConceptIndex: { get: () => currentActiveConceptIndex, set: (v) => {
+        currentActiveConceptIndex = v;
+      }, enumerable: true },
+      projectFileContents: { get: () => projectFileContents, enumerable: true },
+      notepad: { get: () => notepad, enumerable: true },
+      streamingMessagesRawText: { get: () => streamingMessagesRawText, enumerable: true },
+      // Expose UI functions for save/load restoration
+      displayMessage: { get: () => displayMessage, enumerable: true },
+      updateFooter: { get: () => updateFooter, enumerable: true },
+      updateCurriculumDisplay: { get: () => updateCurriculumDisplay, enumerable: true },
+      getCurrentCurriculumItem: { get: () => getCurrentCurriculumItem, enumerable: true },
+      processMermaidBlocks: { get: () => processMermaidBlocks, enumerable: true }
+    });
+    window.switchToChunk = async (targetIndex) => {
+      if (!curriculum || !curriculumState) {
+        logger.warn("[CHUNK_SWITCH] Cannot switch chunk without active curriculum");
+        return;
+      }
+      const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
+      if (!currentItem) {
+        logger.warn("[CHUNK_SWITCH] Current curriculum item unavailable");
+        return;
+      }
+      if (targetIndex < 0) {
+        logger.warn("[CHUNK_SWITCH] Requested chunk index below zero", { chunkIndex: targetIndex });
+        return;
+      }
+      if (!curriculumState.teachingPlanForPhase || curriculumState.teachingPlanForPhase.length === 0 || targetIndex >= curriculumState.teachingPlanForPhase.length) {
+        if (!ai) {
+          logger.warn("[CHUNK_SWITCH] Teaching plan missing and AI unavailable");
+          return;
+        }
+        await ensureTeachingPlanExists(curriculum, curriculumState, currentItem, ai);
+      }
+      if (!curriculumState.teachingPlanForPhase || targetIndex >= curriculumState.teachingPlanForPhase.length) {
+        logger.warn("[CHUNK_SWITCH] Requested chunk index out of bounds after regeneration", { chunkIndex: targetIndex });
+        return;
+      }
+      showLoading(true);
+      try {
+        const chunkPoints = curriculumState.teachingPlanForPhase[targetIndex] || [];
+        curriculumState.currentTeachingChunkIndex = targetIndex;
+        curriculumState.coveredPointsInCurrentChunk = /* @__PURE__ */ new Set();
+        curriculumState.pointsToRevisitInCurrentChunk = /* @__PURE__ */ new Set();
+        curriculumState.activeConsolidationState = null;
+        learnerModel.awardedKcForPhasePoints = /* @__PURE__ */ new Set();
+        if (learnerModel.contentPointsCoverage) {
+          chunkPoints.forEach((point) => {
+            if (learnerModel.contentPointsCoverage && learnerModel.contentPointsCoverage[point.text]) {
+              delete learnerModel.contentPointsCoverage[point.text];
+            }
+          });
+        }
+        learnerModel.LearningTrajectory.InteractionCounter_On_Current_Topic = 0;
+        const phaseKCId = currentItem.curriculumPathId;
+        const currentKCMastery = learnerModel.KCs[phaseKCId] || 0;
+        updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
+        updateSenseiMeditationOverlay(curriculumState, true);
+        updateKCProgressBar(currentKCMastery);
+        await generateNextSenseiResponse("", true);
+      } catch (error) {
+        logger.error("[CHUNK_SWITCH] Chunk switch failed", error);
+      } finally {
+        showLoading(false);
+      }
+    };
+    window.overrideChunkUnderstanding = async ({ chunkIndex, understood }) => {
+      if (!curriculum || !curriculumState) {
+        logger.warn("[CHUNK_CHECK] Override attempted without active curriculum");
+        return;
+      }
+      const currentItem = getCurrentCurriculumItem(curriculum, curriculumState);
+      if (!currentItem) {
+        logger.warn("[CHUNK_CHECK] Override failed: curriculum item unavailable");
+        return;
+      }
+      if (!curriculumState.teachingPlanForPhase || chunkIndex < 0 || chunkIndex >= curriculumState.teachingPlanForPhase.length) {
+        logger.warn("[CHUNK_CHECK] Override chunk index out of bounds", { chunkIndex });
+        return;
+      }
+      overrideChunkUnderstanding(learnerModel, curriculumState, currentItem, chunkIndex, understood);
+      const mastery = learnerModel.KCs[currentItem.curriculumPathId] || 0;
+      updateKCProgressBar(mastery);
+      updateCurriculumDisplay(currentItem, curriculumState.currentPhase, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
+      const overlayElement = document.getElementById("sensei-meditation-overlay");
+      const overlayVisible = !!overlayElement && overlayElement.style.display !== "none";
+      updateSenseiMeditationOverlay(curriculumState, overlayVisible);
+    };
+    window.advanceConceptFromChunk = async () => {
+      await handleConceptNavigation("next");
+      const overlayElement = document.getElementById("sensei-meditation-overlay");
+      const overlayVisible = !!overlayElement && overlayElement.style.display !== "none";
+      if (overlayVisible && curriculumState) {
+        updateSenseiMeditationOverlay(curriculumState, true);
+      }
+    };
+    FALLBACK_FILE_PATHS = [
+      "adaptiveEngine.ts",
+      "curriculum.ts",
+      "debugMode.ts",
+      "file-manifest.json",
+      "geminiService.ts",
+      "index.css",
+      "index.html",
+      "index.tsx",
+      "interactionHelpers.ts",
+      "metadata.json",
+      "model_usage.ts",
+      "Modules.txt",
+      "pedagogicalProfiler.ts",
+      "prompts.ts",
+      "selectionSensei.ts",
+      "ui.ts"
+    ];
+    profiler = null;
+    inputArea.addEventListener("submit", handleUserInput);
+    userInputElement.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        handleUserInput(event);
+      }
+    });
+    debugModeButton.addEventListener("click", () => toggleDebugModalVisibility(true));
+    conceptNavPrev = document.getElementById("concept-nav-prev");
+    conceptNavNext = document.getElementById("concept-nav-next");
+    if (conceptNavPrev) {
+      conceptNavPrev.addEventListener("click", () => handleConceptNavigation("prev"));
+    }
+    if (conceptNavNext) {
+      conceptNavNext.addEventListener("click", () => handleConceptNavigation("next"));
+    }
+    chunkNavPrev = document.getElementById("chunk-nav-prev");
+    chunkNavNext = document.getElementById("chunk-nav-next");
+    if (chunkNavPrev) {
+      chunkNavPrev.addEventListener("click", () => handleChunkNavigation("prev"));
+    }
+    if (chunkNavNext) {
+      chunkNavNext.addEventListener("click", () => handleChunkNavigation("next"));
+    }
+    loadCurriculumAndGreet();
+    if (typeof window !== "undefined") {
+      window.recursiveSensei = window.recursiveSensei || {};
+      window.recursiveSensei.updateKCProgressBar = updateKCProgressBar;
+      window.updateKCProgressBar = updateKCProgressBar;
+      window.getCurrentActiveConceptIndex = () => currentActiveConceptIndex;
+      initializeWebviewBridge(handleReactNativeMessage);
+    }
+    celebrationStyle = document.createElement("style");
+    celebrationStyle.textContent = `
     @keyframes kc-progress-celebration {
         0%, 100% { transform: scaleY(1); }
         50% { 
@@ -34064,7 +35257,13 @@ celebrationStyle.textContent = `
         }
     }
 `;
-document.head.appendChild(celebrationStyle);
+    document.head.appendChild(celebrationStyle);
+  }
+});
+init_index();
+export {
+  API_KEY
+};
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.1

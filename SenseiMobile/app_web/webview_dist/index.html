@@ -32,10 +32,9 @@
     }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <script type="module" src="./index.js"></script>
 </head>
 <body>
-    <div id="chat-container" class="main-chat-fullscreen" data-font-size="medium">
+        <div id="chat-container" class="main-chat-fullscreen" data-font-size="medium">
         <header class="chat-window-header">
             <div class="weighted-container">
                 <div class="weighted-segment brand">
@@ -355,6 +354,20 @@
             </div>
         </div> <!-- End wrapper -->
     </div>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module">
+        (function() {
+            if (window.__SENSEI_MOBILE_BUILD__) {
+                var script = document.createElement('script');
+                script.type = 'module';
+                script.src = './index.js';
+                document.body.appendChild(script);
+            } else {
+                var scriptTsx = document.createElement('script');
+                scriptTsx.type = 'module';
+                scriptTsx.src = './index.tsx';
+                document.body.appendChild(scriptTsx);
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -3,8 +3,12 @@ import { TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
 const STORAGE_KEY = 'teaching-plan-cache';
 const CACHE_VERSION = 1;
 
-const isCacheDisabled = (): boolean =>
-    typeof process !== 'undefined' && (process.env.JEST_WORKER_ID !== undefined || process.env.NODE_ENV === 'test');
+const isCacheDisabled = (): boolean => {
+    if (typeof process === 'undefined' || !process.env) {
+        return false;
+    }
+    return process.env.JEST_WORKER_ID !== undefined || process.env.NODE_ENV === 'test';
+};
 
 interface TeachingPlanCacheEntry<T> {
     plan: T;

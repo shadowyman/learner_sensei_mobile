@@ -119,6 +119,13 @@ export class ModuleSelectionHandler {
                     });
                     return false;
                 }
+                const currentApiKey = typeof window !== 'undefined' ? (window as any).__senseiCurrentApiKey : null;
+                logger.info('[API_KEY_USAGE]', {
+                    event: 'module_selection',
+                    moduleId: selectedModule.id,
+                    moduleTitle: selectedModule.title,
+                    key: currentApiKey ?? 'undefined'
+                });
                 
                 const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.
 

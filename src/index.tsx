@@ -3,6 +3,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import './mermaidManager';
+import './mermaid-theme-integration';
 import { logger } from './logger';
 
 function logManifestValidation(event: string, payload: Record<string, unknown>): void {
@@ -142,6 +144,7 @@ import {
 } from './interactionHelpers';
 import { initializeDebugMode, toggleDebugModalVisibility } from './debugMode'; // Import debug mode functions
 import { initializeSelectionSensei } from "./selectionSensei"; // Import the new initializer
+import modulesTxt from './Modules.txt';
 import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS } from './model_usage';
 import { notepad } from './notepad';
 import { runTestSuite } from './test';
@@ -165,11 +168,21 @@ const SENDER_DISPLAY_NAMES: Record<'user' | 'sensei', string> = {
 };
 
 
+const hasNativeBridge = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
 const isLocal = window.location.hostname === 'localhost';
+const envApiKey = typeof process !== 'undefined' && process?.env ? process.env.API_KEY : undefined;
 
-const API_KEY = isLocal 
-  ? 'AIzaSyDULWGft-KSgnRBBJbMJcItdGOeaaqWElk'
-  : process.env.API_KEY;
+export const API_KEY = (isLocal || hasNativeBridge)
+  ? 'AIzaSyD_Z16_FKAwMArnKLpXu1i2KQfRYsRa3iM'
+  : envApiKey;
+
+logger.info('[API_KEY_USAGE]', {
+    source: isLocal ? 'local' : hasNativeBridge ? 'mobile_bundle' : 'env',
+    key: API_KEY ?? 'undefined'
+});
+if (typeof window !== 'undefined') {
+    (window as any).__senseiCurrentApiKey = API_KEY ?? null;
+}
 let ai: GoogleGenAI | null = null;
 let mainSenseiChat: Chat | null = null;
 let learnerModel: LearnerModel = initializeLearnerModel();
@@ -1385,12 +1398,7 @@ async function loadCurriculumAndGreet() {
 
 
     try {
-        const response = await fetch('Modules.txt');
-        if (!response.ok) {
-            throw new Error(`Failed to load curriculum: ${response.statusText}`);
-        }
-        const txt = await response.text();
-        curriculum = parseModulesTxt(txt);
+        curriculum = parseModulesTxt(modulesTxt);
         setCurriculum(curriculum);
         
         // Initialize notepad with curriculum

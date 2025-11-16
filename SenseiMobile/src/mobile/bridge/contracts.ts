@@ -30,7 +30,8 @@ export type WebToRNMessage =
     | { type: 'telemetry:event'; eventName: string; data: Record<string, unknown> }
     | { type: 'mermaid:error'; messageId: string; code: string; errorHash?: string }
     | { type: 'modal:state'; id: string; visible: boolean }
-    | { type: 'header:status'; text: string; html?: string };
+    | { type: 'header:status'; text: string; html?: string }
+    | { type: 'webview:error'; message: string; stack?: string };
 
 export interface DOMRectLike {
     x: number;

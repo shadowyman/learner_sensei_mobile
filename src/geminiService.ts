@@ -4,6 +4,7 @@
  */
 
 const WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
+const WRAP_UP_ASSESSMENT_DEBUG_FLAG = false;
 
 import { logger } from './logger';
 import { GoogleGenAI, GenerateContentResponse, FunctionCall } from "@google/genai";
@@ -277,13 +278,33 @@ export async function llmExtractAndPlanTeachingOrder(
         logger.error("Parsed JSON for teaching_plan does not match expected structure (not an array or missing 'teaching_plan' key):", parsed);
         return null;
     } catch (error) {
+        const apiErrorDetails = extractApiErrorDetails(error);
         if (phase === 'Socratic') {
-            logger.error('Sensei:[SOCRATIC_V4] Failed to parse teaching plan:', error);
+            logger.error('Sensei:[SOCRATIC_V4] Failed to parse teaching plan:', apiErrorDetails ?? error);
         }
-        logger.error("Error getting or parsing teaching_plan from Gemini:", error);
+        logger.error("Error getting or parsing teaching_plan from Gemini:", apiErrorDetails ?? error);
         logger.error("Original text sent to Gemini for teaching_plan:", textToProcess);
         return null;
     }
+}
+
+function extractApiErrorDetails(error: unknown): Record<string, unknown> | null {
+    if (error && typeof error === 'object') {
+        const maybeResponse = (error as any).response;
+        if (maybeResponse && typeof maybeResponse === 'object') {
+            const errorObj = (maybeResponse as any).error ?? maybeResponse;
+            if (errorObj && typeof errorObj === 'object') {
+                const { code, status, message, details } = errorObj;
+                return { code, status, message, details };
+            }
+        }
+        const status = (error as any).status ?? (error as any).code;
+        const message = (error as any).message ?? String(error);
+        if (status || message) {
+            return { status, message };
+        }
+    }
+    return null;
 }
 
 
@@ -384,15 +405,7 @@ function isWrapUpDebugEnabled(): boolean {
             return false;
         }
     }
-    if (typeof process !== 'undefined' && process.env) {
-        if (process.env.WRAP_UP_DEBUG === 'true') {
-            return true;
-        }
-        if (process.env.WRAP_UP_DEBUG === 'false') {
-            return false;
-        }
-    }
-    return WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
+    return WRAP_UP_ASSESSMENT_DEBUG_FLAG ?? WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
 }
 
 function buildDebugAssessment(moduleTitle: string): WrapUpAssessmentGenerationResult {
