@@ -162,8 +162,8 @@ const handlerRecords: HandlerRecord[] = []
 let enableDomIndex = false
 let useTypeChecker = true
 let checker: ts.TypeChecker = undefined as any
-const functionIdByNode = new WeakMap<ts.Node, string>()
-const functionIdByDeclNode = new WeakMap<ts.Node, string>()
+let functionIdByNode = new WeakMap<ts.Node, string>()
+let functionIdByDeclNode = new WeakMap<ts.Node, string>()
 const PURE_GLOBAL_IDENTIFIERS = new Set([
   'String','Boolean','Object','Array','Symbol','BigInt','Date',
   'isFinite','encodeURI','decodeURI','encodeURIComponent','decodeURIComponent'
@@ -1508,6 +1508,12 @@ function analyzeFile(
           }
         }
       }
+      if (ts.isReturnStatement(node) && node.expression) {
+        const expr = unwrap(node.expression as ts.Expression)
+        if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
+          addAnonFunc(expr, 'returned')
+        }
+      }
       if (enableDomIndex) {
         if (ts.isNoSubstitutionTemplateLiteral(node) || ts.isStringLiteral(node)) {
           const text = (node as ts.NoSubstitutionTemplateLiteral | ts.StringLiteral).text
@@ -2387,6 +2393,8 @@ function main() {
   const fullImportGraph = collectImportGraph(program, undefined, resolveImport)
   const { funcs: fullFuncs, edges: fullEdges, assumptions: fullAssumptions } = collectFunctions(program, resolveImport)
   const fullStableCache = new Map(functionStableIdById)
+  functionIdByNode = new WeakMap()
+  functionIdByDeclNode = new WeakMap()
 
   const { manifest, regenerated } = ensurePresetManifest(seeds, fullFuncs, fullEdges)
   if (regenerated) {

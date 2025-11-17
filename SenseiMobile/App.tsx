@@ -11,7 +11,7 @@ import { SaveLoadService } from './src/mobile/saveLoad/SaveLoadService';
 import { IOSFileAdapter } from './src/mobile/saveLoad/nativeFileAdapter';
 import { TelemetryManager } from './src/mobile/telemetry/TelemetryManager';
 
-const BFF_BASE_URL = 'http://localhost:8787';
+const BFF_BASE_URL = 'http://MacBook-Pro.local:8787';
 
 const createMemoryStore = () => {
   const store = new Map<string, string>();

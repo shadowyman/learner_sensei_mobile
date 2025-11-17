@@ -139,7 +139,17 @@ export async function runForwardStream(
     setIsStreaming(true);
     try {
         const resolved = await handlePromise;
-        for await (const event of resolved.stream) {
+        const iteratorFactory = (resolved.stream as any)[Symbol.asyncIterator];
+        if (typeof iteratorFactory !== 'function') {
+            throw new Error('Stream is not async iterable');
+        }
+        const iterator = iteratorFactory.call(resolved.stream) as AsyncIterator<StreamChunk | StreamStatus | StreamError>;
+        while (true) {
+            const { value, done } = await iterator.next();
+            if (done) {
+                break;
+            }
+            const event = value;
             switch (event.type) {
                 case 'chunk':
                     bridge.enqueue({ type: 'chat:update', messageId: resolved.messageId, text: event.text });
@@ -188,7 +198,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const internalWebViewRef = useRef<WebView>(null);
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
     const enableIOSWebInspector = Platform.OS === 'ios';
-    const [input, setInput] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
     const [footer, setFooter] = useState<FooterPayload | null>(null);
     const [headerStatus, setHeaderStatus] = useState('Loading curriculum…');
@@ -366,20 +375,27 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         await runForwardStream(handle, { bridge, telemetryManager, setFooter, setIsStreaming });
     }, [bridge, telemetryManager]);
 
-    const handleSubmit = useCallback(async () => {
-        const trimmed = input.trim();
-        if (!trimmed || isStreaming) {
-            return;
-        }
-        setInput('');
-        await bffClient.ensureSession();
-        const clientTurnId = telemetryManager.nextClientTurnId();
-        logger.info('[MOBILE_PORT] turn submit', { clientTurnId, textLength: trimmed.length });
-        telemetryManager.record('turn_submitted', { textLength: trimmed.length });
-        const messageId = `msg-${clientTurnId}`;
-        bridge.enqueue({ type: 'chat:startMessage', messageId, sender: 'user', text: trimmed });
-        forwardStream(bffClient.submitTurn({ text: trimmed, clientTurnId }));
-    }, [bffClient, bridge, forwardStream, input, isStreaming, telemetryManager]);
+    const handleSubmit = useCallback(
+        async (text: string) => {
+            const trimmed = text.trim();
+            if (!trimmed || isStreaming) {
+                return;
+            }
+            const clientTurnId = telemetryManager.nextClientTurnId();
+            const userMessageId = `user-${clientTurnId}`;
+            bridge.enqueue({ type: 'chat:startMessage', messageId: userMessageId, sender: 'user', text: trimmed });
+            await bffClient.ensureSession();
+            logger.info('[MOBILE_PORT] turn submit', { clientTurnId, textLength: trimmed.length });
+            telemetryManager.record('turn_submitted', { textLength: trimmed.length });
+            const handlePromise = (async () => {
+                const handle = await bffClient.submitTurn({ text: trimmed, clientTurnId });
+                bridge.enqueue({ type: 'chat:startMessage', messageId: handle.messageId, sender: 'sensei' });
+                return handle;
+            })();
+            forwardStream(handlePromise);
+        },
+        [bffClient, bridge, forwardStream, isStreaming, telemetryManager]
+    );
 
     const handleWebViewMessage = useCallback((event: WebViewMessageEvent) => {
         try {
@@ -507,6 +523,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             <InputBar
                 onSubmit={(txt) => {
                     logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
+                    void handleSubmit(txt);
                 }}
                 onOpenEditor={() => {
                     logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
