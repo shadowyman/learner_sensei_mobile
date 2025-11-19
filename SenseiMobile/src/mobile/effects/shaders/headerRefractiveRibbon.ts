@@ -85,10 +85,19 @@ vec4 renderGlass(float sd, vec2 g, vec2 fragCoord) {
   float F0 = 0.04;
   float F = F0 + (1.0 - F0) * pow(1.0 - cosT, 5.0);
   vec3 color = mix(refrCol, refCol, F);
+
   float center = clamp((-sd) / thickness, 0.0, 1.0);
   color = mix(color, color + vec3(0.10), 0.30 * center);
+
   float band = smoothstep(0.0, 0.8, -sd) * (1.0 - smoothstep(0.8, 1.6, -sd));
   color = mix(color, color + vec3(0.25), 0.15 * band);
+
+  vec3 lightDir = normalize(vec3(-0.5, -0.9, 1.0));
+  vec3 halfVec = normalize(lightDir - I);
+  float NdotH = max(dot(N, halfVec), 0.0);
+  float specularMask = pow(NdotH, 1.0);
+  vec3 highlightColor = color * 1.55;
+  color = mix(color, highlightColor, specularMask * 0.45);
   return vec4(clamp(color, 0.0, 1.0), 1.0);
 }
 

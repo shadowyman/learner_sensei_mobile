@@ -28,7 +28,7 @@ interface SenseiBackdropCanvasProps {
     inputFieldRect?: { x: number; y: number; width: number; height: number } | null;
 }
 
-const HEADER_RADIUS = 40;
+const HEADER_RADIUS = 30;
 const DEFAULT_HEADER_RECT = { x: 0, y: 0, width: 0, height: 0 } as const;
 
 // Built-in Skia dithering is enabled via <Group dither>
