@@ -67,7 +67,7 @@
     --accent-primary: var(--accent);
     --accent-primary-hover: #D4F548;
     --sensei-text: #d1fae5;
-    --sensei-bubble-background: rgba(30, 41, 59, 0.32);
+    --sensei-bubble-background: rgba(30, 41, 59, 0.6);
     --sensei-bold-color: #a2ff9a;
     --sensei-code-background: rgba(34, 197, 94, 0.12);
     --sensei-code-text: #16a34a;
@@ -118,6 +118,12 @@
     --code-editor-variable-local: #7ff5d3;
     --code-editor-property: #ffb366;
     --code-editor-type: #86f6c0;
+    /* Liquid background colors */
+    --liquid-surface-color: #ffffff;
+    --liquid-ambient-color: #ba60dd;
+    --liquid-light-primary: #1ee460;
+    --liquid-light-secondary: #d744ff;
+    --liquid-speed: 0.001;
     --code-editor-constant: #ffe78f;
     --code-editor-punctuation: #caa3ff;
     --code-editor-comment: rgba(168, 190, 220, 0.58);
@@ -179,16 +185,8 @@ body::before {
     height: calc(100vh - 24px);
     max-height: 90vh;
     margin: 0 auto;
-    background: var(--glass-bg);
-    backdrop-filter: blur(60px) saturate(150%);
-    -webkit-backdrop-filter: blur(60px) saturate(150%);
-    border: 1px solid var(--glass-border);
+    background: transparent;
     border-radius: var(--size-border-radius);
-    box-shadow: 
-        var(--glass-shadow),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        0 0 0 1px rgba(196, 229, 56, 0.1),
-        inset 0 0 80px rgba(255, 255, 255, 0.02);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1003,6 +1001,7 @@ body::before {
     gap: 24px;
     scroll-behavior: smooth;
     min-height: 0;
+    position: relative;
 }
 
 
@@ -1023,6 +1022,8 @@ body::before {
     border-radius: 20px;
     color: var(--text-primary);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
 }
 
 .message-bubble::before {
@@ -1072,7 +1073,8 @@ body::before {
 
 .message-bubble[data-sender="sensei"] {
     align-self: flex-start;
-    background: var(--sensei-bubble-background, rgba(30, 41, 59, 0.32));
+    background: var(--sensei-bubble-background);
+    background: rgb(from var(--sensei-bubble-background) r g b / 1);
     border-color: rgba(34, 197, 94, 0.15);
     box-shadow: 0 0 16px rgba(0, 0, 0, 0.2);
     color: var(--sensei-text, #d1fae5);

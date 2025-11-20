@@ -11,7 +11,8 @@ const brandLogo = require('../../assets/brand.png');
 
 const SEGMENT_BACKGROUND = 'rgba(6,19,29,0.7)';
 const SEGMENT_BORDER = 'rgba(255,255,255,0.04)';
-const WRAPPER_PADDING_V = 10;
+const WRAPPER_PADDING_V = 0;
+const WRAPPER_PADDING_H = 12;
 const HEADER_OVERLAY_TINT_RGB = '255,255,255';
 const HEADER_OVERLAY_INTENSITY = 0.003;
  
@@ -608,8 +609,9 @@ const ControlButton: React.FC<ControlButtonProps> = ({ label, icon, onPress }) =
 const styles = StyleSheet.create({
     wrapper: {
         flexDirection: 'row',
-        paddingHorizontal: 12,
-        paddingVertical: WRAPPER_PADDING_V,
+        paddingHorizontal: WRAPPER_PADDING_H,
+        paddingTop: WRAPPER_PADDING_V,
+        paddingBottom: 5,
         borderBottomWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
         gap: 12,
@@ -632,8 +634,8 @@ const styles = StyleSheet.create({
     brandSegment: {
         flexDirection: 'column',
         alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        paddingHorizontal: 0,
+        paddingVertical: 0,
         minWidth: 76
     },
     brandImage: {
@@ -729,7 +731,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
+        gap: 0,
         paddingVertical: 4,
         paddingHorizontal: 12
     },
@@ -757,7 +759,7 @@ const styles = StyleSheet.create({
         height: 20
     },
     plusIcon: {
-        fontSize: 14,
+        fontSize: 20,
         color: '#e2e8f0',
     },
     controlsExpandedShell: {

@@ -62,7 +62,6 @@ export class ChatWindowController {
         }
         
         this.makeWindowDraggable();
-        this.makeWindowResizable();
         this.initializeAutoResizeSystem();
     }
     
@@ -153,99 +152,6 @@ export class ChatWindowController {
         
         this.chatContainer.style.left = this.currentX + 'px';
         this.chatContainer.style.top = this.currentY + 'px';
-    }
-    
-    private makeWindowResizable(): void {
-        if (!this.chatContainer) {
-            console.warn('ChatWindowController: Cannot make window resizable - chat container not found');
-            return;
-        }
-        
-        // Check if resize handle already exists
-        if (this.chatContainer.querySelector('.resize-handle')) return;
-        
-        // Add resize handle
-        this.resizeHandle = document.createElement('div');
-        this.resizeHandle.className = 'resize-handle';
-        this.resizeHandle.style.cssText = `
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 20px;
-            height: 20px;
-            cursor: se-resize;
-            background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);
-            z-index: 10000;
-            pointer-events: auto;
-        `;
-        this.chatContainer.appendChild(this.resizeHandle);
-        
-        let isResizing = false;
-        let startX: number;
-        let startY: number;
-        let startWidth: number;
-        let startHeight: number;
-        
-        const doResize = (e: MouseEvent) => {
-            if (!this.isResizingWindow || !this.chatContainer) return;
-            e.preventDefault();
-            
-            const newWidth = Math.max(400, startWidth + e.clientX - startX);
-            const newHeight = Math.max(300, startHeight + e.clientY - startY);
-            
-            this.chatContainer.style.width = newWidth + 'px';
-            this.chatContainer.style.height = newHeight + 'px';
-        };
-        
-        const forceStopResize = () => {
-            if (this.isResizingWindow) {
-                isResizing = false;
-                this.isResizingWindow = false;
-                document.body.style.userSelect = '';
-                document.removeEventListener('mousemove', doResize);
-                document.removeEventListener('mouseup', stopResize);
-                document.removeEventListener('mouseleave', forceStopResize);
-            }
-        };
-        
-        const stopResize = (e: MouseEvent) => {
-            if (this.isResizingWindow) {
-                isResizing = false;
-                this.isResizingWindow = false;
-                document.body.style.userSelect = '';
-                document.removeEventListener('mousemove', doResize);
-                document.removeEventListener('mouseup', stopResize);
-                document.removeEventListener('mouseleave', forceStopResize);
-                e.stopPropagation();
-            } else if (isResizing) {
-                isResizing = false;
-                document.body.style.userSelect = '';
-                document.removeEventListener('mousemove', doResize);
-                document.removeEventListener('mouseup', stopResize);
-                document.removeEventListener('mouseleave', forceStopResize);
-            }
-        };
-        
-        if (this.resizeHandle) {
-            this.resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
-            if (!this.chatContainer) return;
-            
-            this.isResizingWindow = true;
-            isResizing = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            startWidth = parseInt(document.defaultView!.getComputedStyle(this.chatContainer).width, 10);
-            startHeight = parseInt(document.defaultView!.getComputedStyle(this.chatContainer).height, 10);
-            
-            e.preventDefault();
-            e.stopPropagation();
-            document.body.style.userSelect = 'none';
-            
-            document.addEventListener('mousemove', doResize);
-            document.addEventListener('mouseup', stopResize);
-            document.addEventListener('mouseleave', forceStopResize);
-            });
-        }
     }
     
     private initializeAutoResizeSystem(): void {

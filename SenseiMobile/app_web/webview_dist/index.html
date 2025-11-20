@@ -32,6 +32,7 @@
     }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 </head>
 <body>
         <div id="chat-container" class="main-chat-fullscreen" data-font-size="medium">
@@ -354,6 +355,171 @@
             </div>
         </div> <!-- End wrapper -->
     </div>
+    <script>
+        (function () {
+            if (!window.__SENSEI_MOBILE_BUILD__) {
+                return;
+            }
+            var ThreeGlobal = window.THREE;
+            if (!ThreeGlobal) {
+                return;
+            }
+            window.addEventListener('load', function () {
+                var chatContainer = document.getElementById('chat-container');
+                var messageArea = document.getElementById('message-area');
+                if (!chatContainer || !messageArea) {
+                    return;
+                }
+                var container = document.createElement('div');
+                container.id = 'message-bg-canvas';
+                container.style.position = 'absolute';
+                container.style.top = '0';
+                container.style.left = '0';
+                container.style.right = '0';
+                container.style.bottom = '0';
+                container.style.zIndex = '0';
+                container.style.pointerEvents = 'none';
+                container.style.mixBlendMode = 'screen';
+                container.style.opacity = '0.5';
+                chatContainer.style.position = 'relative';
+                chatContainer.insertBefore(container, chatContainer.firstChild || null);
+
+                function getSize() {
+                    var rect = chatContainer.getBoundingClientRect();
+                    var w = rect.width || window.innerWidth;
+                    var h = rect.height || window.innerHeight;
+                    return { w: w, h: h };
+                }
+
+                var rootStyle = getComputedStyle(document.documentElement);
+                var liquidSurface = rootStyle.getPropertyValue('--liquid-surface-color').trim() || '#ffffff';
+                var liquidAmbient = rootStyle.getPropertyValue('--liquid-ambient-color').trim() || '#ffffff';
+                var liquidPrimary = rootStyle.getPropertyValue('--liquid-light-primary').trim() || '#ffffff';
+                var liquidSecondary = rootStyle.getPropertyValue('--liquid-light-secondary').trim() || '#44aaff';
+                var speedValue = parseFloat(rootStyle.getPropertyValue('--liquid-speed').trim() || '');
+
+                var CONFIG = {
+                    speed: isNaN(speedValue) ? 0.002 : speedValue,
+                    height: 12,
+                    detail: 100
+                };
+
+                var size = getSize();
+                var w = size.w;
+                var h = size.h;
+
+                var scene = new ThreeGlobal.Scene();
+
+                var camera = new ThreeGlobal.PerspectiveCamera(75, w / h, 0.1, 1000);
+                camera.position.set(0, 0, 120);
+                camera.lookAt(0, 0, 0);
+
+                var renderer = new ThreeGlobal.WebGLRenderer({ alpha: true, antialias: true });
+                renderer.setSize(w, h);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+                container.appendChild(renderer.domElement);
+
+                var geometry = new ThreeGlobal.PlaneGeometry(400, 400, CONFIG.detail, CONFIG.detail);
+
+                var material = new ThreeGlobal.MeshStandardMaterial({
+                    color: liquidSurface,
+                    roughness: 0.5,
+                    metalness: 0.5,
+                    transparent: true,
+                    opacity: 1,
+                    side: ThreeGlobal.DoubleSide,
+                    wireframe: false
+                });
+
+                var plane = new ThreeGlobal.Mesh(geometry, material);
+                scene.add(plane);
+
+                var ambientLight = new ThreeGlobal.AmbientLight(liquidAmbient, 0.4);
+                scene.add(ambientLight);
+
+                var pointLight = new ThreeGlobal.PointLight(liquidPrimary, 2.0, 200);
+                pointLight.position.set(0, 100, 100);
+                scene.add(pointLight);
+
+                var blueLight = new ThreeGlobal.PointLight(liquidSecondary, 1.5, 200);
+                blueLight.position.set(0, -100, 100);
+                scene.add(blueLight);
+
+                var time = 0;
+                var positions = geometry.attributes.position;
+                var originalPositions = positions.array.slice();
+
+                function applyLiquidFromCss() {
+                    var rs = getComputedStyle(document.documentElement);
+                    var nextSurface = rs.getPropertyValue('--liquid-surface-color').trim() || liquidSurface;
+                    var nextAmbient = rs.getPropertyValue('--liquid-ambient-color').trim() || liquidAmbient;
+                    var nextPrimary = rs.getPropertyValue('--liquid-light-primary').trim() || liquidPrimary;
+                    var nextSecondary = rs.getPropertyValue('--liquid-light-secondary').trim() || liquidSecondary;
+                    var nextSpeedValue = parseFloat(rs.getPropertyValue('--liquid-speed').trim() || '');
+
+                    if (nextSurface !== liquidSurface) {
+                        liquidSurface = nextSurface;
+                        material.color.set(liquidSurface);
+                    }
+                    if (nextAmbient !== liquidAmbient) {
+                        liquidAmbient = nextAmbient;
+                        ambientLight.color.set(liquidAmbient);
+                    }
+                    if (nextPrimary !== liquidPrimary) {
+                        liquidPrimary = nextPrimary;
+                        pointLight.color.set(liquidPrimary);
+                    }
+                    if (nextSecondary !== liquidSecondary) {
+                        liquidSecondary = nextSecondary;
+                        blueLight.color.set(liquidSecondary);
+                    }
+                    if (!isNaN(nextSpeedValue) && nextSpeedValue > 0 && nextSpeedValue !== CONFIG.speed) {
+                        CONFIG.speed = nextSpeedValue;
+                    }
+                }
+
+                applyLiquidFromCss();
+                window.addEventListener('sensei-theme-changed', applyLiquidFromCss);
+
+                function animate() {
+                    requestAnimationFrame(animate);
+
+                    time += CONFIG.speed;
+
+                    for (var i = 0; i < positions.count; i++) {
+                        var x = originalPositions[i * 3];
+                        var y = originalPositions[i * 3 + 1];
+
+                        var wave1 = Math.sin((x + y) * 0.04 + time * 2.0);
+                        var dist = Math.sqrt(x * x + y * y);
+                        var wave2 = Math.cos(dist * 0.06 - time * 3.0);
+                        var wave3 = Math.sin(x * 0.1 + time) * 0.5;
+
+                        var z = (wave1 + wave2 + wave3) * CONFIG.height;
+                        positions.setZ(i, z);
+                    }
+
+                    positions.needsUpdate = true;
+                    geometry.computeVertexNormals();
+
+                    pointLight.position.x = Math.sin(time * 0.5) * 150;
+                    pointLight.position.y = Math.cos(time * 0.5) * 150;
+                    blueLight.position.x = Math.sin(time * 0.3 + Math.PI) * 150;
+
+                    renderer.render(scene, camera);
+                }
+
+                animate();
+
+                window.addEventListener('resize', function () {
+                    var s = getSize();
+                    camera.aspect = s.w / s.h;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(s.w, s.h);
+                });
+            });
+        })();
+    </script>
     <script type="module">
         (function() {
             if (window.__SENSEI_MOBILE_BUILD__) {

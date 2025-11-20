@@ -21046,6 +21046,10 @@ function setThemeVariables(option) {
   root.style.setProperty("--sensei-code-border", option.senseiCodeBorder);
   root.style.setProperty("--sensei-module-text", option.senseiModuleText);
   root.style.setProperty("--sensei-heading-gradient", option.senseiHeadingGradient);
+  root.style.setProperty("--liquid-surface-color", option.liquidSurfaceColor);
+  root.style.setProperty("--liquid-ambient-color", option.liquidAmbientColor);
+  root.style.setProperty("--liquid-light-primary", option.liquidLightPrimary);
+  root.style.setProperty("--liquid-light-secondary", option.liquidLightSecondary);
   const baseHeadingColor = extractFirstHexColor(option.senseiHeadingGradient) ?? DEFAULT_HEADING_BASE_COLOR;
   Object.entries(HEADING_COLOR_LIGHTNESS_STEPS).forEach(([varName, delta]) => {
     root.style.setProperty(varName, adjustHexLightness(baseHeadingColor, delta));
@@ -22508,6 +22512,10 @@ function applyTheme(option) {
   if (themePaletteSwatches.length > 0) {
     setActiveTheme(option.id, themePaletteSwatches);
   }
+  try {
+    window.dispatchEvent(new CustomEvent("sensei-theme-changed", { detail: { id: option.id } }));
+  } catch (_) {
+  }
 }
 function setActiveTheme(themeId, swatches) {
   swatches.forEach((button) => {
@@ -23454,13 +23462,17 @@ var init_ui = __esm({
         label: "Sensei Default",
         preview: "linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)",
         senseiText: "#d1fae5",
-        senseiBubbleBackground: "rgba(30, 41, 59, 0.32)",
+        senseiBubbleBackground: "rgba(30, 41, 59, 0.6)",
         senseiBold: "#a2ff9a",
         senseiCodeBackground: "rgba(34, 197, 94, 0.12)",
         senseiCodeText: "#16a34a",
         senseiCodeBorder: "rgba(34, 197, 94, 0.15)",
         senseiModuleText: "#86efac",
-        senseiHeadingGradient: "linear-gradient(135deg, #16a34a, #22c55e)"
+        senseiHeadingGradient: "linear-gradient(135deg, #16a34a, #22c55e)",
+        liquidSurfaceColor: "#5c56f5",
+        liquidAmbientColor: "#56669c",
+        liquidLightPrimary: "#160F43",
+        liquidLightSecondary: "#3E246D"
       },
       {
         id: "evergreen-haze",
@@ -23473,7 +23485,11 @@ var init_ui = __esm({
         senseiCodeText: "#bbf7d0",
         senseiCodeBorder: "rgba(34, 197, 94, 0.28)",
         senseiModuleText: "#bbf7d0",
-        senseiHeadingGradient: "linear-gradient(135deg, #22c55e, #bbf7d0)"
+        senseiHeadingGradient: "linear-gradient(135deg, #22c55e, #bbf7d0)",
+        liquidSurfaceColor: "#4ade80",
+        liquidAmbientColor: "#14532d",
+        liquidLightPrimary: "#166534",
+        liquidLightSecondary: "#22c55e"
       },
       {
         id: "ember-glow",
@@ -23486,7 +23502,11 @@ var init_ui = __esm({
         senseiCodeText: "#fde68a",
         senseiCodeBorder: "rgba(251, 191, 36, 0.28)",
         senseiModuleText: "#fde68a",
-        senseiHeadingGradient: "linear-gradient(135deg, #fbbf24, #fde68a)"
+        senseiHeadingGradient: "linear-gradient(135deg, #fbbf24, #fde68a)",
+        liquidSurfaceColor: "#f97316",
+        liquidAmbientColor: "#7c2d12",
+        liquidLightPrimary: "#c2410c",
+        liquidLightSecondary: "#fbbf24"
       },
       {
         id: "midnight-amethyst",
@@ -23499,20 +23519,28 @@ var init_ui = __esm({
         senseiCodeText: "#e0f2fe",
         senseiCodeBorder: "rgba(56, 189, 248, 0.28)",
         senseiModuleText: "#bae6fd",
-        senseiHeadingGradient: "linear-gradient(135deg, #38bdf8, #93c5fd)"
+        senseiHeadingGradient: "linear-gradient(135deg, #38bdf8, #93c5fd)",
+        liquidSurfaceColor: "#a855f7",
+        liquidAmbientColor: "#1e1b4b",
+        liquidLightPrimary: "#4c1d95",
+        liquidLightSecondary: "#38bdf8"
       },
       {
         id: "glacial-fjord",
         label: "Glacial Fjord",
         preview: "linear-gradient(135deg, #03121a 0%, #05202c 50%, #07303f 100%)",
         senseiText: "#d1fae5",
-        senseiBubbleBackground: "rgba(30, 41, 59, 0.32)",
+        senseiBubbleBackground: "rgba(30, 41, 59, 0.6)",
         senseiBold: "#a2ff9a",
         senseiCodeBackground: "rgba(34, 197, 94, 0.12)",
         senseiCodeText: "#16a34a",
         senseiCodeBorder: "rgba(34, 197, 94, 0.15)",
         senseiModuleText: "#86efac",
-        senseiHeadingGradient: "linear-gradient(135deg, #16a34a, #22c55e)"
+        senseiHeadingGradient: "linear-gradient(135deg, #16a34a, #22c55e)",
+        liquidSurfaceColor: "#22d3ee",
+        liquidAmbientColor: "#0b1120",
+        liquidLightPrimary: "#0369a1",
+        liquidLightSecondary: "#0891b2"
       },
       {
         id: "aurora-field",
@@ -23525,7 +23553,11 @@ var init_ui = __esm({
         senseiCodeText: "#ecfccb",
         senseiCodeBorder: "rgba(163, 230, 53, 0.28)",
         senseiModuleText: "#a3e635",
-        senseiHeadingGradient: "linear-gradient(135deg, #a3e635, #d9f99d)"
+        senseiHeadingGradient: "linear-gradient(135deg, #a3e635, #d9f99d)",
+        liquidSurfaceColor: "#a3e635",
+        liquidAmbientColor: "#022c22",
+        liquidLightPrimary: "#16a34a",
+        liquidLightSecondary: "#4ade80"
       },
       {
         id: "nebula-rose",
@@ -23538,7 +23570,11 @@ var init_ui = __esm({
         senseiCodeText: "#fbcfe8",
         senseiCodeBorder: "rgba(244, 114, 182, 0.28)",
         senseiModuleText: "#f9a8d4",
-        senseiHeadingGradient: "linear-gradient(135deg, #f472b6, #fbcfe8)"
+        senseiHeadingGradient: "linear-gradient(135deg, #f472b6, #fbcfe8)",
+        liquidSurfaceColor: "#f472b6",
+        liquidAmbientColor: "#3b0a2a",
+        liquidLightPrimary: "#db2777",
+        liquidLightSecondary: "#fb7185"
       },
       {
         id: "storm-forge",
@@ -23551,7 +23587,11 @@ var init_ui = __esm({
         senseiCodeText: "#dbeafe",
         senseiCodeBorder: "rgba(96, 165, 250, 0.28)",
         senseiModuleText: "#93c5fd",
-        senseiHeadingGradient: "linear-gradient(135deg, #60a5fa, #bae6fd)"
+        senseiHeadingGradient: "linear-gradient(135deg, #60a5fa, #bae6fd)",
+        liquidSurfaceColor: "#60a5fa",
+        liquidAmbientColor: "#020617",
+        liquidLightPrimary: "#1d4ed8",
+        liquidLightSecondary: "#0ea5e9"
       },
       {
         id: "dusk-harvest",
@@ -23564,7 +23604,11 @@ var init_ui = __esm({
         senseiCodeText: "#fee2e2",
         senseiCodeBorder: "rgba(248, 113, 113, 0.3)",
         senseiModuleText: "#fecdd3",
-        senseiHeadingGradient: "linear-gradient(135deg, #fb7185, #fbcfe8)"
+        senseiHeadingGradient: "linear-gradient(135deg, #fb7185, #fbcfe8)",
+        liquidSurfaceColor: "#fb7185",
+        liquidAmbientColor: "#3f0a1a",
+        liquidLightPrimary: "#b91c1c",
+        liquidLightSecondary: "#f97316"
       },
       {
         id: "sapphire-dawn",
@@ -23577,7 +23621,11 @@ var init_ui = __esm({
         senseiCodeText: "#dbeafe",
         senseiCodeBorder: "rgba(59, 130, 246, 0.28)",
         senseiModuleText: "#93c5fd",
-        senseiHeadingGradient: "linear-gradient(135deg, #93c5fd, #bfdbfe)"
+        senseiHeadingGradient: "linear-gradient(135deg, #93c5fd, #bfdbfe)",
+        liquidSurfaceColor: "#93c5fd",
+        liquidAmbientColor: "#020617",
+        liquidLightPrimary: "#1e40af",
+        liquidLightSecondary: "#22d3ee"
       }
     ];
     DEFAULT_THEME_ID = THEME_OPTIONS[0]?.id ?? "";
@@ -28705,7 +28753,6 @@ var init_chatWindowController = __esm({
           return;
         }
         this.makeWindowDraggable();
-        this.makeWindowResizable();
         this.initializeAutoResizeSystem();
       }
       makeWindowDraggable() {
@@ -28773,84 +28820,6 @@ var init_chatWindowController = __esm({
         this.initialY = e.clientY;
         this.chatContainer.style.left = this.currentX + "px";
         this.chatContainer.style.top = this.currentY + "px";
-      }
-      makeWindowResizable() {
-        if (!this.chatContainer) {
-          console.warn("ChatWindowController: Cannot make window resizable - chat container not found");
-          return;
-        }
-        if (this.chatContainer.querySelector(".resize-handle")) return;
-        this.resizeHandle = document.createElement("div");
-        this.resizeHandle.className = "resize-handle";
-        this.resizeHandle.style.cssText = `
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 20px;
-            height: 20px;
-            cursor: se-resize;
-            background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);
-            z-index: 10000;
-            pointer-events: auto;
-        `;
-        this.chatContainer.appendChild(this.resizeHandle);
-        let isResizing = false;
-        let startX;
-        let startY;
-        let startWidth;
-        let startHeight;
-        const doResize = (e) => {
-          if (!this.isResizingWindow || !this.chatContainer) return;
-          e.preventDefault();
-          const newWidth = Math.max(400, startWidth + e.clientX - startX);
-          const newHeight = Math.max(300, startHeight + e.clientY - startY);
-          this.chatContainer.style.width = newWidth + "px";
-          this.chatContainer.style.height = newHeight + "px";
-        };
-        const forceStopResize = () => {
-          if (this.isResizingWindow) {
-            isResizing = false;
-            this.isResizingWindow = false;
-            document.body.style.userSelect = "";
-            document.removeEventListener("mousemove", doResize);
-            document.removeEventListener("mouseup", stopResize);
-            document.removeEventListener("mouseleave", forceStopResize);
-          }
-        };
-        const stopResize = (e) => {
-          if (this.isResizingWindow) {
-            isResizing = false;
-            this.isResizingWindow = false;
-            document.body.style.userSelect = "";
-            document.removeEventListener("mousemove", doResize);
-            document.removeEventListener("mouseup", stopResize);
-            document.removeEventListener("mouseleave", forceStopResize);
-            e.stopPropagation();
-          } else if (isResizing) {
-            isResizing = false;
-            document.body.style.userSelect = "";
-            document.removeEventListener("mousemove", doResize);
-            document.removeEventListener("mouseup", stopResize);
-            document.removeEventListener("mouseleave", forceStopResize);
-          }
-        };
-        if (this.resizeHandle) {
-          this.resizeHandle.addEventListener("mousedown", (e) => {
-            if (!this.chatContainer) return;
-            this.isResizingWindow = true;
-            isResizing = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            startWidth = parseInt(document.defaultView.getComputedStyle(this.chatContainer).width, 10);
-            startHeight = parseInt(document.defaultView.getComputedStyle(this.chatContainer).height, 10);
-            e.preventDefault();
-            e.stopPropagation();
-            document.body.style.userSelect = "none";
-            document.addEventListener("mousemove", doResize);
-            document.addEventListener("mouseup", stopResize);
-            document.addEventListener("mouseleave", forceStopResize);
-          });
-        }
       }
       initializeAutoResizeSystem() {
         const savedPreference = localStorage.getItem(this.AUTO_RESIZE_CONFIG.preferenceKey);
