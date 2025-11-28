@@ -2494,6 +2494,9 @@ function applyTheme(option: ThemeOption) {
         window.localStorage.setItem(THEME_STORAGE_KEY, option.id);
     } catch (_) {
     }
+    try {
+        sendToNative({ type: 'theme:update', value: option.liquidSurfaceColor });
+    } catch (_) {}
     previewThemeId = null;
     if (themePaletteSwatches.length > 0) {
         setActiveTheme(option.id, themePaletteSwatches);

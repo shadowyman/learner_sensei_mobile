@@ -26,6 +26,15 @@ interface SenseiBackdropCanvasProps {
     headerRect: { x: number; y: number; width: number; height: number } | null;
     inputBarRect?: { x: number; y: number; width: number; height: number } | null;
     inputFieldRect?: { x: number; y: number; width: number; height: number } | null;
+    drawBackground?: boolean;
+    includeHeaderFilter?: boolean;
+    enableInputBlur?: boolean;
+    colors?: {
+        linear: [string, string, string];
+        radialA: string;
+        radialB: string;
+        radialC: string;
+    };
 }
 
 const HEADER_RADIUS = 30;
@@ -33,7 +42,14 @@ const DEFAULT_HEADER_RECT = { x: 0, y: 0, width: 0, height: 0 } as const;
 
 // Built-in Skia dithering is enabled via <Group dither>
 
-export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ headerRect, inputBarRect, inputFieldRect }) => {
+const DEFAULT_COLORS = {
+    linear: ['#0a0a0a', '#1a1a2e', '#16213e'] as [string, string, string],
+    radialA: 'rgba(0,212,255,0.18)',
+    radialB: 'rgba(0,212,255,0.08)',
+    radialC: 'rgba(196,229,56,0.08)'
+};
+
+export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ headerRect, inputBarRect, inputFieldRect, drawBackground = true, includeHeaderFilter = true, enableInputBlur = true, colors = DEFAULT_COLORS }) => {
     const { width, height } = useWindowDimensions();
     const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -139,7 +155,7 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
     // Build a reusable frosted filter (blur + light screen) and clip it to the input field rrect
     const inputFieldFrostFilter = useMemo(() => {
         const blur = Skia.ImageFilter.MakeBlur(24, 24, TileMode.Clamp);
-        const whiteShader = Skia.Shader.MakeColor(Skia.Color('rgba(255,255,255,0.14)'));
+        const whiteShader = Skia.Shader.MakeColor(Skia.Color('rgba(255,255,255,0.07)'));
         const whiteAsFilter = Skia.ImageFilter.MakeShader(whiteShader);
         return Skia.ImageFilter.MakeBlend(BlendMode.Screen, blur, whiteAsFilter);
     }, []);
@@ -154,22 +170,26 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
     return (
         <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
             <Group dither>
-                <Fill>
-                    <LinearGradient start={vec(0, 0)} end={vec(width, height)} colors={['#0a0a0a', '#1a1a2e', '#16213e']} />
-                </Fill>
-                <Rect x={0} y={0} width={width} height={height}>
-                    <RadialGradient c={vec(width * 0.2, height * 0.2)} r={Math.max(width, height) * 0.45} colors={['rgba(0,212,255,0.18)', 'rgba(0,212,255,0.05)']} positions={[0, 1]} />
-                </Rect>
-                <Rect x={0} y={0} width={width} height={height}>
-                    <RadialGradient c={vec(width * 0.8, height * 0.8)} r={Math.max(width, height) * 0.40} colors={['rgba(0,212,255,0.08)', 'rgba(0,212,255,0)']} positions={[0, 1]} />
-                </Rect>
-                <Rect x={0} y={0} width={width} height={height}>
-                    <RadialGradient c={vec(width * 0.55, height * 0.5)} r={Math.max(width, height) * 0.44} colors={['rgba(196,229,56,0.08)', 'rgba(196,229,56,0)']} positions={[0, 1]} />
-                </Rect>
-                {filter && (
+                {drawBackground && (
+                    <>
+                        <Fill>
+                            <LinearGradient start={vec(0, 0)} end={vec(width, height)} colors={colors.linear} />
+                        </Fill>
+                        <Rect x={0} y={0} width={width} height={height}>
+                            <RadialGradient c={vec(width * 0.2, height * 0.2)} r={Math.max(width, height) * 0.45} colors={[colors.radialA, 'rgba(0,0,0,0)']} positions={[0, 1]} />
+                        </Rect>
+                        <Rect x={0} y={0} width={width} height={height}>
+                            <RadialGradient c={vec(width * 0.8, height * 0.8)} r={Math.max(width, height) * 0.40} colors={[colors.radialB, 'rgba(0,0,0,0)']} positions={[0, 1]} />
+                        </Rect>
+                        <Rect x={0} y={0} width={width} height={height}>
+                            <RadialGradient c={vec(width * 0.55, height * 0.5)} r={Math.max(width, height) * 0.44} colors={[colors.radialC, 'rgba(0,0,0,0)']} positions={[0, 1]} />
+                        </Rect>
+                    </>
+                )}
+                {filter && includeHeaderFilter && (
                     <BackdropFilter filter={<ImageFilter filter={filter} />} />
                 )}
-                {inputFieldClip && (
+                {enableInputBlur && inputFieldClip && (
                     <Group clip={inputFieldClip} layer>
                         <BackdropFilter filter={<ImageFilter filter={inputFieldFrostFilter} />} />
                     </Group>

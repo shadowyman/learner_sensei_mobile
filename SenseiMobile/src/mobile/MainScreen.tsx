@@ -12,6 +12,22 @@ import { SenseiHeader } from './components/SenseiHeader';
 import { SenseiBackdropCanvas } from './effects/SenseiBackdropCanvas';
 import { InputBar } from './components/InputBar';
 
+type ThemeColors = {
+    linear: [string, string, string];
+    radialA: string;
+    radialB: string;
+    radialC: string;
+};
+
+const DEFAULT_THEME_COLORS: ThemeColors = {
+    linear: ['#0a0a0a', '#1a1a2e', '#16213e'],
+    radialA: 'rgba(0,212,255,0.18)',
+    radialB: 'rgba(0,212,255,0.08)',
+    radialC: 'rgba(196,229,56,0.08)'
+};
+
+const DEFAULT_MAIN_HEX = '#5c56f5';
+
 const WEBVIEW_ERROR_BRIDGE = `
 (function() {
     if (window.__senseiWebviewErrorBridge) {
@@ -124,6 +140,140 @@ interface MainScreenProps {
     allowingReadAccessToURL?: string;
 }
 
+function clamp01(value: number): number {
+    return Math.min(1, Math.max(0, value));
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const clean = hex.replace('#', '').trim();
+    if (clean.length === 3) {
+        const r = parseInt(clean[0] + clean[0], 16);
+        const g = parseInt(clean[1] + clean[1], 16);
+        const b = parseInt(clean[2] + clean[2], 16);
+        return { r, g, b };
+    }
+    if (clean.length === 6) {
+        const r = parseInt(clean.slice(0, 2), 16);
+        const g = parseInt(clean.slice(2, 4), 16);
+        const b = parseInt(clean.slice(4, 6), 16);
+        if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+        return { r, g, b };
+    }
+    return null;
+}
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+    const rN = r / 255;
+    const gN = g / 255;
+    const bN = b / 255;
+    const max = Math.max(rN, gN, bN);
+    const min = Math.min(rN, gN, bN);
+    const delta = max - min;
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+    if (delta !== 0) {
+        s = delta / (1 - Math.abs(2 * l - 1));
+        switch (max) {
+            case rN:
+                h = ((gN - bN) / delta) % 6;
+                break;
+            case gN:
+                h = (bN - rN) / delta + 2;
+                break;
+            default:
+                h = (rN - gN) / delta + 4;
+                break;
+        }
+        h /= 6;
+        if (h < 0) h += 1;
+    }
+    return { h, s, l };
+}
+
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+    const hueToRgb = (p: number, q: number, t: number): number => {
+        let tt = t;
+        if (tt < 0) tt += 1;
+        if (tt > 1) tt -= 1;
+        if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+        if (tt < 1 / 2) return q;
+        if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+        return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const r = hueToRgb(p, q, h + 1 / 3);
+    const g = hueToRgb(p, q, h);
+    const b = hueToRgb(p, q, h - 1 / 3);
+    return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+    const toHex = (v: number) => v.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    return rgbToHsl(rgb.r, rgb.g, rgb.b);
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+    const { r, g, b } = hslToRgb(h, s, l);
+    return rgbToHex(r, g, b);
+}
+
+function deriveThemeColors(main: string): ThemeColors {
+    const normalized = main.trim().toLowerCase();
+    if (normalized === DEFAULT_MAIN_HEX) {
+        return DEFAULT_THEME_COLORS;
+    }
+    const parsed = hexToHsl(main) ?? { h: 0.62, s: 0.62, l: 0.22 };
+    const h = parsed.h;
+    const sBase = clamp01(parsed.s);
+    const lBase = clamp01(parsed.l);
+
+    const hueShift = (base: number, delta: number) => {
+        const shifted = base + delta;
+        if (shifted < 0) return shifted + 1;
+        if (shifted > 1) return shifted - 1;
+        return shifted;
+    };
+
+    const h1 = hueShift(h, -0.12);
+    const h2 = h;
+    const h3 = hueShift(h, 0.16);
+
+    const l1 = clamp01(Math.min(lBase * 0.3, 0.18));
+    const l2 = clamp01(Math.min(lBase * 0.55 + 0.03, 0.28));
+    const l3 = clamp01(Math.min(lBase * 0.7 + 0.06, 0.38));
+
+    const s1 = sBase;
+    const s2 = clamp01(sBase * 0.45);
+    const s3 = clamp01(sBase * 0.41);
+
+    const linear: [string, string, string] = [
+        hslToHex(h1, s1, l1),
+        hslToHex(h2, s2, l2),
+        hslToHex(h3, s3, l3)
+    ];
+
+    const lg = clamp01(Math.min(Math.max(lBase + 0.08, 0.26), 0.36));
+    const sGlow = clamp01(sBase * 0.95);
+    const toRgba = (hh: number, alpha: number) => {
+        const { r, g, b } = hslToRgb(hh, sGlow, lg);
+        return `rgba(${r},${g},${b},${alpha})`;
+    };
+
+    const radialA = toRgba(hueShift(h, 0.22), 0.28);
+    const radialB = toRgba(hueShift(h, -0.16), 0.22);
+    const radialC = toRgba(hueShift(h, 0.08), 0.18);
+
+    return { linear, radialA, radialB, radialC };
+}
+
 interface ForwardStreamOptions {
     bridge: BridgeManager;
     telemetryManager: TelemetryManagerLike;
@@ -194,7 +344,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     onWebViewError,
     allowingReadAccessToURL
 }) => {
-	const SHOW_WEBVIEW = true;
+    const SHOW_WEBVIEW = true;
     const internalWebViewRef = useRef<WebView>(null);
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
     const enableIOSWebInspector = Platform.OS === 'ios';
@@ -207,6 +357,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [headerRect, setHeaderRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [inputBarRect, setInputBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [inputFieldRect, setInputFieldRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+    const [themeColors, setThemeColors] = useState<ThemeColors>(DEFAULT_THEME_COLORS);
     const { width: viewportWidth } = useWindowDimensions();
     const webviewErrorInjection = useMemo(() => `
         window.__SENSEI_MOBILE_BUILD__ = true;
@@ -417,6 +568,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             if (parsed.type === 'telemetry:event') {
                 telemetryManager.record(parsed.eventName, parsed.data ?? {});
             }
+            if (parsed.type === 'theme:update') {
+                setThemeColors(deriveThemeColors(parsed.value));
+            }
             if (parsed.type === 'mermaid:recover') {
                 (async () => {
                     try {
@@ -478,8 +632,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const handleChunkNext = useCallback(() => clickWebButton('chunk-nav-next'), [clickWebButton]);
 
     return (
-        <View style={styles.root}>
-            <SenseiBackdropCanvas headerRect={headerRect} inputBarRect={inputBarRect} inputFieldRect={inputFieldRect} />
+        <View style={[styles.root, { backgroundColor: themeColors.linear[0] }]}>            
+            <SenseiBackdropCanvas
+                drawBackground={true}
+                includeHeaderFilter={true}
+                enableInputBlur={false}
+                headerRect={headerRect}
+                inputBarRect={inputBarRect}
+                inputFieldRect={inputFieldRect}
+                colors={themeColors}
+            />
             <SafeAreaView style={styles.container} edges={['left','right']}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
             <SelectionOverlay
@@ -518,9 +680,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         allowFileAccessFromFileURLs={true}
                         allowUniversalAccessFromFileURLs={true}
                         webviewDebuggingEnabled={enableIOSWebInspector}
-                        style={[styles.webview, { backgroundColor: 'transparent' }]}
-                        setBackgroundColor={'transparent'}
-                        opaque={false}
+                        style={styles.webview}
+                        setBackgroundColor={'#050b14'}
+                        opaque={true}
                         onLoad={() => {
                             hasLoadedRef.current = true;
                             logger.info('[MOBILE_PORT] webview load success');
@@ -540,7 +702,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             }
                         }}
                         onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
-                        style={styles.webview}
                     />
                 </View>
             ) : (
@@ -548,6 +709,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
                 </View>
             )}
+            <View style={styles.backdropOverlay} pointerEvents="none">
+                <SenseiBackdropCanvas
+                    drawBackground={false}
+                    includeHeaderFilter={false}
+                    enableInputBlur={true}
+                    headerRect={headerRect}
+                    inputBarRect={inputBarRect}
+                    inputFieldRect={inputFieldRect}
+                    colors={themeColors}
+                />
+            </View>
             <View style={styles.inputBarOverlay} pointerEvents="box-none">
                 <InputBar
                     onSubmit={(txt) => {
@@ -588,7 +760,7 @@ const styles = StyleSheet.create({
     },
     webview: {
         flex: 1,
-        backgroundColor: 'transparent'
+        backgroundColor: '#050b14'
     },
     webviewPlaceholder: {
         flex: 1,
@@ -608,6 +780,14 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         gap: 8,
         marginTop: 8
+    },
+    backdropOverlay: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        zIndex: 2
     },
     secondaryButton: {
         paddingVertical: 10,
