@@ -6216,10 +6216,30 @@ function handleMermaidRecoverResult(message) {
   return true;
 }
 function createWebviewMessageHandler(deps2) {
+  const applyInputOffset = (height) => {
+    const h = Math.max(0, Math.round(height));
+    deps2.logger.info("[MOBILE_PORT] webview bridge ui:inputOffset", { height: h });
+    const targets = [];
+    const primary = document.getElementById("message-area");
+    if (primary) targets.push(primary);
+    document.querySelectorAll(".chat-messages").forEach((el) => {
+      if (!targets.includes(el)) targets.push(el);
+    });
+    const extra = 32;
+    targets.forEach((messageArea2) => {
+      messageArea2.style.paddingBottom = `${extra + h}px`;
+      messageArea2.style.scrollMarginBottom = `${extra + h}px`;
+    });
+    document.documentElement.style.setProperty("--native-input-offset", `${h}px`);
+  };
   return async function handleReactNativeMessage2(message) {
     deps2.logger.info("[MOBILE_PORT] webview bridge", { direction: "to-web", type: message.type });
     if (handleMermaidRecoverResult(message)) return;
     switch (message.type) {
+      case "ui:inputOffset": {
+        applyInputOffset(message.height);
+        break;
+      }
       case "saveload:export": {
         try {
           const json = await deps2.saveLoad.exportSessionAsJson();

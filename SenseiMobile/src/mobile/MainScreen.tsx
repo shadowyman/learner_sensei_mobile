@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, Platform, useWindowDimensions, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
+import { BlurView } from '@react-native-community/blur';
 
 import { logger } from '../logger';
 import { BridgeManager } from './bridge/BridgeManager';
@@ -358,6 +359,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [inputBarRect, setInputBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [inputFieldRect, setInputFieldRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [themeColors, setThemeColors] = useState<ThemeColors>(DEFAULT_THEME_COLORS);
+    const [webViewReady, setWebViewReady] = useState(false);
     const { width: viewportWidth } = useWindowDimensions();
     const webviewErrorInjection = useMemo(() => `
         window.__SENSEI_MOBILE_BUILD__ = true;
@@ -386,6 +388,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     useEffect(() => {
         hasLoadedRef.current = false;
         headerBridgeInjectedRef.current = false;
+        setWebViewReady(false);
     }, [webContentUri, webContentHtml]);
 
     const webviewKey = useMemo(() => (webContentUri ? `uri:${webContentUri}` : webContentHtml ? `html:${webContentHtml.length}` : 'empty'), [webContentUri, webContentHtml]);
@@ -620,6 +623,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         await saveLoadService.importSession();
     }, [saveLoadService]);
 
+    useEffect(() => {
+        if (!inputBarRect || !webViewReady) {
+            return;
+        }
+        const h = Math.max(0, Math.round(inputBarRect.height));
+        bridge.enqueue({ type: 'ui:inputOffset', height: h });
+    }, [bridge, inputBarRect, webViewReady]);
+
     const handleToggleFontSize = useCallback(() => clickWebButton('font-size-toggle'), [clickWebButton]);
     const handleToggleTheme = useCallback(() => clickWebButton('theme-button'), [clickWebButton]);
     const handleToggleTelemetryMenu = useCallback(() => telemetryManager.toggle(!telemetryManager.isEnabled()), [telemetryManager]);
@@ -681,12 +692,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         allowUniversalAccessFromFileURLs={true}
                         webviewDebuggingEnabled={enableIOSWebInspector}
                         style={styles.webview}
-                        setBackgroundColor={'#050b14'}
+                        setBackgroundColor={'transparent'}
                         opaque={true}
                         onLoad={() => {
                             hasLoadedRef.current = true;
                             logger.info('[MOBILE_PORT] webview load success');
                             injectHeaderStatusObserver();
+                            setWebViewReady(true);
                         }}
                         onHttpError={(e) => {
                             const ne = e.nativeEvent as any;
@@ -709,6 +721,25 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
                 </View>
             )}
+            <View
+                pointerEvents="none"
+                style={[
+                    styles.nativeBlurOverlay,
+                    inputFieldRect
+                        ? {
+                              left: inputFieldRect.x,
+                              top: inputFieldRect.y,
+                              width: inputFieldRect.width,
+                              height: inputFieldRect.height,
+                              opacity: 0.5
+                          }
+                        : { opacity: 0 }
+                ]}
+            >
+                {Platform.OS === 'ios' ? (
+                    <BlurView blurType="dark" blurAmount={300} reducedTransparencyFallbackColor="transparent" style={StyleSheet.absoluteFill} />
+                ) : null}
+            </View>
             <View style={styles.backdropOverlay} pointerEvents="none">
                 <SenseiBackdropCanvas
                     drawBackground={false}
@@ -754,13 +785,19 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.08)',
         alignSelf: 'stretch'
     },
+    nativeBlurOverlay: {
+        position: 'absolute',
+        borderRadius: 16,
+        overflow: 'hidden',
+        zIndex: 2
+    },
     webviewWrapper: {
         flex: 1,
         backgroundColor: 'transparent'
     },
     webview: {
         flex: 1,
-        backgroundColor: '#050b14'
+        backgroundColor: 'transparent'
     },
     webviewPlaceholder: {
         flex: 1,

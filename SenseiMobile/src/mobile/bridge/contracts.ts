@@ -9,6 +9,7 @@ export type RNToWebMessage =
   | { type: 'chat:startMessage'; messageId: string; sender: 'user' | 'sensei'; text?: string; reloadable?: boolean }
   | { type: 'chat:update'; messageId: string; text: string; replace?: boolean }
   | { type: 'chat:completeMessage'; messageId: string }
+  | { type: 'ui:inputOffset'; height: number }
   | { type: 'selectionSensei:invoke'; actionId: SelectionSenseiActionId; selectionId: string; actionLabel?: string; userQuestion?: string }
   | { type: 'saveload:export'; requestId: string }
   | { type: 'saveload:import'; requestId: string; json: string }

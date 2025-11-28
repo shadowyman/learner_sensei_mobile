@@ -54,10 +54,31 @@ export function createWebviewMessageHandler(deps: {
   updateMessageStream: (id: string, text: string) => Promise<void>;
   invokeSelectionSenseiBridgeAction: (actionId: string, payload: { actionLabel?: string; userQuestion?: string }) => void;
 }) {
+  const applyInputOffset = (height: number) => {
+    const h = Math.max(0, Math.round(height));
+    deps.logger.info('[MOBILE_PORT] webview bridge ui:inputOffset', { height: h });
+    const targets: HTMLElement[] = [];
+    const primary = document.getElementById('message-area');
+    if (primary) targets.push(primary);
+    document.querySelectorAll<HTMLElement>('.chat-messages').forEach((el) => {
+      if (!targets.includes(el)) targets.push(el);
+    });
+    const extra = 32; // default bottom padding
+    targets.forEach((messageArea) => {
+      messageArea.style.paddingBottom = `${extra + h}px`;
+      (messageArea.style as any).scrollMarginBottom = `${extra + h}px`;
+    });
+    document.documentElement.style.setProperty('--native-input-offset', `${h}px`);
+  };
+
   return async function handleReactNativeMessage(message: RNToWebMessage): Promise<void> {
     deps.logger.info('[MOBILE_PORT] webview bridge', { direction: 'to-web', type: message.type });
     if (handleMermaidRecoverResult(message)) return;
     switch (message.type) {
+      case 'ui:inputOffset': {
+        applyInputOffset(message.height);
+        break;
+      }
       case 'saveload:export': {
         try {
           const json = await deps.saveLoad.exportSessionAsJson();

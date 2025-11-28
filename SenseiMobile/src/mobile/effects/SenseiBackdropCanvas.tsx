@@ -153,12 +153,7 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
     // removed inputBarFilter pass to ensure only the input field chip is frosted
 
     // Build a reusable frosted filter (blur + light screen) and clip it to the input field rrect
-    const inputFieldFrostFilter = useMemo(() => {
-        const blur = Skia.ImageFilter.MakeBlur(24, 24, TileMode.Clamp);
-        const whiteShader = Skia.Shader.MakeColor(Skia.Color('rgba(255,255,255,0.07)'));
-        const whiteAsFilter = Skia.ImageFilter.MakeShader(whiteShader);
-        return Skia.ImageFilter.MakeBlend(BlendMode.Screen, blur, whiteAsFilter);
-    }, []);
+    const inputFieldFrostFilter = null;
 
     const inputFieldClip = useMemo(() => {
         if (!hasInputFieldRect || !inputFieldRect) return null;

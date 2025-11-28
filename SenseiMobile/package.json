@@ -13,6 +13,7 @@
   "dependencies": {
     "@react-native/new-app-screen": "0.82.1",
     "@shopify/react-native-skia": "^2.3.10",
+    "@react-native-community/blur": "^4.4.0",
     "react": "19.1.1",
     "react-native": "0.82.1",
     "react-native-document-picker": "^9.3.1",
