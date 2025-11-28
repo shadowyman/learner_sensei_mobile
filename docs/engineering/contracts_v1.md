@@ -114,7 +114,7 @@ paths:
   /mermaid/recover:
     post:
       summary: Attempt to fix an invalid Mermaid diagram
-      description: Returns a fixed diagram when possible. If a repair is not possible deterministically, returns { fixed:false } or 422.
+      description: Returns a fixed diagram when possible. Supports `mode` to distinguish deterministic+LLM (`auto`) from forced LLM (`llm`); if no repair is possible, returns { fixed:false } or 422.
       requestBody:
         required: true
         content:
@@ -127,6 +127,8 @@ paths:
                 theme: { type: string }
                 errorHash: { type: string }
                 context: { type: object }
+                errorMessage: { type: string }
+                mode: { type: string, enum: ['auto', 'llm'], description: "`auto` runs deterministic transforms and, if they make no change, falls through to an LLM attempt in the same call; `llm` skips deterministic early-returns and always calls the LLM." }
               required: [messageId, code]
 	      responses:
 	        '200':
@@ -147,6 +149,8 @@ paths:
 Normative behaviors (Mermaid)
 - Request:
   - `messageId` and `code` are required; `theme`, `errorHash`, and `context` are optional and may contain arbitrary fields. Servers MUST tolerate unknown fields in `context`.
+  - `mode` is optional: `auto` (default) applies deterministic transforms and, if they produce no change, falls through to an LLM attempt within the same call; `llm` skips deterministic short-circuiting and always invokes the LLM. Clients SHOULD send `auto` for the first attempt and `llm` for subsequent retries if needed.
+  - `errorMessage` is optional; servers SHOULD forward it to the LLM prompt when provided.
 - Responses:
   - 200 with `{ fixed: true, fixedCode }`:
     - Indicates a successful repair; `fixedCode` MUST be a non-empty string containing the diagram the client should render instead of the original.

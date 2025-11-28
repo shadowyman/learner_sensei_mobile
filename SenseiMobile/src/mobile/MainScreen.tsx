@@ -417,6 +417,34 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             if (parsed.type === 'telemetry:event') {
                 telemetryManager.record(parsed.eventName, parsed.data ?? {});
             }
+            if (parsed.type === 'mermaid:recover') {
+                (async () => {
+                    try {
+                        await bffClient.ensureSession();
+                        const result = await bffClient.recoverMermaid({
+                            messageId: parsed.messageId,
+                            code: parsed.code,
+                            theme: parsed.theme,
+                            errorHash: parsed.errorHash,
+                            errorMessage: parsed.errorMessage,
+                            mode: parsed.mode
+                        });
+                        bridge.enqueue({
+                            type: 'mermaid:recoverResult',
+                            messageId: parsed.messageId,
+                            fixed: result.fixed,
+                            fixedCode: result.fixedCode
+                        } as RNToWebMessage);
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] mermaid recover via BFF failed', { error });
+                        bridge.enqueue({
+                            type: 'mermaid:recoverResult',
+                            messageId: parsed.messageId,
+                            fixed: false
+                        } as RNToWebMessage);
+                    }
+                })();
+            }
             if (parsed.type === 'header:status') {
                 if (Array.isArray(parsed.lines) && parsed.lines.length > 0) {
                     setHeaderStatus(parsed.lines.join('\n'));
@@ -428,7 +456,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         } catch (error) {
             logger.error('[MOBILE_PORT] webview message parse error', { error });
         }
-    }, [onWebViewEvent, saveLoadService, telemetryManager]);
+    }, [onWebViewEvent, saveLoadService, telemetryManager, bffClient, bridge]);
 
     const handleSave = useCallback(async () => {
         await saveLoadService.exportSession();
@@ -520,17 +548,19 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
                 </View>
             )}
-            <InputBar
-                onSubmit={(txt) => {
-                    logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
-                    void handleSubmit(txt);
-                }}
-                onOpenEditor={() => {
-                    logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
-                }}
-                onLayoutRect={setInputBarRect}
-                onInputFieldRect={setInputFieldRect}
-            />
+            <View style={styles.inputBarOverlay} pointerEvents="box-none">
+                <InputBar
+                    onSubmit={(txt) => {
+                        logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
+                        void handleSubmit(txt);
+                    }}
+                    onOpenEditor={() => {
+                        logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
+                    }}
+                    onLayoutRect={setInputBarRect}
+                    onInputFieldRect={setInputFieldRect}
+                />
+            </View>
             </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
@@ -544,7 +574,8 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        backgroundColor: 'transparent'
+        backgroundColor: 'transparent',
+        position: 'relative'
     },
     headerDivider: {
         height: StyleSheet.hairlineWidth,
@@ -583,6 +614,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         backgroundColor: '#1f2937',
         borderRadius: 8
+    },
+    inputBarOverlay: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 3
     }
 });
 

@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, PixelRatio } from 'react-native';
 import { Canvas as SkiaCanvas, RadialGradient as SkiaRadialGradient, Rect as SkiaRect, vec as skiaVec } from '@shopify/react-native-skia';
+import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../logger';
 import { NavIconSkia } from './NavIconSkia';
-import { MenuIconSvg } from './MenuIconSvg';
- 
+import { MenuIconAsset } from './MenuIconAsset';
 
-const brandLogo = require('../../assets/brand.png');
+const brandLogo = require('../../assets/brand4.png');
 
 const SEGMENT_BACKGROUND = 'rgba(6,19,29,0.7)';
 const SEGMENT_BORDER = 'rgba(255,255,255,0.04)';
@@ -15,14 +15,14 @@ const WRAPPER_PADDING_V = 0;
 const WRAPPER_PADDING_H = 12;
 const HEADER_OVERLAY_TINT_RGB = '255,255,255';
 const HEADER_OVERLAY_INTENSITY = 0.003;
- 
+
 const HEADER_AUTO_CLOSE_MS = 3500;
 const THRESHOLD_FRACTION = 0.70;
 const EXPAND_DURATION_MS = 1000;
 const COLLAPSE_DURATION_MS = 500;
 const FADE_IN_DURATION_MS = 1000;
 const FADE_OUT_DURATION_MS = 400;
-const FADE_IN_START_FRACTION = 0.70;
+const FADE_IN_START_FRACTION = 0.90;
 const FADE_IN_END_FRACTION = 1.00;
  
 
@@ -76,7 +76,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
     const isCompactIOS = Platform.OS === 'ios' && !isPad && width <= 430;
     const rowGap = isCompactIOS ? CONTROL_ROW_VERTICAL_GAP_COMPACT : CONTROL_ROW_VERTICAL_GAP;
- 
+
     const controlsOpacityBase = useMemo(
         () =>
             widthAnim.interpolate({
@@ -136,24 +136,11 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     };
 
     useEffect(() => {
-        let listenerId: string | null = null;
         if (controlsExpanded) {
-            setShowControls(false);
+            setShowControls(true);
             setShowEllipsis(false);
             collapseOpacity.setValue(1);
             ellipsisOpacity.setValue(0);
-            const startThreshold = targetWidth * FADE_IN_START_FRACTION;
-            let mounted = false;
-            listenerId = widthAnim.addListener(({ value }) => {
-                if (!mounted && value >= startThreshold) {
-                    mounted = true;
-                    setShowControls(true);
-                    if (listenerId) {
-                        try { widthAnim.removeListener(listenerId); } catch (_) {}
-                        listenerId = null;
-                    }
-                }
-            });
             Animated.timing(widthAnim, {
                 toValue: targetWidth,
                 duration: EXPAND_DURATION_MS,
@@ -178,11 +165,6 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                 }).start();
             });
         }
-        return () => {
-            if (listenerId) {
-                try { widthAnim.removeListener(listenerId); } catch (_) {}
-            }
-        };
     }, [controlsExpanded, widthAnim, targetWidth, collapseOpacity]);
 
     const statusLines = useMemo(() => {
@@ -209,6 +191,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
 
     const statusRef = useRef<View | null>(null);
     const topRowRef = useRef<View | null>(null);
+    const themeButtonRef = useRef<TouchableOpacity | null>(null);
     const statusBottomRef = useRef<number | null>(null);
     const topRowBottomRef = useRef<number | null>(null);
 
@@ -346,9 +329,12 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
         </View>
     );
 
+    const controlIconSize = isCompactIOS ? 24 : 20;
+    const controlButtonSize = isCompactIOS ? 40 : 30;
+
     const controlsSection = (
         <Animated.View
-            style={[styles.controlsSegment, { width: widthAnim }, { minHeight: CONTROL_BUTTON_SIZE * 2 + rowGap }]}
+            style={[styles.controlsSegment, { width: widthAnim }, { minHeight: controlButtonSize * 2 + rowGap }]}
             onTouchStart={onFlyoutTouchStart}
             onLayout={(event) => {
                 if (!isCompactIOS) return;
@@ -370,7 +356,10 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                             onOpenNotepad,
                             onSave,
                             onLoad,
-                            rowGap
+                            rowGap,
+                            controlIconSize,
+                            controlButtonSize,
+                            isCompactIOS
                         )}
                     </Animated.View>
                 </View>
@@ -502,7 +491,10 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                         () => { restartAutoClose(); onOpenNotepad(); },
                         () => { restartAutoClose(); onSave(); },
                         () => { restartAutoClose(); onLoad(); },
-                        rowGap
+                        rowGap,
+                        controlIconSize,
+                        controlButtonSize,
+                        isCompactIOS
                     )}
                 </View>
             </View>
@@ -512,12 +504,11 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
 
 const ELLIPSIS_WIDTH = 70;
 const EXPANDED_WIDTH = 240;
-const CONTROL_BUTTON_SIZE = 32;
+const CONTROL_BUTTON_SIZE = 40;
+const CONTROL_BUTTON_RADIUS = CONTROL_BUTTON_SIZE / 2;
 const CONTROL_BUTTON_GAP = 8;
-const CONTROL_ROW_COLUMNS = 4;
-const CONTROL_ROW_WIDTH = CONTROL_BUTTON_SIZE * CONTROL_ROW_COLUMNS + CONTROL_BUTTON_GAP * (CONTROL_ROW_COLUMNS - 1);
-const CONTROL_ROW_VERTICAL_GAP = 20;
-const CONTROL_ROW_VERTICAL_GAP_COMPACT = 10;
+const CONTROL_ROW_VERTICAL_GAP = 10;
+const CONTROL_ROW_VERTICAL_GAP_COMPACT = 5;
 
 const renderControlRows = (
     onToggleFontSize: () => void,
@@ -526,22 +517,65 @@ const renderControlRows = (
     onOpenNotepad: () => void,
     onSave: () => void,
     onLoad: () => void,
-    rowGap: number
-) => (
-    <>
-        <View style={[styles.controlsRow, styles.controlsRowTop]}>
-            <ControlButton label="Toggle font size" onPress={onToggleFontSize} icon="font" />
-            <ControlButton label="Theme" onPress={onToggleTheme} icon="theme" />
-        </View>
-        <View style={[styles.controlsRowSpacer, { height: rowGap }]} />
-        <View style={[styles.controlsRow, styles.controlsRowBottom]}>
-            <ControlButton label="Notepad" onPress={onOpenNotepad} icon="note" />
-            <ControlButton label="Save" onPress={onSave} icon="save" />
-            <ControlButton label="Load" onPress={onLoad} icon="load" />
-            <ControlButton label="Telemetry" onPress={onToggleTelemetry} icon="telemetry" />
-        </View>
-    </>
-);
+    rowGap: number,
+    iconSize: number,
+    buttonSize: number,
+    isCompact: boolean
+) => {
+    const topButtons = isCompact
+        ? [
+            { label: 'Toggle font size', icon: 'font' as const, onPress: onToggleFontSize },
+            { label: 'Theme', icon: 'theme' as const, onPress: onToggleTheme }
+        ]
+        : [
+            { label: 'Toggle font size', icon: 'font' as const, onPress: onToggleFontSize },
+            { label: 'Theme', icon: 'theme' as const, onPress: onToggleTheme },
+            { label: 'Notepad', icon: 'note' as const, onPress: onOpenNotepad }
+        ];
+
+    const bottomButtons = isCompact
+        ? [
+            { label: 'Notepad', icon: 'note' as const, onPress: onOpenNotepad },
+            { label: 'Save', icon: 'save' as const, onPress: onSave },
+            { label: 'Load', icon: 'load' as const, onPress: onLoad },
+            { label: 'Telemetry', icon: 'telemetry' as const, onPress: onToggleTelemetry }
+        ]
+        : [
+            { label: 'Save', icon: 'save' as const, onPress: onSave },
+            { label: 'Load', icon: 'load' as const, onPress: onLoad },
+            { label: 'Telemetry', icon: 'telemetry' as const, onPress: onToggleTelemetry }
+        ];
+
+    return (
+        <>
+            <View style={[styles.controlsRow, styles.controlsRowTop]}>
+                {topButtons.map(btn => (
+                    <ControlButton
+                        key={btn.icon}
+                        label={btn.label}
+                        icon={btn.icon}
+                        onPress={btn.onPress}
+                        size={iconSize}
+                        buttonSize={buttonSize}
+                    />
+                ))}
+            </View>
+            <View style={[styles.controlsRowSpacer, { height: rowGap }]} />
+            <View style={[styles.controlsRow, styles.controlsRowBottom]}>
+                {bottomButtons.map(btn => (
+                    <ControlButton
+                        key={btn.icon}
+                        label={btn.label}
+                        icon={btn.icon}
+                        onPress={btn.onPress}
+                        size={iconSize}
+                        buttonSize={buttonSize}
+                    />
+                ))}
+            </View>
+        </>
+    );
+};
 
 interface NavClusterProps {
     variant: 'prev' | 'next';
@@ -595,16 +629,37 @@ interface ControlButtonProps {
     onPress: () => void;
 }
 
-const ControlButton: React.FC<ControlButtonProps> = ({ label, icon, onPress }) => (
-    <TouchableOpacity
-        style={styles.controlButton}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-    >
-        <MenuIconSvg name={icon as any} size={27} />
-    </TouchableOpacity>
-);
+const ControlButton: React.FC<ControlButtonProps & { size?: number; buttonSize: number }> = ({ label, icon, onPress, size = 28, buttonSize }) => {
+    return (
+        <TouchableOpacity
+            style={[
+                styles.controlButtonOuter,
+                {
+                    width: buttonSize,
+                    height: buttonSize,
+                    borderRadius: buttonSize / 2
+                }
+            ]}
+            onPress={onPress}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+        >
+            <LinearGradient
+                colors={['#056c76', '#00353c']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                    styles.controlButtonInner,
+                    {
+                        borderRadius: buttonSize / 2
+                    }
+                ]}
+            >
+                <MenuIconAsset name={icon as 'font' | 'theme' | 'note' | 'save' | 'load' | 'telemetry'} size={size} />
+            </LinearGradient>
+        </TouchableOpacity>
+    );
+};
 
 const styles = StyleSheet.create({
     wrapper: {
@@ -639,10 +694,10 @@ const styles = StyleSheet.create({
         minWidth: 76
     },
     brandImage: {
-        width: 58,
-        height: 58,
+        width: 80,
+        height: 80,
         borderRadius: 14,
-        marginBottom: 6
+        marginBottom: 0
     },
     brandLabel: {
         fontSize: 12,
@@ -650,7 +705,8 @@ const styles = StyleSheet.create({
         color: '#d9f99d',
         textTransform: 'uppercase',
         letterSpacing: 0.6,
-        textAlign: 'center'
+        textAlign: 'center',
+        marginTop: -2
     },
     brandTagline: {
         fontSize: 11,
@@ -708,10 +764,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(226,242,162,0.85)',
         borderWidth: 1,
         borderColor: 'rgba(248,255,203,0.7)',
-        shadowColor: '#000',
-        shadowOpacity: 0.45,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 1 }
+        shadowColor: '#000000',
+        shadowOpacity: 0.7,
+        shadowRadius: 5,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 4
     },
     navIcon: {
         fontSize: 16,
@@ -796,7 +853,6 @@ const styles = StyleSheet.create({
     },
     controlsRow: {
         flexDirection: 'row',
-        width: CONTROL_ROW_WIDTH,
         gap: CONTROL_BUTTON_GAP,
         marginBottom: 0,
         flexWrap: 'nowrap'
@@ -805,20 +861,29 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end'
     },
     controlsRowBottom: {
-        justifyContent: 'space-between'
+        justifyContent: 'flex-end'
     },
     controlsRowSpacer: {
         height: CONTROL_ROW_VERTICAL_GAP
     },
-    controlButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
+    controlButtonOuter: {
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.15)',
+        borderColor: 'rgba(69, 94, 79, 0.71)',
+        shadowColor: '#000000',
+        shadowOpacity: 0.7,
+        shadowRadius: 5,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 4,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    controlButtonInner: {
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#00353c'
+        padding: 0,
+        width: '100%',
+        height: '100%'
     },
     controlButtonText: {
         color: '#e2e8f0',

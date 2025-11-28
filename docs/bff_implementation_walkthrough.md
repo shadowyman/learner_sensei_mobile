@@ -2,6 +2,16 @@
 
 This walkthrough breaks BFF implementation into small, testable steps, starting from the simplest possible end‑to‑end path for the iOS mobile client. It is intentionally narrower than the full `BFF_System_Master_Arhitectural_Guide.md` and can be followed incrementally.
 
+> **How to read this document**
+>
+> - Steps 1–7 describe **scaffolding milestones**: they get basic LLM streaming, Core extraction, and BFF hardening in place as quickly as possible. Some of these steps (especially Step 1’s direct RN→BFF→WebView streaming for teaching turns) are intentionally transitional.
+> - Step 8 defines the **Phase 1 target architecture** for mobile: the WebView’s existing teaching pipeline owns each turn; the BFF owns LLM calls; Core owns reusable tools. Where there is tension between Step 8 and earlier steps, **Step 8 is the canonical Phase 1 intent**.
+> - When implementing new behavior or refactoring existing code:
+>   - Use this document together with:
+>     - `docs/architecture_mobile_sensei_phase1.md` (big‑picture mobile architecture).
+>     - `docs/llm_entry_exit_traces.md` and `docs/architecture_mobile_llm_tools_migration_plan.md` (per‑function LLM guidance).
+>   - Treat early steps’ patterns as **bootstrapping** unless explicitly called out as part of the final Phase 1 design.
+
 The first milestone is a **simple LLM streaming turn**: get real Gemini output flowing from the mobile app, through the BFF, back into the WebView, without migrating full Sensei Core logic yet.
 
 ---
@@ -30,6 +40,8 @@ End‑to‑end flow for one turn:
 6. The web bundle uses existing DOM helpers to render the Sensei bubble from the streamed text.
 
 At this stage, all “core logic” is just the prompt string built in `SenseiCoreAdapter.buildPrompt`.
+
+> **Important:** This step’s direct RN→BFF→WebView streaming path is a **transitional scaffold**. It proves the BFF can stream from Gemini to the mobile app, but it is **not** the final teaching architecture for Phase 1. Step 8 later moves the teaching loop back into the WebView (matching desktop), while keeping BFF as the LLM proxy. New features should not be tightly coupled to this early streaming pattern.
 
 ### 1.2 Implement a Real `GeminiGateway.streamMainResponse`
 
@@ -130,9 +142,9 @@ Replace the existing deterministic‑fix implementation with a call into Core:
    - `const { applyBacktickFix, applyUniversalQuoteFix } = require('@sensei/core/mermaidErrorRecovery');`
 2. In `recover(payload)`:
    - Use the Core functions instead of locally re‑encoding the same rules.
-   - Keep the high‑level shape:
-     - Apply deterministic fixes first.
-     - Defer LLM‑based repair to a later step (Step 3), where we unify LLM usage as well.
+   - Keep the high‑level shape with explicit modes:
+     - `mode:'auto'`: apply deterministic fixes; if they change the diagram, return it; if not, fall through to a single LLM attempt in the same call.
+     - `mode:'llm'`: skip deterministic early returns and always invoke the LLM (set `forceLlm:true`).
 
 After this step, both web and BFF use the same TypeScript implementation for mermaid deterministic behavior, and the first Core module (`@sensei/core/mermaidErrorRecovery`) exists and builds successfully.
 
@@ -256,7 +268,7 @@ After Step 3:
 
 **Objective:** Apply the same “Core + generic LLM interface” pattern to wrap‑up assessment generation, but first on the **web path only**. This keeps wrap‑up behavior identical for the web bundle while preparing the logic to be callable from the BFF in a later step.
 
-### 4.1 Move Wrap‑Up Generation Logic into Core
+### 4.1 Move Wrap‑Up Generation Logic into Core (single prompt source)
 
 Current wrap‑up flow on web:
 
@@ -275,11 +287,9 @@ For Step 4:
 
 1. Create `core/wrapUpAssessment.ts`.
 2. Move `generateWrapUpAssessment` and its internal helpers from `src/geminiService.ts` into `core/wrapUpAssessment.ts`.
-3. Ensure `buildWrapUpAssessmentPrompt` is available to Core:
-   - Either move it from `src/prompts.ts` into a Core prompt module.
-   - Or re‑export it in a way that Core can import without depending on browser‑specific code.
+3. **Move the prompt builder too**: relocate `buildWrapUpAssessmentPrompt` from `src/prompts.ts` into Core (or re‑export it from Core). After the move, remove the duplicate in `src/prompts.ts` or make it a thin re-export so there is a single prompt source in Core.
 
-At this point, Core owns all prompt and parsing logic for wrap‑up; the web app will soon call into this module instead of `src/geminiService.ts` for wrap‑up generation.
+At this point, Core owns all prompt and parsing logic for wrap‑up; the web app will call into this module instead of `src/geminiService.ts` for wrap‑up generation.
 
 ### 4.2 Refactor Core Wrap‑Up to Use `CoreLlmClient`
 
@@ -345,7 +355,7 @@ Changes:
 
 After Step 4:
 
-- Wrap‑up assessment generation logic lives in Core and uses the generic `CoreLlmClient`, like mermaid recovery, for the **web path**.
+- Wrap‑up assessment generation logic and its prompt live in Core and use the generic `CoreLlmClient`, like mermaid recovery, for the **web path**.
 - The web bundle implements `CoreLlmClient` using the existing `GoogleGenAI` client, preserving behavior.
 - The BFF’s `WrapUpService` remains a stub for now. Moving wrap‑up generation server‑side requires a clear design for how curriculum/module context (currently held in `src/index.tsx` and `src/moduleSelectionHandler.ts`) is surfaced to the BFF (e.g., via new turn metadata or a dedicated wrap‑up request path). Until that curriculum state story is defined, it is intentional that wrap‑up generation stays web‑only while the Core API and LLM interface are prepared for future BFF usage.
 
@@ -435,8 +445,8 @@ With Steps 1–4 and this hardening in place:
    - Streaming:
      - Short and long turns stream multiple `chunk` frames.
      - Keepalives and buffered mode behave correctly under slow or stalled network.
-   - Mermaid:
-     - WebView mermaid errors trigger `/mermaid/recover`; BFF applies Core deterministic fixes and, if needed, LLM fallback via `GeminiGateway`.
+- Mermaid:
+  - WebView mermaid errors trigger `/mermaid/recover`; BFF runs `mode:'auto'` first (deterministic fixes, falls through to LLM if unchanged) and, on subsequent attempts, `mode:'llm'` (force LLM) via `GeminiGateway`.
    - Wrap‑up (Phase 1):
      - Wrap‑up remains web‑driven, but BFF streaming does not interfere with the overlay flow.
    - Telemetry:
@@ -446,7 +456,7 @@ After Step 5:
 
 - The BFF’s LLM streaming and tool endpoints are hardened and aligned with mobile expectations.
 - All server-side LLM calls go through `GeminiGateway`, and error semantics are consistent.
-- Phase 1’s goal—secure, spec-aligned LLM proxy + mermaid support for the mobile app—is met without moving the teaching loop off the web bundle.
+- Phase 1’s foundational goal—secure, spec-aligned LLM proxy + mermaid support for the mobile app—is met. The **canonical Phase 1 teaching architecture** is still defined in Step 8: the WebView owns the teaching loop, and BFF remains the LLM proxy. Treat the hardened streaming path from this step as infrastructure that future work can reuse, not as a license to move teaching logic into BFF.
 
 ---
 
@@ -618,37 +628,26 @@ On the BFF:
 
 This adapter is the single BFF implementation of `CoreLlmClient` used by Core modules and, where appropriate, by thin HTTP endpoints that proxy raw LLM calls.
 
-### 7.4 Choose Pattern A vs Pattern B per `*` Function
+### 7.4 Required Pattern (Pattern A Only) per `*` Function
 
-For each `*` function, choose one of the two patterns:
-
-- **Pattern A – Shared Core (like mermaid and wrap-up):**
-  - Move the entire logical LLM “tool” (prompt construction, retries, parsing) to `core/` as a TS module.
-  - Export a function that depends on `CoreLlmClient` and returns the same structured result the web currently expects.
-  - Web and BFF both call this Core function:
-    - Web uses a browser `CoreLlmClient` implementation (which can call BFF or, in a pure-web build, talk to Gemini directly).
-    - BFF calls the same Core function via the BFF-side `CoreLlmAdapter`.
-  - If server ownership of the result is required (e.g., for Phase‑1 mobile), add a small BFF endpoint (similar to `/sessions/:id/wrapup`) that:
-    - Accepts structured inputs.
-    - Invokes the Core function with `CoreLlmAdapter`.
-    - Returns the structured JSON output.
-
-- **Pattern B – LLM‑Only Proxy (logic stays web-side):**
-  - Keep the function’s main logic in the web bundle (`src/`).
-  - It uses `CoreLlmClient` to obtain LLM output, but:
-    - The WebView/mobile build’s `CoreLlmClient` implementation calls a generic BFF endpoint (e.g., `/llm/text` or `/llm/json`) that:
-      - Accepts `{ task, prompt }`.
-      - Calls `GeminiGateway.callText/Json`.
-      - Returns raw LLM text/JSON.
-  - All parsing, planning, and domain-specific interpretation remain in the web bundle; BFF is only the LLM transport.
-
-Pattern A should be used when the logic is clearly reusable and testable as a Core “tool.” Pattern B should be used when the function is highly web‑coupled and migrating it into Core would overreach Phase‑1 scope.
+For every `*` function listed in `docs/llm_entry_exit_traces.md`, use Pattern A (Shared Core):
+- Move the **entire implementation** into `core/<function>.ts`. That means: prompt builder, model/config selection, retries/backoff, response parsing/validation/normalization, and any helper transforms the caller relies on. The original `src/` file should retain only a thin call site (or re-export), not partial logic.
+- Move the prompt builder(s) out of `src/prompts.ts` into the Core module (or make `prompts.ts` re-export the Core version) so there is one prompt source of truth.
+- Export a function that depends on `CoreLlmClient` and returns the structured result the web expects.
+- Web and BFF both call this Core function:
+  - Web uses a browser `CoreLlmClient` implementation (local SDK or BFF-proxy).
+  - BFF calls the same Core function via the BFF-side `CoreLlmAdapter`.
+- If server ownership is wanted, add a small BFF endpoint for that tool that:
+  - Accepts structured inputs.
+  - Invokes the Core function with `CoreLlmAdapter`.
+  - Returns the structured JSON output.
+- After migrating each `*`, ensure the WebView/mobile build actually uses the BFF-backed path: wire the WebView’s `CoreLlmClient` (or a specific endpoint call) so Sensei Mobile executes the Core function via BFF → `GeminiGateway`, not the local SDK. Desktop web may continue to use the local SDK implementation. Use the existing WebView flag `window.__SENSEI_MOBILE_BUILD__` to branch. Example: mermaid recovery should send a bridge message to RN and let `BffClient.recoverMermaid` hit `/mermaid/recover`, then return the result to the WebView; desktop keeps the local `runMermaidRecovery` path.
 
 ### 7.5 Repeat Until All Phase‑1 `*` Functions Use BFF‑Backed `CoreLlmClient`
 
 Iterate over all `*` entries in `docs/llm_entry_exit_traces.md`:
 
-- For each, apply 7.1–7.4 and pick Pattern A or B.
+- For each, apply 7.1–7.4 using Pattern A only (no Pattern B).
 - Confirm that:
   - The function now depends on `CoreLlmClient`.
   - The web/mobile `CoreLlmClient` implementation for the relevant build sends LLM traffic to the BFF.
@@ -657,11 +656,10 @@ Iterate over all `*` entries in `docs/llm_entry_exit_traces.md`:
 
 After Step 7:
 
-- All `*` LLM entry points identified in `docs/llm_entry_exit_traces.md` participate in the shared Phase‑1 LLM abstraction:
-  - They no longer construct `GoogleGenAI` clients directly.
-  - They all consume a `CoreLlmClient` interface.
-  - For mobile/WebView builds, that `CoreLlmClient` is implemented via BFF → `GeminiGateway`.
-- BFF remains an LLM/infra proxy (no curriculum/learner state), while Core and the web bundle remain the source of truth for teaching logic and UI.
+- All `*` LLM entry points in `docs/llm_entry_exit_traces.md` use `CoreLlmClient`; no direct `GoogleGenAI` construction remains.
+- Prompts and parsing for the migrated functions live in Core (single source of truth).
+- For mobile/WebView builds, `CoreLlmClient` is implemented via BFF → `GeminiGateway`; web desktop can use either local SDK or BFF-proxy.
+- BFF continues as LLM/infra proxy (no curriculum/learner state); Core + web remain the source of teaching logic/UX.
 
 ---
 
@@ -751,6 +749,7 @@ After Step 8:
 - Mobile turns use the same teaching pipeline as web: `handleUserInputText` and `generateNextSenseiResponse` in the WebView remain the source of truth for curriculum and learner behavior.
 - All LLM calls inside that pipeline still go through BFF’s `GeminiGateway` via `CoreLlmClient`, preserving the Phase‑1 “LLM/infra proxy” design.
 - RN’s responsibility is limited to capturing input, relaying it to the WebView, and forwarding UI-related events (wrap-up overlay, footer, selection, telemetry), not running the teacher loop.
+- Earlier steps’ direct RN→BFF→WebView streaming patterns for main turns should now be treated as **transitional** or reserved for future server-driven modes; they are not the canonical Phase 1 teaching path once Step 8 is in place.
 
 ---
 
@@ -883,8 +882,9 @@ All paths below are relative to `bff/`.
       - Hard timeout with `TURN_TIMEOUT`.
 - `mermaidService.js`
   - Mermaid diagram recovery domain logic:
-    - Applies deterministic fixes to the diagram source.
-    - If still invalid, builds a repair prompt and calls `GeminiGateway` for LLM assistance.
+    - `mode:'auto'`: applies deterministic fixes and, if they make no change, falls through to a single LLM attempt in the same call.
+    - `mode:'llm'`: forces an LLM attempt (skips deterministic early-return).
+    - Returns `{ fixed, fixedCode? }` to controllers.
     - Returns `{ fixed, fixedCode? }` to controllers.
 - `wrapUpService.js`
   - Phase‑1 stub:

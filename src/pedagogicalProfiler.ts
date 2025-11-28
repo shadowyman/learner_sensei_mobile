@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { logger, DEBUG_FLAGS } from './logger';
+import { logger } from './logger';
 import { GoogleGenAI } from "@google/genai";
 import { LearnerModel, normalizeHelpSeekingStyle } from './adaptiveEngine';
 import { generateDirectiveFromMetaPrompt } from './geminiService';

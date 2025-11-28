@@ -60,7 +60,7 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
         <inviolable_rule>NEVER include comments in code changes.</inviolable_rule>
         <inviolable_rule> ALWAYS while executing any major protocol, invoke `update_plan` to enumerate every required step individually and track progress from start to finish. ROOT CAUSE ANALYSIS PROTOCOL is an exception</inviolable_rule>>
         <inviolable_rule> NEVER revert, change any modifications you didn't do yourself even when you discovered them later</inviolable_rule>
-        <inviolable_rule>Use the apply_patch tool to edit files (NEVER try applypatch or apply-patch, only apply_patch): {"command":["apply_patch","*** Begin Patch\n*** Update File: path/to/file.py\n@@ def example():\n- pass\n+ return 123\n*** End Patch"]}<inviolable_rule>
+        <inviolable_rule>Call the harness apply_patch tool to edit files, no <inviolable_rule>
         <inviolable_rule>Do not waste tokens by re-reading files after calling apply_patch on them.</inviolable_rule>
     </constraints>
     <test_implementation_mandate>

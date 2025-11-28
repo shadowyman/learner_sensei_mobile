@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="floppy_body" x1="0" y1="0" x2="100" y2="100">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+    <linearGradient id="shutter_metal" x1="0" y1="0" x2="0" y2="40">
+      <stop offset="0%" stop-color="#F1F5F9" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+    <filter id="floppy_shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+      <feOffset dx="0" dy="4" />
+      <feFlood flood-color="#000000" flood-opacity="0.2" />
+      <feComposite in2="SourceAlpha" operator="in" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#floppy_shadow)">
+    <path d="M10 10 H 75 L 90 25 V 90 H 10 Z" fill="url(#floppy_body)" rx="4" stroke="#1E40AF" stroke-width="1" />
+    <rect x="30" y="10" width="40" height="35" rx="2" fill="url(#shutter_metal)" stroke="#475569" stroke-width="0.5" />
+    <rect x="38" y="15" width="12" height="20" rx="1" fill="#1E293B" opacity="0.8" />
+    <rect x="25" y="55" width="50" height="25" rx="1" fill="white" opacity="0.9" />
+    <path d="M30 65 H 70 M30 72 H 55" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" />
+  </g>
+</svg>
+

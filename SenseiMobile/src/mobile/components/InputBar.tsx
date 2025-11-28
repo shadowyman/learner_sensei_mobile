@@ -109,12 +109,12 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		paddingHorizontal: 10,
-		paddingVertical: 8,
-		marginBottom: 20,
+		paddingVertical: 0,
+		marginBottom: 10,
+		width: '98%',
+		alignSelf: 'center',
 		backgroundColor: 'transparent',
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)'
+    gap: 10
   },
 	inputContainer: {
 		flex: 1,

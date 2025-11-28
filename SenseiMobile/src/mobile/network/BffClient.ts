@@ -182,11 +182,20 @@ export class BffClient implements BffClientLike {
     }
 
     async recoverMermaid(payload: MermaidRecoveryPayload): Promise<MermaidRecoveryResult> {
-        const response = await this.fetchImpl(`${this.baseUrl}/mermaid/recover`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        const controller = new AbortController();
+        const timeoutMs = 42000;
+        const timerId = setTimeout(() => controller.abort(), timeoutMs);
+        let response: Response;
+        try {
+            response = await this.fetchImpl(`${this.baseUrl}/mermaid/recover`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timerId);
+        }
         if (!response.ok) {
             throw new Error(`Mermaid recovery failed: ${response.status}`);
         }

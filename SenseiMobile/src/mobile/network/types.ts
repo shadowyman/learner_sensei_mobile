@@ -38,7 +38,9 @@ export interface MermaidRecoveryPayload {
     code: string;
     theme?: string;
     errorHash?: string;
+    errorMessage?: string;
     context?: Record<string, unknown>;
+    mode?: 'auto' | 'llm';
 }
 
 export interface MermaidRecoveryResult {

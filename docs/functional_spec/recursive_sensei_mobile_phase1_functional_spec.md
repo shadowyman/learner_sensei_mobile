@@ -122,10 +122,11 @@ Backend Workflow Notes:
 
 Recovery Flow (Parity with Web):
 - MRM‑REC‑1: Detection – WebView posts an `error` event (or `mermaid.parse` throws). RN records `messageId`, `code`, `errorHash`.
-- MRM‑REC‑2: Repair request – RN calls BFF `POST /mermaid/recover` with `{ messageId, code, theme, errorHash, context }`. BFF uses the existing web prompt/templates to ask the LLM for a fixed diagram.
+- MRM‑REC‑2: Repair request (attempt 1) – RN calls BFF `POST /mermaid/recover` with `{ messageId, code, theme, errorHash, errorMessage, mode:'auto' }`. The BFF applies deterministic fixes; if they change the diagram it returns that version, otherwise the same call falls through to an LLM attempt and returns the LLM result.
 - MRM‑REC‑3: Re‑render – On `{ fixedCode }`, RN re‑invokes WebView render; if success, the diagram is replaced inline and telemetry logs `recovered:true`.
-- MRM‑REC‑4: Fallback – If still failing or offline, keep raw code fence and show a Retry button inline. Limit to 2 retries per message.
-- MRM‑REC‑5: Telemetry – Include `recoveryAttempt`, `fixed` flags in logs; no PII sent.
+- MRM‑REC‑4: Additional retries – If rendering still fails or the first call returned `{ fixed:false }`, RN may issue up to **two** more `mode:'llm'` requests (maximum **three** total attempts per message). Each response is rendered in the WebView once; failures fall through to the next attempt.
+- MRM‑REC‑5: Fallback – If all attempts fail or offline, keep raw code fence and show Retry inline.
+- MRM‑REC‑6: Telemetry – Include `recoveryAttempt`, `fixed` flags in logs; no PII sent.
 
 ### 5.7 Key Takeaway Enhancer and Standard Enhancer
 - FR‑ENH‑1: Standard “Enhance” per‑message button remains available (always visible on each bubble); tapping runs the enhancement flow and updates the rendered markdown.
@@ -243,7 +244,7 @@ Backend Workflow Notes:
 - AC‑11 Key Takeaway (FF): With flag off, no augmentation; with flag on, augmentation mirrors web behavior (prompt hash reuse).
 - AC‑12 Code Editor: Modal opens, inserts code into input, and preserves formatting on send.
 - AC‑13 Mermaid Render: Valid diagrams render via local WebView to SVG using the same theme logic as web.
-- AC‑14 Mermaid Recovery: For invalid code, RN invokes  and re‑renders fixedCode; max 2 retries; success replaces in place.
+- AC‑14 Mermaid Recovery: For invalid code, RN invokes `/mermaid/recover` with `mode:auto` (heuristics, falls through to LLM if unchanged), then up to two `mode:llm` retries; max 3 attempts; success replaces in place.
 - AC‑15 Mermaid Fallback: After retries fail, raw code fence + Retry shown; event logged.
 - AC‑16 Wrap‑Up: LLM‑generated questions display; client‑side scoring shows immediate per‑question feedback; no server writes.
 - AC‑17 Save Export: Export creates a local file (via document picker/share sheet) using the defined schema.

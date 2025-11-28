@@ -3,13 +3,12 @@
  * Includes export functionality to download logs
  */
 
-// Debug flags
 export const DEBUG_FLAGS = {
     prompt_debug: false,
     mermaid_debug: false,
     learner_analysis_debug: false,
     curriculum_debug: false,
-    performance_debug: true  // Enable performance logging
+    performance_debug: true
 };
 
 type LogLevel = 'log' | 'warn' | 'error' | 'debug' | 'info';
@@ -307,6 +306,7 @@ class Logger {
 
     public getAllPerfStats(): Array<{ label: string; count: number; avg: number; min: number; max: number; total: number }> {
         if (!DEBUG_FLAGS.performance_debug) return [];
+
         const summaries: Array<{ label: string; count: number; avg: number; min: number; max: number; total: number }> = [];
         for (const label of this.performanceMetrics.keys()) {
             const stats = this.getPerfStats(label);

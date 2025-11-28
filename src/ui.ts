@@ -10,10 +10,12 @@ import { resetEnhancementState } from './enhancementManager';
 import type { EnhancementHighlight, RenderMarkdownOptions } from './enhancementManager';
 import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
 import { LearnerModel } from './adaptiveEngine';
-import { runMermaidRecovery } from './mermaidErrorRecovery';
+import { runMermaidRecovery } from '@sensei/core/mermaidErrorRecovery';
+import { createBrowserCoreLlmClient } from '@sensei/core';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { API_KEY } from './index';
+import { requestMermaidRecoveryViaBridge } from './mobile/webviewMessageRouter';
 import { mermaidManager, DEFAULT_MERMAID_THEME } from './mermaidManager.js';
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
@@ -2261,73 +2263,8 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
             hljs.highlightElement(block as HTMLElement);
         });
 
-        // Mermaid rendering logic - skip if skipMermaid is true
         if (!message.skipMermaid) {
-            const mermaidBlocks = messageText.querySelectorAll('pre code.language-mermaid');
-
-            for (const block of mermaidBlocks) {
-            const preElement = block.parentElement as HTMLElement;
-            const rawMermaidCodeFromLLM = block.textContent || '';
-            const rawMermaidCode = rawMermaidCodeFromLLM;
-
-            logger.log("About to render Mermaid. Raw code is:\n", rawMermaidCode);
-            try {
-                // The import itself ensures mermaid is available or fails loading the module.
-                const { svg } = await mermaidManager.render(`mermaid-${message.id}-${Math.random().toString(36).substring(2)}`, rawMermaidCode);
-                renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
-            } catch (error: any) {
-                if (DEBUG_FLAGS.mermaid_debug) {
-                    logger.error("Mermaid rendering failed:", error);
-                }
-                
-                // Attempt recovery with our two-step approach
-                if (!block.getAttribute('data-recovery-attempted')) {
-                    block.setAttribute('data-recovery-attempted', 'true');
-
-                    const fixingDiv = document.createElement('div');
-                    fixingDiv.className = 'mermaid-error';
-                    fixingDiv.style.color = '#f59e0b';
-                    fixingDiv.innerHTML = `
-                        <span class="inline-spinner"></span> Attempting to fix diagram...
-                    `;
-                    preElement.replaceWith(fixingDiv);
-
-                    try {
-                        const recoveryResult = await runMermaidRecovery({
-                            ai: window.ai || null,
-                            initialDiagram: rawMermaidCode,
-                            initialError: error.message || 'Unknown error',
-                            renderAttempt: async (diagram: string) => {
-                                const uniqueId = `mermaid-recovery-${message.id}-${Math.random().toString(36).substring(2)}`;
-                                return mermaidManager.render(uniqueId, diagram);
-                            }
-                        });
-                        if (recoveryResult) {
-                            const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
-                            replaceMermaidFenceInRaw(message.id, rawMermaidCode, replacement, registry.rawText);
-                            renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
-                            return;
-                        }
-                    } catch (fixError) {
-                        logger.error('Error during Mermaid recovery:', fixError);
-                    }
-
-                    const errorDiv = document.createElement('div');
-                    logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
-                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]", registry.rawText);
-                    errorDiv.className = 'mermaid-error';
-                    errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
-                    fixingDiv.replaceWith(errorDiv);
-                } else {
-                    const errorDiv = document.createElement('div');
-                    logger.debug('[MERMAID_FAILOVER] Logging failed diagram codeblock:\n', rawMermaidCode);
-                    replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]", registry.rawText);
-                    errorDiv.className = 'mermaid-error';
-                    errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
-                    preElement.replaceWith(errorDiv);
-                }
-            }
-        }
+            await processMermaidBlocks(message.id);
         }
 
         addLanguageDisplayToCodeBlocks_internal(messageText);
@@ -2593,16 +2530,10 @@ function scheduleThemePaletteHide() {
 
 function positionThemePalette() {
     if (!themePalettePanel || !themePaletteTrigger) return;
-    const triggerRect = themePaletteTrigger.getBoundingClientRect();
     const panelRect = themePalettePanel.getBoundingClientRect();
-    const offset = 12;
     const viewportMargin = 16;
-    const top = triggerRect.bottom + window.scrollY + offset;
-    let left = triggerRect.left + (triggerRect.width / 2) - (panelRect.width / 2) + window.scrollX;
-    const minLeft = window.scrollX + viewportMargin;
-    const maxLeft = window.scrollX + window.innerWidth - panelRect.width - viewportMargin;
-    if (left < minLeft) left = minLeft;
-    if (left > maxLeft) left = Math.max(minLeft, maxLeft);
+    const top = window.scrollY + viewportMargin;
+    const left = window.scrollX + window.innerWidth - panelRect.width - viewportMargin;
     themePalettePanel.style.top = `${top}px`;
     themePalettePanel.style.left = `${left}px`;
 }
@@ -2973,14 +2904,15 @@ export async function processMermaidBlocks(messageId: string, options?: { skipRe
         const rawMermaidCode = rawMermaidCodeFromLLM;
 
         if (DEBUG_FLAGS.mermaid_debug) {
-            logger.log("Processing Mermaid in phase 2. Raw code is:\n", rawMermaidCode);
+            logger.log('Processing Mermaid in phase 2. Raw code is:\n', rawMermaidCode);
         }
+
         try {
             const { svg } = await mermaidManager.render(`mermaid-${messageId}-${Math.random().toString(36).substring(2)}`, rawMermaidCode);
             renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
         } catch (error: any) {
             if (DEBUG_FLAGS.mermaid_debug) {
-                logger.error("Mermaid rendering failed:", error);
+                logger.error('Mermaid rendering failed:', error);
             }
             if (skipRecovery) {
                 const errorDiv = document.createElement('div');
@@ -3003,20 +2935,82 @@ export async function processMermaidBlocks(messageId: string, options?: { skipRe
                 preElement.replaceWith(fixingDiv);
 
                 try {
-                    const recoveryResult = await runMermaidRecovery({
-                        ai: window.ai || null,
-                        initialDiagram: rawMermaidCode,
-                        initialError: error.message || 'Unknown error',
-                        renderAttempt: async (diagram: string) => {
-                            const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
-                            return mermaidManager.render(uniqueId, diagram);
+                    const isMobileWebView = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
+                    if (isMobileWebView) {
+                        const mobileMaxAttempts = 3;
+                        let currentDiagram = rawMermaidCode;
+                        let currentError = error?.message || 'Unknown error';
+                        let recovered = false;
+
+                        // Attempt 1: deterministic-only from BFF
+                        const firstResult = await requestMermaidRecoveryViaBridge({
+                            messageId: `mermaid-${messageId}-${Math.random().toString(36).slice(2)}`,
+                            code: currentDiagram,
+                            theme: mermaidManager.getCurrentTheme(),
+                            errorMessage: currentError,
+                            mode: 'auto'
+                        });
+                        if (firstResult.fixed && firstResult.fixedCode) {
+                            currentDiagram = firstResult.fixedCode;
+                            try {
+                                const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
+                                const renderResult = await mermaidManager.render(uniqueId, currentDiagram);
+                                const replacement = '```mermaid\n' + currentDiagram + '\n```';
+                                replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
+                                renderMermaidThumbnailWithTheme(fixingDiv, renderResult.svg, mermaidManager.getCurrentTheme(), currentDiagram);
+                                recovered = true;
+                            } catch (renderErr: any) {
+                                currentError = renderErr?.message || 'Unknown render error';
+                            }
                         }
-                    });
-                    if (recoveryResult) {
-                        const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
-                        replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
-                        renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
-                        continue;
+
+                        // Attempts 2..N: LLM via BFF only if still not recovered
+                        if (!recovered) {
+                            for (let attempt = 2; attempt <= mobileMaxAttempts; attempt++) {
+                                const llmResult = await requestMermaidRecoveryViaBridge({
+                                    messageId: `mermaid-${messageId}-${Math.random().toString(36).slice(2)}`,
+                                    code: currentDiagram,
+                                    theme: mermaidManager.getCurrentTheme(),
+                                    errorMessage: currentError,
+                                    mode: 'llm'
+                                });
+                                if (!llmResult.fixed || !llmResult.fixedCode) {
+                                    continue;
+                                }
+                                currentDiagram = llmResult.fixedCode;
+                                try {
+                                    const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
+                                    const renderResult = await mermaidManager.render(uniqueId, currentDiagram);
+                                    const replacement = '```mermaid\n' + currentDiagram + '\n```';
+                                    replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
+                                    renderMermaidThumbnailWithTheme(fixingDiv, renderResult.svg, mermaidManager.getCurrentTheme(), currentDiagram);
+                                    recovered = true;
+                                    break;
+                                } catch (renderErr: any) {
+                                    currentError = renderErr?.message || 'Unknown render error';
+                                }
+                            }
+                        }
+
+                        if (recovered) {
+                            continue;
+                        }
+                    } else {
+                        const recoveryResult = await runMermaidRecovery({
+                            llm: createBrowserCoreLlmClient((window as any).ai),
+                            initialDiagram: rawMermaidCode,
+                            initialError: error.message || 'Unknown error',
+                            renderAttempt: async (diagram: string) => {
+                                const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
+                                return mermaidManager.render(uniqueId, diagram);
+                            }
+                        });
+                        if (recoveryResult) {
+                            const replacement = '```mermaid\n' + recoveryResult.diagram + '\n```';
+                            replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
+                            renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
+                            continue;
+                        }
                     }
                 } catch (fixError) {
                     logger.error('Error during Mermaid recovery:', fixError);

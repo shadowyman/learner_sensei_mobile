@@ -19,7 +19,7 @@ const createContainer = () => {
   const rateLimiter = new RateLimiter(config.rateLimit);
   const sessionService = new SessionService({ sessionStore, logger, topicRegistry: config.topicRegistry });
   const turnService = new TurnService({ sessionStore, logger });
-  const geminiGateway = new GeminiGateway({ logger });
+  const geminiGateway = new GeminiGateway({ logger, config });
   const mermaidService = new MermaidService({ logger, geminiGateway });
   const telemetryService = new TelemetryService({ logger });
   const wrapUpService = new WrapUpService({ logger });

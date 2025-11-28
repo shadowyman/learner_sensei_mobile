@@ -1,20 +1,15 @@
+const {
+  applyBacktickFix,
+  applyUniversalQuoteFix,
+  fixSubgraphDirections,
+  attemptMermaidFix,
+  ensureGraphDirective
+} = require('@sensei/core/mermaidErrorRecovery');
+const CoreLlmAdapter = require('../integration/coreLlmAdapter');
+
 const TAG = 'MERMAID_SERVICE';
 
 const stripCodeFence = (code) => code.replace(/```(mermaid)?/gi, '').trim();
-
-const applyDeterministicFixes = (code) => {
-  let next = stripCodeFence(code);
-  let changed = next !== code;
-  if (/\bdirection\s+td\b/i.test(next)) {
-    next = next.replace(/\bdirection\s+td\b/gi, 'direction TB');
-    changed = true;
-  }
-  if (!/^graph\s+/i.test(next)) {
-    next = `graph TD\n${next}`.trim();
-    changed = true;
-  }
-  return { changed, code: next };
-};
 
 class MermaidService {
   constructor({ logger, geminiGateway }) {
@@ -23,15 +18,37 @@ class MermaidService {
   }
 
   async recover(payload) {
-    const baseCode = payload.code || '';
-    const deterministic = applyDeterministicFixes(baseCode);
-    if (deterministic.changed) {
-      this.logger.info(TAG, 'deterministic fix applied', { messageId: payload.messageId });
-      return { fixed: true, fixedCode: deterministic.code };
+    const inputDiagram = stripCodeFence(payload.code || '');
+    const mode = payload.mode === 'llm' ? 'llm' : 'auto';
+
+    let candidate = ensureGraphDirective(inputDiagram);
+    if (mode === 'auto') {
+      let changed = candidate !== inputDiagram;
+      const backtickFixed = applyBacktickFix(candidate);
+      if (backtickFixed !== candidate) {
+        candidate = backtickFixed;
+        changed = true;
+      }
+      const quoteFixed = applyUniversalQuoteFix(candidate);
+      if (quoteFixed !== candidate) {
+        candidate = quoteFixed;
+        changed = true;
+      }
+      const directionFixed = fixSubgraphDirections(candidate);
+      if (directionFixed !== candidate) {
+        candidate = directionFixed;
+        changed = true;
+      }
+      this.logger.info(TAG, 'deterministic pass', { messageId: payload.messageId, fixed: changed });
+      if (changed) {
+        return { fixed: true, fixedCode: candidate };
+      }
     }
-    const llmResult = await this.geminiGateway.recoverMermaidDiagram(payload);
+
+    const llm = new CoreLlmAdapter({ geminiGateway: this.geminiGateway });
+    const llmResult = await attemptMermaidFix(llm, candidate, payload.errorMessage || '', { forceLlm: true });
     this.logger.info(TAG, 'llm fix attempt', { messageId: payload.messageId, fixed: llmResult.fixed });
-    return llmResult.fixed ? { fixed: true, fixedCode: llmResult.fixedCode } : { fixed: false };
+    return llmResult.fixed && llmResult.diagram ? { fixed: true, fixedCode: llmResult.diagram } : { fixed: false };
   }
 }
 

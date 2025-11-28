@@ -41,8 +41,8 @@ Out of Scope
 - Feature flag and configs are centralized in `model_usage.ts` (e.g., `ENABLE_KEY_TAKEAWAY_ENHANCER`, `KEY_TAKEAWAY_*`) (src/model_usage.ts:92–113).
 
 1.5 Mermaid rendering and recovery
-- Mermaid blocks render client-side in the UI with themed thumbnails; on failure, a recovery UI is shown, and fixes may be attempted (src/ui.ts:2216–2260; 2892–2960).
-- Recovery includes rule-based fixes and can invoke an LLM call client-side to produce a repaired diagram (src/mermaidErrorRecovery.ts:200–214; 348–387). The web code attempts multiple render/fix cycles (maxAttempts default 5 in `runMermaidRecovery`), whereas Phase 1 mobile will limit visible retries to two per Functional Spec (see §6 Parity Checklist).
+- Mermaid blocks render client-side in the UI with themed thumbnails; on failure, a recovery UI is shown, and fixes may be attempted (src/ui.ts:2216–2260; 2892–3010).
+- Recovery includes rule-based fixes and can invoke an LLM call client-side to produce a repaired diagram (src/mermaidErrorRecovery.ts:200–214; 348–387). The web code attempts multiple render/fix cycles (maxAttempts default 5 in `runMermaidRecovery`); Phase 1 mobile now performs up to **three** visible attempts: first an `auto` BFF call that applies deterministic fixes and, if they make no change, falls through to an LLM attempt; if the WebView render still fails, one or two additional `mode:'llm'` calls are issued for forced LLM fixes before showing the fallback UI.
 
 1.6 Save/Load parity, Notepad
 - Save/Load is local: `SaveLoadProgressManager` serializes/deserializes complex types and downloads a JSON file (src/saveloadProgressManager.ts:96–114; `serializeForSave` etc. in src/saveloadSerialization.ts:1–40, 120–170).
@@ -227,7 +227,7 @@ Telemetry & Crash (Functional Spec alignment)
 - AC‑11 Key Takeaway (FF): Flag OFF by default; when ON mirrors web behavior. Engineering: feature flags (§6).
 - AC‑12 Code Editor: Modal opens, inserts code into input, preserves formatting. Engineering: RN modal + bridge insertion.
 - AC‑13 Mermaid Render: WebView renders with same theme logic as web. Engineering: bundle mermaid + theme integration (§6, §7).
-- AC‑14 Mermaid Recovery: RN calls /mermaid/recover; re-renders fixedCode; max 2 retries. Engineering: §6.
+- AC‑14 Mermaid Recovery: RN calls /mermaid/recover; first call uses `mode:auto` (heuristics, falls through to LLM if unchanged), then up to two `mode:llm` retries; total max 3 attempts. Engineering: §6.
 - AC‑15 Mermaid Fallback: After retries fail, show raw fence + Retry; log event. Engineering: §6 + telemetry.
 - AC‑16 Wrap‑Up: Client-side scoring; immediate feedback; no server writes. Engineering: §6.
 - AC‑17 Save Export: Local file via share sheet; defined schema. Engineering: RN FS export aligned with web schema (§6).

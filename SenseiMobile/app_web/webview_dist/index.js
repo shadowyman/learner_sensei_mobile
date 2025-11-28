@@ -44,7 +44,6 @@ var init_logger = __esm({
       learner_analysis_debug: false,
       curriculum_debug: false,
       performance_debug: true
-      // Enable performance logging
     };
     Logger = class {
       constructor() {
@@ -1518,7 +1517,7 @@ var init_adaptiveEngine = __esm({
 
 // src/model_usage.ts
 import { Type } from "@google/genai";
-var GEMINI_PRO, GEMINI_FLASH, TEACHING_PLAN_GENERATION_CONFIG, WRAP_UP_ASSESSMENT_GENERATION_CONFIG, WRAP_UP_ASSESSMENT_FUNCTION_DECLARATION, WRAP_UP_ASSESSMENT_TOOLS, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED, COMPREHENSIVE_ANALYSIS_CONFIG, MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED, MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, DEBUG_MODE_CONFIG, PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG, SELECTION_SENSEI_CONFIG, MERMAID_ERROR_RECOVERY_CONFIG, ENHANCEMENT_REQUEST_CONFIG, ARCHETYPE_COMPARISON_TEST_CONFIG;
+var GEMINI_PRO, GEMINI_FLASH, TEACHING_PLAN_GENERATION_CONFIG, WRAP_UP_ASSESSMENT_GENERATION_CONFIG, WRAP_UP_ASSESSMENT_FUNCTION_DECLARATION, WRAP_UP_ASSESSMENT_TOOLS, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED, COMPREHENSIVE_ANALYSIS_CONFIG, MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED, MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, DEBUG_MODE_CONFIG, PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG, SELECTION_SENSEI_CONFIG, ENHANCEMENT_REQUEST_CONFIG, ARCHETYPE_COMPARISON_TEST_CONFIG;
 var init_model_usage = __esm({
   "src/model_usage.ts"() {
     "use strict";
@@ -1618,13 +1617,6 @@ var init_model_usage = __esm({
       config: {
         temperature: 0.5,
         responseMimeType: "application/json"
-      }
-    };
-    MERMAID_ERROR_RECOVERY_CONFIG = {
-      modelName: GEMINI_FLASH,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2
       }
     };
     ENHANCEMENT_REQUEST_CONFIG = {
@@ -5792,266 +5784,188 @@ var init_codeEditorModal = __esm({
   }
 });
 
-// src/mermaidErrorRecovery.ts
-function applyBacktickFix(diagram) {
-  const backtickCount = (diagram.match(/`/g) || []).length;
-  if (backtickCount === 0) {
-    return diagram;
-  }
-  const fixedDiagram = diagram.replace(/`/g, "'");
-  return fixedDiagram;
-}
-function applyUniversalQuoteFix(diagram) {
-  let fixedDiagram = diagram;
-  function findMatchingDelimiter(text2, startPos, openChar, closeChar) {
-    let depth = 1;
-    for (let i = startPos; i < text2.length; i++) {
-      if (text2[i] === openChar) depth++;
-      else if (text2[i] === closeChar) {
-        depth--;
-        if (depth === 0) return i;
+// core/dist/mermaidErrorRecovery.js
+var require_mermaidErrorRecovery = __commonJS({
+  "core/dist/mermaidErrorRecovery.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.applyBacktickFix = applyBacktickFix;
+    exports.applyUniversalQuoteFix = applyUniversalQuoteFix;
+    exports.ensureGraphDirective = ensureGraphDirective;
+    exports.fixSubgraphDirections = fixSubgraphDirections;
+    exports.attemptMermaidFix = attemptMermaidFix;
+    exports.runMermaidRecovery = runMermaidRecovery2;
+    var logger2 = {
+      warn: (...args) => console.warn(...args),
+      error: (...args) => console.error(...args)
+    };
+    var DEBUG_FLAGS2 = { mermaid_debug: false };
+    function applyBacktickFix(diagram) {
+      const backtickCount = (diagram.match(/`/g) || []).length;
+      if (backtickCount === 0) {
+        return diagram;
       }
+      const fixedDiagram = diagram.replace(/`/g, "'");
+      return fixedDiagram;
     }
-    return -1;
-  }
-  const lines = fixedDiagram.split("\n");
-  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-    const originalLine = lines[lineIdx];
-    if (originalLine === void 0) {
-      continue;
-    }
-    let line = originalLine;
-    const nodePattern = /([A-Z])(\[|\(\(|\{\{|\(|\{)/g;
-    let match;
-    let newLine = "";
-    let lastIndex = 0;
-    while ((match = nodePattern.exec(line)) !== null) {
-      const nodeId = match[1];
-      const openDelim = match[2];
-      if (!nodeId || !openDelim) {
-        logger.warn("[MERMAID_FIX] Skipping malformed node token.", {
-          lineIndex: lineIdx,
-          raw: match[0]
-        });
-        continue;
-      }
-      const startPos = match.index + match[0].length;
-      let closeDelim = "";
-      let searchOpenChar = "";
-      let searchCloseChar = "";
-      switch (openDelim) {
-        case "[":
-          closeDelim = "]";
-          searchOpenChar = "[";
-          searchCloseChar = "]";
-          break;
-        case "(":
-          closeDelim = ")";
-          searchOpenChar = "(";
-          searchCloseChar = ")";
-          break;
-        case "((":
-          closeDelim = "))";
-          searchOpenChar = "(";
-          searchCloseChar = ")";
-          break;
-        case "{":
-          closeDelim = "}";
-          searchOpenChar = "{";
-          searchCloseChar = "}";
-          break;
-        case "{{":
-          closeDelim = "}}";
-          searchOpenChar = "{";
-          searchCloseChar = "}";
-          break;
-      }
-      if (!closeDelim && openDelim !== "((" && openDelim !== "{{") {
-        logger.warn("[MERMAID_FIX] Unsupported delimiter encountered.", {
-          openDelim,
-          lineIndex: lineIdx
-        });
-        continue;
-      }
-      let endPos = -1;
-      if (openDelim === "((") {
-        let depth = 2;
-        for (let i = startPos; i < line.length; i++) {
-          if (line[i] === "(") {
+    function applyUniversalQuoteFix(diagram) {
+      let fixedDiagram = diagram;
+      function findMatchingDelimiter(text2, startPos, openChar, closeChar) {
+        let depth = 1;
+        for (let i = startPos; i < text2.length; i++) {
+          if (text2[i] === openChar)
             depth++;
-          } else if (line[i] === ")") {
+          else if (text2[i] === closeChar) {
             depth--;
-            if (depth === 0) {
-              endPos = i - 1;
-              break;
-            }
+            if (depth === 0)
+              return i;
           }
         }
-      } else if (openDelim === "{{") {
-        let depth = 2;
-        for (let i = startPos; i < line.length; i++) {
-          if (line[i] === "{") {
-            depth++;
-          } else if (line[i] === "}") {
-            depth--;
-            if (depth === 0) {
-              endPos = i - 1;
-              break;
-            }
-          }
-        }
-      } else {
-        endPos = findMatchingDelimiter(line, startPos, searchOpenChar, searchCloseChar);
+        return -1;
       }
-      if (endPos !== -1 && endPos >= startPos) {
-        const content = line.substring(startPos, endPos);
-        const trimmedContent = content.trim();
-        newLine += line.substring(lastIndex, match.index);
-        const isDirectlyQuoted = trimmedContent.length > 1 && (trimmedContent.startsWith('"') && trimmedContent.endsWith('"') || trimmedContent.startsWith("'") && trimmedContent.endsWith("'"));
-        let innerWrapperQuoted = false;
-        if (!isDirectlyQuoted && trimmedContent.length > 2) {
-          const firstChar = trimmedContent[0];
-          const lastChar = trimmedContent[trimmedContent.length - 1];
-          const wrapperPairs = {
-            "(": ")",
-            "[": "]",
-            "{": "}",
-            "<": ">"
-          };
-          if (Object.prototype.hasOwnProperty.call(wrapperPairs, firstChar)) {
-            const opener = firstChar;
-            if (wrapperPairs[opener] === lastChar) {
-              const inner2 = trimmedContent.slice(1, -1).trim();
-              if (inner2.length > 1 && (inner2.startsWith('"') && inner2.endsWith('"') || inner2.startsWith("'") && inner2.endsWith("'"))) {
-                innerWrapperQuoted = true;
+      const lines = fixedDiagram.split("\n");
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const originalLine = lines[lineIdx];
+        if (originalLine === void 0) {
+          continue;
+        }
+        let line = originalLine;
+        const nodePattern = /([A-Z])(\[|\(\(|\{\{|\(|\{)/g;
+        let match;
+        let newLine = "";
+        let lastIndex = 0;
+        while ((match = nodePattern.exec(line)) !== null) {
+          const nodeId = match[1];
+          const openDelim = match[2];
+          if (!nodeId || !openDelim) {
+            logger2.warn("[MERMAID_FIX] Skipping malformed node token.", {
+              lineIndex: lineIdx,
+              raw: match[0]
+            });
+            continue;
+          }
+          const startPos = match.index + match[0].length;
+          let closeDelim = "";
+          let searchOpenChar = "";
+          let searchCloseChar = "";
+          switch (openDelim) {
+            case "[":
+              closeDelim = "]";
+              searchOpenChar = "[";
+              searchCloseChar = "]";
+              break;
+            case "(":
+              closeDelim = ")";
+              searchOpenChar = "(";
+              searchCloseChar = ")";
+              break;
+            case "((":
+              closeDelim = "))";
+              searchOpenChar = "(";
+              searchCloseChar = ")";
+              break;
+            case "{":
+              closeDelim = "}";
+              searchOpenChar = "{";
+              searchCloseChar = "}";
+              break;
+            case "{{":
+              closeDelim = "}}";
+              searchOpenChar = "{";
+              searchCloseChar = "}";
+              break;
+          }
+          if (!closeDelim && openDelim !== "((" && openDelim !== "{{") {
+            logger2.warn("[MERMAID_FIX] Unsupported delimiter encountered.", {
+              openDelim,
+              lineIndex: lineIdx
+            });
+            continue;
+          }
+          let endPos = -1;
+          if (openDelim === "((") {
+            let depth = 2;
+            for (let i = startPos; i < line.length; i++) {
+              if (line[i] === "(") {
+                depth++;
+              } else if (line[i] === ")") {
+                depth--;
+                if (depth === 0) {
+                  endPos = i - 1;
+                  break;
+                }
               }
             }
+          } else if (openDelim === "{{") {
+            let depth = 2;
+            for (let i = startPos; i < line.length; i++) {
+              if (line[i] === "{") {
+                depth++;
+              } else if (line[i] === "}") {
+                depth--;
+                if (depth === 0) {
+                  endPos = i - 1;
+                  break;
+                }
+              }
+            }
+          } else {
+            endPos = findMatchingDelimiter(line, startPos, searchOpenChar, searchCloseChar);
+          }
+          if (endPos !== -1 && endPos >= startPos) {
+            const content = line.substring(startPos, endPos);
+            const trimmedContent = content.trim();
+            newLine += line.substring(lastIndex, match.index);
+            const isDirectlyQuoted = trimmedContent.length > 1 && (trimmedContent.startsWith('"') && trimmedContent.endsWith('"') || trimmedContent.startsWith("'") && trimmedContent.endsWith("'"));
+            let innerWrapperQuoted = false;
+            if (!isDirectlyQuoted && trimmedContent.length > 2) {
+              const firstChar = trimmedContent[0];
+              const lastChar = trimmedContent[trimmedContent.length - 1];
+              const wrapperPairs = {
+                "(": ")",
+                "[": "]",
+                "{": "}",
+                "<": ">"
+              };
+              if (Object.prototype.hasOwnProperty.call(wrapperPairs, firstChar)) {
+                const opener = firstChar;
+                if (wrapperPairs[opener] === lastChar) {
+                  const inner2 = trimmedContent.slice(1, -1).trim();
+                  if (inner2.length > 1 && (inner2.startsWith('"') && inner2.endsWith('"') || inner2.startsWith("'") && inner2.endsWith("'"))) {
+                    innerWrapperQuoted = true;
+                  }
+                }
+              }
+            }
+            const shouldWrap = trimmedContent.length > 0 && !isDirectlyQuoted && !innerWrapperQuoted;
+            if (shouldWrap) {
+              const escapedContent = content.replace(/"/g, '\\"');
+              newLine += nodeId + openDelim + '"' + escapedContent + '"' + closeDelim;
+            } else {
+              newLine += nodeId + openDelim + content + closeDelim;
+            }
+            lastIndex = endPos + closeDelim.length;
+            nodePattern.lastIndex = lastIndex;
           }
         }
-        const shouldWrap = trimmedContent.length > 0 && !isDirectlyQuoted && !innerWrapperQuoted;
-        if (shouldWrap) {
-          const escapedContent = content.replace(/"/g, '\\"');
-          newLine += nodeId + openDelim + '"' + escapedContent + '"' + closeDelim;
-        } else {
-          newLine += nodeId + openDelim + content + closeDelim;
-        }
-        lastIndex = endPos + closeDelim.length;
-        nodePattern.lastIndex = lastIndex;
+        newLine += line.substring(lastIndex);
+        lines[lineIdx] = newLine || line;
       }
+      return lines.join("\n");
     }
-    newLine += line.substring(lastIndex);
-    lines[lineIdx] = newLine || line;
-  }
-  return lines.join("\n");
-}
-function fixSubgraphDirections(diagram) {
-  return diagram.replace(/(\bsubgraph\b[\s\S]*?\bdirection\s+)TD\b/g, "$1TB");
-}
-async function attemptMermaidFix(ai2, failedDiagram, errorMessage) {
-  const startTime = Date.now();
-  if (errorMessage.includes("direction") || errorMessage.includes("TD")) {
-    const fixedDiagram = fixSubgraphDirections(failedDiagram);
-    if (fixedDiagram !== failedDiagram) {
-      return {
-        fixed: true,
-        diagram: fixedDiagram,
-        explanation: "Fixed invalid TD direction in subgraph - converted to TB"
-      };
-    }
-  }
-  if (errorMessage.includes("backtick") || errorMessage.includes("`") || errorMessage.includes("Unrecognized text") || failedDiagram.includes("`")) {
-    const backtickFixedDiagram = applyBacktickFix(failedDiagram);
-    if (backtickFixedDiagram !== failedDiagram) {
-      const fullyFixedDiagram = applyUniversalQuoteFix(backtickFixedDiagram);
-      return {
-        fixed: true,
-        diagram: fullyFixedDiagram,
-        explanation: "Fixed backticks in node labels by converting to single quotes"
-      };
-    }
-  }
-  if (errorMessage.includes("quote") || errorMessage.includes('"') || errorMessage.includes("'")) {
-    const fixedDiagram = applyUniversalQuoteFix(failedDiagram);
-    if (fixedDiagram !== failedDiagram) {
-      return {
-        fixed: true,
-        diagram: fixedDiagram,
-        explanation: "Fixed missing quotes in node labels"
-      };
-    }
-  }
-  try {
-    const prompt = MERMAID_FIX_PROMPT_TEMPLATE(failedDiagram, errorMessage);
-    const genAIResponse = await ai2.models.generateContent({
-      model: MERMAID_ERROR_RECOVERY_CONFIG.modelName,
-      contents: prompt,
-      // Pass the prompt string directly
-      config: MERMAID_ERROR_RECOVERY_CONFIG.config
-    });
-    const text2 = genAIResponse.text;
-    try {
-      let jsonText = text2.trim();
-      const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
-      const match = jsonText.match(fenceRegex);
-      if (match && match[2]) {
-        jsonText = match[2].trim();
+    function ensureGraphDirective(diagram) {
+      if (/^\s*graph\s+/i.test(diagram)) {
+        return diagram;
       }
-      const fixResponse = JSON.parse(jsonText);
-      return fixResponse;
-    } catch (parseError) {
-      if (DEBUG_FLAGS.mermaid_debug) {
-        logger.error("Failed to parse LLM response as JSON:", parseError);
-        logger.error("Original text from LLM that failed parsing:", text2);
-      }
-      return {
-        fixed: false,
-        explanation: "Failed to parse fix response from AI"
-      };
+      return `graph TD
+${diagram}`.trim();
     }
-  } catch (error) {
-    if (DEBUG_FLAGS.mermaid_debug) {
-      logger.error("Mermaid fix attempt failed:", error);
+    function fixSubgraphDirections(diagram) {
+      const subgraphFixed = diagram.replace(/(\bsubgraph\b[\s\S]*?\bdirection\s+)td\b/gi, (_, prefix) => `${prefix}TB`);
+      const anyDirectionFixed = subgraphFixed.replace(/(\bdirection\s+)td\b/gi, (_, prefix) => `${prefix}TB`);
+      return anyDirectionFixed;
     }
-    return {
-      fixed: false,
-      explanation: `Error during fix attempt: ${error.message}`
-    };
-  }
-}
-async function runMermaidRecovery(options) {
-  const { ai: ai2, initialDiagram, initialError, renderAttempt, maxAttempts = 5 } = options;
-  let currentDiagram = applyUniversalQuoteFix(applyBacktickFix(initialDiagram));
-  let currentError = initialError;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const result = await renderAttempt(currentDiagram);
-      return { svg: result.svg, diagram: currentDiagram };
-    } catch (err) {
-      logger.error("[MERMAID_RECOVERY] Attempt", attempt, "render failed:", err?.message || err);
-      currentError = err?.message || "Unknown render error";
-      if (!ai2) {
-        break;
-      }
-      try {
-        const fixResult = await attemptMermaidFix(ai2, currentDiagram, currentError);
-        if (fixResult.diagram) {
-          currentDiagram = fixResult.diagram;
-        }
-      } catch (fixError) {
-        logger.error("[MERMAID_RECOVERY] Attempt", attempt, "fix invocation failed:", fixError?.message || fixError);
-      }
-    }
-  }
-  logger.error("[MERMAID_RECOVERY] Exhausted attempts without render");
-  return null;
-}
-var MERMAID_FIX_PROMPT_TEMPLATE;
-var init_mermaidErrorRecovery = __esm({
-  "src/mermaidErrorRecovery.ts"() {
-    "use strict";
-    init_logger();
-    init_model_usage();
-    MERMAID_FIX_PROMPT_TEMPLATE = (failedDiagram, errorMessage) => `
+    var MERMAID_FIX_PROMPT_TEMPLATE = (failedDiagram, errorMessage) => `
 Fix this Mermaid syntax error.
 
 ERROR MESSAGE:
@@ -6087,6 +6001,319 @@ Provide your response as JSON with this structure:
     "explanation": "brief explanation of what was fixed"
 }
 `;
+    async function attemptMermaidFix(llm, failedDiagram, errorMessage, options) {
+      const baseDiagram = ensureGraphDirective(failedDiagram);
+      if (!llm) {
+        return {
+          fixed: false,
+          explanation: "No AI client provided for mermaid fix"
+        };
+      }
+      if (!(options === null || options === void 0 ? void 0 : options.forceLlm)) {
+        if (errorMessage.includes("direction") || errorMessage.includes("TD")) {
+          const fixedDiagram = fixSubgraphDirections(baseDiagram);
+          if (fixedDiagram !== baseDiagram) {
+            return {
+              fixed: true,
+              diagram: fixedDiagram,
+              explanation: "Fixed invalid TD direction in subgraph - converted to TB"
+            };
+          }
+        }
+        if (errorMessage.includes("backtick") || errorMessage.includes("`") || errorMessage.includes("Unrecognized text") || baseDiagram.includes("`")) {
+          const backtickFixedDiagram = applyBacktickFix(baseDiagram);
+          if (backtickFixedDiagram !== baseDiagram) {
+            const fullyFixedDiagram = applyUniversalQuoteFix(backtickFixedDiagram);
+            return {
+              fixed: true,
+              diagram: fullyFixedDiagram,
+              explanation: "Fixed backticks in node labels by converting to single quotes"
+            };
+          }
+        }
+        if (errorMessage.includes("quote") || errorMessage.includes('"') || errorMessage.includes("'")) {
+          const fixedDiagram = applyUniversalQuoteFix(baseDiagram);
+          if (fixedDiagram !== baseDiagram) {
+            return {
+              fixed: true,
+              diagram: fixedDiagram,
+              explanation: "Fixed missing quotes in node labels"
+            };
+          }
+        }
+      }
+      try {
+        const prompt = MERMAID_FIX_PROMPT_TEMPLATE(baseDiagram, errorMessage);
+        const result = await llm.callJson(prompt, {
+          task: "mermaid_repair"
+        });
+        try {
+          const maybeString = typeof result === "string" ? result : JSON.stringify(result);
+          let jsonText = maybeString.trim();
+          const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+          const match = jsonText.match(fenceRegex);
+          if (match && match[2]) {
+            jsonText = match[2].trim();
+          }
+          const fixResponse = JSON.parse(jsonText);
+          return fixResponse;
+        } catch (parseError) {
+          if (DEBUG_FLAGS2.mermaid_debug) {
+            logger2.error("Failed to parse LLM response as JSON:", parseError);
+            logger2.error("Original text from LLM that failed parsing:", result);
+          }
+          return {
+            fixed: false,
+            explanation: "Failed to parse fix response from AI"
+          };
+        }
+      } catch (error) {
+        if (DEBUG_FLAGS2.mermaid_debug) {
+          logger2.error("Mermaid fix attempt failed:", error);
+        }
+        return {
+          fixed: false,
+          explanation: `Error during fix attempt: ${error.message}`
+        };
+      }
+    }
+    async function runMermaidRecovery2(options) {
+      const { llm, initialDiagram, initialError, renderAttempt, maxAttempts = 5 } = options;
+      let currentDiagram = ensureGraphDirective(applyUniversalQuoteFix(applyBacktickFix(initialDiagram)));
+      let currentError = initialError;
+      const llmClient = llm;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const result = await renderAttempt(currentDiagram);
+          return { svg: result.svg, diagram: currentDiagram };
+        } catch (err) {
+          logger2.error("[MERMAID_RECOVERY] Attempt", attempt, "render failed:", (err === null || err === void 0 ? void 0 : err.message) || err);
+          currentError = (err === null || err === void 0 ? void 0 : err.message) || "Unknown render error";
+          if (!llmClient) {
+            break;
+          }
+          try {
+            const fixResult = await attemptMermaidFix(llmClient, currentDiagram, currentError);
+            if (fixResult.diagram) {
+              currentDiagram = fixResult.diagram;
+            }
+          } catch (fixError) {
+            logger2.error("[MERMAID_RECOVERY] Attempt", attempt, "fix invocation failed:", (fixError === null || fixError === void 0 ? void 0 : fixError.message) || fixError);
+          }
+        }
+      }
+      logger2.error("[MERMAID_RECOVERY] Exhausted attempts without render");
+      return null;
+    }
+  }
+});
+
+// core/dist/llmTypes.js
+var require_llmTypes = __commonJS({
+  "core/dist/llmTypes.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+  }
+});
+
+// core/dist/modelUsage.js
+var require_modelUsage = __commonJS({
+  "core/dist/modelUsage.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.MERMAID_RECOVERY_TIMEOUT_MS = exports.MERMAID_ERROR_RECOVERY_CONFIG = void 0;
+    var GEMINI_FLASH2 = "gemini-flash-latest";
+    exports.MERMAID_ERROR_RECOVERY_CONFIG = {
+      modelName: GEMINI_FLASH2,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.2
+      }
+    };
+    exports.MERMAID_RECOVERY_TIMEOUT_MS = 4e4;
+  }
+});
+
+// core/dist/browserLlmClient.js
+var require_browserLlmClient = __commonJS({
+  "core/dist/browserLlmClient.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.createBrowserCoreLlmClient = createBrowserCoreLlmClient2;
+    var modelUsage_1 = require_modelUsage();
+    function createBrowserCoreLlmClient2(ai2) {
+      if (!ai2 || !ai2.models || !ai2.models.generateContent) {
+        return null;
+      }
+      return {
+        async callText(prompt) {
+          var _a;
+          const res = await ai2.models.generateContent({
+            model: modelUsage_1.MERMAID_ERROR_RECOVERY_CONFIG.modelName,
+            contents: prompt,
+            config: modelUsage_1.MERMAID_ERROR_RECOVERY_CONFIG.config
+          });
+          if (typeof (res === null || res === void 0 ? void 0 : res.text) === "function") {
+            return res.text();
+          }
+          return (_a = res === null || res === void 0 ? void 0 : res.text) !== null && _a !== void 0 ? _a : "";
+        },
+        async callJson(prompt) {
+          const text2 = await this.callText(prompt);
+          return JSON.parse(text2);
+        }
+      };
+    }
+  }
+});
+
+// core/dist/index.js
+var require_dist = __commonJS({
+  "core/dist/index.js"(exports) {
+    "use strict";
+    var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __exportStar = exports && exports.__exportStar || function(m, exports2) {
+      for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p)) __createBinding(exports2, m, p);
+    };
+    Object.defineProperty(exports, "__esModule", { value: true });
+    __exportStar(require_mermaidErrorRecovery(), exports);
+    __exportStar(require_llmTypes(), exports);
+    __exportStar(require_browserLlmClient(), exports);
+  }
+});
+
+// src/mobile/webviewMessageRouter.ts
+function requestMermaidRecoveryViaBridge(payload) {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      mermaidResolvers.delete(payload.messageId);
+      reject(new Error("mermaid recovery bridge timeout"));
+    }, MERMAID_BRIDGE_TIMEOUT_MS);
+    mermaidResolvers.set(payload.messageId, { resolve, reject, timer });
+    sendToNative({ type: "mermaid:recover", ...payload });
+  });
+}
+function handleMermaidRecoverResult(message) {
+  if (message.type !== "mermaid:recoverResult") return false;
+  const resolver = mermaidResolvers.get(message.messageId);
+  if (resolver) {
+    clearTimeout(resolver.timer);
+    mermaidResolvers.delete(message.messageId);
+    resolver.resolve({ fixed: message.fixed, fixedCode: message.fixedCode });
+  }
+  return true;
+}
+function createWebviewMessageHandler(deps2) {
+  return async function handleReactNativeMessage2(message) {
+    deps2.logger.info("[MOBILE_PORT] webview bridge", { direction: "to-web", type: message.type });
+    if (handleMermaidRecoverResult(message)) return;
+    switch (message.type) {
+      case "saveload:export": {
+        try {
+          const json = await deps2.saveLoad.exportSessionAsJson();
+          deps2.sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: true, json });
+        } catch (error) {
+          deps2.logger.error("[MOBILE_PORT] webview bridge export error", { error });
+          deps2.sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: false, error: error.message });
+        }
+        break;
+      }
+      case "saveload:import": {
+        try {
+          await deps2.saveLoad.restoreFromSerializedJson(message.json);
+          deps2.sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: true });
+        } catch (error) {
+          deps2.sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: false, error: error.message });
+        }
+        break;
+      }
+      case "chat:startMessage": {
+        const sender = message.sender;
+        const startPayload = {
+          id: message.messageId,
+          sender,
+          displayName: deps2.SENDER_DISPLAY_NAMES[sender],
+          text: message.text ?? "",
+          timestamp: /* @__PURE__ */ new Date(),
+          isLoading: sender === "sensei" && !message.text,
+          isReloadable: Boolean(message.reloadable),
+          skipMermaid: true
+        };
+        await deps2.displayMessage(startPayload);
+        deps2.streamingMessagesRawText.set(message.messageId, message.text ?? "");
+        if (message.text) {
+          await deps2.processMermaidBlocks(message.messageId);
+        }
+        break;
+      }
+      case "chat:update": {
+        const previous = deps2.streamingMessagesRawText.get(message.messageId) ?? "";
+        const next = previous + message.text;
+        deps2.streamingMessagesRawText.set(message.messageId, next);
+        await deps2.updateMessageStream(message.messageId, next);
+        break;
+      }
+      case "chat:completeMessage": {
+        const bubble = document.getElementById(message.messageId);
+        const senderAttr = bubble?.dataset.sender === "user" ? "user" : "sensei";
+        const finalText = deps2.streamingMessagesRawText.get(message.messageId) ?? "";
+        await deps2.displayMessage({
+          id: message.messageId,
+          sender: senderAttr,
+          displayName: deps2.SENDER_DISPLAY_NAMES[senderAttr],
+          text: finalText,
+          timestamp: /* @__PURE__ */ new Date(),
+          isLoading: false,
+          isReloadable: senderAttr === "sensei",
+          skipMermaid: true
+        });
+        await deps2.processMermaidBlocks(message.messageId);
+        break;
+      }
+      case "wrapup:show": {
+        deps2.showWrapUpAssessmentOverlay(message.data);
+        break;
+      }
+      case "footer:update": {
+        deps2.updateFooter(message.payload);
+        break;
+      }
+      case "selectionSensei:invoke": {
+        deps2.invokeSelectionSenseiBridgeAction(message.actionId, {
+          actionLabel: message.actionLabel,
+          userQuestion: message.userQuestion
+        });
+        break;
+      }
+      case "telemetry:configure": {
+        window.__telemetryEnabled = message.enabled;
+        break;
+      }
+      default:
+        break;
+    }
+  };
+}
+var import_modelUsage, mermaidResolvers, MERMAID_BRIDGE_TIMEOUT_MS;
+var init_webviewMessageRouter = __esm({
+  "src/mobile/webviewMessageRouter.ts"() {
+    "use strict";
+    import_modelUsage = __toESM(require_modelUsage());
+    init_webviewBridge();
+    mermaidResolvers = /* @__PURE__ */ new Map();
+    MERMAID_BRIDGE_TIMEOUT_MS = import_modelUsage.MERMAID_RECOVERY_TIMEOUT_MS + 4e3;
   }
 });
 
@@ -22248,63 +22475,7 @@ async function displayMessage(message, options = {}) {
       hljs.highlightElement(block);
     });
     if (!message.skipMermaid) {
-      const mermaidBlocks = messageText.querySelectorAll("pre code.language-mermaid");
-      for (const block of mermaidBlocks) {
-        const preElement = block.parentElement;
-        const rawMermaidCodeFromLLM = block.textContent || "";
-        const rawMermaidCode = rawMermaidCodeFromLLM;
-        logger.log("About to render Mermaid. Raw code is:\n", rawMermaidCode);
-        try {
-          const { svg } = await mermaidManager.render(`mermaid-${message.id}-${Math.random().toString(36).substring(2)}`, rawMermaidCode);
-          renderMermaidThumbnailWithTheme(preElement, svg, mermaidManager.getCurrentTheme(), rawMermaidCode);
-        } catch (error) {
-          if (DEBUG_FLAGS.mermaid_debug) {
-            logger.error("Mermaid rendering failed:", error);
-          }
-          if (!block.getAttribute("data-recovery-attempted")) {
-            block.setAttribute("data-recovery-attempted", "true");
-            const fixingDiv = document.createElement("div");
-            fixingDiv.className = "mermaid-error";
-            fixingDiv.style.color = "#f59e0b";
-            fixingDiv.innerHTML = `
-                        <span class="inline-spinner"></span> Attempting to fix diagram...
-                    `;
-            preElement.replaceWith(fixingDiv);
-            try {
-              const recoveryResult = await runMermaidRecovery({
-                ai: window.ai || null,
-                initialDiagram: rawMermaidCode,
-                initialError: error.message || "Unknown error",
-                renderAttempt: async (diagram) => {
-                  const uniqueId = `mermaid-recovery-${message.id}-${Math.random().toString(36).substring(2)}`;
-                  return mermaidManager.render(uniqueId, diagram);
-                }
-              });
-              if (recoveryResult) {
-                const replacement = "```mermaid\n" + recoveryResult.diagram + "\n```";
-                replaceMermaidFenceInRaw(message.id, rawMermaidCode, replacement, registry.rawText);
-                renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
-                return;
-              }
-            } catch (fixError) {
-              logger.error("Error during Mermaid recovery:", fixError);
-            }
-            const errorDiv = document.createElement("div");
-            logger.debug("[MERMAID_FAILOVER] Logging failed diagram codeblock:\n", rawMermaidCode);
-            replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]", registry.rawText);
-            errorDiv.className = "mermaid-error";
-            errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
-            fixingDiv.replaceWith(errorDiv);
-          } else {
-            const errorDiv = document.createElement("div");
-            logger.debug("[MERMAID_FAILOVER] Logging failed diagram codeblock:\n", rawMermaidCode);
-            replaceMermaidFenceInRaw(message.id, rawMermaidCode, "[Sensei's diagram could not be rendered, and automatic fix failed]", registry.rawText);
-            errorDiv.className = "mermaid-error";
-            errorDiv.textContent = "[Sensei's diagram could not be rendered, and automatic fix failed]";
-            preElement.replaceWith(errorDiv);
-          }
-        }
-      }
+      await processMermaidBlocks(message.id);
     }
     addLanguageDisplayToCodeBlocks_internal(messageText);
     addCopyButtonsToCodeBlocks_internal(messageText, { sender: message.sender, messageId: message.id });
@@ -22540,16 +22711,10 @@ function scheduleThemePaletteHide() {
 }
 function positionThemePalette() {
   if (!themePalettePanel || !themePaletteTrigger) return;
-  const triggerRect = themePaletteTrigger.getBoundingClientRect();
   const panelRect = themePalettePanel.getBoundingClientRect();
-  const offset = 12;
   const viewportMargin = 16;
-  const top = triggerRect.bottom + window.scrollY + offset;
-  let left = triggerRect.left + triggerRect.width / 2 - panelRect.width / 2 + window.scrollX;
-  const minLeft = window.scrollX + viewportMargin;
-  const maxLeft = window.scrollX + window.innerWidth - panelRect.width - viewportMargin;
-  if (left < minLeft) left = minLeft;
-  if (left > maxLeft) left = Math.max(minLeft, maxLeft);
+  const top = window.scrollY + viewportMargin;
+  const left = window.scrollX + window.innerWidth - panelRect.width - viewportMargin;
   themePalettePanel.style.top = `${top}px`;
   themePalettePanel.style.left = `${left}px`;
 }
@@ -22888,20 +23053,77 @@ async function processMermaidBlocks(messageId, options) {
                 `;
         preElement.replaceWith(fixingDiv);
         try {
-          const recoveryResult = await runMermaidRecovery({
-            ai: window.ai || null,
-            initialDiagram: rawMermaidCode,
-            initialError: error.message || "Unknown error",
-            renderAttempt: async (diagram) => {
-              const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
-              return mermaidManager.render(uniqueId, diagram);
+          const isMobileWebView = Boolean(window?.__SENSEI_MOBILE_BUILD__);
+          if (isMobileWebView) {
+            const mobileMaxAttempts = 3;
+            let currentDiagram = rawMermaidCode;
+            let currentError = error?.message || "Unknown error";
+            let recovered = false;
+            const firstResult = await requestMermaidRecoveryViaBridge({
+              messageId: `mermaid-${messageId}-${Math.random().toString(36).slice(2)}`,
+              code: currentDiagram,
+              theme: mermaidManager.getCurrentTheme(),
+              errorMessage: currentError,
+              mode: "auto"
+            });
+            if (firstResult.fixed && firstResult.fixedCode) {
+              currentDiagram = firstResult.fixedCode;
+              try {
+                const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
+                const renderResult = await mermaidManager.render(uniqueId, currentDiagram);
+                const replacement = "```mermaid\n" + currentDiagram + "\n```";
+                replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
+                renderMermaidThumbnailWithTheme(fixingDiv, renderResult.svg, mermaidManager.getCurrentTheme(), currentDiagram);
+                recovered = true;
+              } catch (renderErr) {
+                currentError = renderErr?.message || "Unknown render error";
+              }
             }
-          });
-          if (recoveryResult) {
-            const replacement = "```mermaid\n" + recoveryResult.diagram + "\n```";
-            replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
-            renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
-            continue;
+            if (!recovered) {
+              for (let attempt = 2; attempt <= mobileMaxAttempts; attempt++) {
+                const llmResult = await requestMermaidRecoveryViaBridge({
+                  messageId: `mermaid-${messageId}-${Math.random().toString(36).slice(2)}`,
+                  code: currentDiagram,
+                  theme: mermaidManager.getCurrentTheme(),
+                  errorMessage: currentError,
+                  mode: "llm"
+                });
+                if (!llmResult.fixed || !llmResult.fixedCode) {
+                  continue;
+                }
+                currentDiagram = llmResult.fixedCode;
+                try {
+                  const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
+                  const renderResult = await mermaidManager.render(uniqueId, currentDiagram);
+                  const replacement = "```mermaid\n" + currentDiagram + "\n```";
+                  replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
+                  renderMermaidThumbnailWithTheme(fixingDiv, renderResult.svg, mermaidManager.getCurrentTheme(), currentDiagram);
+                  recovered = true;
+                  break;
+                } catch (renderErr) {
+                  currentError = renderErr?.message || "Unknown render error";
+                }
+              }
+            }
+            if (recovered) {
+              continue;
+            }
+          } else {
+            const recoveryResult = await (0, import_mermaidErrorRecovery.runMermaidRecovery)({
+              llm: (0, import_core.createBrowserCoreLlmClient)(window.ai),
+              initialDiagram: rawMermaidCode,
+              initialError: error.message || "Unknown error",
+              renderAttempt: async (diagram) => {
+                const uniqueId = `mermaid-recovery-${messageId}-${Math.random().toString(36).substring(2)}`;
+                return mermaidManager.render(uniqueId, diagram);
+              }
+            });
+            if (recoveryResult) {
+              const replacement = "```mermaid\n" + recoveryResult.diagram + "\n```";
+              replaceMermaidFenceInRaw(messageId, rawMermaidCode, replacement);
+              renderMermaidThumbnailWithTheme(fixingDiv, recoveryResult.svg, mermaidManager.getCurrentTheme(), recoveryResult.diagram);
+              continue;
+            }
           }
         } catch (fixError) {
           logger.error("Error during Mermaid recovery:", fixError);
@@ -23281,7 +23503,7 @@ function setupStatusClickMeditationOverlay() {
     updateSenseiMeditationOverlay(curriculumState2, true);
   });
 }
-var globalMarkedConfig, INLINE_PIPE_PLACEHOLDER, TABLE_ALIGNMENT_REGEX, messageArea, userInput, sendButton, codeEditorButton, curriculumStatusContainer, curriculumStatusTopic, headerTitleElement, meditationOverlay, meditationActionItems, brandSegment, statusSegment, conceptNavPrevButton, conceptNavNextButton, chunkNavPrevButton, chunkNavNextButton, chatWindowControlsElement, footerConfidence, footerConfusion, footerIntentValue, streamingMessagesRawText, streamingMessageTimers, defaultMessageRegistry, FONT_SIZES, ICONS, DEFAULT_HEADING_BASE_COLOR, HEADING_COLOR_LIGHTNESS_STEPS, THEME_STORAGE_KEY, THEME_OPTIONS, DEFAULT_THEME_ID, currentThemeId, themePalettePanel, themePaletteTrigger, themePaletteVisible, themePaletteSwatches, themePaletteListenersRegistered, themePaletteHideTimeout, previewThemeId, lastFooterState, touchEventSupported, pointerEventSupported, mermaidObserver, observedMermaidElements, meditationHoverState, meditationOverlayOutsideClickHandler, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks;
+var import_mermaidErrorRecovery, import_core, globalMarkedConfig, INLINE_PIPE_PLACEHOLDER, TABLE_ALIGNMENT_REGEX, messageArea, userInput, sendButton, codeEditorButton, curriculumStatusContainer, curriculumStatusTopic, headerTitleElement, meditationOverlay, meditationActionItems, brandSegment, statusSegment, conceptNavPrevButton, conceptNavNextButton, chunkNavPrevButton, chunkNavNextButton, chatWindowControlsElement, footerConfidence, footerConfusion, footerIntentValue, streamingMessagesRawText, streamingMessageTimers, defaultMessageRegistry, FONT_SIZES, ICONS, DEFAULT_HEADING_BASE_COLOR, HEADING_COLOR_LIGHTNESS_STEPS, THEME_STORAGE_KEY, THEME_OPTIONS, DEFAULT_THEME_ID, currentThemeId, themePalettePanel, themePaletteTrigger, themePaletteVisible, themePaletteSwatches, themePaletteListenersRegistered, themePaletteHideTimeout, previewThemeId, lastFooterState, touchEventSupported, pointerEventSupported, mermaidObserver, observedMermaidElements, meditationHoverState, meditationOverlayOutsideClickHandler, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks;
 var init_ui = __esm({
   "src/ui.ts"() {
     "use strict";
@@ -23289,10 +23511,12 @@ var init_ui = __esm({
     init_webviewBridge();
     init_enhancementManager();
     init_codeEditorModal();
-    init_mermaidErrorRecovery();
+    import_mermaidErrorRecovery = __toESM(require_mermaidErrorRecovery());
+    import_core = __toESM(require_dist());
     init_curriculum();
     init_mermaid_theme_integration();
     init_index();
+    init_webviewMessageRouter();
     init_mermaidManager();
     init_src();
     globalMarkedConfig = globalThis;
@@ -23793,7 +24017,7 @@ var init_saveloadSerialization = __esm({
 });
 
 // node_modules/json5/dist/index.js
-var require_dist = __commonJS({
+var require_dist2 = __commonJS({
   "node_modules/json5/dist/index.js"(exports, module) {
     (function(global, factory) {
       typeof exports === "object" && typeof module !== "undefined" ? module.exports = factory() : typeof define === "function" && define.amd ? define(factory) : global.JSON5 = factory();
@@ -25336,7 +25560,7 @@ var import_json5;
 var init_selectionSenseiResponseParser = __esm({
   "src/selectionSenseiResponseParser.ts"() {
     "use strict";
-    import_json5 = __toESM(require_dist());
+    import_json5 = __toESM(require_dist2());
   }
 });
 
@@ -34876,95 +35100,7 @@ function updateKCProgressBar(kcphasemastery) {
     logger.error("Error updating KC progress bar:", error);
   }
 }
-async function handleReactNativeMessage(message) {
-  logger.info("[MOBILE_PORT] webview bridge", { direction: "to-web", type: message.type });
-  switch (message.type) {
-    case "saveload:export": {
-      try {
-        const json = await SaveLoadProgressManager.exportSessionAsJson();
-        sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: true, json });
-      } catch (error) {
-        logger.error("[MOBILE_PORT] webview bridge export error", { error });
-        sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: false, error: error.message });
-      }
-      break;
-    }
-    case "saveload:import": {
-      try {
-        await SaveLoadProgressManager.restoreFromSerializedJson(message.json);
-        sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: true });
-      } catch (error) {
-        sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: false, error: error.message });
-      }
-      break;
-    }
-    case "chat:startMessage": {
-      const sender = message.sender;
-      const startPayload = {
-        id: message.messageId,
-        sender,
-        displayName: SENDER_DISPLAY_NAMES[sender],
-        text: message.text ?? "",
-        timestamp: /* @__PURE__ */ new Date(),
-        isLoading: sender === "sensei" && !message.text,
-        isReloadable: Boolean(message.reloadable),
-        skipMermaid: true
-      };
-      await displayMessage(startPayload);
-      streamingMessagesRawText.set(message.messageId, message.text ?? "");
-      if (message.text) {
-        await processMermaidBlocks(message.messageId);
-      }
-      break;
-    }
-    case "chat:update": {
-      const previous = streamingMessagesRawText.get(message.messageId) ?? "";
-      const next = previous + message.text;
-      streamingMessagesRawText.set(message.messageId, next);
-      await updateMessageStream(message.messageId, next);
-      break;
-    }
-    case "chat:completeMessage": {
-      const bubble = document.getElementById(message.messageId);
-      const senderAttr = bubble?.dataset.sender === "user" ? "user" : "sensei";
-      const finalText = streamingMessagesRawText.get(message.messageId) ?? "";
-      await displayMessage({
-        id: message.messageId,
-        sender: senderAttr,
-        displayName: SENDER_DISPLAY_NAMES[senderAttr],
-        text: finalText,
-        timestamp: /* @__PURE__ */ new Date(),
-        isLoading: false,
-        isReloadable: senderAttr === "sensei",
-        skipMermaid: true
-      });
-      await processMermaidBlocks(message.messageId);
-      break;
-    }
-    case "wrapup:show": {
-      showWrapUpAssessmentOverlay(message.data);
-      break;
-    }
-    case "footer:update": {
-      updateFooter(message.payload);
-      break;
-    }
-    case "selectionSensei:invoke": {
-      invokeSelectionSenseiBridgeAction(message.actionId, {
-        actionLabel: message.actionLabel,
-        userQuestion: message.userQuestion
-      });
-      break;
-    }
-    case "telemetry:configure": {
-      window.__telemetryEnabled = message.enabled;
-      break;
-    }
-    default:
-      break;
-  }
-}
-var inputArea, userInputElement, debugModeButton, SENDER_DISPLAY_NAMES, hasNativeBridge, isLocal, envApiKey, API_KEY, ai, mainSenseiChat, learnerModel, lastSenseiResponses, chronologicallyLastLLMSenseiMessageId, curriculum, curriculumState, currentActiveConceptIndex, currentMessageId, userInputHistory, pendingModuleSelection, pendingPhaseSelection, pendingConceptSelectionIndex, pendingConceptSelectionBubbleId, projectFileContents, availableProjectFilePaths2, chatWindowController, moduleSelectionHandler, FALLBACK_FILE_PATHS, profiler, conceptNavPrev, conceptNavNext, chunkNavPrev, chunkNavNext, celebrationStyle;
+var inputArea, userInputElement, debugModeButton, SENDER_DISPLAY_NAMES, hasNativeBridge, isLocal, envApiKey, API_KEY, ai, mainSenseiChat, learnerModel, lastSenseiResponses, chronologicallyLastLLMSenseiMessageId, curriculum, curriculumState, currentActiveConceptIndex, currentMessageId, userInputHistory, pendingModuleSelection, pendingPhaseSelection, pendingConceptSelectionIndex, pendingConceptSelectionBubbleId, projectFileContents, availableProjectFilePaths2, chatWindowController, moduleSelectionHandler, FALLBACK_FILE_PATHS, profiler, conceptNavPrev, conceptNavNext, chunkNavPrev, chunkNavNext, handleReactNativeMessage, celebrationStyle;
 var init_index = __esm({
   "src/index.tsx"() {
     init_mermaidManager();
@@ -34976,6 +35112,7 @@ var init_index = __esm({
     init_ui();
     init_saveloadProgressManager();
     init_webviewBridge();
+    init_webviewMessageRouter();
     init_selectionSensei();
     init_chatWindowController();
     init_geminiService();
@@ -35208,6 +35345,19 @@ var init_index = __esm({
       chunkNavNext.addEventListener("click", () => handleChunkNavigation("next"));
     }
     loadCurriculumAndGreet();
+    handleReactNativeMessage = createWebviewMessageHandler({
+      logger,
+      sendToNative,
+      saveLoad: SaveLoadProgressManager,
+      displayMessage,
+      streamingMessagesRawText,
+      SENDER_DISPLAY_NAMES,
+      processMermaidBlocks,
+      showWrapUpAssessmentOverlay,
+      updateFooter,
+      updateMessageStream,
+      invokeSelectionSenseiBridgeAction
+    });
     if (typeof window !== "undefined") {
       window.recursiveSensei = window.recursiveSensei || {};
       window.recursiveSensei.updateKCProgressBar = updateKCProgressBar;

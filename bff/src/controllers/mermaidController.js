@@ -7,7 +7,9 @@ const MermaidRecoverSchema = z.object({
   code: z.string(),
   theme: z.string().optional(),
   errorHash: z.string().optional(),
-  context: z.record(z.any()).optional()
+  errorMessage: z.string().optional(),
+  context: z.record(z.any()).optional(),
+  mode: z.enum(['auto', 'llm']).optional()
 });
 
 class MermaidController {
