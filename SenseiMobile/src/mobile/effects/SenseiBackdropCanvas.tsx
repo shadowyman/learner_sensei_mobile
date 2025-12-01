@@ -24,11 +24,8 @@ import { logger } from '../../logger';
 
 interface SenseiBackdropCanvasProps {
     headerRect: { x: number; y: number; width: number; height: number } | null;
-    inputBarRect?: { x: number; y: number; width: number; height: number } | null;
-    inputFieldRect?: { x: number; y: number; width: number; height: number } | null;
     drawBackground?: boolean;
     includeHeaderFilter?: boolean;
-    enableInputBlur?: boolean;
     colors?: {
         linear: [string, string, string];
         radialA: string;
@@ -37,7 +34,7 @@ interface SenseiBackdropCanvasProps {
     };
 }
 
-const HEADER_RADIUS = 30;
+const HEADER_RADIUS = 0;
 const DEFAULT_HEADER_RECT = { x: 0, y: 0, width: 0, height: 0 } as const;
 
 // Built-in Skia dithering is enabled via <Group dither>
@@ -49,7 +46,7 @@ const DEFAULT_COLORS = {
     radialC: 'rgba(196,229,56,0.08)'
 };
 
-export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ headerRect, inputBarRect, inputFieldRect, drawBackground = true, includeHeaderFilter = true, enableInputBlur = true, colors = DEFAULT_COLORS }) => {
+export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ headerRect, drawBackground = true, includeHeaderFilter = true, colors = DEFAULT_COLORS }) => {
     const { width, height } = useWindowDimensions();
     const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -67,8 +64,6 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
     const shaderSupported = Platform.OS === 'ios' || (Platform.OS === 'android' && Platform.Version >= 30);
     const useShader = !!headerRect && shaderSupported && !reduceMotion;
     const hasHeaderRect = !!headerRect;
-    const hasInputBarRect = !!inputBarRect;
-    const hasInputFieldRect = !!inputFieldRect;
     const resolvedHeaderRect = headerRect ?? DEFAULT_HEADER_RECT;
 
     useEffect(() => {
@@ -150,18 +145,6 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
 
     const filter = hasHeaderRect ? (shaderFilter ?? fallbackFilter) : null;
 
-    // removed inputBarFilter pass to ensure only the input field chip is frosted
-
-    // Build a reusable frosted filter (blur + light screen) and clip it to the input field rrect
-    const inputFieldFrostFilter = null;
-
-    const inputFieldClip = useMemo(() => {
-        if (!hasInputFieldRect || !inputFieldRect) return null;
-        const { x, y, width: rectWidth, height: rectHeight } = inputFieldRect;
-        if (rectWidth === 0 || rectHeight === 0) return null;
-        return Skia.RRectXY(Skia.XYWHRect(x, y, rectWidth, rectHeight), 16, 16);
-    }, [hasInputFieldRect, inputFieldRect]);
-
     return (
         <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
             <Group dither>
@@ -183,11 +166,6 @@ export const SenseiBackdropCanvas: React.FC<SenseiBackdropCanvasProps> = ({ head
                 )}
                 {filter && includeHeaderFilter && (
                     <BackdropFilter filter={<ImageFilter filter={filter} />} />
-                )}
-                {enableInputBlur && inputFieldClip && (
-                    <Group clip={inputFieldClip} layer>
-                        <BackdropFilter filter={<ImageFilter filter={inputFieldFrostFilter} />} />
-                    </Group>
                 )}
             </Group>
         </Canvas>

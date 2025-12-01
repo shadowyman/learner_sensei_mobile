@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, Platform, useWindowDimensions, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
-import { BlurView } from '@react-native-community/blur';
 
 import { logger } from '../logger';
 import { BridgeManager } from './bridge/BridgeManager';
@@ -357,7 +356,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [webViewFrame, setWebViewFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [headerRect, setHeaderRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [inputBarRect, setInputBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-    const [inputFieldRect, setInputFieldRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [themeColors, setThemeColors] = useState<ThemeColors>(DEFAULT_THEME_COLORS);
     const [webViewReady, setWebViewReady] = useState(false);
     const { width: viewportWidth } = useWindowDimensions();
@@ -647,124 +645,97 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             <SenseiBackdropCanvas
                 drawBackground={true}
                 includeHeaderFilter={true}
-                enableInputBlur={false}
                 headerRect={headerRect}
-                inputBarRect={inputBarRect}
-                inputFieldRect={inputFieldRect}
                 colors={themeColors}
             />
             <SafeAreaView style={styles.container} edges={['left','right']}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-            <SelectionOverlay
-                state={selectionOverlay}
-                webViewFrame={webViewFrame}
-                onAction={(actionId, extras) => selectionControllerRef.current?.invoke(actionId, extras)}
-                onDismiss={() => selectionControllerRef.current?.dismiss()}
-            />
-            <SenseiHeader
-                statusText={headerStatus}
-                onConceptPrev={handleConceptPrev}
-                onConceptNext={handleConceptNext}
-                onChunkPrev={handleChunkPrev}
-                onChunkNext={handleChunkNext}
-                onToggleFontSize={handleToggleFontSize}
-                onToggleTheme={handleToggleTheme}
-                onToggleTelemetry={handleToggleTelemetryMenu}
-                onToggleDebug={handleToggleDebug}
-                onToggleFullscreen={handleToggleFullscreen}
-                onOpenNotepad={handleOpenNotepad}
-                onSave={handleSave}
-                onLoad={handleImport}
-                onLayoutRect={handleHeaderRectUpdate}
-            />
-            {!isCompactIOS && <View style={styles.headerDivider} />}
-            {SHOW_WEBVIEW ? (
-                <View style={styles.webviewWrapper}>
-                    <WebView
-                        key={webviewKey}
-                        ref={webViewRef}
-                        source={webViewSource}
-                        originWhitelist={['file://*']}
-                        injectedJavaScriptBeforeContentLoaded={webviewErrorInjection}
-                        onMessage={handleWebViewMessage}
-                        allowingReadAccessToURL={allowingReadAccessToURL}
-                        allowFileAccessFromFileURLs={true}
-                        allowUniversalAccessFromFileURLs={true}
-                        webviewDebuggingEnabled={enableIOSWebInspector}
-                        style={styles.webview}
-                        setBackgroundColor={'transparent'}
-                        opaque={true}
-                        onLoad={() => {
-                            hasLoadedRef.current = true;
-                            logger.info('[MOBILE_PORT] webview load success');
-                            injectHeaderStatusObserver();
-                            setWebViewReady(true);
-                        }}
-                        onHttpError={(e) => {
-                            const ne = e.nativeEvent as any;
-                            logger.warn('[MOBILE_PORT] webview http error', { url: ne?.url, statusCode: ne?.statusCode, description: ne?.description });
-                        }}
-                        onError={(e) => {
-                            const ne = e.nativeEvent as any;
-                            if (!hasLoadedRef.current) {
-                                logger.error('[MOBILE_PORT] webview load error', { url: ne?.url, code: ne?.code, description: ne?.description });
-                                onWebViewError?.({ url: ne?.url, code: ne?.code, description: ne?.description });
-                            } else {
-                                logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
-                            }
-                        }}
-                        onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
+                <View style={{ flex: 1 }}>
+                    <SelectionOverlay
+                        state={selectionOverlay}
+                        webViewFrame={webViewFrame}
+                        onAction={(actionId, extras) => selectionControllerRef.current?.invoke(actionId, extras)}
+                        onDismiss={() => selectionControllerRef.current?.dismiss()}
                     />
+                    <SenseiHeader
+                        statusText={headerStatus}
+                        onConceptPrev={handleConceptPrev}
+                        onConceptNext={handleConceptNext}
+                        onChunkPrev={handleChunkPrev}
+                        onChunkNext={handleChunkNext}
+                        onToggleFontSize={handleToggleFontSize}
+                        onToggleTheme={handleToggleTheme}
+                        onToggleTelemetry={handleToggleTelemetryMenu}
+                        onToggleDebug={handleToggleDebug}
+                        onToggleFullscreen={handleToggleFullscreen}
+                        onOpenNotepad={handleOpenNotepad}
+                        onSave={handleSave}
+                        onLoad={handleImport}
+                        onLayoutRect={handleHeaderRectUpdate}
+                    />
+                    {!isCompactIOS && <View style={styles.headerDivider} />}
+                    {SHOW_WEBVIEW ? (
+                        <View style={styles.webviewWrapper}>
+                            <WebView
+                                key={webviewKey}
+                                ref={webViewRef}
+                                source={webViewSource}
+                                originWhitelist={['file://*']}
+                                injectedJavaScriptBeforeContentLoaded={webviewErrorInjection}
+                                onMessage={handleWebViewMessage}
+                                allowingReadAccessToURL={allowingReadAccessToURL}
+                                allowFileAccessFromFileURLs={true}
+                                allowUniversalAccessFromFileURLs={true}
+                                webviewDebuggingEnabled={enableIOSWebInspector}
+                                style={styles.webview}
+                                setBackgroundColor={'transparent'}
+                                opaque={true}
+                                onLoad={() => {
+                                    hasLoadedRef.current = true;
+                                    logger.info('[MOBILE_PORT] webview load success');
+                                    injectHeaderStatusObserver();
+                                    setWebViewReady(true);
+                                }}
+                                onHttpError={(e) => {
+                                    const ne = e.nativeEvent as any;
+                                    logger.warn('[MOBILE_PORT] webview http error', { url: ne?.url, statusCode: ne?.statusCode, description: ne?.description });
+                                }}
+                                onError={(e) => {
+                                    const ne = e.nativeEvent as any;
+                                    if (!hasLoadedRef.current) {
+                                        logger.error('[MOBILE_PORT] webview load error', { url: ne?.url, code: ne?.code, description: ne?.description });
+                                        onWebViewError?.({ url: ne?.url, code: ne?.code, description: ne?.description });
+                                    } else {
+                                        logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
+                                    }
+                                }}
+                                onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
+                            />
+                        </View>
+                    ) : (
+                        <View style={styles.webviewPlaceholder}>
+                            <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
+                        </View>
+                    )}
                 </View>
-            ) : (
-                <View style={styles.webviewPlaceholder}>
-                    <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
-                </View>
-            )}
-            <View
-                pointerEvents="none"
-                style={[
-                    styles.nativeBlurOverlay,
-                    inputFieldRect
-                        ? {
-                              left: inputFieldRect.x,
-                              top: inputFieldRect.y,
-                              width: inputFieldRect.width,
-                              height: inputFieldRect.height,
-                              opacity: 0.5
-                          }
-                        : { opacity: 0 }
-                ]}
-            >
-                {Platform.OS === 'ios' ? (
-                    <BlurView blurType="dark" blurAmount={300} reducedTransparencyFallbackColor="transparent" style={StyleSheet.absoluteFill} />
-                ) : null}
-            </View>
-            <View style={styles.backdropOverlay} pointerEvents="none">
-                <SenseiBackdropCanvas
-                    drawBackground={false}
-                    includeHeaderFilter={false}
-                    enableInputBlur={true}
-                    headerRect={headerRect}
-                    inputBarRect={inputBarRect}
-                    inputFieldRect={inputFieldRect}
-                    colors={themeColors}
-                />
-            </View>
-            <View style={styles.inputBarOverlay} pointerEvents="box-none">
-                <InputBar
-                    onSubmit={(txt) => {
-                        logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
-                        void handleSubmit(txt);
-                    }}
-                    onOpenEditor={() => {
-                        logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
-                    }}
-                    onLayoutRect={setInputBarRect}
-                    onInputFieldRect={setInputFieldRect}
-                />
-            </View>
-            </KeyboardAvoidingView>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'position' : undefined}
+                    keyboardVerticalOffset={0}
+                    style={styles.inputBarAvoider}
+                    pointerEvents="box-none"
+                >
+                    <View style={styles.inputBarOverlay} pointerEvents="box-none">
+                        <InputBar
+                            onSubmit={(txt) => {
+                                logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
+                                void handleSubmit(txt);
+                            }}
+                            onOpenEditor={() => {
+                                logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
+                            }}
+                            onLayoutRect={setInputBarRect}
+                        />
+                    </View>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
     );
@@ -784,12 +755,6 @@ const styles = StyleSheet.create({
         height: StyleSheet.hairlineWidth,
         backgroundColor: 'rgba(255,255,255,0.08)',
         alignSelf: 'stretch'
-    },
-    nativeBlurOverlay: {
-        position: 'absolute',
-        borderRadius: 16,
-        overflow: 'hidden',
-        zIndex: 2
     },
     webviewWrapper: {
         flex: 1,
@@ -826,6 +791,13 @@ const styles = StyleSheet.create({
         bottom: 0,
         zIndex: 2
     },
+    inputBarAvoider: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 4
+    },
     secondaryButton: {
         paddingVertical: 10,
         paddingHorizontal: 14,
@@ -837,7 +809,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 3
+        zIndex: 4
     }
 });
 

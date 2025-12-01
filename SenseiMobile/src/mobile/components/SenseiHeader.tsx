@@ -7,7 +7,7 @@ import { logger } from '../../logger';
 import { NavIconSkia } from './NavIconSkia';
 import { MenuIconAsset } from './MenuIconAsset';
 
-const brandLogo = require('../../assets/brand4.png');
+const brandLogo = require('../../assets/brand5.png');
 
 const SEGMENT_BACKGROUND = 'rgba(6,19,29,0.7)';
 const SEGMENT_BORDER = 'rgba(255,255,255,0.04)';
@@ -15,7 +15,6 @@ const WRAPPER_PADDING_V = 0;
 const WRAPPER_PADDING_H = 12;
 const HEADER_OVERLAY_TINT_RGB = '255,255,255';
 const HEADER_OVERLAY_INTENSITY = 0.003;
-
 const HEADER_AUTO_CLOSE_MS = 3500;
 const THRESHOLD_FRACTION = 0.70;
 const EXPAND_DURATION_MS = 1000;

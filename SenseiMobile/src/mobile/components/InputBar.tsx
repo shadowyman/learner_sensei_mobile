@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { BlurView } from '@react-native-community/blur';
 import { CodeEditorBadge } from './CodeEditorBadge';
 import { SendIconSkia } from './SendIconSkia';
 import { logger } from '../../logger';
@@ -10,15 +11,13 @@ interface InputBarProps {
   onSubmit?: (text: string) => void;
   onOpenEditor?: () => void;
   onLayoutRect?: (rect: { x: number; y: number; width: number; height: number } | null) => void;
-  onInputFieldRect?: (rect: { x: number; y: number; width: number; height: number } | null) => void;
 }
 
-	export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLayoutRect, onInputFieldRect }) => {
+	export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLayoutRect }) => {
 		const [text, setText] = useState('');
 	const inputRef = useRef<TextInput | null>(null);
 	const wrapperRef = useRef<View | null>(null);
 	const inputContainerRef = useRef<View | null>(null);
-	const fieldFrameRef = useRef<View | null>(null);
 
 		const minHeight = 44;
 
@@ -39,26 +38,8 @@ interface InputBarProps {
       if (!w || !h) return;
       logger.info('Sensei(debug)', { tag: 'inputBar.rect', x, y, w, h });
       onLayoutRect?.({ x, y, width: w, height: h });
-    });
-  }, [onLayoutRect]);
-
-	const measureInputRect = useCallback(() => {
-		const node: any = fieldFrameRef.current;
-		if (!node || typeof node.measureInWindow !== 'function') return;
-		node.measureInWindow((x: number, y: number, w: number, h: number) => {
-			if (!w || !h) return;
-			logger.info('Sensei(debug)', { tag: 'inputField.rect', x, y, w, h });
-			onInputFieldRect?.({ x, y, width: w, height: h });
-		});
-	}, [onInputFieldRect]);
-
-		const scheduleMeasureInputRect = useCallback(() => {
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				measureInputRect();
-			});
-		});
-	}, [measureInputRect]);
+	    });
+	  }, [onLayoutRect]);
 
 	const editorSize = 26;
 
@@ -69,21 +50,30 @@ interface InputBarProps {
       onLayout={measureRect}
     >
 	      <View ref={inputContainerRef} style={styles.inputContainer}>
-	        <View ref={fieldFrameRef} onLayout={scheduleMeasureInputRect}>
-	        <TextInput
-	          ref={inputRef}
-	          value={text}
-	          onChangeText={setText}
-	          placeholder="Ask Sensei a question or type your thoughts..."
-	          multiline={false}
-	          style={styles.textInput}
+	        <View style={styles.fieldFrame}>
+						{Platform.OS === 'ios' ? (
+							<BlurView
+								style={styles.fieldBlur}
+								blurType="dark"
+								blurAmount={28}
+								reducedTransparencyFallbackColor="rgba(8,12,20,0.7)"
+								pointerEvents="none"
+							/>
+						) : null}
+		        <TextInput
+		          ref={inputRef}
+		          value={text}
+		          onChangeText={setText}
+		          placeholder="Ask Sensei a question or type your thoughts..."
+		          multiline={false}
+		          style={styles.textInput}
 		          placeholderTextColor={'rgba(148,163,184,0.65)'}
 		          selectionColor={'#22d3ee'}
 		          returnKeyType={'default'}
 		          blurOnSubmit={false}
 		        />
-		        </View>
 		      </View>
+	      </View>
 	      <View style={styles.actions}>
 	        <View style={styles.sendStack}>
 	          <TouchableOpacity
@@ -135,6 +125,14 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontSize: 16,
     lineHeight: INPUT_LINE_HEIGHT
+	},
+	fieldFrame: {
+		position: 'relative',
+		borderRadius: 16,
+		overflow: 'hidden'
+	},
+	fieldBlur: {
+		...StyleSheet.absoluteFillObject
 	},
 	actions: {
 		flexDirection: 'row',
