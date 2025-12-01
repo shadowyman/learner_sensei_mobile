@@ -23,7 +23,7 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
     const inputContainerRef = useRef<View | null>(null);
 
     const minHeight = 44;
-    const maxHeight = 120;
+    const maxHeight = 130;
 
     const handleSubmit = useCallback(() => {
         const trimmed = text.trim();
@@ -85,11 +85,11 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
                         value={text}
                         onChangeText={setText}
                         placeholder="Ask Sensei a question or type your thoughts..."
-                        multiline={true}
-                        scrollEnabled={scrollEnabled}
-                        onContentSizeChange={handleContentSizeChange}
-                        textAlignVertical="top"
-                        style={styles.textInput}
+                    multiline={true}
+                    scrollEnabled={scrollEnabled}
+                    onContentSizeChange={handleContentSizeChange}
+                    textAlignVertical="top"
+                    style={[styles.textInput, { minHeight, maxHeight }]}
                         placeholderTextColor={'rgba(148,163,184,0.65)'}
                         selectionColor={'#22d3ee'}
                         returnKeyType={'default'}
