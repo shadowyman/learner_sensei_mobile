@@ -733,6 +733,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                 logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
                             }}
                             onLayoutRect={setInputBarRect}
+                            themeColors={themeColors}
                         />
                     </View>
                 </KeyboardAvoidingView>
