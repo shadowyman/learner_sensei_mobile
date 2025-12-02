@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../logger';
 import { NavIconSkia } from './NavIconSkia';
 import { MenuIconAsset } from './MenuIconAsset';
+import { ThemeColors, deriveSendGradient, isDefaultTheme } from '../theme/gradients';
 
 const brandLogo = require('../../assets/brand5.png');
 
@@ -40,6 +41,8 @@ interface SenseiHeaderProps {
     onSave: () => void;
     onLoad: () => void;
     onLayoutRect?: (layout: { x: number; y: number; width: number; height: number }) => void;
+    themeColors?: ThemeColors;
+    showNavButtons?: boolean;
 }
 
 export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
@@ -56,7 +59,9 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     onOpenNotepad,
     onSave,
     onLoad,
-    onLayoutRect
+    onLayoutRect,
+    themeColors,
+    showNavButtons = true
 }) => {
     const [controlsExpanded, setControlsExpanded] = useState(false);
     const [showControls, setShowControls] = useState(false);
@@ -75,6 +80,12 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
     const isCompactIOS = Platform.OS === 'ios' && !isPad && width <= 430;
     const rowGap = isCompactIOS ? CONTROL_ROW_VERTICAL_GAP_COMPACT : CONTROL_ROW_VERTICAL_GAP;
+    const controlGradientColors = useMemo(() => {
+        if (!themeColors || isDefaultTheme(themeColors)) {
+            return ['#056c76', '#00353c'];
+        }
+        return deriveSendGradient(themeColors);
+    }, [themeColors]);
 
     const controlsOpacityBase = useMemo(
         () =>
@@ -182,9 +193,8 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
     };
 
     const brandSection = (
-        <View style={styles.brandSegment}>
+        <View style={[styles.brandSegment, isCompactIOS ? styles.brandSegmentCompact : null]}>
             <Image source={brandLogo} style={styles.brandImage} resizeMode="contain" />
-            <Text style={styles.brandLabel}>Recursive Sensei</Text>
         </View>
     );
 
@@ -300,16 +310,18 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
             ref={statusRef}
             style={[styles.statusSegment, isCompactIOS && styles.statusSegmentCompact]}
         >
-            <NavCluster
-                variant="prev"
-                onConcept={onConceptPrev}
-                onChunk={onChunkPrev}
-            />
+            {showNavButtons && (
+                <NavCluster
+                    variant="prev"
+                    onConcept={onConceptPrev}
+                    onChunk={onChunkPrev}
+                />
+            )}
             <View style={styles.statusContent}>
-                <Text style={styles.statusLabel}>Current Focus</Text>
+                {!isCompactIOS && <Text style={styles.statusLabel}>Current Focus</Text>}
                 {statusLines.length > 0 ? (
                     <>
-                        <Text style={styles.statusModule} numberOfLines={isCompactIOS ? 2 : 1}>{statusLines[0]}</Text>
+                        <Text style={styles.statusModule} numberOfLines={1}>{statusLines[0]}</Text>
                         {statusLines.slice(1).map(line => (
                             <Text key={line} style={styles.statusPhase} numberOfLines={1}>
                                 {line}
@@ -320,16 +332,18 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     <Text style={styles.statusPhase}>Loading curriculum…</Text>
                 )}
             </View>
-            <NavCluster
-                variant="next"
-                onConcept={onConceptNext}
-                onChunk={onChunkNext}
-            />
+            {showNavButtons && (
+                <NavCluster
+                    variant="next"
+                    onConcept={onConceptNext}
+                    onChunk={onChunkNext}
+                />
+            )}
         </View>
     );
 
-    const controlIconSize = isCompactIOS ? 24 : 20;
-    const controlButtonSize = isCompactIOS ? 40 : 30;
+    const controlIconSize = isCompactIOS ? 16 : 20;
+    const controlButtonSize = isCompactIOS ? 30 : 30;
 
     const controlsSection = (
         <Animated.View
@@ -346,7 +360,10 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
             }}
         >
             {showControls && (
-                <View style={styles.controlsExpandedShell} pointerEvents={'auto'}>
+                <View
+                    style={[styles.controlsExpandedShell, isCompactIOS ? styles.controlsExpandedShellCompact : null]}
+                    pointerEvents={'auto'}
+                >
                     <Animated.View style={{ opacity: controlsOpacity }}>
                         {renderControlRows(
                             onToggleFontSize,
@@ -358,7 +375,8 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                             rowGap,
                             controlIconSize,
                             controlButtonSize,
-                            isCompactIOS
+                            isCompactIOS,
+                            controlGradientColors
                         )}
                     </Animated.View>
                 </View>
@@ -482,7 +500,7 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                     }
                 }}
             >
-                <View style={styles.controlsExpandedShell}>
+                <View style={[styles.controlsExpandedShell, isCompactIOS ? styles.controlsExpandedShellCompact : null]}>
                     {renderControlRows(
                         () => { restartAutoClose(); onToggleFontSize(); },
                         () => { restartAutoClose(); onToggleTheme(); },
@@ -493,7 +511,8 @@ export const SenseiHeader: React.FC<SenseiHeaderProps> = ({
                         rowGap,
                         controlIconSize,
                         controlButtonSize,
-                        isCompactIOS
+                        isCompactIOS,
+                        controlGradientColors
                     )}
                 </View>
             </View>
@@ -507,7 +526,7 @@ const CONTROL_BUTTON_SIZE = 40;
 const CONTROL_BUTTON_RADIUS = CONTROL_BUTTON_SIZE / 2;
 const CONTROL_BUTTON_GAP = 8;
 const CONTROL_ROW_VERTICAL_GAP = 10;
-const CONTROL_ROW_VERTICAL_GAP_COMPACT = 5;
+const CONTROL_ROW_VERTICAL_GAP_COMPACT = 8;
 
 const renderControlRows = (
     onToggleFontSize: () => void,
@@ -519,7 +538,8 @@ const renderControlRows = (
     rowGap: number,
     iconSize: number,
     buttonSize: number,
-    isCompact: boolean
+    isCompact: boolean,
+    gradientColors: string[]
 ) => {
     const topButtons = isCompact
         ? [
@@ -556,6 +576,7 @@ const renderControlRows = (
                         onPress={btn.onPress}
                         size={iconSize}
                         buttonSize={buttonSize}
+                        gradientColors={gradientColors}
                     />
                 ))}
             </View>
@@ -569,6 +590,7 @@ const renderControlRows = (
                         onPress={btn.onPress}
                         size={iconSize}
                         buttonSize={buttonSize}
+                        gradientColors={gradientColors}
                     />
                 ))}
             </View>
@@ -628,7 +650,14 @@ interface ControlButtonProps {
     onPress: () => void;
 }
 
-const ControlButton: React.FC<ControlButtonProps & { size?: number; buttonSize: number }> = ({ label, icon, onPress, size = 28, buttonSize }) => {
+const ControlButton: React.FC<ControlButtonProps & { size?: number; buttonSize: number; gradientColors: string[] }> = ({
+    label,
+    icon,
+    onPress,
+    size = 28,
+    buttonSize,
+    gradientColors
+}) => {
     return (
         <TouchableOpacity
             style={[
@@ -644,7 +673,7 @@ const ControlButton: React.FC<ControlButtonProps & { size?: number; buttonSize: 
             accessibilityLabel={label}
         >
             <LinearGradient
-                colors={['#056c76', '#00353c']}
+                colors={gradientColors}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[
@@ -692,6 +721,10 @@ const styles = StyleSheet.create({
         paddingVertical: 0,
         minWidth: 76
     },
+    brandSegmentCompact: {
+        marginTop: 15,
+        marginLeft: 20
+    },
     brandImage: {
         width: 80,
         height: 80,
@@ -724,7 +757,7 @@ const styles = StyleSheet.create({
     statusSegmentCompact: {
         paddingHorizontal: 4,
         paddingVertical: 8,
-        minHeight: 48
+        minHeight: 40
     },
     statusContent: {
         flex: 1,
@@ -825,6 +858,9 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         flexDirection: 'column'
     },
+    controlsExpandedShellCompact: {
+        marginTop: 15
+    },
     divider: {
         width: 1,
         alignSelf: 'stretch',
@@ -836,13 +872,16 @@ const styles = StyleSheet.create({
     },
     dividerContainer: {
         width: '100%',
-        height: 17,
-        justifyContent: 'center'
+        height: 5,
+        justifyContent: 'center',
+        position: 'relative'
     },
     dividerHorizontal: {
-        width: '100%',
         height: 1,
-        backgroundColor: 'rgba(255,255,255,0.08)'
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        position: 'absolute',
+        left: -WRAPPER_PADDING_H,
+        right: -WRAPPER_PADDING_H
     },
     measureContainer: {
         position: 'absolute',

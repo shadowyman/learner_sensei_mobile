@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, Platform, useWindowDimensions, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
+import LinearGradient from 'react-native-linear-gradient';
 
 import { logger } from '../logger';
 import { BridgeManager } from './bridge/BridgeManager';
@@ -351,6 +352,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [isStreaming, setIsStreaming] = useState(false);
     const [footer, setFooter] = useState<FooterPayload | null>(null);
     const [headerStatus, setHeaderStatus] = useState('Loading curriculum…');
+    const [navButtonsVisible, setNavButtonsVisible] = useState(false);
     const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>({ visible: false });
     const selectionControllerRef = useRef<SelectionOverlayController | null>(null);
     const [webViewFrame, setWebViewFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
@@ -494,6 +496,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     if (!target || !window.ReactNativeWebView) {
                         return;
                     }
+                    const isVisible = (el) => {
+                        if (!el || typeof window.getComputedStyle !== 'function') return false;
+                        const style = window.getComputedStyle(el);
+                        return style && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+                    };
+                    const conceptPrev = document.getElementById('concept-nav-prev');
+                    const conceptNext = document.getElementById('concept-nav-next');
+                    const chunkPrev = document.getElementById('chunk-nav-prev');
+                    const chunkNext = document.getElementById('chunk-nav-next');
+                    const navVisible = isVisible(conceptPrev) || isVisible(conceptNext) || isVisible(chunkPrev) || isVisible(chunkNext);
                     const lines = buildLines(target)
                         .map((line) => (typeof line === 'string' ? line.replace(/\\s+/g, ' ').trim() : ''))
                         .filter((line) => !!line);
@@ -501,7 +513,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     window.ReactNativeWebView.postMessage(JSON.stringify({
                         type: 'header:status',
                         text,
-                        lines
+                        lines,
+                        navVisible
                     }));
                 };
                 const container = document.getElementById('curriculum-status-container');
@@ -606,6 +619,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 } else {
                     setHeaderStatus(parsed.text ?? '');
                 }
+                if (typeof parsed.navVisible === 'boolean') {
+                    setNavButtonsVisible(parsed.navVisible);
+                }
             }
             onWebViewEvent?.(parsed);
         } catch (error) {
@@ -639,6 +655,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const handleConceptNext = useCallback(() => clickWebButton('concept-nav-next'), [clickWebButton]);
     const handleChunkPrev = useCallback(() => clickWebButton('chunk-nav-prev'), [clickWebButton]);
     const handleChunkNext = useCallback(() => clickWebButton('chunk-nav-next'), [clickWebButton]);
+    const handleShowMeditation = useCallback((mode: 'brand' | 'status') => {
+        if (!webViewReady) return;
+        bridge.enqueue({ type: 'meditation:show', mode });
+    }, [bridge, webViewReady]);
 
     return (
         <View style={[styles.root, { backgroundColor: themeColors.linear[0] }]}>            
@@ -671,6 +691,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         onSave={handleSave}
                         onLoad={handleImport}
                         onLayoutRect={handleHeaderRectUpdate}
+                        themeColors={themeColors}
+                        showNavButtons={navButtonsVisible}
+                        onBrandPress={() => handleShowMeditation('brand')}
+                        onStatusPress={() => handleShowMeditation('status')}
                     />
                     {!isCompactIOS && <View style={styles.headerDivider} />}
                     {SHOW_WEBVIEW ? (
@@ -724,6 +748,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     pointerEvents="box-none"
                 >
                     <View style={styles.inputBarOverlay} pointerEvents="box-none">
+                        <LinearGradient
+                            colors={[
+                                'rgba(0,0,0,0.4)',
+                                'rgba(0,0,0,0.3)',
+                                'rgba(0,0,0,0.2)',
+                                'rgba(0,0,0,0.08)',
+                                'rgba(0,0,0,0)'
+                            ]}
+                            locations={[0, 0.5, 0.75, 0.9, 1]}
+                            start={{ x: 0, y: 1 }}
+                            end={{ x: 0, y: 0 }}
+                            style={styles.inputBarBackground}
+                            pointerEvents="none"
+                        />
                         <InputBar
                             onSubmit={(txt) => {
                                 logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
@@ -810,7 +848,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 4
+        zIndex: 4,
+        paddingTop: 14
+    },
+    inputBarBackground: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'transparent'
     }
 });
 

@@ -10,6 +10,7 @@ export type RNToWebMessage =
   | { type: 'chat:update'; messageId: string; text: string; replace?: boolean }
   | { type: 'chat:completeMessage'; messageId: string }
   | { type: 'ui:inputOffset'; height: number }
+  | { type: 'meditation:show'; mode: 'brand' | 'status' }
   | { type: 'selectionSensei:invoke'; actionId: SelectionSenseiActionId; selectionId: string; actionLabel?: string; userQuestion?: string }
   | { type: 'saveload:export'; requestId: string }
   | { type: 'saveload:import'; requestId: string; json: string }
@@ -33,7 +34,7 @@ export type WebToRNMessage =
   | { type: 'mermaid:error'; messageId: string; code: string; errorHash?: string }
   | { type: 'mermaid:recover'; messageId: string; code: string; theme?: string; errorHash?: string; errorMessage?: string; mode?: 'auto' | 'llm' }
   | { type: 'modal:state'; id: string; visible: boolean }
-  | { type: 'header:status'; text?: string; html?: string; lines?: string[] }
+  | { type: 'header:status'; text?: string; html?: string; lines?: string[]; navVisible?: boolean }
   | { type: 'webview:error'; message: string; stack?: string };
 
 export interface DOMRectLike {
