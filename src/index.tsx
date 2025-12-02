@@ -109,7 +109,8 @@ import {
     renderEnhancedMarkdown,
     setEnhanceLoadingState,
     setEnhanceActiveState,
-    updateMessageStream
+    updateMessageStream,
+    showMeditationOverlayFromNative
 } from './ui';
 import { SaveLoadProgressManager } from './saveloadProgressManager';
 import { initializeWebviewBridge, sendToNative } from './mobile/webviewBridge';
@@ -1737,7 +1738,8 @@ const handleReactNativeMessage = createWebviewMessageHandler({
     showWrapUpAssessmentOverlay,
     updateFooter,
     updateMessageStream,
-    invokeSelectionSenseiBridgeAction
+    invokeSelectionSenseiBridgeAction,
+    showMeditationOverlayFromNative
 });
 
 // Expose function globally with namespace to avoid conflicts

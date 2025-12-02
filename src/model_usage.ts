@@ -25,7 +25,6 @@ export const TEACHING_PLAN_GENERATION_CONFIG = {
 export const WRAP_UP_ASSESSMENT_GENERATION_CONFIG = {
   modelName: GEMINI_PRO,
   config: {
-    responseMimeType: "application/json",
     temperature: 0.6,
   },
 };

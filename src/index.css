@@ -3799,31 +3799,29 @@ svg[aria-roledescription="error"] {
 
 /* --- SENSEI MEDITATION OVERLAY --- */
 .meditation-overlay {
-    position: absolute;
-    top: 64px;
+    position: fixed;
+    top: 0;
     left: 0;
     right: 0;
-    max-height: 50vh; /* Limit height to 50% of viewport */
-    overflow-y: auto; /* Allow scrolling on the overlay itself */
+    margin: 0 auto;
+    transform: translateY(-16px) scale(0.96);
+    transform-origin: top center;
+    max-height: 50vh;
+    overflow-y: auto;
     overflow-x: hidden;
-    transform: translateY(-20px) scale(0.95);
-    z-index: var(--z-index-content-overlay);
+    z-index: var(--z-index-modal);
     opacity: 0;
     pointer-events: none;
 
-    /* Styling */
     background: rgba(30, 41, 59, 0.85);
     backdrop-filter: blur(20px);
     border: 1px solid rgba(34, 197, 94, 0.2);
     border-radius: 0 0 var(--size-border-radius) var(--size-border-radius);
     box-shadow: var(--glass-shadow);
 
-    /* Layout - span full message area width */
     padding: 24px;
     display: flex;
     flex-direction: column;
-
-    /* Animation will be handled by Anime.js script */
     transition: none;
 }
 
@@ -3862,7 +3860,7 @@ svg[aria-roledescription="error"] {
 .meditation-overlay.visible {
     opacity: 1;
     pointer-events: auto;
-    transform: translateX(-50%) translateY(0) scale(1);
+    transform: translateY(0) scale(1);
 }
 
 .meditation-header {

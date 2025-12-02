@@ -53,6 +53,7 @@ export function createWebviewMessageHandler(deps: {
   updateFooter: (footer: any) => void;
   updateMessageStream: (id: string, text: string) => Promise<void>;
   invokeSelectionSenseiBridgeAction: (actionId: string, payload: { actionLabel?: string; userQuestion?: string }) => void;
+  showMeditationOverlayFromNative: (mode: 'brand' | 'status') => void;
 }) {
   const applyInputOffset = (height: number) => {
     const h = Math.max(0, Math.round(height));
@@ -158,6 +159,10 @@ export function createWebviewMessageHandler(deps: {
       }
       case 'telemetry:configure': {
         (window as any).__telemetryEnabled = message.enabled;
+        break;
+      }
+      case 'meditation:show': {
+        deps.showMeditationOverlayFromNative(message.mode);
         break;
       }
       default:

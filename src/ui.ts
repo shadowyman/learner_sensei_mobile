@@ -1531,6 +1531,27 @@ function hideMeditationOverlay(): void {
     }
 }
 
+export function showMeditationOverlayFromNative(mode: 'brand' | 'status'): void {
+    if (meditationHoverState.hoverTimeout) {
+        clearTimeout(meditationHoverState.hoverTimeout);
+        meditationHoverState.hoverTimeout = null;
+    }
+    const curriculumState = (window as any).curriculumState || null;
+    if (!curriculumState || !curriculumState.teachingPlanForPhase || curriculumState.currentTeachingChunkIndex === undefined) {
+        return;
+    }
+    meditationHoverState.showAllChunks = mode === 'status';
+    meditationHoverState.isPinned = true;
+    meditationHoverState.isOverBrand = mode === 'brand';
+    meditationHoverState.isOverOverlay = false;
+    enableMeditationOverlayOutsideClose();
+    updateSenseiMeditationOverlay(curriculumState, true);
+}
+
+if (typeof window !== 'undefined') {
+    (window as any).showMeditationOverlayFromNative = showMeditationOverlayFromNative;
+}
+
 function addLanguageDisplayToCodeBlocks_internal(messageTextElement: HTMLElement) {
     const preElements = messageTextElement.querySelectorAll('pre');
     preElements.forEach(preEl => {
