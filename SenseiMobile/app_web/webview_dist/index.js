@@ -1533,7 +1533,6 @@ var init_model_usage = __esm({
     WRAP_UP_ASSESSMENT_GENERATION_CONFIG = {
       modelName: GEMINI_PRO,
       config: {
-        responseMimeType: "application/json",
         temperature: 0.6
       }
     };
@@ -6319,6 +6318,10 @@ function createWebviewMessageHandler(deps2) {
       }
       case "telemetry:configure": {
         window.__telemetryEnabled = message.enabled;
+        break;
+      }
+      case "meditation:show": {
+        deps2.showMeditationOverlayFromNative(message.mode);
         break;
       }
       default:
@@ -20956,6 +20959,7 @@ __export(ui_exports, {
   setupTextareaAutosize: () => setupTextareaAutosize,
   showImportFailureModal: () => showImportFailureModal,
   showLoading: () => showLoading,
+  showMeditationOverlayFromNative: () => showMeditationOverlayFromNative,
   streamingMessageTimers: () => streamingMessageTimers,
   streamingMessagesRawText: () => streamingMessagesRawText,
   updateCurriculumDisplay: () => updateCurriculumDisplay,
@@ -21861,6 +21865,22 @@ function hideMeditationOverlay() {
       overlayElement.style.pointerEvents = "none";
     }, 400);
   }
+}
+function showMeditationOverlayFromNative(mode) {
+  if (meditationHoverState.hoverTimeout) {
+    clearTimeout(meditationHoverState.hoverTimeout);
+    meditationHoverState.hoverTimeout = null;
+  }
+  const curriculumState2 = window.curriculumState || null;
+  if (!curriculumState2 || !curriculumState2.teachingPlanForPhase || curriculumState2.currentTeachingChunkIndex === void 0) {
+    return;
+  }
+  meditationHoverState.showAllChunks = mode === "status";
+  meditationHoverState.isPinned = true;
+  meditationHoverState.isOverBrand = mode === "brand";
+  meditationHoverState.isOverOverlay = false;
+  enableMeditationOverlayOutsideClose();
+  updateSenseiMeditationOverlay(curriculumState2, true);
 }
 function addLanguageDisplayToCodeBlocks_internal(messageTextElement) {
   const preElements = messageTextElement.querySelectorAll("pre");
@@ -23886,6 +23906,9 @@ var init_ui = __esm({
     themePaletteHideTimeout = null;
     previewThemeId = null;
     lastFooterState = { confidence: "", confusion: "", intent: "" };
+    if (typeof window !== "undefined") {
+      window.showMeditationOverlayFromNative = showMeditationOverlayFromNative;
+    }
     touchEventSupported = typeof window !== "undefined" && typeof TouchEvent !== "undefined";
     pointerEventSupported = typeof window !== "undefined" && typeof PointerEvent !== "undefined";
     mermaidObserver = null;
@@ -35380,7 +35403,8 @@ var init_index = __esm({
       showWrapUpAssessmentOverlay,
       updateFooter,
       updateMessageStream,
-      invokeSelectionSenseiBridgeAction
+      invokeSelectionSenseiBridgeAction,
+      showMeditationOverlayFromNative
     });
     if (typeof window !== "undefined") {
       window.recursiveSensei = window.recursiveSensei || {};
