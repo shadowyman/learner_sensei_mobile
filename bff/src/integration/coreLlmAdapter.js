@@ -11,6 +11,10 @@ class CoreLlmAdapter {
     const text = await this.callText(prompt, { task });
     return JSON.parse(text);
   }
+
+  async callWithTools(prompt, { task, tools }) {
+    return this.geminiGateway.callWithTools(prompt, { task, tools });
+  }
 }
 
 module.exports = CoreLlmAdapter;

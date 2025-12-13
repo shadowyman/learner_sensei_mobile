@@ -7,7 +7,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./mermaidErrorRecovery": "./dist/mermaidErrorRecovery.js",
-    "./modelUsage": "./dist/modelUsage.js"
+    "./modelUsage": "./dist/modelUsage.js",
+    "./wrapUpAssessment": "./dist/wrapUpAssessment.js"
   },
   "files": [
     "dist"

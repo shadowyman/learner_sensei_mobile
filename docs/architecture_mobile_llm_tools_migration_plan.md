@@ -24,6 +24,18 @@ Terminology:
 
 > When in doubt: tools live in `core/`, orchestration stays in `src/`.
 
+## Mandatory Mobile Routing Gate (Phase 1 invariant)
+
+For every `*` function migrated into a Core tool and/or BFF endpoint, the migration is not complete until:
+
+1. You choose and wire a mobile transport pattern:
+   - Pattern A (preferred Phase 1): WebView sends a bridge request to RN; RN calls a BFF endpoint; RN returns a structured result to WebView (mermaid is the reference).
+   - Pattern B: WebView uses a mobile-only `CoreLlmClient` that calls BFF endpoints directly.
+2. You gate or remove the desktop/browser SDK path for that task when `window.__SENSEI_MOBILE_BUILD__ === true`.
+3. You add a regression/sentinel test proving the mobile build uses the BFF path (tests must fail if a browser `CoreLlmClient` is used on mobile).
+
+Do not mark a tool migrated until this gate is satisfied.
+
 ---
 
 ## 1. Planning & Wrap‑Up Tools
@@ -80,29 +92,16 @@ Terminology:
 
 ### 1.3 `generateWrapUpAssessment` (Tool)
 
-- **File:**
-  - `src/geminiService.ts`
-- **Current behavior:**
-  - Builds wrap‑up prompt via `buildWrapUpAssessmentPrompt`.
-  - Calls `ai.models.generateContent` with `WRAP_UP_ASSESSMENT_GENERATION_CONFIG` and `WRAP_UP_ASSESSMENT_TOOLS`.
-  - Handles function calls or tool‑code JSON; normalizes via:
-    - `normalizeWrapUpAssessmentQuestions`, `extractFunctionCall`, `extractQuestionsFromToolCode`, `reorderWrapUpAssessmentQuestions`.
-  - Returns `WrapUpAssessmentGenerationResult | null`.
+- **File(s):**
+  - `core/wrapUpAssessment.ts` (canonical tool)
+  - `src/geminiService.ts` (legacy wrapper for tests/desktop fallback)
+- **Current behavior (post‑migration):**
+  - Core owns the prompt, model config, parsing, normalization, and validation into `WrapUpAssessmentGenerationResult`.
+  - Web/WebView calls the Core tool via a browser `CoreLlmClient`.
+  - BFF exposes `POST /sessions/:sessionId/wrapup` and calls Core via `CoreLlmAdapter` to return `WrapUpAssessmentOverlayData`.
 - **Classification:** **Tool (pure)**
   - Entirely prompt + parsing/validation; no DOM.
-- **Migration plan:**
-  1. Complete/extend `core/wrapUpAssessment.ts`:
-     - Move the full `generateWrapUpAssessment` pipeline into Core, preserving prompt and normalization.
-     - Export:
-       - `generateWrapUpAssessment(llm: CoreLlmClient, moduleId: string, context: WrapUpAssessmentPromptContext): Promise<WrapUpAssessmentGenerationResult | null>`.
-  2. Web:
-     - Replace direct imports from `src/geminiService.ts` with Core imports.
-     - Keep overlay/state logic in `src/wrapUpAssessment.ts` and callers; only the tool moves.
-  3. BFF (post‑Phase 1):
-     - Introduce `/sessions/:id/wrapup` or similar endpoint that:
-       - Accepts module/context metadata.
-       - Calls Core’s `generateWrapUpAssessment` via `CoreLlmAdapter`.
-       - Returns `WrapUpAssessmentOverlayData` as JSON for mobile.
+- **Migration status:** Completed (2025‑12‑12). Keep orchestration and overlay rendering in `src/*`.
 
 ### 1.4 `generateDirectiveFromMetaPrompt` (Tool)
 
@@ -396,4 +395,3 @@ When you touch a `*` function listed in `docs/llm_entry_exit_traces.md`:
    - Keep this migration plan and the main mobile architecture doc accurate.
 
 Following this plan will keep LLM integrations clean, DRY, and aligned with the Phase 1 architecture: WebView as the teacher, Core as the tool library, BFF as the LLM gateway.
-

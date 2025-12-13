@@ -1,4 +1,5 @@
-import type { FooterPayload } from '../bridge/contracts';
+import type { FooterPayload, WrapUpAssessmentOverlayData, WrapUpAssessmentPromptContext } from '../bridge/contracts';
+export type { WrapUpAssessmentPromptContext } from '../bridge/contracts';
 
 export interface SelectionContext {
     actionId: string;
@@ -53,4 +54,5 @@ export interface BffClientLike {
     submitTurn(payload: SubmitTurnPayload): Promise<TurnStreamHandle>;
     reconnectIfNeeded(): Promise<void>;
     recoverMermaid(payload: MermaidRecoveryPayload): Promise<MermaidRecoveryResult>;
+    generateWrapUp(moduleId: string, promptContext: WrapUpAssessmentPromptContext): Promise<WrapUpAssessmentOverlayData | null>;
 }

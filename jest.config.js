@@ -48,8 +48,10 @@ const config = {
     '^\\./ui\\.js$': '<rootDir>/src/ui.ts',
     '^\\./curriculum\\.js$': '<rootDir>/src/curriculum.ts',
     '^\\./mermaidManager\\.js$': '<rootDir>/src/mermaidManager.ts',
+    '^\\./index$': '<rootDir>/__mocks__/index.ts',
     '^\\./codeEditorModal$': '<rootDir>/__mocks__/codeEditorModal.ts',
     '^@google/genai$': '<rootDir>/__mocks__/@google/genai.js',
+    '^@google/generative-ai$': '<rootDir>/__mocks__/@google/generative-ai.js',
     '^\\.\\./adaptiveEngine$': '<rootDir>/src/adaptiveEngine.ts',
     '^\\.\\./curriculum$': '<rootDir>/src/curriculum.ts',
     '^\\.\\./geminiService$': '<rootDir>/src/geminiService.ts',
@@ -70,7 +72,8 @@ const config = {
     '^\\.\\./mermaidErrorRecovery$': '<rootDir>/src/mermaidErrorRecovery.ts',
     '^mocks/(.*)$': '<rootDir>/__mocks__/$1',
     '^.+\\.(css|sass|scss|less)$': '<rootDir>/__mocks__/styleStub.js',
-    '^.+\\.(gif|ttf|eot|svg|png|jpg|jpeg|webp)$': '<rootDir>/__mocks__/assetStub.js'
+    '^.+\\.(gif|ttf|eot|svg|png|jpg|jpeg|webp)$': '<rootDir>/__mocks__/assetStub.js',
+    '^.+\\.(txt)$': '<rootDir>/__mocks__/textStub.js'
   },
   reporters: [
     'default',

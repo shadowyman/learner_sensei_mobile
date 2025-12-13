@@ -5,16 +5,17 @@ const createContainer = require('./container');
 const sessionsRouterFactory = require('./routes/sessions');
 const mermaidRouterFactory = require('./routes/mermaid');
 const telemetryRouterFactory = require('./routes/telemetry');
+const wrapUpRouterFactory = require('./routes/wrapUp');
 const initStreamServer = require('./stream/streamServer');
 const requestContext = require('./middleware/requestContext');
 
 const TAG = 'SERVER';
 
-const startServer = () => {
+const startServer = (overrides = {}) => {
   const container = createContainer();
   const app = express();
   app.use(cors({ origin: container.config.corsOrigin }));
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: container.config.jsonBodyLimit || '50mb' }));
   app.use(morgan('dev'));
   app.use(requestContext);
   app.use(sessionsRouterFactory({
@@ -25,9 +26,12 @@ const startServer = () => {
     config: container.config
   }));
   app.use(mermaidRouterFactory({ mermaidService: container.mermaidService, logger: container.logger }));
+  app.use(wrapUpRouterFactory({ wrapUpService: container.wrapUpService, sessionService: container.sessionService, logger: container.logger }));
   app.use(telemetryRouterFactory({ telemetryService: container.telemetryService, logger: container.logger }));
-  const server = app.listen(container.config.port, container.config.host, () => {
-    container.logger.info(TAG, 'listening', { port: container.config.port, host: container.config.host });
+  const host = overrides.host ?? container.config.host;
+  const port = typeof overrides.port === 'number' ? overrides.port : container.config.port;
+  const server = app.listen(port, host, () => {
+    container.logger.info(TAG, 'listening', { port, host });
   });
   initStreamServer({
     server,

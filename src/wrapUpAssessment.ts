@@ -1,5 +1,5 @@
 import { sanitizeMarkdownFences, parseSanitizedMarkdown, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks } from './ui';
-import { WrapUpAssessmentQuestion } from './geminiService';
+import type { WrapUpAssessmentQuestion } from '@sensei/core/wrapUpAssessment';
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
 
@@ -191,6 +191,21 @@ export function showWrapUpAssessmentOverlay(data: WrapUpAssessmentOverlayData): 
     }
 
     const validatedQuestions = validateWrapUpAssessmentQuestions(data.questions);
+    showWrapUpAssessmentOverlayValidated(data, validatedQuestions);
+}
+
+function showWrapUpAssessmentOverlayValidated(
+    data: WrapUpAssessmentOverlayData,
+    validatedQuestions: WrapUpAssessmentQuestion[]
+): void {
+    const messageArea = document.getElementById('message-area');
+    if (!messageArea) {
+        return;
+    }
+    if (isWrapUpAssessmentActive()) {
+        return;
+    }
+
     const renderQuestions = prepareRenderQuestions(validatedQuestions);
 
     disableChatControls();
@@ -515,6 +530,54 @@ export function showWrapUpAssessmentOverlay(data: WrapUpAssessmentOverlayData): 
         } catch (error) {
             console.warn('Selection Sensei reinitialization failed for wrap-up overlay.', error);
         }
+    }
+}
+
+function clearPhaseLoadingBubbles(): void {
+    document.querySelectorAll<HTMLElement>('.message-bubble').forEach(bubble => {
+        if (!bubble.querySelector('.phase-loading-container')) {
+            return;
+        }
+        const dotAnimation = (bubble as any).dotAnimation;
+        if (dotAnimation) {
+            clearInterval(dotAnimation);
+            delete (bubble as any).dotAnimation;
+        }
+        const messageAnimation = (bubble as any).messageAnimation;
+        if (messageAnimation) {
+            clearInterval(messageAnimation);
+            delete (bubble as any).messageAnimation;
+        }
+        bubble.remove();
+    });
+}
+
+export async function presentWrapUpAssessmentOverlay(params: {
+    overlay: WrapUpAssessmentOverlayData | null;
+    failed: boolean;
+    moduleTitle: string | null;
+    showApology: (moduleTitle: string | null) => Promise<void>;
+}): Promise<void> {
+    const overlay = params.overlay;
+    const moduleTitle = params.moduleTitle ?? overlay?.moduleTitle ?? null;
+
+    if (!overlay) {
+        if (params.failed) {
+            clearPhaseLoadingBubbles();
+            await params.showApology(moduleTitle);
+            unlockWrapUpChatControls();
+        }
+        return;
+    }
+
+    try {
+        const validatedQuestions = validateWrapUpAssessmentQuestions(overlay.questions);
+        clearPhaseLoadingBubbles();
+        showWrapUpAssessmentOverlayValidated(overlay, validatedQuestions);
+    } catch (_error) {
+        clearPhaseLoadingBubbles();
+        await params.showApology(moduleTitle);
+        unlockWrapUpChatControls();
     }
 }
 

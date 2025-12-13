@@ -1,6 +1,7 @@
 import { logger } from '../../logger';
 import type { BridgeManager } from '../bridge/BridgeManager';
-import type { BffClientLike, SubmitTurnPayload, TurnStreamHandle, StreamChunk, StreamStatus, StreamError, MermaidRecoveryPayload, MermaidRecoveryResult } from './types';
+import type { BffClientLike, SubmitTurnPayload, TurnStreamHandle, StreamChunk, StreamStatus, StreamError, MermaidRecoveryPayload, MermaidRecoveryResult, WrapUpAssessmentPromptContext } from './types';
+import type { WrapUpAssessmentOverlayData } from '../bridge/contracts';
 
 type FetchLike = typeof fetch;
 
@@ -31,6 +32,9 @@ interface BffClientOptions {
 }
 
 type StreamEvent = StreamChunk | StreamStatus | StreamError;
+
+const MERMAID_RECOVERY_REQUEST_TIMEOUT_MS = 42000;
+const WRAP_UP_REQUEST_TIMEOUT_MS = 250000;
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {
     private queue: (IteratorResult<T>)[] = [];
@@ -183,8 +187,7 @@ export class BffClient implements BffClientLike {
 
     async recoverMermaid(payload: MermaidRecoveryPayload): Promise<MermaidRecoveryResult> {
         const controller = new AbortController();
-        const timeoutMs = 42000;
-        const timerId = setTimeout(() => controller.abort(), timeoutMs);
+        const timerId = setTimeout(() => controller.abort(), MERMAID_RECOVERY_REQUEST_TIMEOUT_MS);
         let response: Response;
         try {
             response = await this.fetchImpl(`${this.baseUrl}/mermaid/recover`, {
@@ -202,6 +205,45 @@ export class BffClient implements BffClientLike {
         const json = await response.json();
         logger.info('[MOBILE_PORT] ws status', { phase: 'mermaid-recovery', messageId: payload.messageId });
         return json as MermaidRecoveryResult;
+    }
+
+    async generateWrapUp(moduleId: string, promptContext: WrapUpAssessmentPromptContext): Promise<WrapUpAssessmentOverlayData | null> {
+        const requestBody = { moduleId, promptContext };
+        return this.postWrapUpWithRetry(requestBody, false);
+    }
+
+    private async postWrapUpWithRetry(body: Record<string, unknown>, hasRetried: boolean): Promise<WrapUpAssessmentOverlayData | null> {
+        await this.ensureSession();
+        if (!this.sessionId) {
+            throw new Error('Session missing for wrap-up generation');
+        }
+        const controller = new AbortController();
+        const timerId = setTimeout(() => controller.abort(), WRAP_UP_REQUEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+            response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/wrapup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timerId);
+        }
+        if (response.status === 400) {
+            const errorBody = await this.safeParseJson(response);
+            if (!hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postWrapUpWithRetry(body, true);
+            }
+            throw new Error(`Wrap-up generation failed: ${response.status}`);
+        }
+        if (!response.ok) {
+            throw new Error(`Wrap-up generation failed: ${response.status}`);
+        }
+        const overlay = await response.json() as WrapUpAssessmentOverlayData;
+        this.bridge.enqueue({ type: 'wrapup:show', data: overlay });
+        return overlay;
     }
 
     private createStream(streamUrl: string, turnId: string): AsyncIterable<StreamEvent> {

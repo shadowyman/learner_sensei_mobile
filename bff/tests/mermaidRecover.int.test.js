@@ -1,18 +1,19 @@
 const { startServer } = require('../src/server');
 
-const BASE = 'http://localhost:8787';
-
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
-  const { server } = startServer();
+  const { server } = startServer({ host: '127.0.0.1', port: 0 });
+  await new Promise((resolve) => server.on('listening', resolve));
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : 8787;
+  const BASE = `http://127.0.0.1:${port}`;
   const shutdown = async () => new Promise((resolve) => server.close(() => resolve()));
 
   try {
-    // payload designed to skip deterministic fixes (no TD/backticks/quote issues) and require LLM for a trailing arrow
     const payload = {
       messageId: 'int-test-mermaid',
-      code: 'graph TD\\nA-->B\\nB-->C\\nC-->D\\nD-->', // invalid trailing edge should trigger LLM path
+      code: 'graph TD\\nA-->B\\nB-->C\\nC-->D\\nD-->',
       theme: 'warm'
     };
 
@@ -32,7 +33,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     if (typeof json.fixedCode !== 'string' || !json.fixedCode.includes('graph')) {
       throw new Error('fixedCode missing or malformed');
     }
-    // basic sanity: no TD direction regressions and the dangling arrow resolved
     if (json.fixedCode.includes('direction TD')) {
       throw new Error('direction TD was not normalized');
     }
@@ -48,6 +48,5 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
 
   await shutdown();
-  // give the server a moment to close sockets
   await sleep(50);
 })();

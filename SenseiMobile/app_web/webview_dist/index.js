@@ -1515,12 +1515,321 @@ var init_adaptiveEngine = __esm({
   }
 });
 
+// core/dist/modelUsage.js
+var require_modelUsage = __commonJS({
+  "core/dist/modelUsage.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.WRAP_UP_ASSESSMENT_GENERATION_CONFIG = exports.MERMAID_RECOVERY_TIMEOUT_MS = exports.MERMAID_ERROR_RECOVERY_CONFIG = void 0;
+    var GEMINI_FLASH2 = "gemini-flash-latest";
+    exports.MERMAID_ERROR_RECOVERY_CONFIG = {
+      modelName: GEMINI_FLASH2,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.2
+      }
+    };
+    exports.MERMAID_RECOVERY_TIMEOUT_MS = 4e4;
+    exports.WRAP_UP_ASSESSMENT_GENERATION_CONFIG = {
+      modelName: GEMINI_FLASH2,
+      config: {
+        temperature: 0.6
+      }
+    };
+  }
+});
+
+// core/dist/wrapUpAssessment.js
+var require_wrapUpAssessment = __commonJS({
+  "core/dist/wrapUpAssessment.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.WRAP_UP_ASSESSMENT_TOOLS = void 0;
+    exports.buildWrapUpAssessmentPrompt = buildWrapUpAssessmentPrompt;
+    exports.normalizeWrapUpAssessmentQuestions = normalizeWrapUpAssessmentQuestions;
+    exports.stripJsonFence = stripJsonFence2;
+    exports.extractQuestionsFromToolCode = extractQuestionsFromToolCode;
+    exports.reorderWrapUpAssessmentQuestions = reorderWrapUpAssessmentQuestions;
+    exports.enforceWrapUpAssessmentQuestionCounts = enforceWrapUpAssessmentQuestionCounts;
+    exports.generateWrapUpAssessment = generateWrapUpAssessment3;
+    var WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
+    var WRAP_UP_ASSESSMENT_DEBUG_FLAG = false;
+    exports.WRAP_UP_ASSESSMENT_TOOLS = [
+      {
+        functionDeclarations: [
+          {
+            name: "submit_wrap_up_assessment",
+            description: "Delivers the full wrap-up assessment question set for the current module solidify phase. Always include exactly 15 questions with five snippet items.",
+            parameters: {
+              type: "object",
+              description: "Payload containing the generated wrap-up assessment questions.",
+              properties: {
+                questions: {
+                  type: "array",
+                  description: "Ordered wrap-up assessment questions to present to the learner.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", description: "Stable identifier for the question." },
+                      type: { type: "string", enum: ["snippet", "concept"], description: "Question category." },
+                      prompt: { type: "string", description: "Question stem shown to the learner." },
+                      code: { type: "string", description: "Optional C++ snippet for snippet questions." },
+                      choices: {
+                        type: "array",
+                        description: "Exactly four answer choices formatted as Markdown-capable strings.",
+                        items: { type: "string" }
+                      },
+                      correct_choice: { type: "string", description: "The choice string that is correct." },
+                      explanation: { type: "string", description: "Detailed reasoning explaining the answer." },
+                      interviewer_insight: { type: "string", description: "FAANG interviewer perspective highlighting the trap or signal." }
+                    },
+                    required: ["id", "type", "prompt", "choices", "correct_choice", "explanation", "interviewer_insight"]
+                  }
+                }
+              },
+              required: ["questions"]
+            }
+          }
+        ]
+      }
+    ];
+    function buildWrapUpAssessmentPrompt(context) {
+      const { moduleTitle, moduleGoal, conceptSummaries } = context;
+      const conceptSection = conceptSummaries.length ? conceptSummaries.map((concept, index) => `Concept ${index + 1}: ${concept}`).join("\n") : "No individual concept summaries were supplied; infer coverage from the solidify material.";
+      return [
+        "You are an assessment author. Prepare a 15-question multiple-choice assessment that spans every concept in the provided material. Each question should feel tricky and creative\u2014draw on implied knowledge within scope, not just verbatim details\u2014so the set mirrors the rigor of FAANG-style interviews.",
+        "Deliver the finished assessment by invoking the submit_wrap_up_assessment tool with the questions array. Do not emit JSON, tool_code, or natural language outside of the tool invocation.",
+        "Requirements:",
+        '1. Exactly five questions must be C++ code-snippet items (`"type": "snippet"`) with a valid C++ `code` field; the remaining ten are conceptual (`"type": "concept"`).',
+        "2. For code snippets, assume surrounding infrastructure already exists\u2014show only the lines necessary to illustrate the bug or question.",
+        '3. Every question must present four answer choices, and the `"correct_choice"` string must match one of those choices exactly.',
+        '4. Provide both `"explanation"` (why the correct answer is right) and `"interviewer_insight"` (how a FAANG interviewer disguises the concept, the trap they set, and the weakness they are screening for).',
+        "5. Ensure the questions are tricky and thought-provoking, requiring deep understanding rather than surface recall.",
+        'Each question object supplied to the tool must include these fields: id (string), type ("snippet" | "concept"), prompt (string), optional code (string for snippet questions), choices (array of four strings), correct_choice (string matching one choice), explanation (string), interviewer_insight (string).',
+        `Module Title: ${moduleTitle}`,
+        `Module Goal:
+${moduleGoal}`,
+        "Concept Summaries:\n" + conceptSection,
+        "Ensure the full set covers algorithms, complexity, pitfalls, and systems-thinking cues implicit in the Solidify content. Every question should feel like a FAANG interview moment that rewards precise reasoning."
+      ].join("\n");
+    }
+    function isWrapUpDebugEnabled() {
+      const anyGlobal = globalThis;
+      if (anyGlobal && anyGlobal.__WRAP_UP_DEBUG === true) {
+        return true;
+      }
+      if (anyGlobal && anyGlobal.__WRAP_UP_DEBUG === false) {
+        return false;
+      }
+      return WRAP_UP_ASSESSMENT_DEBUG_FLAG !== null && WRAP_UP_ASSESSMENT_DEBUG_FLAG !== void 0 ? WRAP_UP_ASSESSMENT_DEBUG_FLAG : WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
+    }
+    function buildDebugAssessment(moduleTitle) {
+      const snippetQuestions = Array.from({ length: 5 }, (_, idx) => {
+        const correctMarkdown = "**Correct:** It recomputes overlapping subproblems without memoization so runtime is exponential.";
+        const basePrompt = `**Debug Snippet ${idx + 1}** for _${moduleTitle}_`;
+        const demoAppendix = "\n\n> Blockquote demo\n\n1. Ordered item\n2. _Italic item_\n\n- Bullet with `inline` code\n- ![Alt text](https://dummyimage.com/120x60/0f172a/ffffff&text=Img)";
+        const prompt = idx === 0 ? `${basePrompt}${demoAppendix}` : basePrompt;
+        return {
+          id: `debug-snippet-${idx + 1}`,
+          type: "snippet",
+          prompt,
+          code: "int fib(int n) {\n    if (n <= 1) return n;\n    return fib(n - 1) + fib(n - 2);\n}",
+          choices: [
+            correctMarkdown,
+            "_Incorrect_: It returns incorrect values for `n < 2` because the base case should return -1.",
+            "It uses tail recursion so stack depth remains constant.",
+            "It leaks memory because the recursion never hits a base case."
+          ],
+          correct_choice: correctMarkdown,
+          explanation: "The classic recursive Fibonacci implementation re-explores states; memoization or iteration eliminates exponential blowup.",
+          interviewer_insight: "Interviewers expect you to contrast naive recursion with memoized or iterative variants."
+        };
+      });
+      const conceptQuestions = Array.from({ length: 10 }, (_, idx) => {
+        const correctMarkdown = "**Answer:** It lets each branch restore shared state before siblings explore.";
+        return {
+          id: `debug-concept-${idx + 1}`,
+          type: "concept",
+          prompt: `Debug Concept ${idx + 1}: Why does **post-order** processing matter?`,
+          choices: [
+            correctMarkdown,
+            "It guarantees logarithmic complexity in balanced trees.",
+            "It converts recursion into iteration automatically.",
+            "It memoizes subproblems without extra storage."
+          ],
+          correct_choice: correctMarkdown,
+          explanation: "Post-order ensures temporary state is cleaned up, so other branches see a pristine context.",
+          interviewer_insight: "This checks whether you can articulate branch-local state management under recursion."
+        };
+      });
+      return { questions: [...snippetQuestions, ...conceptQuestions] };
+    }
+    function coerceString(value) {
+      return typeof value === "string" ? value.trim() : "";
+    }
+    function normalizeWrapUpAssessmentQuestions(raw) {
+      const sourceArray = Array.isArray(raw === null || raw === void 0 ? void 0 : raw.questions) ? raw.questions : Array.isArray(raw) ? raw : [];
+      return sourceArray.map((entry, index) => {
+        const prompt = coerceString(entry === null || entry === void 0 ? void 0 : entry.prompt);
+        const choicesArray = Array.isArray(entry === null || entry === void 0 ? void 0 : entry.choices) ? entry.choices : [];
+        const choices = choicesArray.map((choice) => coerceString(choice));
+        const typeRaw = coerceString(entry === null || entry === void 0 ? void 0 : entry.type).toLowerCase();
+        const question = {
+          id: coerceString(entry === null || entry === void 0 ? void 0 : entry.id) || `q${index + 1}`,
+          type: typeRaw === "snippet" ? "snippet" : "concept",
+          prompt,
+          choices,
+          correct_choice: coerceString(entry === null || entry === void 0 ? void 0 : entry.correct_choice),
+          explanation: coerceString(entry === null || entry === void 0 ? void 0 : entry.explanation),
+          interviewer_insight: coerceString(entry === null || entry === void 0 ? void 0 : entry.interviewer_insight)
+        };
+        const code = coerceString(entry === null || entry === void 0 ? void 0 : entry.code);
+        if (code) {
+          question.code = code;
+        }
+        return question;
+      });
+    }
+    function stripJsonFence2(text2) {
+      const trimmed = text2.trim();
+      if (!trimmed.startsWith("```")) {
+        return trimmed;
+      }
+      const fenceMatch = trimmed.match(/^```(?:\w+)?\s*\n?([\s\S]*?)\n?```$/);
+      if (fenceMatch && fenceMatch[1]) {
+        return fenceMatch[1].trim();
+      }
+      return trimmed;
+    }
+    function extractQuestionsFromToolCode(raw) {
+      const trimmed = raw.trim();
+      if (!trimmed) {
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(trimmed);
+        const toolCode = typeof (parsed === null || parsed === void 0 ? void 0 : parsed.tool_code) === "string" ? parsed.tool_code : null;
+        if (!toolCode) {
+          return null;
+        }
+        const questionsIndex = toolCode.indexOf("questions=");
+        if (questionsIndex === -1) {
+          return null;
+        }
+        const arrayStart = toolCode.indexOf("[", questionsIndex);
+        if (arrayStart === -1) {
+          return null;
+        }
+        let depth = 0;
+        let arrayEnd = -1;
+        for (let i = arrayStart; i < toolCode.length; i += 1) {
+          const char = toolCode[i];
+          if (char === "[") {
+            depth += 1;
+          } else if (char === "]") {
+            depth -= 1;
+            if (depth === 0) {
+              arrayEnd = i;
+              break;
+            }
+          }
+        }
+        if (arrayEnd === -1) {
+          return null;
+        }
+        const arrayJson = toolCode.slice(arrayStart, arrayEnd + 1);
+        const parsedQuestions = JSON.parse(arrayJson);
+        return normalizeWrapUpAssessmentQuestions(parsedQuestions);
+      } catch (_error) {
+        return null;
+      }
+    }
+    function reorderWrapUpAssessmentQuestions(questions) {
+      const concepts = questions.filter((question) => question.type === "concept");
+      const snippets = questions.filter((question) => question.type === "snippet");
+      return [...concepts, ...snippets];
+    }
+    function enforceWrapUpAssessmentQuestionCounts(questions) {
+      const concepts = questions.filter((question) => question.type === "concept");
+      const snippets = questions.filter((question) => question.type === "snippet");
+      if (concepts.length < 10 || snippets.length < 5) {
+        return null;
+      }
+      return [...concepts.slice(0, 10), ...snippets.slice(0, 5)];
+    }
+    function parseQuestionsFromText(text2) {
+      const cleaned = stripJsonFence2(text2);
+      if (!cleaned) {
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) {
+          return normalizeWrapUpAssessmentQuestions(parsed);
+        }
+        if (parsed && typeof parsed === "object") {
+          if (Array.isArray(parsed.questions)) {
+            return normalizeWrapUpAssessmentQuestions(parsed);
+          }
+          if (typeof parsed.tool_code === "string") {
+            return extractQuestionsFromToolCode(cleaned);
+          }
+        }
+        return null;
+      } catch (_error) {
+        return extractQuestionsFromToolCode(cleaned);
+      }
+    }
+    async function generateWrapUpAssessment3(llm, _moduleId, promptContext) {
+      var _a, _b, _c;
+      if (!llm) {
+        return null;
+      }
+      if (isWrapUpDebugEnabled()) {
+        return buildDebugAssessment(promptContext.moduleTitle);
+      }
+      const prompt = buildWrapUpAssessmentPrompt(promptContext);
+      let lastError = null;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const toolResult = await llm.callWithTools(prompt, { task: "wrap_up_assessment", tools: exports.WRAP_UP_ASSESSMENT_TOOLS });
+          const toolCalls = toolResult.toolCalls;
+          let normalized = null;
+          if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+            const firstArgs = (_a = toolCalls[0]) === null || _a === void 0 ? void 0 : _a.args;
+            if (firstArgs) {
+              normalized = normalizeWrapUpAssessmentQuestions(firstArgs);
+            }
+          }
+          if (!normalized || normalized.length === 0) {
+            const text2 = (_b = toolResult.text) !== null && _b !== void 0 ? _b : "";
+            normalized = (_c = extractQuestionsFromToolCode(text2)) !== null && _c !== void 0 ? _c : parseQuestionsFromText(text2);
+          }
+          if (!normalized || normalized.length === 0) {
+            throw new Error("Model returned no wrap-up payload");
+          }
+          const orderedQuestions = reorderWrapUpAssessmentQuestions(normalized);
+          const enforcedQuestions = enforceWrapUpAssessmentQuestionCounts(orderedQuestions);
+          if (!enforcedQuestions) {
+            throw new Error("Model returned malformed wrap-up question set");
+          }
+          return { questions: enforcedQuestions };
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      return null;
+    }
+  }
+});
+
 // src/model_usage.ts
-import { Type } from "@google/genai";
-var GEMINI_PRO, GEMINI_FLASH, TEACHING_PLAN_GENERATION_CONFIG, WRAP_UP_ASSESSMENT_GENERATION_CONFIG, WRAP_UP_ASSESSMENT_FUNCTION_DECLARATION, WRAP_UP_ASSESSMENT_TOOLS, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED, COMPREHENSIVE_ANALYSIS_CONFIG, MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED, MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, DEBUG_MODE_CONFIG, PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG, SELECTION_SENSEI_CONFIG, ENHANCEMENT_REQUEST_CONFIG, ARCHETYPE_COMPARISON_TEST_CONFIG;
+var import_modelUsage, import_wrapUpAssessment, GEMINI_PRO, GEMINI_FLASH, TEACHING_PLAN_GENERATION_CONFIG, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED, COMPREHENSIVE_ANALYSIS_CONFIG, MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED, MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, DEBUG_MODE_CONFIG, PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG, SELECTION_SENSEI_CONFIG, ENHANCEMENT_REQUEST_CONFIG, ARCHETYPE_COMPARISON_TEST_CONFIG;
 var init_model_usage = __esm({
   "src/model_usage.ts"() {
     "use strict";
+    import_modelUsage = __toESM(require_modelUsage());
+    import_wrapUpAssessment = __toESM(require_wrapUpAssessment());
     GEMINI_PRO = "gemini-flash-latest";
     GEMINI_FLASH = "gemini-flash-latest";
     TEACHING_PLAN_GENERATION_CONFIG = {
@@ -1530,50 +1839,6 @@ var init_model_usage = __esm({
         temperature: 0.7
       }
     };
-    WRAP_UP_ASSESSMENT_GENERATION_CONFIG = {
-      modelName: GEMINI_PRO,
-      config: {
-        temperature: 0.6
-      }
-    };
-    WRAP_UP_ASSESSMENT_FUNCTION_DECLARATION = {
-      name: "submit_wrap_up_assessment",
-      description: "Delivers the full wrap-up assessment question set for the current module solidify phase. Always include exactly 15 questions with five snippet items.",
-      parameters: {
-        type: Type.OBJECT,
-        description: "Payload containing the generated wrap-up assessment questions.",
-        properties: {
-          questions: {
-            type: Type.ARRAY,
-            description: "Ordered wrap-up assessment questions to present to the learner.",
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING, description: "Stable identifier for the question." },
-                type: { type: Type.STRING, enum: ["snippet", "concept"], description: "Question category." },
-                prompt: { type: Type.STRING, description: "Question stem shown to the learner." },
-                code: { type: Type.STRING, description: "Optional C++ snippet for snippet questions." },
-                choices: {
-                  type: Type.ARRAY,
-                  description: "Exactly four answer choices formatted as Markdown-capable strings.",
-                  items: { type: Type.STRING }
-                },
-                correct_choice: { type: Type.STRING, description: "The choice string that is correct." },
-                explanation: { type: Type.STRING, description: "Detailed reasoning explaining the answer." },
-                interviewer_insight: { type: Type.STRING, description: "FAANG interviewer perspective highlighting the trap or signal." }
-              },
-              required: ["id", "type", "prompt", "choices", "correct_choice", "explanation", "interviewer_insight"]
-            }
-          }
-        },
-        required: ["questions"]
-      }
-    };
-    WRAP_UP_ASSESSMENT_TOOLS = [
-      {
-        functionDeclarations: [WRAP_UP_ASSESSMENT_FUNCTION_DECLARATION]
-      }
-    ];
     TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED = false;
     COMPREHENSIVE_ANALYSIS_CONFIG = {
       modelName: GEMINI_FLASH,
@@ -2377,26 +2642,6 @@ function buildSenseiEnhancementPrompt(originalMarkdown) {
 """
 ${originalMarkdown}
 """`
-  ].join("\n");
-}
-function buildWrapUpAssessmentPrompt(context) {
-  const { moduleTitle, moduleGoal, conceptSummaries } = context;
-  const conceptSection = conceptSummaries.length ? conceptSummaries.map((concept, index) => `Concept ${index + 1}: ${concept}`).join("\n") : "No individual concept summaries were supplied; infer coverage from the solidify material.";
-  return [
-    "You are an assessment author. Prepare a 15-question multiple-choice assessment that spans every concept in the provided material. Each question should feel tricky and creative\u2014draw on implied knowledge within scope, not just verbatim details\u2014so the set mirrors the rigor of FAANG-style interviews.",
-    "Deliver the finished assessment by invoking the submit_wrap_up_assessment tool with the questions array. Do not emit JSON, tool_code, or natural language outside of the tool invocation.",
-    "Requirements:",
-    '1. Exactly five questions must be C++ code-snippet items (`"type": "snippet"`) with a valid C++ `code` field; the remaining ten are conceptual (`"type": "concept"`).',
-    "2. For code snippets, assume surrounding infrastructure already exists\u2014show only the lines necessary to illustrate the bug or question.",
-    '3. Every question must present four answer choices, and the `"correct_choice"` string must match one of those choices exactly.',
-    '4. Provide both `"explanation"` (why the correct answer is right) and `"interviewer_insight"` (how a FAANG interviewer disguises the concept, the trap they set, and the weakness they are screening for).',
-    "5. Ensure the questions are tricky and thought-provoking, requiring deep understanding rather than surface recall.",
-    'Each question object supplied to the tool must include these fields: id (string), type ("snippet" | "concept"), prompt (string), optional code (string for snippet questions), choices (array of four strings), correct_choice (string matching one choice), explanation (string), interviewer_insight (string).',
-    `Module Title: ${moduleTitle}`,
-    `Module Goal:
-${moduleGoal}`,
-    "Concept Summaries:\n" + conceptSection,
-    "Ensure the full set covers algorithms, complexity, pitfalls, and systems-thinking cues implicit in the Solidify content. Every question should feel like a FAANG interview moment that rewards precise reasoning."
   ].join("\n");
 }
 var MERMAID_GENERATION_GUIDELINES, MANDATORY_TEACHING_STRUCTURE, RECURSIVE_SENSEI_TEACHING_INVARIANTS, SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS, SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION, MODULE_INTRODUCTION_TASK_TEMPLATE, GET_ARCHETYPE_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION, KEY_CONTENT_POINT_ASSESSMENT_SCHEMA_VALUE, PEDAGOGICAL_GUIDANCE_PLACEHOLDER, USER_LAST_INPUT_PLACEHOLDER, KEY_TAKEAWAY_PROMPT_PREFIX, CURRICULUM_COMPLETED_FOCUS_INSTRUCTION, GENERAL_INTERACTION_FOCUS_INSTRUCTION, REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE, REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE, TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE, REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE, GENERAL_ENGAGEMENT_PROMPT_TEMPLATE;
@@ -4376,6 +4621,414 @@ var init_curriculum = __esm({
   }
 });
 
+// core/dist/mermaidErrorRecovery.js
+var require_mermaidErrorRecovery = __commonJS({
+  "core/dist/mermaidErrorRecovery.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.applyBacktickFix = applyBacktickFix;
+    exports.applyUniversalQuoteFix = applyUniversalQuoteFix;
+    exports.ensureGraphDirective = ensureGraphDirective;
+    exports.fixSubgraphDirections = fixSubgraphDirections;
+    exports.attemptMermaidFix = attemptMermaidFix;
+    exports.runMermaidRecovery = runMermaidRecovery2;
+    var logger2 = {
+      warn: (...args) => console.warn(...args),
+      error: (...args) => console.error(...args)
+    };
+    var DEBUG_FLAGS2 = { mermaid_debug: false };
+    function applyBacktickFix(diagram) {
+      const backtickCount = (diagram.match(/`/g) || []).length;
+      if (backtickCount === 0) {
+        return diagram;
+      }
+      const fixedDiagram = diagram.replace(/`/g, "'");
+      return fixedDiagram;
+    }
+    function applyUniversalQuoteFix(diagram) {
+      let fixedDiagram = diagram;
+      function findMatchingDelimiter(text2, startPos, openChar, closeChar) {
+        let depth = 1;
+        for (let i = startPos; i < text2.length; i++) {
+          if (text2[i] === openChar)
+            depth++;
+          else if (text2[i] === closeChar) {
+            depth--;
+            if (depth === 0)
+              return i;
+          }
+        }
+        return -1;
+      }
+      const lines = fixedDiagram.split("\n");
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const originalLine = lines[lineIdx];
+        if (originalLine === void 0) {
+          continue;
+        }
+        let line = originalLine;
+        const nodePattern = /([A-Z])(\[|\(\(|\{\{|\(|\{)/g;
+        let match;
+        let newLine = "";
+        let lastIndex = 0;
+        while ((match = nodePattern.exec(line)) !== null) {
+          const nodeId = match[1];
+          const openDelim = match[2];
+          if (!nodeId || !openDelim) {
+            logger2.warn("[MERMAID_FIX] Skipping malformed node token.", {
+              lineIndex: lineIdx,
+              raw: match[0]
+            });
+            continue;
+          }
+          const startPos = match.index + match[0].length;
+          let closeDelim = "";
+          let searchOpenChar = "";
+          let searchCloseChar = "";
+          switch (openDelim) {
+            case "[":
+              closeDelim = "]";
+              searchOpenChar = "[";
+              searchCloseChar = "]";
+              break;
+            case "(":
+              closeDelim = ")";
+              searchOpenChar = "(";
+              searchCloseChar = ")";
+              break;
+            case "((":
+              closeDelim = "))";
+              searchOpenChar = "(";
+              searchCloseChar = ")";
+              break;
+            case "{":
+              closeDelim = "}";
+              searchOpenChar = "{";
+              searchCloseChar = "}";
+              break;
+            case "{{":
+              closeDelim = "}}";
+              searchOpenChar = "{";
+              searchCloseChar = "}";
+              break;
+          }
+          if (!closeDelim && openDelim !== "((" && openDelim !== "{{") {
+            logger2.warn("[MERMAID_FIX] Unsupported delimiter encountered.", {
+              openDelim,
+              lineIndex: lineIdx
+            });
+            continue;
+          }
+          let endPos = -1;
+          if (openDelim === "((") {
+            let depth = 2;
+            for (let i = startPos; i < line.length; i++) {
+              if (line[i] === "(") {
+                depth++;
+              } else if (line[i] === ")") {
+                depth--;
+                if (depth === 0) {
+                  endPos = i - 1;
+                  break;
+                }
+              }
+            }
+          } else if (openDelim === "{{") {
+            let depth = 2;
+            for (let i = startPos; i < line.length; i++) {
+              if (line[i] === "{") {
+                depth++;
+              } else if (line[i] === "}") {
+                depth--;
+                if (depth === 0) {
+                  endPos = i - 1;
+                  break;
+                }
+              }
+            }
+          } else {
+            endPos = findMatchingDelimiter(line, startPos, searchOpenChar, searchCloseChar);
+          }
+          if (endPos !== -1 && endPos >= startPos) {
+            const content = line.substring(startPos, endPos);
+            const trimmedContent = content.trim();
+            newLine += line.substring(lastIndex, match.index);
+            const isDirectlyQuoted = trimmedContent.length > 1 && (trimmedContent.startsWith('"') && trimmedContent.endsWith('"') || trimmedContent.startsWith("'") && trimmedContent.endsWith("'"));
+            let innerWrapperQuoted = false;
+            if (!isDirectlyQuoted && trimmedContent.length > 2) {
+              const firstChar = trimmedContent[0];
+              const lastChar = trimmedContent[trimmedContent.length - 1];
+              const wrapperPairs = {
+                "(": ")",
+                "[": "]",
+                "{": "}",
+                "<": ">"
+              };
+              if (Object.prototype.hasOwnProperty.call(wrapperPairs, firstChar)) {
+                const opener = firstChar;
+                if (wrapperPairs[opener] === lastChar) {
+                  const inner2 = trimmedContent.slice(1, -1).trim();
+                  if (inner2.length > 1 && (inner2.startsWith('"') && inner2.endsWith('"') || inner2.startsWith("'") && inner2.endsWith("'"))) {
+                    innerWrapperQuoted = true;
+                  }
+                }
+              }
+            }
+            const shouldWrap = trimmedContent.length > 0 && !isDirectlyQuoted && !innerWrapperQuoted;
+            if (shouldWrap) {
+              const escapedContent = content.replace(/"/g, '\\"');
+              newLine += nodeId + openDelim + '"' + escapedContent + '"' + closeDelim;
+            } else {
+              newLine += nodeId + openDelim + content + closeDelim;
+            }
+            lastIndex = endPos + closeDelim.length;
+            nodePattern.lastIndex = lastIndex;
+          }
+        }
+        newLine += line.substring(lastIndex);
+        lines[lineIdx] = newLine || line;
+      }
+      return lines.join("\n");
+    }
+    function ensureGraphDirective(diagram) {
+      if (/^\s*graph\s+/i.test(diagram)) {
+        return diagram;
+      }
+      return `graph TD
+${diagram}`.trim();
+    }
+    function fixSubgraphDirections(diagram) {
+      const subgraphFixed = diagram.replace(/(\bsubgraph\b[\s\S]*?\bdirection\s+)td\b/gi, (_, prefix) => `${prefix}TB`);
+      const anyDirectionFixed = subgraphFixed.replace(/(\bdirection\s+)td\b/gi, (_, prefix) => `${prefix}TB`);
+      return anyDirectionFixed;
+    }
+    var MERMAID_FIX_PROMPT_TEMPLATE = (failedDiagram, errorMessage) => `
+Fix this Mermaid syntax error.
+
+ERROR MESSAGE:
+${errorMessage}
+
+FAILED DIAGRAM:
+${failedDiagram}
+
+ANALYSIS PROCESS:
+1. Read the error message carefully - note the line number and position
+2. Look at what the parser expected vs what it found
+3. Examine the specific line mentioned in the error
+4. Identify the exact syntax issue causing the failure
+5. COMPREHENSIVE FIX: If the issue is found in one location, scan the ENTIRE diagram for ALL instances of the same problem and fix them all
+6. Check if error involves 'direction' inside a subgraph - valid options are ONLY: TB (Top to Bottom), BT (Bottom to Top), LR (Left to Right), RL (Right to Left). TD is invalid and must be converted to TB
+7. If soup brackets used, convert it to either one of them: e.g. ([ \u2026 ]) can be changed to (()) OR [[]]
+
+CRITICAL RULES (MUST BE APPLIED COMPREHENSIVELY):
+- NO BACKTICKS ANYWHERE: Scan the ENTIRE diagram and replace ALL backticks (\`) with single quotes (') in every node label, edge label, and text content
+- NO COMMENTS: Never use %%
+- NO SEMICOLONS: Never end lines with ;
+= NO SOUP BRACKETS: Combo rule: Only two hybrid combos\u2014([ \u2026 ]) (pill) and [( \u2026 )] (cylinder)\u2014are legal. Any other \u201Cbracket soup\u201D will raise a parser error.
+- SUBGRAPH DIRECTIONS: Inside subgraphs, valid directions are ONLY: TB (Top to Bottom), BT (Bottom to Top), LR (Left to Right), RL (Right to Left). Never use 'direction TD' - always convert to 'direction TB'
+- Do not redesign or restructure
+- Apply systematic fixes to resolve ALL instances of detected issues
+
+Return the complete fixed diagram.
+
+Provide your response as JSON with this structure:
+{
+    "fixed": true/false,
+    "diagram": "the corrected Mermaid diagram code",
+    "explanation": "brief explanation of what was fixed"
+}
+`;
+    async function attemptMermaidFix(llm, failedDiagram, errorMessage, options) {
+      const baseDiagram = ensureGraphDirective(failedDiagram);
+      if (!llm) {
+        return {
+          fixed: false,
+          explanation: "No AI client provided for mermaid fix"
+        };
+      }
+      if (!(options === null || options === void 0 ? void 0 : options.forceLlm)) {
+        if (errorMessage.includes("direction") || errorMessage.includes("TD")) {
+          const fixedDiagram = fixSubgraphDirections(baseDiagram);
+          if (fixedDiagram !== baseDiagram) {
+            return {
+              fixed: true,
+              diagram: fixedDiagram,
+              explanation: "Fixed invalid TD direction in subgraph - converted to TB"
+            };
+          }
+        }
+        if (errorMessage.includes("backtick") || errorMessage.includes("`") || errorMessage.includes("Unrecognized text") || baseDiagram.includes("`")) {
+          const backtickFixedDiagram = applyBacktickFix(baseDiagram);
+          if (backtickFixedDiagram !== baseDiagram) {
+            const fullyFixedDiagram = applyUniversalQuoteFix(backtickFixedDiagram);
+            return {
+              fixed: true,
+              diagram: fullyFixedDiagram,
+              explanation: "Fixed backticks in node labels by converting to single quotes"
+            };
+          }
+        }
+        if (errorMessage.includes("quote") || errorMessage.includes('"') || errorMessage.includes("'")) {
+          const fixedDiagram = applyUniversalQuoteFix(baseDiagram);
+          if (fixedDiagram !== baseDiagram) {
+            return {
+              fixed: true,
+              diagram: fixedDiagram,
+              explanation: "Fixed missing quotes in node labels"
+            };
+          }
+        }
+      }
+      try {
+        const prompt = MERMAID_FIX_PROMPT_TEMPLATE(baseDiagram, errorMessage);
+        const result = await llm.callJson(prompt, {
+          task: "mermaid_repair"
+        });
+        try {
+          const maybeString = typeof result === "string" ? result : JSON.stringify(result);
+          let jsonText = maybeString.trim();
+          const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+          const match = jsonText.match(fenceRegex);
+          if (match && match[2]) {
+            jsonText = match[2].trim();
+          }
+          const fixResponse = JSON.parse(jsonText);
+          return fixResponse;
+        } catch (parseError) {
+          if (DEBUG_FLAGS2.mermaid_debug) {
+            logger2.error("Failed to parse LLM response as JSON:", parseError);
+            logger2.error("Original text from LLM that failed parsing:", result);
+          }
+          return {
+            fixed: false,
+            explanation: "Failed to parse fix response from AI"
+          };
+        }
+      } catch (error) {
+        if (DEBUG_FLAGS2.mermaid_debug) {
+          logger2.error("Mermaid fix attempt failed:", error);
+        }
+        return {
+          fixed: false,
+          explanation: `Error during fix attempt: ${error.message}`
+        };
+      }
+    }
+    async function runMermaidRecovery2(options) {
+      const { llm, initialDiagram, initialError, renderAttempt, maxAttempts = 5 } = options;
+      let currentDiagram = ensureGraphDirective(applyUniversalQuoteFix(applyBacktickFix(initialDiagram)));
+      let currentError = initialError;
+      const llmClient = llm;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const result = await renderAttempt(currentDiagram);
+          return { svg: result.svg, diagram: currentDiagram };
+        } catch (err) {
+          logger2.error("[MERMAID_RECOVERY] Attempt", attempt, "render failed:", (err === null || err === void 0 ? void 0 : err.message) || err);
+          currentError = (err === null || err === void 0 ? void 0 : err.message) || "Unknown render error";
+          if (!llmClient) {
+            break;
+          }
+          try {
+            const fixResult = await attemptMermaidFix(llmClient, currentDiagram, currentError);
+            if (fixResult.diagram) {
+              currentDiagram = fixResult.diagram;
+            }
+          } catch (fixError) {
+            logger2.error("[MERMAID_RECOVERY] Attempt", attempt, "fix invocation failed:", (fixError === null || fixError === void 0 ? void 0 : fixError.message) || fixError);
+          }
+        }
+      }
+      logger2.error("[MERMAID_RECOVERY] Exhausted attempts without render");
+      return null;
+    }
+  }
+});
+
+// core/dist/llmTypes.js
+var require_llmTypes = __commonJS({
+  "core/dist/llmTypes.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+  }
+});
+
+// core/dist/browserLlmClient.js
+var require_browserLlmClient = __commonJS({
+  "core/dist/browserLlmClient.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.createBrowserCoreLlmClient = createBrowserCoreLlmClient5;
+    var modelUsage_1 = require_modelUsage();
+    function createBrowserCoreLlmClient5(ai2) {
+      if (!ai2 || !ai2.models || !ai2.models.generateContent) {
+        return null;
+      }
+      return {
+        async callText(prompt, options) {
+          var _a;
+          const task = options === null || options === void 0 ? void 0 : options.task;
+          const cfg = task === "wrap_up_assessment" ? modelUsage_1.WRAP_UP_ASSESSMENT_GENERATION_CONFIG : modelUsage_1.MERMAID_ERROR_RECOVERY_CONFIG;
+          const res = await ai2.models.generateContent({
+            model: cfg.modelName,
+            contents: [{ parts: [{ text: prompt }] }],
+            config: cfg.config
+          });
+          if (typeof (res === null || res === void 0 ? void 0 : res.text) === "function") {
+            return res.text();
+          }
+          return (_a = res === null || res === void 0 ? void 0 : res.text) !== null && _a !== void 0 ? _a : "";
+        },
+        async callJson(prompt, options) {
+          const text2 = await this.callText(prompt, options);
+          return JSON.parse(text2);
+        },
+        async callWithTools(prompt, options) {
+          var _a;
+          const cfg = options.task === "wrap_up_assessment" ? modelUsage_1.WRAP_UP_ASSESSMENT_GENERATION_CONFIG : modelUsage_1.MERMAID_ERROR_RECOVERY_CONFIG;
+          const config = options.task === "wrap_up_assessment" ? { ...cfg.config, tools: options.tools } : cfg.config;
+          const res = await ai2.models.generateContent({
+            model: cfg.modelName,
+            contents: [{ parts: [{ text: prompt }] }],
+            config
+          });
+          const toolCalls = Array.isArray(res === null || res === void 0 ? void 0 : res.functionCalls) ? res.functionCalls : void 0;
+          const text2 = typeof (res === null || res === void 0 ? void 0 : res.text) === "function" ? res.text() : (_a = res === null || res === void 0 ? void 0 : res.text) !== null && _a !== void 0 ? _a : "";
+          return { toolCalls, text: text2 };
+        }
+      };
+    }
+  }
+});
+
+// core/dist/index.js
+var require_dist = __commonJS({
+  "core/dist/index.js"(exports) {
+    "use strict";
+    var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __exportStar = exports && exports.__exportStar || function(m, exports2) {
+      for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p)) __createBinding(exports2, m, p);
+    };
+    Object.defineProperty(exports, "__esModule", { value: true });
+    __exportStar(require_mermaidErrorRecovery(), exports);
+    __exportStar(require_llmTypes(), exports);
+    __exportStar(require_browserLlmClient(), exports);
+    __exportStar(require_wrapUpAssessment(), exports);
+  }
+});
+
 // src/geminiService.ts
 function logTeachingPlanRequest(event, payload) {
   logger.info("[TEACHING_PLAN_VALIDATION]", { event, ...payload });
@@ -4612,164 +5265,6 @@ async function generateDirectiveFromMetaPrompt(ai2, metaPrompt) {
     return "Gently guide the learner through the next logical step in the curriculum plan with a neutral, supportive tone.";
   }
 }
-function coerceString(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-function normalizeWrapUpAssessmentQuestions(raw) {
-  const sourceArray = Array.isArray(raw?.questions) ? raw.questions : Array.isArray(raw) ? raw : [];
-  return sourceArray.map((entry, index) => {
-    const prompt = coerceString(entry?.prompt);
-    const choicesArray = Array.isArray(entry?.choices) ? entry.choices : [];
-    const choices = choicesArray.map((choice) => coerceString(choice));
-    const typeRaw = coerceString(entry?.type).toLowerCase();
-    const question = {
-      id: coerceString(entry?.id) || `q${index + 1}`,
-      type: typeRaw === "snippet" ? "snippet" : "concept",
-      prompt,
-      choices,
-      correct_choice: coerceString(entry?.correct_choice),
-      explanation: coerceString(entry?.explanation),
-      interviewer_insight: coerceString(entry?.interviewer_insight)
-    };
-    const code = coerceString(entry?.code);
-    if (code) {
-      question.code = code;
-    }
-    return question;
-  });
-}
-function isWrapUpDebugEnabled() {
-  if (typeof window !== "undefined") {
-    if (window.__WRAP_UP_DEBUG === true) {
-      return true;
-    }
-    if (window.__WRAP_UP_DEBUG === false) {
-      return false;
-    }
-  }
-  return WRAP_UP_ASSESSMENT_DEBUG_FLAG ?? WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
-}
-function buildDebugAssessment(moduleTitle) {
-  const snippetQuestions = Array.from({ length: 5 }, (_, idx) => {
-    const correctMarkdown = "**Correct:** It recomputes overlapping subproblems without memoization so runtime is exponential.";
-    const basePrompt = `**Debug Snippet ${idx + 1}** for _${moduleTitle}_`;
-    const demoAppendix = "\n\n> Blockquote demo\n\n1. Ordered item\n2. _Italic item_\n\n- Bullet with `inline` code\n- ![Alt text](https://dummyimage.com/120x60/0f172a/ffffff&text=Img)";
-    const prompt = idx === 0 ? `${basePrompt}${demoAppendix}` : basePrompt;
-    return {
-      id: `debug-snippet-${idx + 1}`,
-      type: "snippet",
-      prompt,
-      code: "int fib(int n) {\n    if (n <= 1) return n;\n    return fib(n - 1) + fib(n - 2);\n}",
-      choices: [
-        correctMarkdown,
-        "_Incorrect_: It returns incorrect values for `n < 2` because the base case should return -1.",
-        "It uses tail recursion so stack depth remains constant.",
-        "It leaks memory because the recursion never hits a base case."
-      ],
-      correct_choice: correctMarkdown,
-      explanation: "The classic recursive Fibonacci implementation re-explores states; memoization or iteration eliminates exponential blowup.",
-      interviewer_insight: "Interviewers expect you to contrast naive recursion with memoized or iterative variants."
-    };
-  });
-  const conceptQuestions = Array.from({ length: 10 }, (_, idx) => {
-    const correctMarkdown = "**Answer:** It lets each branch restore shared state before siblings explore.";
-    return {
-      id: `debug-concept-${idx + 1}`,
-      type: "concept",
-      prompt: `Debug Concept ${idx + 1}: Why does **post-order** processing matter?`,
-      choices: [
-        correctMarkdown,
-        "It guarantees logarithmic complexity in balanced trees.",
-        "It converts recursion into iteration automatically.",
-        "It memoizes subproblems without extra storage."
-      ],
-      correct_choice: correctMarkdown,
-      explanation: "Post-order ensures temporary state is cleaned up, so other branches see a pristine context.",
-      interviewer_insight: "This checks whether you can articulate branch-local state management under recursion."
-    };
-  });
-  return { questions: [...snippetQuestions, ...conceptQuestions] };
-}
-async function generateWrapUpAssessment(ai2, moduleId, promptContext) {
-  if (!ai2) {
-    logger.error("[WRAP_UP_ASSESSMENT] request-fail", { moduleId, reason: "GoogleGenAI instance missing" });
-    return null;
-  }
-  if (isWrapUpDebugEnabled()) {
-    const debugPayload = buildDebugAssessment(promptContext.moduleTitle);
-    logger.info("[WRAP_UP_ASSESSMENT] request-debug-skip", {
-      moduleId,
-      moduleTitle: promptContext.moduleTitle,
-      questionCount: debugPayload.questions.length
-    });
-    return debugPayload;
-  }
-  const prompt = buildWrapUpAssessmentPrompt(promptContext);
-  logger.info("[WRAP_UP_ASSESSMENT] request-start", {
-    moduleId,
-    moduleTitle: promptContext.moduleTitle
-  });
-  let lastError = null;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    logger.info("[WRAP_UP_ASSESSMENT] request-attempt", {
-      moduleId,
-      moduleTitle: promptContext.moduleTitle,
-      attempt
-    });
-    try {
-      const response = await ai2.models.generateContent({
-        model: WRAP_UP_ASSESSMENT_GENERATION_CONFIG.modelName,
-        contents: prompt,
-        config: {
-          ...WRAP_UP_ASSESSMENT_GENERATION_CONFIG.config,
-          tools: WRAP_UP_ASSESSMENT_TOOLS
-        }
-      });
-      const functionCall = extractFunctionCall(response);
-      let normalizedFromTool = null;
-      if (functionCall && functionCall.args) {
-        logger.info("[WRAP_UP_ASSESSMENT] function-call-received", {
-          moduleId,
-          moduleTitle: promptContext.moduleTitle,
-          attempt,
-          functionName: functionCall.name
-        });
-        normalizedFromTool = normalizeWrapUpAssessmentQuestions(functionCall.args);
-      } else {
-        normalizedFromTool = extractQuestionsFromToolCode(response.text ?? "");
-      }
-      if (!normalizedFromTool || normalizedFromTool.length === 0) {
-        throw new Error("Model returned no function call payload");
-      }
-      const orderedQuestions = reorderWrapUpAssessmentQuestions(normalizedFromTool);
-      const questionCount = orderedQuestions.length;
-      const snippetCount = orderedQuestions.filter((q) => q.type === "snippet").length;
-      logger.info("[WRAP_UP_ASSESSMENT] request-success", {
-        moduleId,
-        moduleTitle: promptContext.moduleTitle,
-        questionCount,
-        snippetCount
-      });
-      return { questions: orderedQuestions };
-    } catch (error) {
-      lastError = error;
-      logger.error("[WRAP_UP_ASSESSMENT] request-fail", {
-        moduleId,
-        moduleTitle: promptContext.moduleTitle,
-        attempt,
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-  if (lastError) {
-    logger.error("[WRAP_UP_ASSESSMENT] exhausted-retries", {
-      moduleId,
-      moduleTitle: promptContext.moduleTitle,
-      error: lastError instanceof Error ? lastError.message : String(lastError)
-    });
-  }
-  return null;
-}
 function stripJsonFence(text2) {
   const trimmed = text2.trim();
   if (!trimmed.startsWith("```")) {
@@ -4780,64 +5275,6 @@ function stripJsonFence(text2) {
     return fenceMatch[1].trim();
   }
   return trimmed;
-}
-function extractFunctionCall(response) {
-  const calls = response.functionCalls;
-  if (Array.isArray(calls) && calls.length > 0) {
-    return calls[0] ?? null;
-  }
-  return null;
-}
-function extractQuestionsFromToolCode(raw) {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(trimmed);
-    const toolCode = typeof parsed?.tool_code === "string" ? parsed.tool_code : null;
-    if (!toolCode) {
-      return null;
-    }
-    const questionsIndex = toolCode.indexOf("questions=");
-    if (questionsIndex === -1) {
-      return null;
-    }
-    const arrayStart = toolCode.indexOf("[", questionsIndex);
-    if (arrayStart === -1) {
-      return null;
-    }
-    let depth = 0;
-    let arrayEnd = -1;
-    for (let i = arrayStart; i < toolCode.length; i += 1) {
-      const char = toolCode[i];
-      if (char === "[") {
-        depth += 1;
-      } else if (char === "]") {
-        depth -= 1;
-        if (depth === 0) {
-          arrayEnd = i;
-          break;
-        }
-      }
-    }
-    if (arrayEnd === -1) {
-      return null;
-    }
-    const arrayJson = toolCode.slice(arrayStart, arrayEnd + 1);
-    const parsedQuestions = JSON.parse(arrayJson);
-    return normalizeWrapUpAssessmentQuestions(parsedQuestions);
-  } catch (error) {
-    logger.warn("[WRAP_UP_ASSESSMENT] tool-code-parse-fail", {
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return null;
-  }
-}
-function reorderWrapUpAssessmentQuestions(questions) {
-  const concepts = questions.filter((question) => question.type === "concept");
-  const snippets = questions.filter((question) => question.type === "snippet");
-  return [...concepts, ...snippets];
 }
 function normalizeEnhancementEntries(raw) {
   const enhancements = Array.isArray(raw?.enhancements) ? raw.enhancements : [];
@@ -4907,17 +5344,17 @@ async function requestSenseiEnhancement(ai2, request) {
     return null;
   }
 }
-var WRAP_UP_ASSESSMENT_DEBUG_DEFAULT, WRAP_UP_ASSESSMENT_DEBUG_FLAG, DEFAULT_ENHANCEMENT_REQUEST_CONFIG, ENHANCEMENT_REQUEST_CONFIG2;
+var import_core, import_wrapUpAssessment2, DEFAULT_ENHANCEMENT_REQUEST_CONFIG, ENHANCEMENT_REQUEST_CONFIG2;
 var init_geminiService = __esm({
   "src/geminiService.ts"() {
     "use strict";
     init_logger();
     init_curriculum();
     init_prompts();
+    import_core = __toESM(require_dist());
+    import_wrapUpAssessment2 = __toESM(require_wrapUpAssessment());
     init_model_usage();
     init_model_usage();
-    WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
-    WRAP_UP_ASSESSMENT_DEBUG_FLAG = false;
     DEFAULT_ENHANCEMENT_REQUEST_CONFIG = {
       modelName: "gemini-2.5-flash",
       config: {
@@ -5783,416 +6220,6 @@ var init_codeEditorModal = __esm({
   }
 });
 
-// core/dist/mermaidErrorRecovery.js
-var require_mermaidErrorRecovery = __commonJS({
-  "core/dist/mermaidErrorRecovery.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.applyBacktickFix = applyBacktickFix;
-    exports.applyUniversalQuoteFix = applyUniversalQuoteFix;
-    exports.ensureGraphDirective = ensureGraphDirective;
-    exports.fixSubgraphDirections = fixSubgraphDirections;
-    exports.attemptMermaidFix = attemptMermaidFix;
-    exports.runMermaidRecovery = runMermaidRecovery2;
-    var logger2 = {
-      warn: (...args) => console.warn(...args),
-      error: (...args) => console.error(...args)
-    };
-    var DEBUG_FLAGS2 = { mermaid_debug: false };
-    function applyBacktickFix(diagram) {
-      const backtickCount = (diagram.match(/`/g) || []).length;
-      if (backtickCount === 0) {
-        return diagram;
-      }
-      const fixedDiagram = diagram.replace(/`/g, "'");
-      return fixedDiagram;
-    }
-    function applyUniversalQuoteFix(diagram) {
-      let fixedDiagram = diagram;
-      function findMatchingDelimiter(text2, startPos, openChar, closeChar) {
-        let depth = 1;
-        for (let i = startPos; i < text2.length; i++) {
-          if (text2[i] === openChar)
-            depth++;
-          else if (text2[i] === closeChar) {
-            depth--;
-            if (depth === 0)
-              return i;
-          }
-        }
-        return -1;
-      }
-      const lines = fixedDiagram.split("\n");
-      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-        const originalLine = lines[lineIdx];
-        if (originalLine === void 0) {
-          continue;
-        }
-        let line = originalLine;
-        const nodePattern = /([A-Z])(\[|\(\(|\{\{|\(|\{)/g;
-        let match;
-        let newLine = "";
-        let lastIndex = 0;
-        while ((match = nodePattern.exec(line)) !== null) {
-          const nodeId = match[1];
-          const openDelim = match[2];
-          if (!nodeId || !openDelim) {
-            logger2.warn("[MERMAID_FIX] Skipping malformed node token.", {
-              lineIndex: lineIdx,
-              raw: match[0]
-            });
-            continue;
-          }
-          const startPos = match.index + match[0].length;
-          let closeDelim = "";
-          let searchOpenChar = "";
-          let searchCloseChar = "";
-          switch (openDelim) {
-            case "[":
-              closeDelim = "]";
-              searchOpenChar = "[";
-              searchCloseChar = "]";
-              break;
-            case "(":
-              closeDelim = ")";
-              searchOpenChar = "(";
-              searchCloseChar = ")";
-              break;
-            case "((":
-              closeDelim = "))";
-              searchOpenChar = "(";
-              searchCloseChar = ")";
-              break;
-            case "{":
-              closeDelim = "}";
-              searchOpenChar = "{";
-              searchCloseChar = "}";
-              break;
-            case "{{":
-              closeDelim = "}}";
-              searchOpenChar = "{";
-              searchCloseChar = "}";
-              break;
-          }
-          if (!closeDelim && openDelim !== "((" && openDelim !== "{{") {
-            logger2.warn("[MERMAID_FIX] Unsupported delimiter encountered.", {
-              openDelim,
-              lineIndex: lineIdx
-            });
-            continue;
-          }
-          let endPos = -1;
-          if (openDelim === "((") {
-            let depth = 2;
-            for (let i = startPos; i < line.length; i++) {
-              if (line[i] === "(") {
-                depth++;
-              } else if (line[i] === ")") {
-                depth--;
-                if (depth === 0) {
-                  endPos = i - 1;
-                  break;
-                }
-              }
-            }
-          } else if (openDelim === "{{") {
-            let depth = 2;
-            for (let i = startPos; i < line.length; i++) {
-              if (line[i] === "{") {
-                depth++;
-              } else if (line[i] === "}") {
-                depth--;
-                if (depth === 0) {
-                  endPos = i - 1;
-                  break;
-                }
-              }
-            }
-          } else {
-            endPos = findMatchingDelimiter(line, startPos, searchOpenChar, searchCloseChar);
-          }
-          if (endPos !== -1 && endPos >= startPos) {
-            const content = line.substring(startPos, endPos);
-            const trimmedContent = content.trim();
-            newLine += line.substring(lastIndex, match.index);
-            const isDirectlyQuoted = trimmedContent.length > 1 && (trimmedContent.startsWith('"') && trimmedContent.endsWith('"') || trimmedContent.startsWith("'") && trimmedContent.endsWith("'"));
-            let innerWrapperQuoted = false;
-            if (!isDirectlyQuoted && trimmedContent.length > 2) {
-              const firstChar = trimmedContent[0];
-              const lastChar = trimmedContent[trimmedContent.length - 1];
-              const wrapperPairs = {
-                "(": ")",
-                "[": "]",
-                "{": "}",
-                "<": ">"
-              };
-              if (Object.prototype.hasOwnProperty.call(wrapperPairs, firstChar)) {
-                const opener = firstChar;
-                if (wrapperPairs[opener] === lastChar) {
-                  const inner2 = trimmedContent.slice(1, -1).trim();
-                  if (inner2.length > 1 && (inner2.startsWith('"') && inner2.endsWith('"') || inner2.startsWith("'") && inner2.endsWith("'"))) {
-                    innerWrapperQuoted = true;
-                  }
-                }
-              }
-            }
-            const shouldWrap = trimmedContent.length > 0 && !isDirectlyQuoted && !innerWrapperQuoted;
-            if (shouldWrap) {
-              const escapedContent = content.replace(/"/g, '\\"');
-              newLine += nodeId + openDelim + '"' + escapedContent + '"' + closeDelim;
-            } else {
-              newLine += nodeId + openDelim + content + closeDelim;
-            }
-            lastIndex = endPos + closeDelim.length;
-            nodePattern.lastIndex = lastIndex;
-          }
-        }
-        newLine += line.substring(lastIndex);
-        lines[lineIdx] = newLine || line;
-      }
-      return lines.join("\n");
-    }
-    function ensureGraphDirective(diagram) {
-      if (/^\s*graph\s+/i.test(diagram)) {
-        return diagram;
-      }
-      return `graph TD
-${diagram}`.trim();
-    }
-    function fixSubgraphDirections(diagram) {
-      const subgraphFixed = diagram.replace(/(\bsubgraph\b[\s\S]*?\bdirection\s+)td\b/gi, (_, prefix) => `${prefix}TB`);
-      const anyDirectionFixed = subgraphFixed.replace(/(\bdirection\s+)td\b/gi, (_, prefix) => `${prefix}TB`);
-      return anyDirectionFixed;
-    }
-    var MERMAID_FIX_PROMPT_TEMPLATE = (failedDiagram, errorMessage) => `
-Fix this Mermaid syntax error.
-
-ERROR MESSAGE:
-${errorMessage}
-
-FAILED DIAGRAM:
-${failedDiagram}
-
-ANALYSIS PROCESS:
-1. Read the error message carefully - note the line number and position
-2. Look at what the parser expected vs what it found
-3. Examine the specific line mentioned in the error
-4. Identify the exact syntax issue causing the failure
-5. COMPREHENSIVE FIX: If the issue is found in one location, scan the ENTIRE diagram for ALL instances of the same problem and fix them all
-6. Check if error involves 'direction' inside a subgraph - valid options are ONLY: TB (Top to Bottom), BT (Bottom to Top), LR (Left to Right), RL (Right to Left). TD is invalid and must be converted to TB
-7. If soup brackets used, convert it to either one of them: e.g. ([ \u2026 ]) can be changed to (()) OR [[]]
-
-CRITICAL RULES (MUST BE APPLIED COMPREHENSIVELY):
-- NO BACKTICKS ANYWHERE: Scan the ENTIRE diagram and replace ALL backticks (\`) with single quotes (') in every node label, edge label, and text content
-- NO COMMENTS: Never use %%
-- NO SEMICOLONS: Never end lines with ;
-= NO SOUP BRACKETS: Combo rule: Only two hybrid combos\u2014([ \u2026 ]) (pill) and [( \u2026 )] (cylinder)\u2014are legal. Any other \u201Cbracket soup\u201D will raise a parser error.
-- SUBGRAPH DIRECTIONS: Inside subgraphs, valid directions are ONLY: TB (Top to Bottom), BT (Bottom to Top), LR (Left to Right), RL (Right to Left). Never use 'direction TD' - always convert to 'direction TB'
-- Do not redesign or restructure
-- Apply systematic fixes to resolve ALL instances of detected issues
-
-Return the complete fixed diagram.
-
-Provide your response as JSON with this structure:
-{
-    "fixed": true/false,
-    "diagram": "the corrected Mermaid diagram code",
-    "explanation": "brief explanation of what was fixed"
-}
-`;
-    async function attemptMermaidFix(llm, failedDiagram, errorMessage, options) {
-      const baseDiagram = ensureGraphDirective(failedDiagram);
-      if (!llm) {
-        return {
-          fixed: false,
-          explanation: "No AI client provided for mermaid fix"
-        };
-      }
-      if (!(options === null || options === void 0 ? void 0 : options.forceLlm)) {
-        if (errorMessage.includes("direction") || errorMessage.includes("TD")) {
-          const fixedDiagram = fixSubgraphDirections(baseDiagram);
-          if (fixedDiagram !== baseDiagram) {
-            return {
-              fixed: true,
-              diagram: fixedDiagram,
-              explanation: "Fixed invalid TD direction in subgraph - converted to TB"
-            };
-          }
-        }
-        if (errorMessage.includes("backtick") || errorMessage.includes("`") || errorMessage.includes("Unrecognized text") || baseDiagram.includes("`")) {
-          const backtickFixedDiagram = applyBacktickFix(baseDiagram);
-          if (backtickFixedDiagram !== baseDiagram) {
-            const fullyFixedDiagram = applyUniversalQuoteFix(backtickFixedDiagram);
-            return {
-              fixed: true,
-              diagram: fullyFixedDiagram,
-              explanation: "Fixed backticks in node labels by converting to single quotes"
-            };
-          }
-        }
-        if (errorMessage.includes("quote") || errorMessage.includes('"') || errorMessage.includes("'")) {
-          const fixedDiagram = applyUniversalQuoteFix(baseDiagram);
-          if (fixedDiagram !== baseDiagram) {
-            return {
-              fixed: true,
-              diagram: fixedDiagram,
-              explanation: "Fixed missing quotes in node labels"
-            };
-          }
-        }
-      }
-      try {
-        const prompt = MERMAID_FIX_PROMPT_TEMPLATE(baseDiagram, errorMessage);
-        const result = await llm.callJson(prompt, {
-          task: "mermaid_repair"
-        });
-        try {
-          const maybeString = typeof result === "string" ? result : JSON.stringify(result);
-          let jsonText = maybeString.trim();
-          const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
-          const match = jsonText.match(fenceRegex);
-          if (match && match[2]) {
-            jsonText = match[2].trim();
-          }
-          const fixResponse = JSON.parse(jsonText);
-          return fixResponse;
-        } catch (parseError) {
-          if (DEBUG_FLAGS2.mermaid_debug) {
-            logger2.error("Failed to parse LLM response as JSON:", parseError);
-            logger2.error("Original text from LLM that failed parsing:", result);
-          }
-          return {
-            fixed: false,
-            explanation: "Failed to parse fix response from AI"
-          };
-        }
-      } catch (error) {
-        if (DEBUG_FLAGS2.mermaid_debug) {
-          logger2.error("Mermaid fix attempt failed:", error);
-        }
-        return {
-          fixed: false,
-          explanation: `Error during fix attempt: ${error.message}`
-        };
-      }
-    }
-    async function runMermaidRecovery2(options) {
-      const { llm, initialDiagram, initialError, renderAttempt, maxAttempts = 5 } = options;
-      let currentDiagram = ensureGraphDirective(applyUniversalQuoteFix(applyBacktickFix(initialDiagram)));
-      let currentError = initialError;
-      const llmClient = llm;
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const result = await renderAttempt(currentDiagram);
-          return { svg: result.svg, diagram: currentDiagram };
-        } catch (err) {
-          logger2.error("[MERMAID_RECOVERY] Attempt", attempt, "render failed:", (err === null || err === void 0 ? void 0 : err.message) || err);
-          currentError = (err === null || err === void 0 ? void 0 : err.message) || "Unknown render error";
-          if (!llmClient) {
-            break;
-          }
-          try {
-            const fixResult = await attemptMermaidFix(llmClient, currentDiagram, currentError);
-            if (fixResult.diagram) {
-              currentDiagram = fixResult.diagram;
-            }
-          } catch (fixError) {
-            logger2.error("[MERMAID_RECOVERY] Attempt", attempt, "fix invocation failed:", (fixError === null || fixError === void 0 ? void 0 : fixError.message) || fixError);
-          }
-        }
-      }
-      logger2.error("[MERMAID_RECOVERY] Exhausted attempts without render");
-      return null;
-    }
-  }
-});
-
-// core/dist/llmTypes.js
-var require_llmTypes = __commonJS({
-  "core/dist/llmTypes.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-  }
-});
-
-// core/dist/modelUsage.js
-var require_modelUsage = __commonJS({
-  "core/dist/modelUsage.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.MERMAID_RECOVERY_TIMEOUT_MS = exports.MERMAID_ERROR_RECOVERY_CONFIG = void 0;
-    var GEMINI_FLASH2 = "gemini-flash-latest";
-    exports.MERMAID_ERROR_RECOVERY_CONFIG = {
-      modelName: GEMINI_FLASH2,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2
-      }
-    };
-    exports.MERMAID_RECOVERY_TIMEOUT_MS = 4e4;
-  }
-});
-
-// core/dist/browserLlmClient.js
-var require_browserLlmClient = __commonJS({
-  "core/dist/browserLlmClient.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.createBrowserCoreLlmClient = createBrowserCoreLlmClient2;
-    var modelUsage_1 = require_modelUsage();
-    function createBrowserCoreLlmClient2(ai2) {
-      if (!ai2 || !ai2.models || !ai2.models.generateContent) {
-        return null;
-      }
-      return {
-        async callText(prompt) {
-          var _a;
-          const res = await ai2.models.generateContent({
-            model: modelUsage_1.MERMAID_ERROR_RECOVERY_CONFIG.modelName,
-            contents: prompt,
-            config: modelUsage_1.MERMAID_ERROR_RECOVERY_CONFIG.config
-          });
-          if (typeof (res === null || res === void 0 ? void 0 : res.text) === "function") {
-            return res.text();
-          }
-          return (_a = res === null || res === void 0 ? void 0 : res.text) !== null && _a !== void 0 ? _a : "";
-        },
-        async callJson(prompt) {
-          const text2 = await this.callText(prompt);
-          return JSON.parse(text2);
-        }
-      };
-    }
-  }
-});
-
-// core/dist/index.js
-var require_dist = __commonJS({
-  "core/dist/index.js"(exports) {
-    "use strict";
-    var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __exportStar = exports && exports.__exportStar || function(m, exports2) {
-      for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p)) __createBinding(exports2, m, p);
-    };
-    Object.defineProperty(exports, "__esModule", { value: true });
-    __exportStar(require_mermaidErrorRecovery(), exports);
-    __exportStar(require_llmTypes(), exports);
-    __exportStar(require_browserLlmClient(), exports);
-  }
-});
-
 // src/mobile/webviewMessageRouter.ts
 function requestMermaidRecoveryViaBridge(payload) {
   return new Promise((resolve, reject) => {
@@ -6302,7 +6329,19 @@ function createWebviewMessageHandler(deps2) {
         break;
       }
       case "wrapup:show": {
-        deps2.showWrapUpAssessmentOverlay(message.data);
+        await deps2.presentWrapUpAssessmentOverlay({
+          overlay: message.data,
+          failed: false,
+          moduleTitle: message.data?.moduleTitle ?? null
+        });
+        break;
+      }
+      case "wrapup:failed": {
+        await deps2.presentWrapUpAssessmentOverlay({
+          overlay: null,
+          failed: true,
+          moduleTitle: message.moduleTitle ?? null
+        });
         break;
       }
       case "footer:update": {
@@ -6329,14 +6368,14 @@ function createWebviewMessageHandler(deps2) {
     }
   };
 }
-var import_modelUsage, mermaidResolvers, MERMAID_BRIDGE_TIMEOUT_MS;
+var import_modelUsage2, mermaidResolvers, MERMAID_BRIDGE_TIMEOUT_MS;
 var init_webviewMessageRouter = __esm({
   "src/mobile/webviewMessageRouter.ts"() {
     "use strict";
-    import_modelUsage = __toESM(require_modelUsage());
+    import_modelUsage2 = __toESM(require_modelUsage());
     init_webviewBridge();
     mermaidResolvers = /* @__PURE__ */ new Map();
-    MERMAID_BRIDGE_TIMEOUT_MS = import_modelUsage.MERMAID_RECOVERY_TIMEOUT_MS + 4e3;
+    MERMAID_BRIDGE_TIMEOUT_MS = import_modelUsage2.MERMAID_RECOVERY_TIMEOUT_MS + 4e3;
   }
 });
 
@@ -23154,7 +23193,7 @@ async function processMermaidBlocks(messageId, options) {
             }
           } else {
             const recoveryResult = await (0, import_mermaidErrorRecovery.runMermaidRecovery)({
-              llm: (0, import_core.createBrowserCoreLlmClient)(window.ai),
+              llm: (0, import_core2.createBrowserCoreLlmClient)(window.ai),
               initialDiagram: rawMermaidCode,
               initialError: error.message || "Unknown error",
               renderAttempt: async (diagram) => {
@@ -23547,7 +23586,7 @@ function setupStatusClickMeditationOverlay() {
     updateSenseiMeditationOverlay(curriculumState2, true);
   });
 }
-var import_mermaidErrorRecovery, import_core, globalMarkedConfig, INLINE_PIPE_PLACEHOLDER, TABLE_ALIGNMENT_REGEX, messageArea, userInput, sendButton, codeEditorButton, curriculumStatusContainer, curriculumStatusTopic, headerTitleElement, meditationOverlay, meditationActionItems, brandSegment, statusSegment, conceptNavPrevButton, conceptNavNextButton, chunkNavPrevButton, chunkNavNextButton, chatWindowControlsElement, footerConfidence, footerConfusion, footerIntentValue, streamingMessagesRawText, streamingMessageTimers, defaultMessageRegistry, FONT_SIZES, ICONS, DEFAULT_HEADING_BASE_COLOR, HEADING_COLOR_LIGHTNESS_STEPS, THEME_STORAGE_KEY, THEME_OPTIONS, DEFAULT_THEME_ID, currentThemeId, themePalettePanel, themePaletteTrigger, themePaletteVisible, themePaletteSwatches, themePaletteListenersRegistered, themePaletteHideTimeout, previewThemeId, lastFooterState, touchEventSupported, pointerEventSupported, mermaidObserver, observedMermaidElements, meditationHoverState, meditationOverlayOutsideClickHandler, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks;
+var import_mermaidErrorRecovery, import_core2, globalMarkedConfig, INLINE_PIPE_PLACEHOLDER, TABLE_ALIGNMENT_REGEX, messageArea, userInput, sendButton, codeEditorButton, curriculumStatusContainer, curriculumStatusTopic, headerTitleElement, meditationOverlay, meditationActionItems, brandSegment, statusSegment, conceptNavPrevButton, conceptNavNextButton, chunkNavPrevButton, chunkNavNextButton, chatWindowControlsElement, footerConfidence, footerConfusion, footerIntentValue, streamingMessagesRawText, streamingMessageTimers, defaultMessageRegistry, FONT_SIZES, ICONS, DEFAULT_HEADING_BASE_COLOR, HEADING_COLOR_LIGHTNESS_STEPS, THEME_STORAGE_KEY, THEME_OPTIONS, DEFAULT_THEME_ID, currentThemeId, themePalettePanel, themePaletteTrigger, themePaletteVisible, themePaletteSwatches, themePaletteListenersRegistered, themePaletteHideTimeout, previewThemeId, lastFooterState, touchEventSupported, pointerEventSupported, mermaidObserver, observedMermaidElements, meditationHoverState, meditationOverlayOutsideClickHandler, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks;
 var init_ui = __esm({
   "src/ui.ts"() {
     "use strict";
@@ -23556,7 +23595,7 @@ var init_ui = __esm({
     init_enhancementManager();
     init_codeEditorModal();
     import_mermaidErrorRecovery = __toESM(require_mermaidErrorRecovery());
-    import_core = __toESM(require_dist());
+    import_core2 = __toESM(require_dist());
     init_curriculum();
     init_mermaid_theme_integration();
     init_index();
@@ -29193,6 +29232,21 @@ var init_chatWindowController = __esm({
   }
 });
 
+// src/wrapUpAssessmentRouting.ts
+async function requestWrapUpAssessment(params) {
+  if (params.isMobileWebView) {
+    params.requestViaBridge({ moduleId: params.moduleId, promptContext: params.promptContext });
+    return { mode: "bridge", result: null };
+  }
+  const result = await params.generateLocal();
+  return { mode: "local", result };
+}
+var init_wrapUpAssessmentRouting = __esm({
+  "src/wrapUpAssessmentRouting.ts"() {
+    "use strict";
+  }
+});
+
 // src/wrapUpAssessment.ts
 import { marked as marked4 } from "marked";
 function assertNonEmptyString(value, message) {
@@ -29307,7 +29361,7 @@ function buildQuestionSelectionSenseiContext(question, index, moduleTitle, modul
 function isWrapUpAssessmentActive() {
   return !!document.getElementById(OVERLAY_ID);
 }
-function showWrapUpAssessmentOverlay(data) {
+function showWrapUpAssessmentOverlayValidated(data, validatedQuestions) {
   const messageArea2 = document.getElementById("message-area");
   if (!messageArea2) {
     return;
@@ -29315,7 +29369,6 @@ function showWrapUpAssessmentOverlay(data) {
   if (isWrapUpAssessmentActive()) {
     return;
   }
-  const validatedQuestions = validateWrapUpAssessmentQuestions(data.questions);
   const renderQuestions = prepareRenderQuestions(validatedQuestions);
   disableChatControls();
   const wrapper = document.createElement("div");
@@ -29588,6 +29641,45 @@ function showWrapUpAssessmentOverlay(data) {
     } catch (error) {
       console.warn("Selection Sensei reinitialization failed for wrap-up overlay.", error);
     }
+  }
+}
+function clearPhaseLoadingBubbles() {
+  document.querySelectorAll(".message-bubble").forEach((bubble) => {
+    if (!bubble.querySelector(".phase-loading-container")) {
+      return;
+    }
+    const dotAnimation = bubble.dotAnimation;
+    if (dotAnimation) {
+      clearInterval(dotAnimation);
+      delete bubble.dotAnimation;
+    }
+    const messageAnimation = bubble.messageAnimation;
+    if (messageAnimation) {
+      clearInterval(messageAnimation);
+      delete bubble.messageAnimation;
+    }
+    bubble.remove();
+  });
+}
+async function presentWrapUpAssessmentOverlay(params) {
+  const overlay2 = params.overlay;
+  const moduleTitle = params.moduleTitle ?? overlay2?.moduleTitle ?? null;
+  if (!overlay2) {
+    if (params.failed) {
+      clearPhaseLoadingBubbles();
+      await params.showApology(moduleTitle);
+      unlockWrapUpChatControls();
+    }
+    return;
+  }
+  try {
+    const validatedQuestions = validateWrapUpAssessmentQuestions(overlay2.questions);
+    clearPhaseLoadingBubbles();
+    showWrapUpAssessmentOverlayValidated(overlay2, validatedQuestions);
+  } catch (_error) {
+    clearPhaseLoadingBubbles();
+    await params.showApology(moduleTitle);
+    unlockWrapUpChatControls();
   }
 }
 function disableChatControls() {
@@ -33253,7 +33345,7 @@ function logModuleSelectionValidation(event, payload) {
     logger.info("[MODULE_SELECTION_VALIDATION]", { event });
   }
 }
-var ModuleSelectionHandler;
+var import_core3, import_wrapUpAssessment3, ModuleSelectionHandler;
 var init_moduleSelectionHandler = __esm({
   "src/moduleSelectionHandler.ts"() {
     "use strict";
@@ -33261,6 +33353,10 @@ var init_moduleSelectionHandler = __esm({
     init_curriculum();
     init_ui();
     init_geminiService();
+    import_core3 = __toESM(require_dist());
+    import_wrapUpAssessment3 = __toESM(require_wrapUpAssessment());
+    init_webviewBridge();
+    init_wrapUpAssessmentRouting();
     init_prompts();
     init_interactionHelpers();
     init_keyTakeawayEnhancerController();
@@ -33604,14 +33700,14 @@ Where would you like to begin your learning journey?`;
           if (currentItem2) {
             updateCurriculumDisplay(currentItem2, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
           }
-          if (overlayData) {
-            showWrapUpAssessmentOverlay(overlayData);
-          } else if (generationFailed) {
-            await this.showWrapUpAssessmentApology(module.id, module.title);
-          }
-          if (cleanupPhaseBubble) {
-            cleanupPhaseBubble();
-          }
+          await presentWrapUpAssessmentOverlay({
+            overlay: overlayData,
+            failed: generationFailed,
+            moduleTitle: module.title,
+            showApology: async (title) => {
+              await this.showWrapUpAssessmentApology(module.id, title ?? module.title);
+            }
+          });
           return;
         }
         if (this.state.curriculumState.currentPhase === "Socratic") {
@@ -33831,30 +33927,42 @@ ${primaryActionBlock}`;
         this.pendingWrapUpAssessment = null;
         this.pendingWrapUpAssessmentFailed = false;
         const conceptSummaries = module.concepts.map((concept) => `${concept.title}: ${concept.text}`);
+        const promptContext = {
+          moduleTitle: module.title,
+          moduleGoal: module.goal ?? "",
+          solidifyContent: "",
+          conceptSummaries
+        };
+        const isMobileWebView = Boolean(window?.__SENSEI_MOBILE_BUILD__);
         try {
-          const result = await generateWrapUpAssessment(ai2, module.id, {
-            moduleTitle: module.title,
-            moduleGoal: module.goal ?? "",
-            solidifyContent: "",
-            conceptSummaries
+          const result = await requestWrapUpAssessment({
+            isMobileWebView,
+            moduleId: module.id,
+            promptContext,
+            requestViaBridge: ({ moduleId, promptContext: promptContext2 }) => sendToNative({ type: "wrapup:requestShow", moduleId, promptContext: promptContext2 }),
+            generateLocal: async () => {
+              const llmClient = (0, import_core3.createBrowserCoreLlmClient)(ai2);
+              return (0, import_wrapUpAssessment3.generateWrapUpAssessment)(llmClient, module.id, promptContext);
+            }
           });
-          if (result && result.questions.length > 0) {
-            const validatedQuestions = validateWrapUpAssessmentQuestions(result.questions);
-            this.pendingWrapUpAssessment = {
-              moduleTitle: module.title,
-              moduleGoal: module.goal ?? void 0,
-              conceptSummaries,
-              questions: validatedQuestions
-            };
-          } else {
-            this.pendingWrapUpAssessmentFailed = true;
+          if (result.mode === "local") {
+            if (result.result && result.result.questions.length > 0) {
+              this.pendingWrapUpAssessment = {
+                moduleTitle: module.title,
+                moduleGoal: module.goal ?? void 0,
+                conceptSummaries,
+                questions: result.result.questions
+              };
+            } else {
+              this.pendingWrapUpAssessmentFailed = true;
+            }
           }
         } catch (error) {
           logger.error("[WRAP_UP_ASSESSMENT] generation-error", {
             moduleId: module.id,
             error: error instanceof Error ? error.message : String(error)
           });
-          this.pendingWrapUpAssessmentFailed = true;
+          this.pendingWrapUpAssessmentFailed = !isMobileWebView;
         }
         logger.info("[WRAP_UP_ASSESSMENT] jump-to-phase-stub", {
           moduleId: module.id,
@@ -33879,7 +33987,6 @@ ${primaryActionBlock}`;
           isReloadable: false
         });
         logger.warn("[WRAP_UP_ASSESSMENT] overlay-missing", { moduleId, moduleTitle });
-        unlockWrapUpChatControls();
       }
       async sendSystemSocraticMessage() {
         if (!this.state.curriculumState || !this.state.curriculumState.teachingPlanForPhase) {
@@ -34052,7 +34159,6 @@ async function showWrapUpAssessmentApologyMessage(moduleTitle) {
     isLoading: false,
     isReloadable: false
   });
-  unlockWrapUpChatControls();
 }
 async function loadProjectFileManifestAndPaths() {
   let filePathsToLoadFromManifest = [];
@@ -34161,33 +34267,49 @@ function createLLMPlannerCallback(curriculum2, curriculumState2, ai2) {
     }
     if (phase === "Solidify") {
       const conceptSummaries = module.concepts.map((concept) => `${concept.title}: ${concept.text}`);
+      const promptContext = {
+        moduleTitle: module.title,
+        moduleGoal: module.goal ?? "",
+        solidifyContent: "",
+        conceptSummaries
+      };
+      const isMobileWebView = Boolean(window?.__SENSEI_MOBILE_BUILD__);
       let overlayPayload = null;
+      let generationFailed = false;
       try {
-        const result2 = await generateWrapUpAssessment(ai2, module.id, {
-          moduleTitle: module.title,
-          moduleGoal: module.goal ?? "",
-          solidifyContent: "",
-          conceptSummaries
+        const result2 = await requestWrapUpAssessment({
+          isMobileWebView,
+          moduleId: module.id,
+          promptContext,
+          requestViaBridge: ({ moduleId, promptContext: promptContext2 }) => sendToNative({ type: "wrapup:requestShow", moduleId, promptContext: promptContext2 }),
+          generateLocal: async () => {
+            const llmClient = (0, import_core4.createBrowserCoreLlmClient)(ai2);
+            return (0, import_wrapUpAssessment5.generateWrapUpAssessment)(llmClient, module.id, promptContext);
+          }
         });
-        if (result2 && result2.questions.length > 0) {
-          const validatedQuestions = validateWrapUpAssessmentQuestions(result2.questions);
-          overlayPayload = {
-            moduleTitle: module.title,
-            moduleGoal: module.goal ?? void 0,
-            conceptSummaries,
-            questions: validatedQuestions
-          };
+        if (result2.mode === "local") {
+          if (result2.result && result2.result.questions.length > 0) {
+            overlayPayload = {
+              moduleTitle: module.title,
+              moduleGoal: module.goal ?? void 0,
+              conceptSummaries,
+              questions: result2.result.questions
+            };
+          } else {
+            generationFailed = true;
+          }
         }
       } catch (error) {
         logger.error("[WRAP_UP_ASSESSMENT] generation-error", {
           moduleId: module.id,
           error: error instanceof Error ? error.message : String(error)
         });
+        generationFailed = !isMobileWebView;
       }
       if (typeof window !== "undefined") {
         const wrapWindow = window;
         wrapWindow.__wrapUpAssessmentPayload = overlayPayload ?? null;
-        wrapWindow.__wrapUpAssessmentFailed = !overlayPayload;
+        wrapWindow.__wrapUpAssessmentFailed = isMobileWebView ? false : generationFailed || !overlayPayload;
       }
       logger.info("[WRAP_UP_ASSESSMENT] jump-to-phase-stub", {
         moduleId: module.id,
@@ -34341,11 +34463,12 @@ async function generateNextSenseiResponse(inputText, skipPedagogicalIntervention
     }
     if (curriculumState.currentPhase === "Solidify") {
       const { payload, failed } = consumeAutoWrapUpAssessmentPayload();
-      if (payload) {
-        showWrapUpAssessmentOverlay(payload);
-      } else if (failed) {
-        await showWrapUpAssessmentApologyMessage(moduleTitle);
-      }
+      await presentWrapUpAssessmentOverlay({
+        overlay: payload,
+        failed,
+        moduleTitle,
+        showApology: showWrapUpAssessmentApologyMessage
+      });
     }
   } else if (curriculumState?.isCompleted) {
     updateCurriculumDisplay(null, null, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
@@ -35147,7 +35270,7 @@ function updateKCProgressBar(kcphasemastery) {
     logger.error("Error updating KC progress bar:", error);
   }
 }
-var inputArea, userInputElement, debugModeButton, SENDER_DISPLAY_NAMES, hasNativeBridge, isLocal, envApiKey, API_KEY, ai, mainSenseiChat, learnerModel, lastSenseiResponses, chronologicallyLastLLMSenseiMessageId, curriculum, curriculumState, currentActiveConceptIndex, currentMessageId, userInputHistory, pendingModuleSelection, pendingPhaseSelection, pendingConceptSelectionIndex, pendingConceptSelectionBubbleId, projectFileContents, availableProjectFilePaths2, chatWindowController, moduleSelectionHandler, FALLBACK_FILE_PATHS, profiler, conceptNavPrev, conceptNavNext, chunkNavPrev, chunkNavNext, handleReactNativeMessage, celebrationStyle;
+var import_core4, import_wrapUpAssessment5, inputArea, userInputElement, debugModeButton, SENDER_DISPLAY_NAMES, hasNativeBridge, isLocal, envApiKey, API_KEY, ai, mainSenseiChat, learnerModel, lastSenseiResponses, chronologicallyLastLLMSenseiMessageId, curriculum, curriculumState, currentActiveConceptIndex, currentMessageId, userInputHistory, pendingModuleSelection, pendingPhaseSelection, pendingConceptSelectionIndex, pendingConceptSelectionBubbleId, projectFileContents, availableProjectFilePaths2, chatWindowController, moduleSelectionHandler, FALLBACK_FILE_PATHS, profiler, conceptNavPrev, conceptNavNext, chunkNavPrev, chunkNavNext, handleReactNativeMessage, celebrationStyle;
 var init_index = __esm({
   "src/index.tsx"() {
     init_mermaidManager();
@@ -35163,6 +35286,9 @@ var init_index = __esm({
     init_selectionSensei();
     init_chatWindowController();
     init_geminiService();
+    import_core4 = __toESM(require_dist());
+    import_wrapUpAssessment5 = __toESM(require_wrapUpAssessment());
+    init_wrapUpAssessmentRouting();
     init_wrapUpAssessment();
     init_prompts();
     init_interactionHelpers();
@@ -35367,14 +35493,20 @@ var init_index = __esm({
       "ui.ts"
     ];
     profiler = null;
-    inputArea.addEventListener("submit", handleUserInput);
-    userInputElement.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        handleUserInput(event);
-      }
-    });
-    debugModeButton.addEventListener("click", () => toggleDebugModalVisibility(true));
+    if (inputArea) {
+      inputArea.addEventListener("submit", handleUserInput);
+    }
+    if (userInputElement) {
+      userInputElement.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          handleUserInput(event);
+        }
+      });
+    }
+    if (debugModeButton) {
+      debugModeButton.addEventListener("click", () => toggleDebugModalVisibility(true));
+    }
     conceptNavPrev = document.getElementById("concept-nav-prev");
     conceptNavNext = document.getElementById("concept-nav-next");
     if (conceptNavPrev) {
@@ -35400,7 +35532,14 @@ var init_index = __esm({
       streamingMessagesRawText,
       SENDER_DISPLAY_NAMES,
       processMermaidBlocks,
-      showWrapUpAssessmentOverlay,
+      presentWrapUpAssessmentOverlay: async (params) => {
+        await presentWrapUpAssessmentOverlay({
+          overlay: params.overlay,
+          failed: params.failed,
+          moduleTitle: params.moduleTitle,
+          showApology: showWrapUpAssessmentApologyMessage
+        });
+      },
       updateFooter,
       updateMessageStream,
       invokeSelectionSenseiBridgeAction,

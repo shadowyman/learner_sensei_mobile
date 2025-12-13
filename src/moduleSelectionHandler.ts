@@ -26,9 +26,11 @@ import {
 } from "./adaptiveEngine";
 import {
     llmExtractAndPlanTeachingOrder,
-    generateWrapUpAssessment,
-    WrapUpAssessmentGenerationResult,
 } from './geminiService';
+import { createBrowserCoreLlmClient } from '@sensei/core';
+import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
+import { sendToNative } from './mobile/webviewBridge';
+import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import {
     MODULE_INTRODUCTION_TASK_TEMPLATE,
     KEY_TAKEAWAY_PROMPT_PREFIX
@@ -43,7 +45,7 @@ import { buildPrimaryActionBlockForKeyTakeaway } from './curriculum';
 import { ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS } from './model_usage';
 import { Chat } from "@google/genai";
 import { notepad } from './notepad';
-import { showWrapUpAssessmentOverlay, WrapUpAssessmentOverlayData, validateWrapUpAssessmentQuestions, unlockWrapUpChatControls } from './wrapUpAssessment';
+import { WrapUpAssessmentOverlayData, presentWrapUpAssessmentOverlay } from './wrapUpAssessment';
 
 interface ModuleSelectionState {
     pendingModuleSelection: number | null;
@@ -449,14 +451,14 @@ Where would you like to begin your learning journey?`;
                 updateCurriculumDisplay(currentItem, this.state.curriculumState.currentPhase, this.state.curriculum, this.state.curriculumState, true, this.state.learnerModel);
             }
 
-            if (overlayData) {
-                showWrapUpAssessmentOverlay(overlayData);
-            } else if (generationFailed) {
-                await this.showWrapUpAssessmentApology(module.id, module.title);
-            }
-            if (cleanupPhaseBubble) {
-                cleanupPhaseBubble();
-            }
+            await presentWrapUpAssessmentOverlay({
+                overlay: overlayData,
+                failed: generationFailed,
+                moduleTitle: module.title,
+                showApology: async (title) => {
+                    await this.showWrapUpAssessmentApology(module.id, title ?? module.title);
+                }
+            });
             return;
         }
 
@@ -702,32 +704,44 @@ ${coreInstruction}
         this.pendingWrapUpAssessmentFailed = false;
 
         const conceptSummaries = module.concepts.map(concept => `${concept.title}: ${concept.text}`);
+        const promptContext = {
+            moduleTitle: module.title,
+            moduleGoal: module.goal ?? '',
+            solidifyContent: '',
+            conceptSummaries
+        };
+        const isMobileWebView = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
 
         try {
-            const result: WrapUpAssessmentGenerationResult | null = await generateWrapUpAssessment(ai, module.id, {
-                moduleTitle: module.title,
-                moduleGoal: module.goal ?? '',
-                solidifyContent: '',
-                conceptSummaries
+            const result = await requestWrapUpAssessment<WrapUpAssessmentGenerationResult | null>({
+                isMobileWebView,
+                moduleId: module.id,
+                promptContext,
+                requestViaBridge: ({ moduleId, promptContext }) => sendToNative({ type: 'wrapup:requestShow', moduleId, promptContext }),
+                generateLocal: async () => {
+                    const llmClient = createBrowserCoreLlmClient(ai);
+                    return generateWrapUpAssessment(llmClient, module.id, promptContext);
+                }
             });
 
-            if (result && result.questions.length > 0) {
-                const validatedQuestions = validateWrapUpAssessmentQuestions(result.questions);
-                this.pendingWrapUpAssessment = {
-                    moduleTitle: module.title,
-                    moduleGoal: module.goal ?? undefined,
-                    conceptSummaries,
-                    questions: validatedQuestions
-                };
-            } else {
-                this.pendingWrapUpAssessmentFailed = true;
+            if (result.mode === 'local') {
+                if (result.result && result.result.questions.length > 0) {
+                    this.pendingWrapUpAssessment = {
+                        moduleTitle: module.title,
+                        moduleGoal: module.goal ?? undefined,
+                        conceptSummaries,
+                        questions: result.result.questions
+                    };
+                } else {
+                    this.pendingWrapUpAssessmentFailed = true;
+                }
             }
         } catch (error) {
             logger.error('[WRAP_UP_ASSESSMENT] generation-error', {
                 moduleId: module.id,
                 error: error instanceof Error ? error.message : String(error)
             });
-            this.pendingWrapUpAssessmentFailed = true;
+            this.pendingWrapUpAssessmentFailed = !isMobileWebView;
         }
 
         logger.info('[WRAP_UP_ASSESSMENT] jump-to-phase-stub', {
@@ -756,7 +770,6 @@ ${coreInstruction}
             isReloadable: false
         });
         logger.warn('[WRAP_UP_ASSESSMENT] overlay-missing', { moduleId, moduleTitle });
-        unlockWrapUpChatControls();
     }
 
     private async sendSystemSocraticMessage(): Promise<void> {

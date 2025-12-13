@@ -1,6 +1,14 @@
-const { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } = require('@google/generative-ai');
-const { MERMAID_ERROR_RECOVERY_CONFIG, MERMAID_RECOVERY_TIMEOUT_MS } = require('@sensei/core/modelUsage');
+const { MAIN_RESPONSE_CONFIG, MERMAID_ERROR_RECOVERY_CONFIG, WRAP_UP_ASSESSMENT_GENERATION_CONFIG, DEFAULT_SAFETY_SETTINGS } = require('../config/modelUsage');
+const { MERMAID_RECOVERY_TIMEOUT_MS } = require('@sensei/core/modelUsage');
 const TAG = 'GEMINI_GATEWAY';
+
+let genaiImportPromise;
+const loadGenai = () => {
+  if (!genaiImportPromise) {
+    genaiImportPromise = import('@google/genai');
+  }
+  return genaiImportPromise;
+};
 
 const split = (text, size = 160) => {
   const chunks = [];
@@ -18,35 +26,58 @@ class GeminiGateway {
     this.modelName = config.gemini.mainModel;
     this.temperature = config.gemini.temperature;
     this.timeoutMs = config.gemini.requestTimeoutMs;
-    this.client = new GoogleGenerativeAI(this.apiKey);
+    this.clientPromise = this.#createClient();
+  }
+
+  async #createClient() {
+    const { GoogleGenAI } = await loadGenai();
+    return new GoogleGenAI({ apiKey: this.apiKey });
+  }
+
+  getTaskConfig(task) {
+    switch (task) {
+      case 'mermaid_repair':
+        return MERMAID_ERROR_RECOVERY_CONFIG;
+      case 'wrap_up_assessment':
+        return WRAP_UP_ASSESSMENT_GENERATION_CONFIG;
+      default:
+        return MAIN_RESPONSE_CONFIG;
+    }
+  }
+
+  getTaskModelName(task, cfg) {
+    switch (task) {
+      case 'mermaid_repair':
+        return this.config.gemini.mermaidModel || cfg.modelName;
+      case 'wrap_up_assessment':
+        return this.config.gemini.wrapUpModel || cfg.modelName;
+      default:
+        return this.modelName || cfg.modelName;
+    }
   }
 
   async callText(prompt, { task }) {
     const isMermaid = task === 'mermaid_repair';
-    const modelName = isMermaid ? this.config.gemini.mermaidModel : this.modelName;
-    const temperature = isMermaid ? MERMAID_ERROR_RECOVERY_CONFIG.config.temperature ?? this.temperature : this.temperature;
-    const timeoutMs = isMermaid ? Math.min(this.timeoutMs, MERMAID_RECOVERY_TIMEOUT_MS) : this.timeoutMs;
-    const model = this.client.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        temperature,
-        responseMimeType: isMermaid ? MERMAID_ERROR_RECOVERY_CONFIG.config.responseMimeType : undefined
-      },
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE }
-      ]
-    });
+    const cfg = this.getTaskConfig(task);
+    const modelName = this.getTaskModelName(task, cfg);
+    const temperature = cfg.config.temperature ?? this.temperature;
+    const baseTimeoutMs = typeof cfg.timeoutMs === 'number' ? cfg.timeoutMs : this.timeoutMs;
+    const timeoutMs = isMermaid ? Math.min(baseTimeoutMs, MERMAID_RECOVERY_TIMEOUT_MS) : baseTimeoutMs;
+    const safetySettings = Array.isArray(cfg.safetySettings) ? cfg.safetySettings : DEFAULT_SAFETY_SETTINGS;
+    const client = await this.clientPromise;
     this.logger.info(TAG, 'callText start', { task, model: modelName, temperature, promptLength: prompt.length });
     const start = Date.now();
-    const res = await model.generateContent(
-      { contents: [{ role: 'user', parts: [{ text: prompt }] }] },
-      { timeout: timeoutMs }
-    );
-    const response = res?.response;
-    const text = typeof response?.text === 'function' ? response.text() : '';
+    const res = await client.models.generateContent({
+      model: modelName,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        temperature,
+        responseMimeType: isMermaid ? cfg.config.responseMimeType : undefined,
+        safetySettings,
+        httpOptions: { timeout: timeoutMs }
+      }
+    });
+    const text = typeof res?.text === 'function' ? res.text() : (res?.text ?? '');
     this.logger.info(TAG, 'callText end', { task, elapsedMs: Date.now() - start, bytes: text.length });
     return text;
   }
@@ -56,20 +87,58 @@ class GeminiGateway {
     return JSON.parse(text);
   }
 
+  async callWithTools(prompt, { task, tools }) {
+    const isMermaid = task === 'mermaid_repair';
+    const cfg = this.getTaskConfig(task);
+    const modelName = this.getTaskModelName(task, cfg);
+    const temperature = cfg.config.temperature ?? this.temperature;
+    const baseTimeoutMs = typeof cfg.timeoutMs === 'number' ? cfg.timeoutMs : this.timeoutMs;
+    const timeoutMs = isMermaid ? Math.min(baseTimeoutMs, MERMAID_RECOVERY_TIMEOUT_MS) : baseTimeoutMs;
+    const safetySettings = Array.isArray(cfg.safetySettings) ? cfg.safetySettings : DEFAULT_SAFETY_SETTINGS;
+    const client = await this.clientPromise;
+    this.logger.info(TAG, 'callWithTools start', { task, model: modelName, temperature, promptLength: prompt.length });
+    const start = Date.now();
+    let toolConfig;
+    if (task === 'wrap_up_assessment') {
+      const allowedFunctionNames = [];
+      if (Array.isArray(tools)) {
+        for (const tool of tools) {
+          const decls = tool?.functionDeclarations;
+          if (Array.isArray(decls)) {
+            for (const decl of decls) {
+              if (typeof decl?.name === 'string') {
+                allowedFunctionNames.push(decl.name);
+              }
+            }
+          }
+        }
+      }
+      const uniqueAllowed = Array.from(new Set(allowedFunctionNames)).filter((name) => typeof name === 'string' && name.length > 0);
+      toolConfig = { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: uniqueAllowed.length > 0 ? uniqueAllowed : undefined } };
+    }
+    const res = await client.models.generateContent({
+      model: modelName,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        temperature,
+        safetySettings,
+        tools,
+        toolConfig,
+        httpOptions: { timeout: timeoutMs }
+      }
+    });
+    const toolCalls = Array.isArray(res?.functionCalls) ? res.functionCalls : undefined;
+    const text = toolCalls?.length ? '' : (typeof res?.text === 'function' ? res.text() : (res?.text ?? ''));
+    this.logger.info(TAG, 'callWithTools end', { task, elapsedMs: Date.now() - start, toolCalls: toolCalls?.length ?? 0 });
+    return { toolCalls, text };
+  }
+
   async *streamMainResponse(prompt, { context }) {
     const turnId = context.turn?.id;
-    const model = this.client.getGenerativeModel({
-      model: this.modelName,
-      generationConfig: {
-        temperature: this.temperature
-      },
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE }
-      ]
-    });
+    const cfg = MAIN_RESPONSE_CONFIG;
+    const baseTimeoutMs = typeof cfg.timeoutMs === 'number' ? cfg.timeoutMs : this.timeoutMs;
+    const safetySettings = Array.isArray(cfg.safetySettings) ? cfg.safetySettings : DEFAULT_SAFETY_SETTINGS;
+    const client = await this.clientPromise;
 
     this.logger.info(TAG, 'stream start', {
       turnId,
@@ -82,15 +151,18 @@ class GeminiGateway {
     let lastChunkTime = startTime;
 
     try {
-      const result = await model.generateContentStream(
-        { contents: [{ role: 'user', parts: [{ text: prompt }] }] },
-        { timeout: this.timeoutMs }
-      );
+      const stream = await client.models.generateContentStream({
+        model: this.modelName,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          temperature: cfg.config.temperature ?? this.temperature,
+          safetySettings,
+          httpOptions: { timeout: baseTimeoutMs }
+        }
+      });
 
-      for await (const chunk of result.stream) {
-        const text = typeof chunk?.text === 'function'
-          ? chunk.text()
-          : chunk?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+      for await (const chunk of stream) {
+        const text = typeof chunk?.text === 'function' ? chunk.text() : (chunk?.text ?? '');
         if (!text) {
           continue;
         }

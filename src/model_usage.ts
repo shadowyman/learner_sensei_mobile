@@ -1,5 +1,3 @@
-import { FunctionDeclaration, Tool, Type } from '@google/genai';
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -22,52 +20,8 @@ export const TEACHING_PLAN_GENERATION_CONFIG = {
   },
 };
 
-export const WRAP_UP_ASSESSMENT_GENERATION_CONFIG = {
-  modelName: GEMINI_PRO,
-  config: {
-    temperature: 0.6,
-  },
-};
-
-const WRAP_UP_ASSESSMENT_FUNCTION_DECLARATION: FunctionDeclaration = {
-  name: 'submit_wrap_up_assessment',
-  description: 'Delivers the full wrap-up assessment question set for the current module solidify phase. Always include exactly 15 questions with five snippet items.',
-  parameters: {
-    type: Type.OBJECT,
-    description: 'Payload containing the generated wrap-up assessment questions.',
-    properties: {
-      questions: {
-        type: Type.ARRAY,
-        description: 'Ordered wrap-up assessment questions to present to the learner.',
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            id: { type: Type.STRING, description: 'Stable identifier for the question.' },
-            type: { type: Type.STRING, enum: ['snippet', 'concept'], description: 'Question category.' },
-            prompt: { type: Type.STRING, description: 'Question stem shown to the learner.' },
-            code: { type: Type.STRING, description: 'Optional C++ snippet for snippet questions.' },
-            choices: {
-              type: Type.ARRAY,
-              description: 'Exactly four answer choices formatted as Markdown-capable strings.',
-              items: { type: Type.STRING }
-            },
-            correct_choice: { type: Type.STRING, description: 'The choice string that is correct.' },
-            explanation: { type: Type.STRING, description: 'Detailed reasoning explaining the answer.' },
-            interviewer_insight: { type: Type.STRING, description: 'FAANG interviewer perspective highlighting the trap or signal.' }
-          },
-          required: ['id', 'type', 'prompt', 'choices', 'correct_choice', 'explanation', 'interviewer_insight']
-        }
-      }
-    },
-    required: ['questions']
-  }
-};
-
-export const WRAP_UP_ASSESSMENT_TOOLS: Tool[] = [
-  {
-    functionDeclarations: [WRAP_UP_ASSESSMENT_FUNCTION_DECLARATION]
-  }
-];
+export { WRAP_UP_ASSESSMENT_GENERATION_CONFIG } from '@sensei/core/modelUsage';
+export { WRAP_UP_ASSESSMENT_TOOLS } from '@sensei/core/wrapUpAssessment';
 
 export const TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED = false;
 

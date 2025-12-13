@@ -481,8 +481,20 @@
                 applyLiquidFromCss();
                 window.addEventListener('sensei-theme-changed', applyLiquidFromCss);
 
-                function animate() {
+                var lastFrameTime = 0;
+                var frameIntervalMs = 1000 / 30;
+                var normalsFrameCounter = 0;
+                var normalsFrameSkip = 2;
+
+                function animate(now) {
                     requestAnimationFrame(animate);
+
+                    if (typeof now === 'number') {
+                        if (lastFrameTime && now - lastFrameTime < frameIntervalMs) {
+                            return;
+                        }
+                        lastFrameTime = now;
+                    }
 
                     time += CONFIG.speed;
 
@@ -500,7 +512,12 @@
                     }
 
                     positions.needsUpdate = true;
-                    geometry.computeVertexNormals();
+
+                    normalsFrameCounter++;
+                    if (normalsFrameCounter >= normalsFrameSkip) {
+                        geometry.computeVertexNormals();
+                        normalsFrameCounter = 0;
+                    }
 
                     pointLight.position.x = Math.sin(time * 0.5) * 150;
                     pointLight.position.y = Math.cos(time * 0.5) * 150;
@@ -509,7 +526,7 @@
                     renderer.render(scene, camera);
                 }
 
-                animate();
+                requestAnimationFrame(animate);
 
                 window.addEventListener('resize', function () {
                     var s = getSize();

@@ -59,7 +59,6 @@ async function showWrapUpAssessmentApologyMessage(moduleTitle: string | null): P
         isLoading: false,
         isReloadable: false
     });
-    unlockWrapUpChatControls();
 }
 
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
@@ -120,15 +119,14 @@ import { invokeSelectionSenseiBridgeAction } from './selectionSensei';
 import { ChatWindowController } from './chatWindowController';
 import {
     llmExtractAndPlanTeachingOrder, 
-    getAnalysisFromGemini,
-    generateWrapUpAssessment,
-    WrapUpAssessmentGenerationResult
+    getAnalysisFromGemini
 } from './geminiService';
+import { createBrowserCoreLlmClient } from '@sensei/core';
+import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
+import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import {
-    showWrapUpAssessmentOverlay,
     WrapUpAssessmentOverlayData,
-    validateWrapUpAssessmentQuestions,
-    unlockWrapUpChatControls
+    presentWrapUpAssessmentOverlay
 } from './wrapUpAssessment';
 import { 
     SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS,
@@ -490,35 +488,51 @@ function createLLMPlannerCallback(
         }
         if (phase === 'Solidify') {
             const conceptSummaries = module.concepts.map(concept => `${concept.title}: ${concept.text}`);
+            const promptContext = {
+                moduleTitle: module.title,
+                moduleGoal: module.goal ?? '',
+                solidifyContent: '',
+                conceptSummaries
+            };
+            const isMobileWebView = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
 
             let overlayPayload: WrapUpAssessmentOverlayData | null = null;
+            let generationFailed = false;
             try {
-                const result: WrapUpAssessmentGenerationResult | null = await generateWrapUpAssessment(ai, module.id, {
-                    moduleTitle: module.title,
-                    moduleGoal: module.goal ?? '',
-                    solidifyContent: '',
-                    conceptSummaries
+                const result = await requestWrapUpAssessment<WrapUpAssessmentGenerationResult | null>({
+                    isMobileWebView,
+                    moduleId: module.id,
+                    promptContext,
+                    requestViaBridge: ({ moduleId, promptContext }) => sendToNative({ type: 'wrapup:requestShow', moduleId, promptContext }),
+                    generateLocal: async () => {
+                        const llmClient = createBrowserCoreLlmClient(ai);
+                        return generateWrapUpAssessment(llmClient, module.id, promptContext);
+                    }
                 });
-                if (result && result.questions.length > 0) {
-                    const validatedQuestions = validateWrapUpAssessmentQuestions(result.questions);
-                    overlayPayload = {
-                        moduleTitle: module.title,
-                        moduleGoal: module.goal ?? undefined,
-                        conceptSummaries,
-                        questions: validatedQuestions
-                    };
+                if (result.mode === 'local') {
+                    if (result.result && result.result.questions.length > 0) {
+                        overlayPayload = {
+                            moduleTitle: module.title,
+                            moduleGoal: module.goal ?? undefined,
+                            conceptSummaries,
+                            questions: result.result.questions
+                        };
+                    } else {
+                        generationFailed = true;
+                    }
                 }
             } catch (error) {
                 logger.error('[WRAP_UP_ASSESSMENT] generation-error', {
                     moduleId: module.id,
                     error: error instanceof Error ? error.message : String(error)
                 });
+                generationFailed = !isMobileWebView;
             }
 
             if (typeof window !== 'undefined') {
                 const wrapWindow = window as unknown as { __wrapUpAssessmentPayload?: WrapUpAssessmentOverlayData | null; __wrapUpAssessmentFailed?: boolean; };
                 wrapWindow.__wrapUpAssessmentPayload = overlayPayload ?? null;
-                wrapWindow.__wrapUpAssessmentFailed = !overlayPayload;
+                wrapWindow.__wrapUpAssessmentFailed = isMobileWebView ? false : generationFailed || !overlayPayload;
             }
 
             logger.info('[WRAP_UP_ASSESSMENT] jump-to-phase-stub', {
@@ -714,11 +728,12 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
 
         if (curriculumState.currentPhase === 'Solidify') {
             const { payload, failed } = consumeAutoWrapUpAssessmentPayload();
-            if (payload) {
-                showWrapUpAssessmentOverlay(payload);
-            } else if (failed) {
-                await showWrapUpAssessmentApologyMessage(moduleTitle);
-            }
+            await presentWrapUpAssessmentOverlay({
+                overlay: payload,
+                failed,
+                moduleTitle,
+                showApology: showWrapUpAssessmentApologyMessage
+            });
         }
     } else if (curriculumState?.isCompleted) {
         updateCurriculumDisplay(null, null, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
@@ -1508,14 +1523,20 @@ async function loadCurriculumAndGreet() {
     }, 100);
 }
 
-inputArea.addEventListener('submit', handleUserInput);
-userInputElement.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        handleUserInput(event);
-    }
-});
-debugModeButton.addEventListener('click', () => toggleDebugModalVisibility(true));
+if (inputArea) {
+    inputArea.addEventListener('submit', handleUserInput);
+}
+if (userInputElement) {
+    userInputElement.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            handleUserInput(event);
+        }
+    });
+}
+if (debugModeButton) {
+    debugModeButton.addEventListener('click', () => toggleDebugModalVisibility(true));
+}
 
 // Concept Navigation Handler
 async function handleConceptNavigation(direction: 'prev' | 'next') {
@@ -1735,7 +1756,14 @@ const handleReactNativeMessage = createWebviewMessageHandler({
     streamingMessagesRawText,
     SENDER_DISPLAY_NAMES,
     processMermaidBlocks,
-    showWrapUpAssessmentOverlay,
+    presentWrapUpAssessmentOverlay: async (params) => {
+        await presentWrapUpAssessmentOverlay({
+            overlay: params.overlay,
+            failed: params.failed,
+            moduleTitle: params.moduleTitle,
+            showApology: showWrapUpAssessmentApologyMessage
+        });
+    },
     updateFooter,
     updateMessageStream,
     invokeSelectionSenseiBridgeAction,

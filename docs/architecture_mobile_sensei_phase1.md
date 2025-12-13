@@ -141,8 +141,8 @@ Special cases / current status:
   - Mobile mermaid recovery already goes through BFF; web desktop can still use the browser SDK path.
 
 - **Wrap‑up assessment**
-  - Phase 1: wrap‑up generation logic and its prompt live in Core; the **web path** uses it via a browser `CoreLlmClient`.
-  - BFF’s wrap‑up service remains a stub until curriculum/module state is properly surfaced server‑side.
+  - Phase 1: wrap‑up generation logic and its prompt live in Core; the web/WebView path uses it via a `CoreLlmClient` with task `'wrap_up_assessment'`.
+  - The BFF now implements wrap‑up generation via Core and exposes `POST /sessions/:sessionId/wrapup`. Mobile calls this endpoint through `BffClient.generateWrapUp` and bridges `wrapup:show` to the WebView. The BFF remains prompt‑agnostic and relies on client‑provided `promptContext`.
 
 ---
 
@@ -342,11 +342,15 @@ For mobile WebView (`window.__SENSEI_MOBILE_BUILD__ === true`):
 
 Future BFF‑backed tools (beyond mermaid) should follow this exact pattern: a clear WebView‑initiated request, a thin RN/BFF relay, Core‑based processing on the server, and WebView‑owned application of the result to UI.
 
+**Phase‑1 invariant / finalization gate:** after migrating any LLM tool, explicitly wire the mobile WebView build to the BFF path for that task and gate any direct browser SDK calls to desktop only (use `window.__SENSEI_MOBILE_BUILD__`). Treat this as required before calling the migration “done.”
+
 Timeout coordination:
 
 - `MERMAID_RECOVERY_TIMEOUT_MS` (Core) – max Gemini time (40 s).
 - RN `BffClient.recoverMermaid` – aborts the HTTP call slightly above that (~42 s).
 - Web `requestMermaidRecoveryViaBridge` – waits slightly longer (~44 s) before giving up.
+- `WRAP_UP_ASSESSMENT_GENERATION_CONFIG.timeoutMs` (BFF) – max Gemini time (~240 s).
+- RN `BffClient.generateWrapUp` – aborts the HTTP call slightly above that (~250 s).
 
 Result: Gemini work is not discarded while still in flight; fallback UI only appears after deterministic/LLM attempts and coordinated timeouts are exhausted.
 
@@ -354,22 +358,25 @@ Result: Gemini work is not discarded while still in flight; fallback UI only app
 
 ## 7. Wrap‑Up Assessment (Current Phase 1)
 
-Current state, per the BFF walkthrough:
+Current state:
 
 - Core wrap‑up module:
-  - `core/wrapUpAssessment.ts` (planned/partially implemented) owns prompt+parsing for wrap‑up generation.
-  - It uses `CoreLlmClient`, similar to mermaid.
-- Web path:
-  - Desktop and WebView bundles call the Core wrap‑up tool using a browser `CoreLlmClient` (local SDK).
-  - They still validate questions and build overlay payloads via `src/wrapUpAssessment.ts`.
-- BFF:
-  - `wrapUpService` remains a stub during Phase 1.
-  - A real BFF wrap‑up endpoint is deferred until curriculum/module state can be surfaced server‑side in a principled way.
+  - `core/wrapUpAssessment.ts` owns prompt construction, tool schema, parsing/normalization, ordering, and debug stubs for wrap‑up generation behind `generateWrapUpAssessment(llm, ...)`.
+- Desktop web / non‑mobile browser path (parity):
+  - Solidify orchestration in `src/index.tsx` and `src/moduleSelectionHandler.ts` calls the Core tool via a browser `CoreLlmClient` (direct `@google/genai`) to preserve pre‑migration web behavior.
+  - Web still validates questions and builds overlay payloads via `src/wrapUpAssessment.ts`.
+- Mobile Phase‑1 path (MANDATORY):
+  - BFF implements wrap‑up generation via Core and exposes `POST /sessions/:sessionId/wrapup`.
+  - WebView triggers wrap‑up by sending `{ type:'wrapup:requestShow', moduleId, promptContext }` over the bridge.
+  - React Native receives that request, calls the endpoint through `BffClient.generateWrapUp`, then bridges `{ type:'wrapup:show' }` to the WebView.
+  - On failure (HTTP error, timeout, or exception), React Native bridges `{ type:'wrapup:failed', moduleId, moduleTitle }` so the WebView can show the standard apology and unlock controls.
+  - When `window.__SENSEI_MOBILE_BUILD__` is true, the WebView must render the overlay but must not invoke `@google/genai` for wrap‑up. Treat wrap‑up like mermaid: WebView initiates the request, RN/BFF relay and Core own LLM.
 
-Phase‑1 implication:
+Definition of done for wrap‑up (and any future tool):
 
-- Mobile WebView **still uses the web path for wrap‑up**.
-- BFF does **not yet** own LLM for wrap‑up responses; this is a planned extension after Phase 1.
+- A mobile transport path exists and is actually used in the WebView build.
+- Direct browser SDK calls for that task are gated to desktop only.
+- A sentinel test enforces the gating (mobile build fails if it uses the browser client).
 
 ---
 

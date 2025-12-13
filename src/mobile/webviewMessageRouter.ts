@@ -49,7 +49,7 @@ export function createWebviewMessageHandler(deps: {
   streamingMessagesRawText: Map<string, string>;
   SENDER_DISPLAY_NAMES: Record<'user' | 'sensei', string>;
   processMermaidBlocks: (messageId: string) => Promise<void>;
-  showWrapUpAssessmentOverlay: (data: any) => void;
+  presentWrapUpAssessmentOverlay: (params: { overlay: any | null; failed: boolean; moduleTitle: string | null }) => Promise<void>;
   updateFooter: (footer: any) => void;
   updateMessageStream: (id: string, text: string) => Promise<void>;
   invokeSelectionSenseiBridgeAction: (actionId: string, payload: { actionLabel?: string; userQuestion?: string }) => void;
@@ -143,7 +143,19 @@ export function createWebviewMessageHandler(deps: {
         break;
       }
       case 'wrapup:show': {
-        deps.showWrapUpAssessmentOverlay(message.data);
+        await deps.presentWrapUpAssessmentOverlay({
+          overlay: message.data,
+          failed: false,
+          moduleTitle: message.data?.moduleTitle ?? null
+        });
+        break;
+      }
+      case 'wrapup:failed': {
+        await deps.presentWrapUpAssessmentOverlay({
+          overlay: null,
+          failed: true,
+          moduleTitle: message.moduleTitle ?? null
+        });
         break;
       }
       case 'footer:update': {

@@ -1,7 +1,28 @@
+export type WrapUpAssessmentQuestionType = 'snippet' | 'concept';
+
+export interface WrapUpAssessmentQuestion {
+  id: string;
+  type: WrapUpAssessmentQuestionType;
+  prompt: string;
+  code?: string;
+  choices: string[];
+  correct_choice: string;
+  explanation: string;
+  interviewer_insight: string;
+}
+
 export interface WrapUpAssessmentOverlayData {
   moduleTitle: string;
-  summary?: string;
-  questions: Array<{ prompt: string; answer: string }>;
+  moduleGoal?: string;
+  conceptSummaries?: string[];
+  questions: WrapUpAssessmentQuestion[];
+}
+
+export interface WrapUpAssessmentPromptContext {
+  moduleTitle: string;
+  moduleGoal: string;
+  solidifyContent: string;
+  conceptSummaries: string[];
 }
 
 export type RNToWebMessage =
@@ -14,8 +35,8 @@ export type RNToWebMessage =
   | { type: 'selectionSensei:invoke'; actionId: SelectionSenseiActionId; selectionId: string; actionLabel?: string; userQuestion?: string }
   | { type: 'saveload:export'; requestId: string }
   | { type: 'saveload:import'; requestId: string; json: string }
-  | { type: 'wrapup:requestShow' }
   | { type: 'wrapup:show'; data: WrapUpAssessmentOverlayData }
+  | { type: 'wrapup:failed'; moduleId: string; moduleTitle: string }
   | { type: 'footer:update'; payload: FooterPayload }
   | { type: 'theme:update'; value: string }
   | { type: 'telemetry:configure'; enabled: boolean }
@@ -27,7 +48,7 @@ export type WebToRNMessage =
   | { type: 'selection:clear' }
   | { type: 'render:progress'; messageId: string; chars: number; elapsedMs: number }
   | { type: 'footer:update'; payload: FooterPayload }
-  | { type: 'wrapup:show'; data: WrapUpAssessmentOverlayData }
+  | { type: 'wrapup:requestShow'; moduleId: string; promptContext: WrapUpAssessmentPromptContext }
   | { type: 'saveload:exportResult'; requestId: string; success: boolean; json?: string; error?: string }
   | { type: 'saveload:importResult'; requestId: string; success: boolean; error?: string }
   | { type: 'telemetry:event'; eventName: string; data: Record<string, unknown> }

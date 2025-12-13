@@ -519,7 +519,7 @@ After this step, `wrapUpService` is no longer a stub; it can produce real overla
 
 ### 6.4 Add a Dedicated HTTP Endpoint for Wrap-Up
 
-Files: `bff/src/routes/wrapUp.js`, `bff/src/controllers/wrapUpController.js`, `bff/src/routes/index` wiring
+Files: `bff/src/routes/wrapUp.js`, `bff/src/controllers/wrapUpController.js`, `bff/src/server.js` wiring
 
 - Route:
   - `POST /sessions/:sessionId/wrapup`
@@ -554,11 +554,15 @@ File: `SenseiMobile/src/mobile/network/BffClient.ts` (and the mobile orchestrati
     - On success, parse the `WrapUpAssessmentOverlayData` payload.
     - Immediately enqueue a bridge event:
       - `this.bridge.enqueue({ type: 'wrapup:show', data: overlay } as any);`
-- The WebView already handles this event type in `src/index.tsx`:
-  - `case 'wrapup:show': showWrapUpAssessmentOverlay(message.data);`
-- The module-selection / Solidify flow on mobile should:
-  - Build the same `WrapUpAssessmentPromptContext` as the web code (using the module’s title, goal, and concept summaries).
-  - Call `BffClient.generateWrapUp(...)` at the appropriate time.
+- Add a second bridge event for failures:
+  - On any error (HTTP failure, timeout, or exception), enqueue:
+    - `this.bridge.enqueue({ type: 'wrapup:failed', moduleId, moduleTitle } as any);`
+- The WebView already handles these events via the RN→WebView message router:
+  - `wrapup:show` is routed through the shared wrap-up presentation gate (validate → show overlay).
+  - `wrapup:failed` is routed through the same gate (show apology + unlock controls).
+- Mobile orchestration must be WebView-initiated (Phase 1 invariant):
+  - When the WebView reaches Solidify, it sends `{ type: 'wrapup:requestShow', moduleId, promptContext }` over the bridge.
+  - RN receives that message and calls `BffClient.generateWrapUp(...)`.
 
 This keeps wrap-up UX identical: the overlay is still rendered in the web bundle by `showWrapUpAssessmentOverlay`, but the questions now come from the BFF using Core + `GeminiGateway`.
 
@@ -642,6 +646,15 @@ For every `*` function listed in `docs/llm_entry_exit_traces.md`, use Pattern A 
   - Invokes the Core function with `CoreLlmAdapter`.
   - Returns the structured JSON output.
 - After migrating each `*`, ensure the WebView/mobile build actually uses the BFF-backed path: wire the WebView’s `CoreLlmClient` (or a specific endpoint call) so Sensei Mobile executes the Core function via BFF → `GeminiGateway`, not the local SDK. Desktop web may continue to use the local SDK implementation. Use the existing WebView flag `window.__SENSEI_MOBILE_BUILD__` to branch. Example: mermaid recovery should send a bridge message to RN and let `BffClient.recoverMermaid` hit `/mermaid/recover`, then return the result to the WebView; desktop keeps the local `runMermaidRecovery` path.
+
+**MANDATORY FINALIZATION GATE (do not skip):**
+
+- For every migrated tool, add or verify a mobile-only transport path:
+  - Pattern A (preferred Phase 1): WebView → RN bridge request → BFF endpoint → RN bridge response (mermaid is the reference).
+  - Pattern B: a mobile-only `CoreLlmClient` implementation in WebView that calls BFF endpoints directly.
+- Guard or remove the browser-SDK path for that task when `window.__SENSEI_MOBILE_BUILD__ === true`. Desktop-only local SDK usage is allowed; mobile local SDK usage is not.
+- Add or update a regression/sentinel test that fails if the mobile build invokes a browser `CoreLlmClient` (`createBrowserCoreLlmClient`) for that task.
+- Only mark the migration complete in `Progress` after this gate is green.
 
 ### 7.5 Repeat Until All Phase‑1 `*` Functions Use BFF‑Backed `CoreLlmClient`
 

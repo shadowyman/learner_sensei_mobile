@@ -613,6 +613,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     }
                 })();
             }
+            if (parsed.type === 'wrapup:requestShow') {
+                (async () => {
+                    try {
+                        await bffClient.generateWrapUp(parsed.moduleId, parsed.promptContext);
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] wrap-up request via BFF failed', { error });
+                        bridge.enqueue({
+                            type: 'wrapup:failed',
+                            moduleId: parsed.moduleId,
+                            moduleTitle: parsed.promptContext.moduleTitle
+                        } as RNToWebMessage);
+                    }
+                })();
+            }
             if (parsed.type === 'header:status') {
                 if (Array.isArray(parsed.lines) && parsed.lines.length > 0) {
                     setHeaderStatus(parsed.lines.join('\n'));

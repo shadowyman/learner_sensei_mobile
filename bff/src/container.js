@@ -22,7 +22,7 @@ const createContainer = () => {
   const geminiGateway = new GeminiGateway({ logger, config });
   const mermaidService = new MermaidService({ logger, geminiGateway });
   const telemetryService = new TelemetryService({ logger });
-  const wrapUpService = new WrapUpService({ logger });
+  const wrapUpService = new WrapUpService({ logger, geminiGateway });
   const senseiCoreAdapter = new SenseiCoreAdapter({ logger });
   const streamingService = new StreamingService({
     turnService,

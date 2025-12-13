@@ -2,10 +2,12 @@
 
 _Notation: functions that make a direct call to `GoogleGenAI`/`Chat` APIs are marked with an asterisk._
 
+Phase‑1 routing invariant: these traces list desktop/web LLM entry points. For mobile WebView builds (`window.__SENSEI_MOBILE_BUILD__`), every traced tool must be wired to a BFF‑backed path (bridge request or mobile `CoreLlmClient` proxy), and any direct `GoogleGenAI`/`Chat` usage must be gated to desktop only. When updating this document for a migration, record the mobile transport choice and confirm the routing gate and sentinel test are complete.
+
 ## src/index.tsx
 
-1. `createLLMPlannerCallback` → *`generateWrapUpAssessment` → `validateWrapUpAssessmentQuestions` → `createLLMPlannerCallback`
-   - Solidify-phase planning. The wrapper captures Gemini output, validates questions, then hands a stub TeachingPoint grid back upstream.
+1. `createLLMPlannerCallback` → `core/generateWrapUpAssessment` (via `CoreLlmClient`, task `'wrap_up_assessment'`) → `validateWrapUpAssessmentQuestions` → `createLLMPlannerCallback`
+   - Solidify-phase planning. The Core tool builds the prompt, parses/normalizes 15 questions, and returns the result for web-side validation and overlay rendering.
 2. `createLLMPlannerCallback` → *`llmExtractAndPlanTeachingOrder` → `createLLMPlannerCallback`
    - Intro/Socratic planning. Prompt assembly and Gemini parsing stay inside the service, and the normalized TeachingPoint[][] is returned to the callback.
 3. `generateNextSenseiResponse` → *`getAnalysisFromGemini` → `parseGeminiJsonResponse` → `generateNextSenseiResponse`
@@ -15,7 +17,7 @@ _Notation: functions that make a direct call to `GoogleGenAI`/`Chat` APIs are ma
 
 1. `executePhaseSelection` → planner closure → *`llmExtractAndPlanTeachingOrder` → planner closure → `executePhaseSelection`
    - Handles IntroIllustrate/Socratic transitions via the callback created inline.
-2. `executePhaseSelection` → `createSolidifyTeachingPlan` → *`generateWrapUpAssessment` → `validateWrapUpAssessmentQuestions` → `createSolidifyTeachingPlan` → `executePhaseSelection`
+2. `executePhaseSelection` → `createSolidifyTeachingPlan` → `core/generateWrapUpAssessment` (via `CoreLlmClient`, task `'wrap_up_assessment'`) → `validateWrapUpAssessmentQuestions` → `createSolidifyTeachingPlan` → `executePhaseSelection`
    - Solidify jump path; the handler stores overlay payloads before yielding the stub plan.
 
 ## src/interactionHelpers.ts
@@ -52,7 +54,8 @@ _Notation: functions that make a direct call to `GoogleGenAI`/`Chat` APIs are ma
 1. *`llmExtractAndPlanTeachingOrder` → Socratic metadata/JSON normalization helpers → `llmExtractAndPlanTeachingOrder`
 2. *`getAnalysisFromGemini` → `parseGeminiJsonResponse` → `getAnalysisFromGemini`
 3. *`generateDirectiveFromMetaPrompt` → fallback logic → `generateDirectiveFromMetaPrompt`
-4. *`generateWrapUpAssessment` → `extractFunctionCall`/`extractQuestionsFromToolCode` → `normalizeWrapUpAssessmentQuestions` → `reorderWrapUpAssessmentQuestions` → `generateWrapUpAssessment`
+4. *`generateWrapUpAssessment` (legacy wrapper) → Core parsing helpers → `generateWrapUpAssessment`
+   - Legacy path retained for tests and desktop fallback; primary Solidify flows call the Core tool directly.
 5. *`requestSenseiEnhancement` → `stripJsonFence` → `normalizeEnhancementEntries` → `requestSenseiEnhancement`
 
 ## src/pedagogicalProfiler.ts

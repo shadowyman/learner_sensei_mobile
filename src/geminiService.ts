@@ -3,9 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
-const WRAP_UP_ASSESSMENT_DEBUG_FLAG = false;
-
 import { logger } from './logger';
 import { GoogleGenAI, GenerateContentResponse, FunctionCall } from "@google/genai";
 import { ComprehensiveAnalysisResultType, MISCONCEPTION_IDS } from "./adaptiveEngine";
@@ -15,17 +12,15 @@ import {
     GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION,
     GET_ITEM_BASED_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION,
     GET_SOCRATIC_TEACHING_PLAN_GENERATION_PROMPT,
-    buildSenseiEnhancementPrompt,
-    buildWrapUpAssessmentPrompt,
-    WrapUpAssessmentPromptContext
+    buildSenseiEnhancementPrompt
 } from "./prompts";
+import { createBrowserCoreLlmClient } from '@sensei/core';
+import { generateWrapUpAssessment as coreGenerateWrapUpAssessment, type WrapUpAssessmentPromptContext, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
 import {
     TEACHING_PLAN_GENERATION_CONFIG,
     COMPREHENSIVE_ANALYSIS_CONFIG,
     PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG,
-    TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED,
-    WRAP_UP_ASSESSMENT_GENERATION_CONFIG,
-    WRAP_UP_ASSESSMENT_TOOLS
+    TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
 } from './model_usage';
 import * as ModelUsage from './model_usage';
 
@@ -46,23 +41,6 @@ export interface EnhancementPayload {
 export interface EnhancementRequest {
     originalMarkdown: string;
     wordCount: number;
-}
-
-export type WrapUpAssessmentQuestionType = 'snippet' | 'concept';
-
-export interface WrapUpAssessmentQuestion {
-    id: string;
-    type: WrapUpAssessmentQuestionType;
-    prompt: string;
-    code?: string;
-    choices: string[];
-    correct_choice: string;
-    explanation: string;
-    interviewer_insight: string;
-}
-
-export interface WrapUpAssessmentGenerationResult {
-    questions: WrapUpAssessmentQuestion[];
 }
 
 function logTeachingPlanRequest(event: string, payload: Record<string, unknown>): void {
@@ -365,91 +343,6 @@ export async function generateDirectiveFromMetaPrompt(ai: GoogleGenAI, metaPromp
     }
 }
 
-function coerceString(value: unknown): string {
-    return typeof value === 'string' ? value.trim() : '';
-}
-
-function normalizeWrapUpAssessmentQuestions(raw: unknown): WrapUpAssessmentQuestion[] {
-    const sourceArray = Array.isArray((raw as any)?.questions)
-        ? (raw as any).questions
-        : Array.isArray(raw) ? raw : [];
-
-    return sourceArray.map((entry: any, index: number) => {
-        const prompt = coerceString(entry?.prompt);
-        const choicesArray = Array.isArray(entry?.choices) ? entry.choices : [];
-        const choices = choicesArray.map((choice: any) => coerceString(choice));
-        const typeRaw = coerceString(entry?.type).toLowerCase();
-        const question: WrapUpAssessmentQuestion = {
-            id: coerceString(entry?.id) || `q${index + 1}`,
-            type: typeRaw === 'snippet' ? 'snippet' : 'concept',
-            prompt,
-            choices,
-            correct_choice: coerceString(entry?.correct_choice),
-            explanation: coerceString(entry?.explanation),
-            interviewer_insight: coerceString(entry?.interviewer_insight)
-        };
-        const code = coerceString(entry?.code);
-        if (code) {
-            question.code = code;
-        }
-        return question;
-    });
-}
-
-function isWrapUpDebugEnabled(): boolean {
-    if (typeof window !== 'undefined') {
-        if ((window as any).__WRAP_UP_DEBUG === true) {
-            return true;
-        }
-        if ((window as any).__WRAP_UP_DEBUG === false) {
-            return false;
-        }
-    }
-    return WRAP_UP_ASSESSMENT_DEBUG_FLAG ?? WRAP_UP_ASSESSMENT_DEBUG_DEFAULT;
-}
-
-function buildDebugAssessment(moduleTitle: string): WrapUpAssessmentGenerationResult {
-    const snippetQuestions = Array.from({ length: 5 }, (_, idx) => {
-        const correctMarkdown = '**Correct:** It recomputes overlapping subproblems without memoization so runtime is exponential.';
-        const basePrompt = `**Debug Snippet ${idx + 1}** for _${moduleTitle}_`;
-        const demoAppendix = '\n\n> Blockquote demo\n\n1. Ordered item\n2. _Italic item_\n\n- Bullet with `inline` code\n- ![Alt text](https://dummyimage.com/120x60/0f172a/ffffff&text=Img)';
-        const prompt = idx === 0 ? `${basePrompt}${demoAppendix}` : basePrompt;
-        return {
-        id: `debug-snippet-${idx + 1}`,
-        type: 'snippet' as const,
-        prompt,
-        code: 'int fib(int n) {\n    if (n <= 1) return n;\n    return fib(n - 1) + fib(n - 2);\n}',
-        choices: [
-            correctMarkdown,
-            '_Incorrect_: It returns incorrect values for `n < 2` because the base case should return -1.',
-            'It uses tail recursion so stack depth remains constant.',
-            'It leaks memory because the recursion never hits a base case.'
-        ],
-        correct_choice: correctMarkdown,
-        explanation: 'The classic recursive Fibonacci implementation re-explores states; memoization or iteration eliminates exponential blowup.',
-        interviewer_insight: 'Interviewers expect you to contrast naive recursion with memoized or iterative variants.'
-    }; });
-
-    const conceptQuestions = Array.from({ length: 10 }, (_, idx) => {
-        const correctMarkdown = '**Answer:** It lets each branch restore shared state before siblings explore.';
-        return {
-        id: `debug-concept-${idx + 1}`,
-        type: 'concept' as const,
-        prompt: `Debug Concept ${idx + 1}: Why does **post-order** processing matter?`,
-        choices: [
-            correctMarkdown,
-            'It guarantees logarithmic complexity in balanced trees.',
-            'It converts recursion into iteration automatically.',
-            'It memoizes subproblems without extra storage.'
-        ],
-        correct_choice: correctMarkdown,
-        explanation: 'Post-order ensures temporary state is cleaned up, so other branches see a pristine context.',
-        interviewer_insight: 'This checks whether you can articulate branch-local state management under recursion.'
-    }; });
-
-    return { questions: [...snippetQuestions, ...conceptQuestions] };
-}
-
 export async function generateWrapUpAssessment(
     ai: GoogleGenAI,
     moduleId: string,
@@ -460,89 +353,8 @@ export async function generateWrapUpAssessment(
         return null;
     }
 
-    if (isWrapUpDebugEnabled()) {
-        const debugPayload = buildDebugAssessment(promptContext.moduleTitle);
-        logger.info('[WRAP_UP_ASSESSMENT] request-debug-skip', {
-            moduleId,
-            moduleTitle: promptContext.moduleTitle,
-            questionCount: debugPayload.questions.length
-        });
-        return debugPayload;
-    }
-
-    const prompt = buildWrapUpAssessmentPrompt(promptContext);
-    logger.info('[WRAP_UP_ASSESSMENT] request-start', {
-        moduleId,
-        moduleTitle: promptContext.moduleTitle
-    });
-
-    let lastError: unknown = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-        logger.info('[WRAP_UP_ASSESSMENT] request-attempt', {
-            moduleId,
-            moduleTitle: promptContext.moduleTitle,
-            attempt
-        });
-        try {
-            const response = await ai.models.generateContent({
-                model: WRAP_UP_ASSESSMENT_GENERATION_CONFIG.modelName,
-                contents: prompt,
-                config: {
-                    ...WRAP_UP_ASSESSMENT_GENERATION_CONFIG.config,
-                    tools: WRAP_UP_ASSESSMENT_TOOLS
-                }
-            });
-
-            const functionCall = extractFunctionCall(response);
-            let normalizedFromTool: WrapUpAssessmentQuestion[] | null = null;
-            if (functionCall && functionCall.args) {
-                logger.info('[WRAP_UP_ASSESSMENT] function-call-received', {
-                    moduleId,
-                    moduleTitle: promptContext.moduleTitle,
-                    attempt,
-                    functionName: functionCall.name
-                });
-                normalizedFromTool = normalizeWrapUpAssessmentQuestions(functionCall.args);
-            } else {
-                normalizedFromTool = extractQuestionsFromToolCode(response.text ?? '');
-            }
-
-            if (!normalizedFromTool || normalizedFromTool.length === 0) {
-                throw new Error('Model returned no function call payload');
-            }
-
-            const orderedQuestions = reorderWrapUpAssessmentQuestions(normalizedFromTool);
-            const questionCount = orderedQuestions.length;
-            const snippetCount = orderedQuestions.filter(q => q.type === 'snippet').length;
-
-            logger.info('[WRAP_UP_ASSESSMENT] request-success', {
-                moduleId,
-                moduleTitle: promptContext.moduleTitle,
-                questionCount,
-                snippetCount
-            });
-
-            return { questions: orderedQuestions };
-        } catch (error) {
-            lastError = error;
-            logger.error('[WRAP_UP_ASSESSMENT] request-fail', {
-                moduleId,
-                moduleTitle: promptContext.moduleTitle,
-                attempt,
-                error: error instanceof Error ? error.message : String(error)
-            });
-        }
-    }
-
-    if (lastError) {
-        logger.error('[WRAP_UP_ASSESSMENT] exhausted-retries', {
-            moduleId,
-            moduleTitle: promptContext.moduleTitle,
-            error: lastError instanceof Error ? lastError.message : String(lastError)
-        });
-    }
-
-    return null;
+    const llmClient = createBrowserCoreLlmClient(ai);
+    return coreGenerateWrapUpAssessment(llmClient, moduleId, promptContext);
 }
 
 function stripJsonFence(text: string): string {
@@ -568,64 +380,6 @@ function extractFunctionCall(response: GenerateContentResponse): GeminiFunctionC
         return calls[0] ?? null;
     }
     return null;
-}
-
-function extractQuestionsFromToolCode(raw: string): WrapUpAssessmentQuestion[] | null {
-    const trimmed = raw.trim();
-    if (!trimmed) {
-        return null;
-    }
-
-    try {
-        const parsed = JSON.parse(trimmed) as { tool_code?: string | null };
-        const toolCode = typeof parsed?.tool_code === 'string' ? parsed.tool_code : null;
-        if (!toolCode) {
-            return null;
-        }
-
-        const questionsIndex = toolCode.indexOf('questions=');
-        if (questionsIndex === -1) {
-            return null;
-        }
-        const arrayStart = toolCode.indexOf('[', questionsIndex);
-        if (arrayStart === -1) {
-            return null;
-        }
-        let depth = 0;
-        let arrayEnd = -1;
-        for (let i = arrayStart; i < toolCode.length; i += 1) {
-            const char = toolCode[i];
-            if (char === '[') {
-                depth += 1;
-            } else if (char === ']') {
-                depth -= 1;
-                if (depth === 0) {
-                    arrayEnd = i;
-                    break;
-                }
-            }
-        }
-        if (arrayEnd === -1) {
-            return null;
-        }
-
-        const arrayJson = toolCode.slice(arrayStart, arrayEnd + 1);
-        const parsedQuestions = JSON.parse(arrayJson);
-        return normalizeWrapUpAssessmentQuestions(parsedQuestions);
-    } catch (error) {
-        logger.warn('[WRAP_UP_ASSESSMENT] tool-code-parse-fail', {
-            error: error instanceof Error ? error.message : String(error)
-        });
-        return null;
-    }
-}
-
-function reorderWrapUpAssessmentQuestions(
-    questions: WrapUpAssessmentQuestion[]
-): WrapUpAssessmentQuestion[] {
-    const concepts = questions.filter(question => question.type === 'concept');
-    const snippets = questions.filter(question => question.type === 'snippet');
-    return [...concepts, ...snippets];
 }
 
 function normalizeEnhancementEntries(raw: any): EnhancementPayload {
