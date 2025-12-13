@@ -30,7 +30,8 @@ When this plan is complete, a learner will be able to reach the Solidify phase f
 - [x] (2025-12-12) Mobile wrap-up client timeouts: add a configurable request timeout for wrap-up in `SenseiMobile` BFF client (separate knobs for mermaid vs wrap-up).
 - [x] (2025-12-12) Mobile routing sentinel test: add a test that fails if the mobile WebView path calls a browser `CoreLlmClient` for wrap-up instead of sending `wrapup:requestShow`.
 - [x] (2025-12-13) Mobile UX parity: keep Solidify phase-loading bubble visible until `wrapup:show`/`wrapup:failed` and clear it in the shared presenter.
-- [x] (2025-12-13) BFF hardening: raise the JSON body limit (configurable) so large mobile wrap-up prompt contexts do not fail with `413`.
+- [x] (2025-12-13) BFF hardening: raise the JSON body limit (configurable) to a `3mb` default so large mobile wrap-up prompt contexts do not fail with `413`.
+- [x] (2025-12-13) BFF hardening: rate-limit `POST /sessions/:sessionId/wrapup` (20s throttle + burst ban) to protect expensive LLM calls.
 - [x] (2025-12-13) BFF LLM SDK parity: migrate BFF from deprecated `@google/generative-ai` to the recommended `@google/genai` and re-run integration tests.
 - [ ] Manual validation of wrap-up behavior on desktop web.
 - [ ] Manual validation of wrap-up behavior on mobile (iOS WebView).
@@ -339,6 +340,8 @@ This section lists exact commands and checkpoints. All commands should be run fr
    - Build the WebView bundle:
 
         npm run webview:bundle
+
+     This regenerates `SenseiMobile/app_web/webview_dist/*`. Do not hand-edit the dist assets; always rebuild from `src/`.
 
    - Start the mobile stack:
 

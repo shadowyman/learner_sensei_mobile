@@ -2,6 +2,7 @@ const config = require('./config');
 const logger = require('./utils/logger');
 const SessionStore = require('./infra/sessionStore');
 const RateLimiter = require('./infra/rateLimiter');
+const WrapUpRateLimiter = require('./infra/wrapUpRateLimiter');
 const SessionService = require('./services/sessionService');
 const TurnService = require('./services/turnService');
 const MermaidService = require('./services/mermaidService');
@@ -17,6 +18,7 @@ const createContainer = () => {
     idempotencyTtlMs: config.idempotencyTtlMs
   });
   const rateLimiter = new RateLimiter(config.rateLimit);
+  const wrapUpRateLimiter = new WrapUpRateLimiter(config.wrapUpRateLimit);
   const sessionService = new SessionService({ sessionStore, logger, topicRegistry: config.topicRegistry });
   const turnService = new TurnService({ sessionStore, logger });
   const geminiGateway = new GeminiGateway({ logger, config });
@@ -38,6 +40,7 @@ const createContainer = () => {
     logger,
     sessionStore,
     rateLimiter,
+    wrapUpRateLimiter,
     sessionService,
     turnService,
     geminiGateway,

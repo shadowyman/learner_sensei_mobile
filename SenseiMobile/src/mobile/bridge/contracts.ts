@@ -1,15 +1,12 @@
-export type WrapUpAssessmentQuestionType = 'snippet' | 'concept';
+import type {
+  WrapUpAssessmentPromptContext as CoreWrapUpAssessmentPromptContext,
+  WrapUpAssessmentQuestion as CoreWrapUpAssessmentQuestion,
+  WrapUpAssessmentQuestionType as CoreWrapUpAssessmentQuestionType
+} from '@sensei/core/wrapUpAssessment';
 
-export interface WrapUpAssessmentQuestion {
-  id: string;
-  type: WrapUpAssessmentQuestionType;
-  prompt: string;
-  code?: string;
-  choices: string[];
-  correct_choice: string;
-  explanation: string;
-  interviewer_insight: string;
-}
+export type WrapUpAssessmentQuestionType = CoreWrapUpAssessmentQuestionType;
+
+export type WrapUpAssessmentQuestion = CoreWrapUpAssessmentQuestion;
 
 export interface WrapUpAssessmentOverlayData {
   moduleTitle: string;
@@ -18,12 +15,7 @@ export interface WrapUpAssessmentOverlayData {
   questions: WrapUpAssessmentQuestion[];
 }
 
-export interface WrapUpAssessmentPromptContext {
-  moduleTitle: string;
-  moduleGoal: string;
-  solidifyContent: string;
-  conceptSummaries: string[];
-}
+export type WrapUpAssessmentPromptContext = CoreWrapUpAssessmentPromptContext;
 
 export type RNToWebMessage =
   | { type: 'app:init'; telemetryEnabled: boolean; theme: string }

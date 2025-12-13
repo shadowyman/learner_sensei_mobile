@@ -1560,7 +1560,7 @@ var require_wrapUpAssessment = __commonJS({
           {
             name: "submit_wrap_up_assessment",
             description: "Delivers the full wrap-up assessment question set for the current module solidify phase. Always include exactly 15 questions with five snippet items.",
-            parameters: {
+            parametersJsonSchema: {
               type: "object",
               description: "Payload containing the generated wrap-up assessment questions.",
               properties: {
@@ -4993,7 +4993,7 @@ var require_browserLlmClient = __commonJS({
             config
           });
           const toolCalls = Array.isArray(res === null || res === void 0 ? void 0 : res.functionCalls) ? res.functionCalls : void 0;
-          const text2 = typeof (res === null || res === void 0 ? void 0 : res.text) === "function" ? res.text() : (_a = res === null || res === void 0 ? void 0 : res.text) !== null && _a !== void 0 ? _a : "";
+          const text2 = (toolCalls === null || toolCalls === void 0 ? void 0 : toolCalls.length) ? "" : typeof (res === null || res === void 0 ? void 0 : res.text) === "function" ? res.text() : (_a = res === null || res === void 0 ? void 0 : res.text) !== null && _a !== void 0 ? _a : "";
           return { toolCalls, text: text2 };
         }
       };

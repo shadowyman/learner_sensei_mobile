@@ -34,7 +34,9 @@ export function createBrowserCoreLlmClient(ai: any): CoreLlmClient | null {
         config
       });
       const toolCalls = Array.isArray((res as any)?.functionCalls) ? (res as any).functionCalls : undefined;
-      const text = typeof (res as any)?.text === 'function' ? (res as any).text() : (res as any)?.text ?? '';
+      const text = toolCalls?.length
+        ? ''
+        : (typeof (res as any)?.text === 'function' ? (res as any).text() : (res as any)?.text ?? '');
       return { toolCalls, text };
     }
   };

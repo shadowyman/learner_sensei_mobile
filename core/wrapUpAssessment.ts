@@ -33,7 +33,7 @@ export const WRAP_UP_ASSESSMENT_TOOLS = [
       {
         name: 'submit_wrap_up_assessment',
         description: 'Delivers the full wrap-up assessment question set for the current module solidify phase. Always include exactly 15 questions with five snippet items.',
-        parameters: {
+        parametersJsonSchema: {
           type: 'object',
           description: 'Payload containing the generated wrap-up assessment questions.',
           properties: {

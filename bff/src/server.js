@@ -15,7 +15,7 @@ const startServer = (overrides = {}) => {
   const container = createContainer();
   const app = express();
   app.use(cors({ origin: container.config.corsOrigin }));
-  app.use(express.json({ limit: container.config.jsonBodyLimit || '50mb' }));
+  app.use(express.json({ limit: container.config.jsonBodyLimit || '3mb' }));
   app.use(morgan('dev'));
   app.use(requestContext);
   app.use(sessionsRouterFactory({
@@ -26,7 +26,12 @@ const startServer = (overrides = {}) => {
     config: container.config
   }));
   app.use(mermaidRouterFactory({ mermaidService: container.mermaidService, logger: container.logger }));
-  app.use(wrapUpRouterFactory({ wrapUpService: container.wrapUpService, sessionService: container.sessionService, logger: container.logger }));
+  app.use(wrapUpRouterFactory({
+    wrapUpService: container.wrapUpService,
+    sessionService: container.sessionService,
+    logger: container.logger,
+    wrapUpRateLimiter: container.wrapUpRateLimiter
+  }));
   app.use(telemetryRouterFactory({ telemetryService: container.telemetryService, logger: container.logger }));
   const host = overrides.host ?? container.config.host;
   const port = typeof overrides.port === 'number' ? overrides.port : container.config.port;
