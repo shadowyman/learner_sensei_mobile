@@ -17,6 +17,15 @@ tmp/
 *.log
 logs/
 
+# Tooling artifacts
+.npm-cache/
+.scannerwork/
+.eslintcache
+*.tsbuildinfo
+
+# WebView bundle outputs (generated via `npm run webview:bundle`)
+SenseiMobile/app_web/webview_dist/
+
 # OS files
 .DS_Store
 Thumbs.db
