@@ -5,6 +5,11 @@ import * as crypto from 'crypto'
 import * as parse5 from 'parse5'
 
 const stableIdPrinter = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed })
+const WORKSPACE_PACKAGE_DIRS = new Map<string, string>([
+  ['@sensei/core', 'core'],
+  ['@sensei/protocol', 'protocol']
+])
+const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'])
 
 type ImportGraph = Record<string, string[]>
 type FanMap = Record<string, number>
@@ -118,58 +123,154 @@ type ImportResolver = (fromFile: string, spec: string) => string | null
 
 type P5Node = any
 
+function isInsidePath(parent: string, child: string) {
+  const rel = path.relative(parent, child)
+  return rel === '' || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel))
+}
+
+function tsExtensionForPath(filePath: string): ts.Extension {
+  const ext = path.extname(filePath).toLowerCase()
+  if (ext === '.tsx') return ts.Extension.Tsx
+  if (ext === '.js') return ts.Extension.Js
+  if (ext === '.jsx') return ts.Extension.Jsx
+  if (ext === '.mjs') return ts.Extension.Mjs
+  if (ext === '.mts') return ts.Extension.Mts
+  if (ext === '.cjs') return ts.Extension.Cjs
+  if (ext === '.cts') return ts.Extension.Cts
+  return ts.Extension.Ts
+}
+
+function normalizeAllowedSourceFile(filePath: string, realRepoRootLocal: string, nodeModulesSegment: string): string | null {
+  let realFile = filePath
+  try {
+    realFile = fs.realpathSync(filePath)
+  } catch {
+  }
+  if (!isInsidePath(realRepoRootLocal, realFile)) return null
+  if (realFile.includes(nodeModulesSegment)) return null
+  if (realFile.endsWith('.d.ts')) return null
+  const ext = path.extname(realFile).toLowerCase()
+  if (!SOURCE_EXTENSIONS.has(ext)) return null
+  return realFile
+}
+
+function resolveSourceCandidate(candidate: string, realRepoRootLocal: string, nodeModulesSegment: string): string | null {
+  if (fs.existsSync(candidate)) {
+    const resolved = normalizeAllowedSourceFile(candidate, realRepoRootLocal, nodeModulesSegment)
+    if (resolved) return resolved
+  }
+  for (const ext of SOURCE_EXTENSIONS) {
+    const resolved = normalizeAllowedSourceFile(`${candidate}${ext}`, realRepoRootLocal, nodeModulesSegment)
+    if (resolved && fs.existsSync(resolved)) return resolved
+  }
+  for (const ext of SOURCE_EXTENSIONS) {
+    const resolved = normalizeAllowedSourceFile(path.join(candidate, `index${ext}`), realRepoRootLocal, nodeModulesSegment)
+    if (resolved && fs.existsSync(resolved)) return resolved
+  }
+  return null
+}
+
+function resolveWorkspaceSource(spec: string, repoRootLocal: string, realRepoRootLocal: string, nodeModulesSegment: string): string | null {
+  for (const [packageName, packageDir] of WORKSPACE_PACKAGE_DIRS.entries()) {
+    if (spec !== packageName && !spec.startsWith(`${packageName}/`)) continue
+    const sub = spec === packageName ? 'index' : spec.slice(packageName.length + 1)
+    const noExt = sub.replace(/\.(d\.ts|ts|tsx|js|jsx|mjs|cjs|mts|cts)$/i, '')
+    const bases = [
+      path.join(repoRootLocal, packageDir, noExt),
+      path.join(repoRootLocal, packageDir, noExt, 'index')
+    ]
+    for (const base of bases) {
+      const resolved = resolveSourceCandidate(base, realRepoRootLocal, nodeModulesSegment)
+      if (resolved) return resolved
+    }
+    return null
+  }
+  return null
+}
+
+function capturePathAlias(pattern: string, spec: string): string | null {
+  const starIndex = pattern.indexOf('*')
+  if (starIndex === -1) return pattern === spec ? '' : null
+  const prefix = pattern.slice(0, starIndex)
+  const suffix = pattern.slice(starIndex + 1)
+  if (!spec.startsWith(prefix)) return null
+  if (suffix && !spec.endsWith(suffix)) return null
+  return spec.slice(prefix.length, suffix ? spec.length - suffix.length : spec.length)
+}
+
+function resolvePathAliasSource(spec: string, options: ts.CompilerOptions, repoRootLocal: string, realRepoRootLocal: string, nodeModulesSegment: string): string | null {
+  const paths = options.paths
+  if (!paths) return null
+  const baseUrl = options.baseUrl ? path.resolve(repoRootLocal, options.baseUrl) : repoRootLocal
+  for (const [pattern, targets] of Object.entries(paths)) {
+    const capture = capturePathAlias(pattern, spec)
+    if (capture === null) continue
+    for (const target of targets || []) {
+      const mapped = target.includes('*') ? target.replace(/\*/g, capture) : target
+      const candidate = path.isAbsolute(mapped) ? mapped : path.resolve(baseUrl, mapped)
+      const resolved = resolveSourceCandidate(candidate, realRepoRootLocal, nodeModulesSegment)
+      if (resolved) return resolved
+    }
+  }
+  return null
+}
+
+function createScopedCompilerHost(options: ts.CompilerOptions, repoRootLocal: string) {
+  const host = ts.createCompilerHost(options)
+  const cache = ts.createModuleResolutionCache(repoRootLocal, s => s, options)
+  const realRepoRootLocal = fs.realpathSync(repoRootLocal)
+  const nodeModulesSegment = `${path.sep}node_modules${path.sep}`
+
+  host.resolveModuleNames = (moduleNames, containingFile) => moduleNames.map(moduleName => {
+    const workspaceResolved = resolveWorkspaceSource(moduleName, repoRootLocal, realRepoRootLocal, nodeModulesSegment)
+    if (workspaceResolved) {
+      return {
+        resolvedFileName: workspaceResolved,
+        extension: tsExtensionForPath(workspaceResolved),
+        isExternalLibraryImport: false
+      }
+    }
+    const aliasResolved = resolvePathAliasSource(moduleName, options, repoRootLocal, realRepoRootLocal, nodeModulesSegment)
+    if (aliasResolved) {
+      return {
+        resolvedFileName: aliasResolved,
+        extension: tsExtensionForPath(aliasResolved),
+        isExternalLibraryImport: false
+      }
+    }
+    if (!moduleName.startsWith('.') && !path.isAbsolute(moduleName)) return undefined
+    const resolved = ts.resolveModuleName(moduleName, containingFile, options, host, cache).resolvedModule
+    if (!resolved) return undefined
+    const realFile = normalizeAllowedSourceFile(resolved.resolvedFileName, realRepoRootLocal, nodeModulesSegment)
+    if (!realFile) return undefined
+    return {
+      ...resolved,
+      resolvedFileName: realFile,
+      extension: tsExtensionForPath(realFile),
+      isExternalLibraryImport: false
+    }
+  })
+
+  return host
+}
+
 function createTsResolver(program: ts.Program, repoRoot: string): ImportResolver {
   const opts = program.getCompilerOptions()
   const cache = ts.createModuleResolutionCache(repoRoot, s => s, opts)
   const normalize = (p: string) => path.relative(repoRoot, p).split(path.sep).join('/')
   const realRepoRootLocal = fs.realpathSync(repoRoot)
   const nodeModulesSegment = `${path.sep}node_modules${path.sep}`
-  const isSourceExt = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'])
-
-  const tryResolveWorkspace = (spec: string): string | null => {
-    const corePrefix = '@sensei/core'
-    if (spec !== corePrefix && !spec.startsWith(`${corePrefix}/`)) return null
-    const sub = spec === corePrefix ? 'index' : spec.slice(corePrefix.length + 1)
-    const noExt = sub.replace(/\.(d\.ts|ts|tsx|js|jsx|mjs|cjs|mts|cts)$/i, '')
-    const candidates = [
-      path.join(repoRoot, 'core', `${noExt}.ts`),
-      path.join(repoRoot, 'core', `${noExt}.tsx`),
-      path.join(repoRoot, 'core', noExt, 'index.ts'),
-      path.join(repoRoot, 'core', noExt, 'index.tsx')
-    ]
-    for (const c of candidates) {
-      if (!fs.existsSync(c)) continue
-      let rp = c
-      try {
-        rp = fs.realpathSync(c)
-      } catch {
-      }
-      if (!rp.startsWith(realRepoRootLocal)) continue
-      if (rp.includes(nodeModulesSegment)) continue
-      const ext = path.extname(rp).toLowerCase()
-      if (!isSourceExt.has(ext)) continue
-      if (rp.endsWith('.d.ts')) continue
-      return normalize(rp)
-    }
-    return null
-  }
   return (fromFile, spec) => {
-    const workspaceResolved = tryResolveWorkspace(spec)
-    if (workspaceResolved) return workspaceResolved
+    const workspaceResolved = resolveWorkspaceSource(spec, repoRoot, realRepoRootLocal, nodeModulesSegment)
+    if (workspaceResolved) return normalize(workspaceResolved)
+    const aliasResolved = resolvePathAliasSource(spec, opts, repoRoot, realRepoRootLocal, nodeModulesSegment)
+    if (aliasResolved) return normalize(aliasResolved)
+    if (!spec.startsWith('.') && !path.isAbsolute(spec)) return null
     const cached = (program as any).getResolvedModuleWithFailedLookupLocationsFromCache?.(spec, fromFile)
     const resolvedModule = cached?.resolvedModule ?? ts.resolveModuleName(spec, fromFile, opts, ts.sys, cache).resolvedModule
     if (!resolvedModule) return null
-    const f = resolvedModule.resolvedFileName
-    let realFile = f
-    try {
-      realFile = fs.realpathSync(f)
-    } catch {
-    }
-    if (!realFile.startsWith(realRepoRootLocal)) return null
-    if (realFile.includes(nodeModulesSegment)) return null
-    const ext = path.extname(realFile).toLowerCase()
-    if (!isSourceExt.has(ext)) return null
-    if (realFile.endsWith('.d.ts')) return null
+    const realFile = normalizeAllowedSourceFile(resolvedModule.resolvedFileName, realRepoRootLocal, nodeModulesSegment)
+    if (!realFile) return null
     return normalize(realFile)
   }
 }
@@ -494,7 +595,7 @@ function loadProgram() {
   }
   if (includeAnalyzerTests && fs.existsSync(analyzerTestsDir)) walk(analyzerTestsDir)
 
-  return ts.createProgram(Array.from(roots), parsed.options)
+  return ts.createProgram(Array.from(roots), parsed.options, createScopedCompilerHost(parsed.options, repoRoot))
 }
 
 function getLoc(sf: ts.SourceFile, node: ts.Node): Location {

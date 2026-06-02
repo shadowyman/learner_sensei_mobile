@@ -61,7 +61,7 @@ function loadConfig(repoRoot: string): ManifestSyncConfig {
   return cfg;
 }
 
-function loadGitignoreMatchers(repoRoot: string, candidateRoots: string[], ignoreDirNames: Set<string>) {
+function loadGitignoreMatchers(repoRoot: string, scanRoots: string[], contextRoots: string[], ignoreDirNames: Set<string>) {
   const gitignorePaths = new Set<string>();
   const addGitignoreInDir = (dir: string) => {
     if (!isPathInside(repoRoot, dir)) return;
@@ -87,7 +87,7 @@ function loadGitignoreMatchers(repoRoot: string, candidateRoots: string[], ignor
       scan(path.join(dir, ent.name));
     }
   };
-  for (const candidate of candidateRoots) {
+  const addAncestorGitignores = (candidate: string) => {
     const resolved = path.resolve(repoRoot, candidate);
     const dir = fs.existsSync(resolved) && fs.statSync(resolved).isFile() ? path.dirname(resolved) : resolved;
     let cursor = dir;
@@ -96,6 +96,13 @@ function loadGitignoreMatchers(repoRoot: string, candidateRoots: string[], ignor
       if (cursor === repoRoot) break;
       cursor = path.dirname(cursor);
     }
+    return dir;
+  };
+  for (const candidate of contextRoots) {
+    addAncestorGitignores(candidate);
+  }
+  for (const candidate of scanRoots) {
+    const dir = addAncestorGitignores(candidate);
     if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) scan(dir);
   }
   const defaults = ignore();
@@ -182,8 +189,9 @@ function main() {
   (cfg.ignoreDirs || []).forEach(d => {
     if (typeof d === 'string' && d.trim().length) ignoreDirNames.add(d.trim());
   });
-  const candidateRoots = [...cfg.roots, ...(cfg.extraFiles || [])].filter(item => typeof item === 'string' && item.trim().length);
-  const gitignoreMatchers = loadGitignoreMatchers(repoRoot, candidateRoots, ignoreDirNames);
+  const rootCandidates = cfg.roots.filter(item => typeof item === 'string' && item.trim().length);
+  const contextCandidates = [...cfg.roots, ...(cfg.extraFiles || [])].filter(item => typeof item === 'string' && item.trim().length);
+  const gitignoreMatchers = loadGitignoreMatchers(repoRoot, rootCandidates, contextCandidates, ignoreDirNames);
 
   const allFilesAbs: string[] = [];
   for (const root of cfg.roots) {

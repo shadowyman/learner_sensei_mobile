@@ -340,3 +340,33 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Review Artifact**: `code_review/review_selection_sensei_mermaid_followup_codex_v2.html`
 
 **Keywords for Future Reference**: selection sensei, mermaid recovery, follow-up, skipMermaid, processMermaidDiagrams, modal transcript
+
+## Bug Fix #17: Analyzer and Backup Commands Hung After Dependency Reinstall
+
+**Issue**: `npm run analysis:run` and `npm run backup:create` could hang silently after dependency reinstall, commonly stopping at the shared manifest/analyzer startup path before producing useful analyzer or backup output.
+
+**Root Cause**: The analyzer and backup command surface was not hermetic from `node_modules` state. Direct `ts-node` startup could spend a long time loading the project before utility script code ran, and `scripts/analyze.ts` built its TypeScript program with the default compiler host, allowing external package declarations such as BFF dependency declarations under `node_modules` to be resolved even though generated paths were excluded from `src/file-manifest.json`.
+
+**Discovery Method**: Adaptive Root Cause Analysis - Cycle 2 (Direct Dependencies) and Cycle 3 (System Interactions). Timing probes showed manifest logic itself completed quickly, while TypeScript program construction only became reliable after constraining module resolution to repo-manifested sources and workspace aliases.
+
+**Fix Applied**:
+1. Added a local utility TypeScript runner so manifest sync, analyzer execution, analyzer functional tests, and backup creation can execute repository `.ts` utility scripts without invoking the full `ts-node` project startup path.
+2. Updated analyzer program construction to use a scope-aware compiler host that preserves relative in-repo imports, `@sensei/core`, `@sensei/protocol`, and repo-local `tsconfig.paths` aliases while refusing arbitrary external package resolution into `node_modules`.
+3. Tightened manifest sync so file-only `extraFiles` contribute ancestor `.gitignore` context without turning their parent directories into recursive scan roots.
+4. Regenerated `src/file-manifest.json` and manually verified analyzer artifacts contain populated functions, imports, calls, and brief summaries without ignored/generated paths.
+
+**Related Files**:
+- `package.json:22-30`
+- `scripts/runTs.cjs:1-53`
+- `scripts/analyze.ts:8-12`
+- `scripts/analyze.ts:201-255`
+- `scripts/analyze.ts:257-275`
+- `scripts/analyze.ts:534-598`
+- `scripts/manifestSync.ts:192-226`
+- `src/file-manifest.json:50-65`
+
+**Backup Artifact**: `backup/sensei_backup_fix_analyzer_backup_hang_20260602_234243.zip`
+
+**Review Artifact**: `code_review/review_fix_analyzer_backup_hang_codex.html`
+
+**Keywords for Future Reference**: analyzer hang, backup hang, ts-node startup, TypeScript compiler host, node_modules declarations, manifest sync, file-manifest, @sensei/protocol, @sensei/core, gitignore scope
