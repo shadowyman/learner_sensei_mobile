@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 const repoRoot = path.resolve(__dirname, '..')
@@ -13,7 +14,11 @@ function cleanAnalysis() {
 
 function runAnalyzer(args: string[]) {
   cleanAnalysis()
-  execFileSync('npx', ['ts-node', path.join('scripts', 'analyze.ts'), ...args], { cwd: repoRoot, stdio: 'ignore' })
+  execFileSync('npx', ['ts-node', path.join('scripts', 'analyze.ts'), ...args], {
+    cwd: repoRoot,
+    stdio: 'ignore',
+    env: { ...process.env, ANALYZER_INCLUDE_TESTS: '1' }
+  })
 }
 
 function writeFile(rel: string, content: string) {
@@ -32,6 +37,86 @@ function setTsconfig(json: any) {
 
 function restoreTsconfig() {
   fs.writeFileSync(tsconfigPath, originalTsconfig)
+}
+
+function writeTempFile(root: string, rel: string, content: string) {
+  const abs = path.join(root, rel)
+  fs.mkdirSync(path.dirname(abs), { recursive: true })
+  fs.writeFileSync(abs, content)
+}
+
+function runManifestSyncIn(root: string) {
+  execFileSync(process.execPath, [
+    path.join(repoRoot, 'node_modules', 'ts-node', 'dist', 'bin.js'),
+    path.join(repoRoot, 'scripts', 'manifestSync.ts')
+  ], {
+    cwd: root,
+    stdio: 'ignore',
+    env: { ...process.env, TS_NODE_PROJECT: path.join(repoRoot, 'tsconfig.json') }
+  })
+}
+
+function testManifestSyncHonorsGitignoreFiles() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sensei-manifest-'))
+  try {
+    writeTempFile(tempRoot, 'config/file-manifest.roots.json', JSON.stringify({
+      roots: ['src/', 'SenseiMobile/']
+    }, null, 2))
+    writeTempFile(tempRoot, '.gitignore', [
+      'src/generated.ts',
+      'src/reincluded.ts',
+      '!src/reincluded.ts',
+      'src/ignored-dir/'
+    ].join('\n'))
+    writeTempFile(tempRoot, 'src/visible.ts', 'export function visible() {}\n')
+    writeTempFile(tempRoot, 'src/generated.ts', 'export function generated() {}\n')
+    writeTempFile(tempRoot, 'src/reincluded.ts', 'export function reincluded() {}\n')
+    writeTempFile(tempRoot, 'src/ignored-dir/.gitignore', '!leak.ts\n')
+    writeTempFile(tempRoot, 'src/ignored-dir/leak.ts', 'export function leak() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/.gitignore', [
+      'ios/Pods/',
+      'vendor/bundle/',
+      '**/xcuserdata',
+      'build/',
+      '.gradle',
+      'node_modules/',
+      'ignored-mobile.ts',
+      '!ignored-mobile.ts'
+    ].join('\n'))
+    writeTempFile(tempRoot, 'SenseiMobile/visible.ts', 'export function mobileVisible() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/ignored-mobile.ts', 'export function mobileReincluded() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/ios/Pods/pod.ts', 'export function pod() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/vendor/bundle/gem.ts', 'export function gem() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/ios/workspace/xcuserdata/state.ts', 'export function state() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/build/out.ts', 'export function out() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/.gradle/cache.ts', 'export function cache() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/node_modules/lib.ts', 'export function lib() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/node_modules 2/copied.ts', 'export function copied() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/.bundle/config.ts', 'export function bundleConfig() {}\n')
+    writeTempFile(tempRoot, 'SenseiMobile/app 2.js', 'export function copiedApp() {}\n')
+
+    runManifestSyncIn(tempRoot)
+    const manifest = JSON.parse(fs.readFileSync(path.join(tempRoot, 'src/file-manifest.json'), 'utf8')) as string[]
+    const entries = new Set(manifest)
+
+    assert(entries.has('src/visible.ts'), 'root source file missing')
+    assert(entries.has('src/reincluded.ts'), 'root negation did not reinclude file')
+    assert(entries.has('SenseiMobile/visible.ts'), 'mobile source file missing')
+    assert(entries.has('SenseiMobile/ignored-mobile.ts'), 'nested negation did not reinclude file')
+    assert(!entries.has('src/generated.ts'), 'root ignored file leaked')
+    assert(!entries.has('src/ignored-dir/leak.ts'), 'ignored directory was descended or re-included')
+    assert(!entries.has('SenseiMobile/ios/Pods/pod.ts'), 'nested Pods ignore leaked')
+    assert(!entries.has('SenseiMobile/vendor/bundle/gem.ts'), 'nested vendor bundle ignore leaked')
+    assert(!entries.has('SenseiMobile/ios/workspace/xcuserdata/state.ts'), 'nested xcuserdata ignore leaked')
+    assert(!entries.has('SenseiMobile/build/out.ts'), 'nested build ignore leaked')
+    assert(!entries.has('SenseiMobile/.gradle/cache.ts'), 'nested .gradle ignore leaked')
+    assert(!entries.has('SenseiMobile/node_modules/lib.ts'), 'nested node_modules ignore leaked')
+    assert(!entries.has('SenseiMobile/node_modules 2/copied.ts'), 'default copied node_modules ignore leaked')
+    assert(!entries.has('SenseiMobile/.bundle/config.ts'), 'default bundle ignore leaked')
+    assert(!entries.has('SenseiMobile/app 2.js'), 'default copied file ignore leaked')
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
 }
 
 function testPathAlias() {
@@ -70,16 +155,54 @@ function testStaticNamespace() {
 
 function testCallbacks() {
   const base = 'tmp/analyzer-tests/callbacks'
-  writeFile(path.join(base, 'callbacks.ts'), 'export function host(cb: () => void) { cb(); }\nexport function handler() {}\n')
-  writeFile(path.join(base, 'use.ts'), "import { host, handler } from './callbacks';\nexport function runAll() {\n  host(() => {});\n  host(handler);\n  host({ done() {} } as any);\n  console.log(() => {});\n}\n")
+  writeFile(path.join(base, 'callbacks.ts'), 'export function host(cb: () => void) { cb(); }\nexport function hostObj(opts: { done: () => void }) { opts.done(); }\nexport function handler() {}\n')
+  writeFile(path.join(base, 'use.ts'), "import { host, hostObj, handler } from './callbacks';\nexport function runAll() {\n  host(() => {});\n  host(handler);\n  hostObj({ done() {} });\n  console.log(() => {});\n}\n")
   runAnalyzer(['--include', `${base}/`])
   const calls = readJSON<any[]>('tmp/analysis/calls.json').filter(c => typeof c.from === 'string' && c.from.startsWith(`${base}/use.ts::runAll`))
   const vias = new Set(calls.map(c => c.via))
   assert(vias.has('cb:inline'), 'missing inline callback edge')
   assert(vias.has('arg:handler'), 'missing handler callback edge')
   assert([...vias].some(v => typeof v === 'string' && v.startsWith('arg.obj.') && v.includes(':cb:inline')), 'missing object literal callback edge')
+  const inlineEdges = calls.filter(c => c.via === 'cb:inline')
+  assert(inlineEdges.length === 1, 'should not treat console.log function argument as callback')
   const consoleEdge = calls.find(c => c.to === 'global::console.log')
   assert(consoleEdge, 'missing console edge')
+}
+
+function testCallbackIdentifierResolutionInScope() {
+  const base = 'tmp/analyzer-tests/callback-id'
+  writeFile(path.join(base, 'u.ts'), `
+    export function run() {
+      const x = 1
+      function inner() { helper(); }
+      const arrow = () => {}
+      function helper() {}
+      const target:any = { addEventListener(_e:any, _cb:any){} }
+      target.addEventListener('click', inner)
+      target.addEventListener('click', arrow)
+      target.addEventListener('click', x as any)
+    }
+  `)
+  runAnalyzer(['--include', `${base}/u.ts`])
+
+  const calls = readJSON<any[]>('tmp/analysis/calls.json')
+  const runEdges = calls.filter(c => typeof c.fromStable === 'string' && c.fromStable.startsWith(`${base}/u.ts::run`))
+  assert(runEdges.some(e => e.via === 'arg:inner' && typeof e.toStable === 'string' && e.toStable.startsWith(`${base}/u.ts::inner`)), 'missing callback edge for inner')
+  assert(runEdges.some(e => e.via === 'arg:arrow' && typeof e.toStable === 'string' && e.toStable.startsWith(`${base}/u.ts::arrow`)), 'missing callback edge for arrow')
+  assert(!runEdges.some(e => e.via === 'arg:x'), 'should not create callback edge for non-function identifier')
+
+  const funcs = readJSON<any[]>('tmp/analysis/functions.json')
+  assert(funcs.some(f => f.file === `${base}/u.ts` && f.name === 'inner'), 'inner function missing from functions')
+  assert(funcs.some(f => f.file === `${base}/u.ts` && f.name === 'arrow'), 'arrow function missing from functions')
+  assert(funcs.some(f => f.file === `${base}/u.ts` && f.name === 'helper'), 'helper function missing from functions')
+
+  const innerCall = calls.find(
+    c => typeof c.fromStable === 'string'
+      && c.fromStable.startsWith(`${base}/u.ts::inner`)
+      && typeof c.toStable === 'string'
+      && c.toStable.startsWith(`${base}/u.ts::helper`)
+  )
+  assert(innerCall, 'missing nested function call edge inner -> helper')
 }
 
 function testDomSelectors() {
@@ -135,6 +258,30 @@ function testStableIdsAndCrosswalk() {
   }
 }
 
+function testStableIdPrinterStability() {
+  const base = 'tmp/analyzer-tests/stable-print'
+  const file = path.join(base, 'u.ts')
+  writeFile(file, `export function f(){ return 1 }\n`)
+  runAnalyzer(['--include', `${base}/u.ts`])
+  const funcs1 = readJSON<any[]>('tmp/analysis/functions.json')
+  const f1 = funcs1.find(x => x.file === `${base}/u.ts` && x.name === 'f')
+  assert(f1, 'missing f for stableId baseline')
+
+  writeFile(file, `export function f() { /*c*/ return 1 }\n`)
+  runAnalyzer(['--include', `${base}/u.ts`])
+  const funcs2 = readJSON<any[]>('tmp/analysis/functions.json')
+  const f2 = funcs2.find(x => x.file === `${base}/u.ts` && x.name === 'f')
+  assert(f2, 'missing f for stableId compare')
+  assert(f2.stableId === f1.stableId, 'stableId should ignore whitespace and comments')
+
+  writeFile(file, `export function f() { return 2 }\n`)
+  runAnalyzer(['--include', `${base}/u.ts`])
+  const funcs3 = readJSON<any[]>('tmp/analysis/functions.json')
+  const f3 = funcs3.find(x => x.file === `${base}/u.ts` && x.name === 'f')
+  assert(f3, 'missing f for stableId changed')
+  assert(f3.stableId !== f1.stableId, 'stableId should change when code changes')
+}
+
 function testNetworkAndTimerSideEffects() {
   const base = 'tmp/analyzer-tests/effects-net'
   writeFile(path.join(base, 'n.ts'), `
@@ -158,6 +305,33 @@ function testNetworkAndTimerSideEffects() {
   const assumptions = readJSON<any[]>('tmp/analysis/assumptions.json')
   const ax = assumptions.find(a => typeof a.statement === 'string' && a.statement.includes("axios"))
   assert(ax, 'missing assumption for axios')
+}
+
+function testStorageReadWriteSideEffects() {
+  const base = 'tmp/analyzer-tests/storage'
+  writeFile(path.join(base, 'u.ts'), `
+    export function run() {
+      localStorage.getItem('x')
+      localStorage.setItem('x', 'y')
+      window.localStorage.getItem('w')
+      sessionStorage.key(0)
+      sessionStorage.removeItem('z')
+    }
+  `)
+  runAnalyzer(['--include', `${base}/u.ts`])
+
+  const funcs = readJSON<any[]>('tmp/analysis/functions.json')
+  const run = funcs.find((f:any) => f.file === `${base}/u.ts` && f.name === 'run')
+  assert(run, 'run missing')
+  const entries = run.sideEffects || []
+  const byDetail: Record<string, any> = {}
+  for (const e of entries) {
+    if (e && typeof e.detail === 'string') byDetail[e.detail] = e
+  }
+  assert(byDetail['localStorage.getItem']?.kind === 'state-read', 'localStorage.getItem should be state-read')
+  assert(byDetail['localStorage.setItem']?.kind === 'state-write', 'localStorage.setItem should be state-write')
+  assert(byDetail['sessionStorage.key']?.kind === 'state-read', 'sessionStorage.key should be state-read')
+  assert(byDetail['sessionStorage.removeItem']?.kind === 'state-write', 'sessionStorage.removeItem should be state-write')
 }
 
 function testFilesystemAndStateWriteSideEffects() {
@@ -194,11 +368,11 @@ function testInstanceMethodResolution() {
       const c = new C()
       c.m()
     }`)
-  runAnalyzer(['--include', `${base}/u.ts,${base}/m.ts`])
+  runAnalyzer(['--include', `${base}/u.ts,${base}/lib.ts`])
 
   const calls = readJSON<any[]>('tmp/analysis/calls.json')
-  const edge = calls.find(c => typeof c.from === 'string' && c.from.startsWith(`${base}/u.ts::run`) && typeof c.to === 'string' && c.to.includes(`${base}/lib.ts::C.m`))
-  assert(edge, 'missing instance method edge')
+  const edges = calls.filter(c => typeof c.from === 'string' && c.from.startsWith(`${base}/u.ts::run`) && typeof c.to === 'string' && c.to.includes(`${base}/lib.ts::C.m`))
+  assert(edges.length === 1, 'instance method edge should not be duplicated')
 }
 
 function testThisFieldInstanceResolution() {
@@ -270,35 +444,121 @@ function testAssumptionsForUnresolvedCall() {
   assert(assumptions.some(a => a.statement?.includes("mysteriousGlobal")), 'missing assumption for unresolved call')
 }
 
+function testCommonJsRequireAndExports() {
+  const base = 'tmp/analyzer-tests/cjs'
+  writeFile(path.join(base, 'routerFactory.js'), `module.exports = () => {};`)
+  writeFile(path.join(base, 'lib.js'), `function foo() {}\nconst bar = () => {}\nmodule.exports = { foo, bar };`)
+  writeFile(path.join(base, 'named.js'), `exports.ping = () => {}\nmodule.exports.pong = function pong() {}`)
+  writeFile(path.join(base, 'defaultById.js'), `function maker() {}\nmodule.exports = maker`)
+  writeFile(path.join(base, 'server.js'), `
+    const router = require('./routerFactory')
+    const { foo } = require('./lib')
+    const bar = require('./lib').bar
+    const { ping } = require('./named')
+    const pong = require('./named').pong
+    const maker = require('./defaultById')
+    const dyn = require('./' + 'routerFactory')
+
+    module.exports = function runAll() {
+      router()
+      foo()
+      bar()
+      ping()
+      pong()
+      maker()
+      dyn()
+    }
+  `)
+
+  runAnalyzer(['--include', `${base}/`])
+
+  const imports = readJSON<Record<string, string[]>>('tmp/analysis/imports.json')
+  const deps = imports[`${base}/server.js`] || []
+  assert(deps.includes(`${base}/routerFactory.js`), 'missing require edge for routerFactory')
+  assert(deps.includes(`${base}/lib.js`), 'missing require edge for lib')
+  assert(deps.includes(`${base}/named.js`), 'missing require edge for named')
+  assert(deps.includes(`${base}/defaultById.js`), 'missing require edge for defaultById')
+
+  const calls = readJSON<any[]>('tmp/analysis/calls.json').filter(
+    c => typeof c.fromStable === 'string' && c.fromStable.startsWith(`${base}/server.js::default`)
+  )
+  assert(calls.some(c => c.via === 'router' && String(c.toStable || '').startsWith(`${base}/routerFactory.js::default`)), 'missing cjs default require call edge')
+  assert(calls.some(c => c.via === 'foo' && String(c.toStable || '').startsWith(`${base}/lib.js::foo`)), 'missing cjs destructured require call edge')
+  assert(calls.some(c => c.via === 'bar' && String(c.toStable || '').startsWith(`${base}/lib.js::bar`)), 'missing cjs property require call edge')
+  assert(calls.some(c => c.via === 'ping' && String(c.toStable || '').startsWith(`${base}/named.js::ping`)), 'missing cjs exports.* call edge')
+  assert(calls.some(c => c.via === 'pong' && String(c.toStable || '').startsWith(`${base}/named.js::pong`)), 'missing cjs module.exports.* call edge')
+  assert(calls.some(c => c.via === 'maker' && String(c.toStable || '').startsWith(`${base}/defaultById.js::maker`)), 'missing cjs module.exports identifier default edge')
+  assert(!calls.some(c => c.via === 'dyn'), 'dynamic require should not resolve to call edge')
+
+  const funcs = readJSON<any[]>('tmp/analysis/functions.json')
+  const foo = funcs.find(f => f.file === `${base}/lib.js` && f.name === 'foo')
+  const bar = funcs.find(f => f.file === `${base}/lib.js` && f.name === 'bar')
+  const maker = funcs.find(f => f.file === `${base}/defaultById.js` && f.name === 'maker')
+  assert(foo?.export === true, 'lib.foo should be marked exported via module.exports object')
+  assert(bar?.export === true, 'lib.bar should be marked exported via module.exports object')
+  assert(maker?.export === true, 'defaultById.maker should be marked exported via module.exports identifier')
+
+  const assumptions = readJSON<any[]>('tmp/analysis/assumptions.json')
+  assert(assumptions.some(a => typeof a.statement === 'string' && a.statement.includes("'dyn'")), 'missing assumption for unresolved dynamic require call')
+}
+
+function testBffCommonJsSmoke() {
+  runAnalyzer(['--include', 'bff/src/'])
+
+  const funcs = readJSON<any[]>('tmp/analysis/functions.json')
+  assert(funcs.some(f => typeof f.file === 'string' && f.file.startsWith('bff/src/')), 'missing bff functions')
+
+  const imports = readJSON<Record<string, string[]>>('tmp/analysis/imports.json')
+  const serverDeps = imports['bff/src/server.js'] || []
+  assert(serverDeps.includes('bff/src/routes/sessions.js'), 'missing require edge bff/src/server.js -> bff/src/routes/sessions.js')
+
+  const calls = readJSON<any[]>('tmp/analysis/calls.json')
+  const edge = calls.find(
+    c => typeof c.fromStable === 'string'
+      && c.fromStable.startsWith('bff/src/server.js::startServer')
+      && typeof c.toStable === 'string'
+      && c.toStable.startsWith('bff/src/routes/sessions.js::default')
+  )
+  assert(edge, 'missing cross-file cjs edge bff/src/server.js::startServer -> bff/src/routes/sessions.js::default')
+}
+
 function testPresetManifestAndApplication() {
   const base = 'tmp/analyzer-tests/presets'
   writeFile(path.join(base, 'seed.ts'), `export function seed(){}`)
   writeFile(path.join(base, 'use.ts'), `import { seed } from './seed'; export function run(){ seed(); }`)
 
-  // Seed file
-  writeFile('config/preset-seeds.json', JSON.stringify([{
-    slug: 'smoke',
-    description: 'seed by function',
-    seedFunctions: [`${base}/seed.ts::seed`],
-    defaultEntry: `${base}/use.ts::run`,
-    defaultMaxDepth: 2,
-    forceDomIndex: false,
-    maxIncludeFiles: 10
-  }], null, 2))
+  const seedsAbs = path.join(repoRoot, 'config', 'preset-seeds.json')
+  const hadSeeds = fs.existsSync(seedsAbs)
+  const priorSeeds = hadSeeds ? fs.readFileSync(seedsAbs, 'utf8') : null
 
-  // First run (generates manifest)
-  runAnalyzer([])
-  const manifest = JSON.parse(fs.readFileSync(path.join('config','presets.generated.json'), 'utf8'))
-  assert(manifest.presets.smoke, 'preset not generated')
+  try {
+    writeFile('config/preset-seeds.json', JSON.stringify([{
+      slug: 'smoke',
+      description: 'seed by function',
+      seedFunctions: [`${base}/seed.ts::seed`],
+      defaultEntry: `${base}/use.ts::run`,
+      defaultMaxDepth: 2,
+      forceDomIndex: false,
+      maxIncludeFiles: 10
+    }], null, 2))
 
-  // Second run applying preset (should merge include and set entry/maxDepth)
-  runAnalyzer(['--preset','smoke'])
-  const summary = readJSON<any>('tmp/analysis/summary.json')
-  assert(Array.isArray(summary.entryCandidates), 'summary missing')
+    runAnalyzer([])
+    const manifest = JSON.parse(fs.readFileSync(path.join('config','presets.generated.json'), 'utf8'))
+    assert(manifest.presets.smoke, 'preset not generated')
 
-  // sanity: ensure calls exist (preset include applied)
-  const calls = readJSON<any[]>('tmp/analysis/calls.json')
-  assert(calls.some(c => typeof c.to === 'string' && c.to.includes(`${base}/seed.ts::seed`)), 'preset include not applied to analysis')
+    runAnalyzer(['--preset','smoke'])
+    const summary = readJSON<any>('tmp/analysis/summary.json')
+    assert(Array.isArray(summary.entryCandidates), 'summary missing')
+
+    const calls = readJSON<any[]>('tmp/analysis/calls.json')
+    assert(calls.some(c => typeof c.to === 'string' && c.to.includes(`${base}/seed.ts::seed`)), 'preset include not applied to analysis')
+  } finally {
+    if (hadSeeds && typeof priorSeeds === 'string') {
+      fs.writeFileSync(seedsAbs, priorSeeds)
+    } else {
+      fs.rmSync(seedsAbs, { force: true })
+    }
+  }
 }
 
 function testEntryFocus() {
@@ -424,6 +684,8 @@ async function main() {
     testStaticNamespace()
     console.log('Running testCallbacks')
     testCallbacks()
+    console.log('Running testCallbackIdentifierResolutionInScope')
+    testCallbackIdentifierResolutionInScope()
     console.log('Running testDomSelectors')
     testDomSelectors()
     console.log('Running testGlobalExposure')
@@ -431,8 +693,12 @@ async function main() {
 
     console.log('Running testStableIdsAndCrosswalk')
     testStableIdsAndCrosswalk()
+    console.log('Running testStableIdPrinterStability')
+    testStableIdPrinterStability()
     console.log('Running testNetworkAndTimerSideEffects')
     testNetworkAndTimerSideEffects()
+    console.log('Running testStorageReadWriteSideEffects')
+    testStorageReadWriteSideEffects()
     console.log('Running testFilesystemAndStateWriteSideEffects')
     testFilesystemAndStateWriteSideEffects()
     console.log('Running testInstanceMethodResolution')
@@ -447,6 +713,10 @@ async function main() {
     testPureNamespacesIgnored()
     console.log('Running testAssumptionsForUnresolvedCall')
     testAssumptionsForUnresolvedCall()
+    console.log('Running testCommonJsRequireAndExports')
+    testCommonJsRequireAndExports()
+    console.log('Running testBffCommonJsSmoke')
+    testBffCommonJsSmoke()
     console.log('Running testPresetManifestAndApplication')
     testPresetManifestAndApplication()
     console.log('Running testEntryFocus')
@@ -465,6 +735,8 @@ async function main() {
     testTemplateExtractionAndSnippet()
     console.log('Running testConsoleEdgeStableIds')
     testConsoleEdgeStableIds()
+    console.log('Running testManifestSyncHonorsGitignoreFiles')
+    testManifestSyncHonorsGitignoreFiles()
 
     console.log('Analyzer integration tests passed.')
   } catch (err) {

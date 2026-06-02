@@ -4,6 +4,8 @@ import * as path from 'path'
 import * as crypto from 'crypto'
 import * as parse5 from 'parse5'
 
+const stableIdPrinter = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed })
+
 type ImportGraph = Record<string, string[]>
 type FanMap = Record<string, number>
 type Location = {
@@ -120,29 +122,67 @@ function createTsResolver(program: ts.Program, repoRoot: string): ImportResolver
   const opts = program.getCompilerOptions()
   const cache = ts.createModuleResolutionCache(repoRoot, s => s, opts)
   const normalize = (p: string) => path.relative(repoRoot, p).split(path.sep).join('/')
+  const realRepoRootLocal = fs.realpathSync(repoRoot)
+  const nodeModulesSegment = `${path.sep}node_modules${path.sep}`
+  const isSourceExt = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'])
+
+  const tryResolveWorkspace = (spec: string): string | null => {
+    const corePrefix = '@sensei/core'
+    if (spec !== corePrefix && !spec.startsWith(`${corePrefix}/`)) return null
+    const sub = spec === corePrefix ? 'index' : spec.slice(corePrefix.length + 1)
+    const noExt = sub.replace(/\.(d\.ts|ts|tsx|js|jsx|mjs|cjs|mts|cts)$/i, '')
+    const candidates = [
+      path.join(repoRoot, 'core', `${noExt}.ts`),
+      path.join(repoRoot, 'core', `${noExt}.tsx`),
+      path.join(repoRoot, 'core', noExt, 'index.ts'),
+      path.join(repoRoot, 'core', noExt, 'index.tsx')
+    ]
+    for (const c of candidates) {
+      if (!fs.existsSync(c)) continue
+      let rp = c
+      try {
+        rp = fs.realpathSync(c)
+      } catch {
+      }
+      if (!rp.startsWith(realRepoRootLocal)) continue
+      if (rp.includes(nodeModulesSegment)) continue
+      const ext = path.extname(rp).toLowerCase()
+      if (!isSourceExt.has(ext)) continue
+      if (rp.endsWith('.d.ts')) continue
+      return normalize(rp)
+    }
+    return null
+  }
   return (fromFile, spec) => {
+    const workspaceResolved = tryResolveWorkspace(spec)
+    if (workspaceResolved) return workspaceResolved
     const cached = (program as any).getResolvedModuleWithFailedLookupLocationsFromCache?.(spec, fromFile)
     const resolvedModule = cached?.resolvedModule ?? ts.resolveModuleName(spec, fromFile, opts, ts.sys, cache).resolvedModule
     if (!resolvedModule) return null
     const f = resolvedModule.resolvedFileName
-    const isNodeModules = f.includes(`${path.sep}node_modules${path.sep}`)
-    const ext = path.extname(f)
-    const isSourceExt = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'].includes(ext)
-    const isDts = f.endsWith('.d.ts')
-    if (isNodeModules || !isSourceExt || isDts) return null
-    return normalize(f)
+    let realFile = f
+    try {
+      realFile = fs.realpathSync(f)
+    } catch {
+    }
+    if (!realFile.startsWith(realRepoRootLocal)) return null
+    if (realFile.includes(nodeModulesSegment)) return null
+    const ext = path.extname(realFile).toLowerCase()
+    if (!isSourceExt.has(ext)) return null
+    if (realFile.endsWith('.d.ts')) return null
+    return normalize(realFile)
   }
 }
 
 const repoRoot = process.cwd()
 const realRepoRoot = fs.realpathSync(repoRoot)
 const manifestPath = path.join(repoRoot, 'src', 'file-manifest.json')
+const manifestEntriesRaw = readJsonFile<string[]>(manifestPath, [])
 let manifestSet: Set<string> | null = null
 {
-  const manifestEntries = readJsonFile<string[]>(manifestPath, [])
-  if (manifestEntries.length) {
+  if (manifestEntriesRaw.length) {
     const paths = new Set<string>()
-    for (const entry of manifestEntries) {
+    for (const entry of manifestEntriesRaw) {
       const normalized = path.normalize(entry).split(path.sep).join('/')
       paths.add(normalized)
       if (!normalized.includes('/')) {
@@ -169,6 +209,8 @@ const PURE_GLOBAL_IDENTIFIERS = new Set([
   'isFinite','encodeURI','decodeURI','encodeURIComponent','decodeURIComponent'
 ])
 const PURE_GLOBAL_NAMESPACES = new Set(['Math','JSON','Reflect'])
+const CALLBACK_GLOBALS_ARG0 = new Set(['setTimeout', 'setInterval', 'requestAnimationFrame'])
+const CALLBACK_METHODS_ARG0 = new Set(['then', 'catch', 'finally', 'map', 'forEach', 'filter', 'some', 'every', 'find', 'findIndex', 'reduce', 'reduceRight'])
 
 function unaliasSymbol(sym: ts.Symbol | undefined): ts.Symbol | undefined {
   if (!sym) return sym
@@ -182,46 +224,137 @@ function unaliasSymbol(sym: ts.Symbol | undefined): ts.Symbol | undefined {
   return s
 }
 
-  function isUnionType(t: ts.Type): t is ts.UnionType {
-    return (t.flags & ts.TypeFlags.Union) !== 0
-  }
+function isUnionType(t: ts.Type): t is ts.UnionType {
+  return (t.flags & ts.TypeFlags.Union) !== 0
+}
 
-  function isPureGlobalIdentifier(name: string): boolean {
-    return PURE_GLOBAL_IDENTIFIERS.has(name)
-  }
-
-  function isPureGlobalNamespace(baseName: string): boolean {
-    return PURE_GLOBAL_NAMESPACES.has(baseName)
-  }
-
-  function propertyChain(pa: ts.PropertyAccessExpression, sfLocal: ts.SourceFile): string[] {
-    const out: string[] = []
-    let cur: ts.Expression = pa
-    while (ts.isPropertyAccessExpression(cur)) {
-      out.unshift(cur.name.getText(sfLocal))
-      cur = cur.expression
+function isCallableType(t: ts.Type | undefined): boolean {
+  if (!t) return false
+  if ((t.flags & ts.TypeFlags.Any) !== 0) return false
+  if ((t.flags & ts.TypeFlags.Unknown) !== 0) return false
+  const symName = t.symbol ? t.symbol.getName() : null
+  if (symName === 'Function' || symName === 'CallableFunction' || symName === 'NewableFunction') return true
+  if (t.getCallSignatures().length > 0) return true
+  if (isUnionType(t)) {
+    for (const sub of (t as ts.UnionType).types) {
+      if (isCallableType(sub)) return true
     }
-    if (ts.isIdentifier(cur)) out.unshift(cur.getText(sfLocal))
-    return out
   }
+  if ((t.flags & ts.TypeFlags.Intersection) !== 0) {
+    const types = (t as ts.IntersectionType).types || []
+    for (const sub of types) {
+      if (isCallableType(sub)) return true
+    }
+  }
+  return false
+}
 
-  const DOM_MUTATING_FINAL_PROPS = new Set([
-    'innerHTML','outerHTML','textContent','innerText','value','checked','disabled','src','href','className','cookie'
-  ])
+function paramTypeForCallArg(sig: ts.Signature | undefined, call: ts.CallExpression, argIndex: number): ts.Type | undefined {
+  if (!sig) return undefined
+  if (!useTypeChecker || !checker) return undefined
+  const params = sig.getParameters()
+  if (params.length === 0) return undefined
+  let paramSym: ts.Symbol | undefined = params[argIndex]
+  if (!paramSym) {
+    const last = params[params.length - 1]
+    if (!last) return undefined
+    const decl = last.valueDeclaration
+    if (decl && ts.isParameter(decl) && decl.dotDotDotToken) {
+      paramSym = last
+    } else {
+      return undefined
+    }
+  }
+  const decl = paramSym.valueDeclaration || paramSym.getDeclarations()?.[0]
+  try {
+    return decl ? checker.getTypeOfSymbolAtLocation(paramSym, decl) : checker.getTypeOfSymbolAtLocation(paramSym, call)
+  } catch {
+    return undefined
+  }
+}
 
-  const DOM_MUTATOR_METHODS = new Set([
-    'setAttribute','removeAttribute','appendChild','insertBefore','replaceWith','remove',
-    'after','before','append','prepend','replaceChildren','insertAdjacentHTML'
-  ])
-
-  function isDomMutationChain(parts: string[]): boolean {
-    if (parts.includes('dataset')) return true
-    if (parts.includes('style')) return true
-    if (parts.includes('classList')) return true
-    const last = parts.length > 0 ? parts[parts.length - 1]! : ''
-    if (DOM_MUTATING_FINAL_PROPS.has(last)) return true
+function isCallbackObjectType(t: ts.Type | undefined): boolean {
+  if (!t) return false
+  if (!useTypeChecker || !checker) return false
+  if ((t.flags & ts.TypeFlags.Any) !== 0) return false
+  if ((t.flags & ts.TypeFlags.Unknown) !== 0) return false
+  if (isUnionType(t)) {
+    for (const sub of (t as ts.UnionType).types) {
+      if (isCallbackObjectType(sub)) return true
+    }
     return false
   }
+  if ((t.flags & ts.TypeFlags.Intersection) !== 0) {
+    const types = (t as ts.IntersectionType).types || []
+    for (const sub of types) {
+      if (isCallbackObjectType(sub)) return true
+    }
+  }
+  if (isCallableType(t)) return false
+  for (const prop of t.getProperties()) {
+    const decl = prop.valueDeclaration || prop.getDeclarations()?.[0]
+    if (!decl) continue
+    let pt: ts.Type | undefined
+    try {
+      pt = checker.getTypeOfSymbolAtLocation(prop, decl)
+    } catch {
+      pt = undefined
+    }
+    if (isCallableType(pt)) return true
+  }
+  return false
+}
+
+function callbackHeuristicForArg(callee: ts.Expression, sf: ts.SourceFile, argIndex: number): boolean {
+  const e = unwrap(callee)
+  if (ts.isIdentifier(e)) {
+    if (CALLBACK_GLOBALS_ARG0.has(e.text)) return argIndex === 0
+    return false
+  }
+  if (ts.isPropertyAccessExpression(e)) {
+    const method = e.name.getText(sf)
+    if (method === 'addEventListener') return argIndex === 1
+    if (CALLBACK_METHODS_ARG0.has(method)) return argIndex === 0
+  }
+  return false
+}
+
+function isPureGlobalIdentifier(name: string): boolean {
+  return PURE_GLOBAL_IDENTIFIERS.has(name)
+}
+
+function isPureGlobalNamespace(baseName: string): boolean {
+  return PURE_GLOBAL_NAMESPACES.has(baseName)
+}
+
+function propertyChain(pa: ts.PropertyAccessExpression, sfLocal: ts.SourceFile): string[] {
+  const out: string[] = []
+  let cur: ts.Expression = pa
+  while (ts.isPropertyAccessExpression(cur)) {
+    out.unshift(cur.name.getText(sfLocal))
+    cur = cur.expression
+  }
+  if (ts.isIdentifier(cur)) out.unshift(cur.getText(sfLocal))
+  return out
+}
+
+const DOM_MUTATING_FINAL_PROPS = new Set([
+  'innerHTML','outerHTML','textContent','innerText','value','checked','disabled','src','href','className','cookie'
+])
+
+const DOM_MUTATOR_METHODS = new Set([
+  'setAttribute','removeAttribute','appendChild','insertBefore','replaceWith','remove',
+  'after','before','append','prepend','replaceChildren','insertAdjacentHTML'
+])
+
+function isDomMutationChain(parts: string[]): boolean {
+  if (parts.includes('dataset')) return true
+  if (parts.includes('style')) return true
+  if (parts.includes('classList')) return true
+  const last = parts.length > 0 ? parts[parts.length - 1]! : ''
+  if (DOM_MUTATING_FINAL_PROPS.has(last)) return true
+  return false
+}
 
 type CliOptions = {
   include?: string[]
@@ -302,7 +435,66 @@ function loadProgram() {
   if (!configPath) throw new Error('tsconfig.json not found')
   const configFile = ts.readConfigFile(configPath, ts.sys.readFile)
   const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, repoRoot)
-  return ts.createProgram(parsed.fileNames, parsed.options)
+  const nodeModulesSegment = `${path.sep}node_modules${path.sep}`
+  const isInNodeModules = (filePath: string) => filePath.includes(nodeModulesSegment)
+  const jsExts = new Set(['.js', '.jsx', '.mjs', '.cjs'])
+  const allowedTestExts = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'])
+  const roots = new Set<string>()
+  for (const fileName of parsed.fileNames) {
+    if (isInNodeModules(fileName)) continue
+    if (manifestSet) {
+      const relFromRepo = path.relative(repoRoot, fileName).split(path.sep).join('/')
+      const relFromReal = path.relative(realRepoRoot, fileName).split(path.sep).join('/')
+      if (!manifestSet.has(relFromRepo) && !manifestSet.has(relFromReal)) continue
+    }
+    roots.add(fileName)
+  }
+  const addRootFile = (absPath: string) => {
+    if (!absPath) return
+    if (isInNodeModules(absPath)) return
+    if (!fs.existsSync(absPath)) return
+    roots.add(absPath)
+  }
+
+  const manifestDir = path.dirname(manifestPath)
+  for (const entry of manifestEntriesRaw) {
+    const fromManifestDir = path.resolve(manifestDir, entry)
+    if (fs.existsSync(fromManifestDir)) {
+      const ext = path.extname(fromManifestDir).toLowerCase()
+      if (jsExts.has(ext)) addRootFile(fromManifestDir)
+      continue
+    }
+    const fromRepoRoot = path.resolve(repoRoot, entry)
+    const ext = path.extname(fromRepoRoot).toLowerCase()
+    if (jsExts.has(ext)) addRootFile(fromRepoRoot)
+  }
+
+  const analyzerTestsDir = path.join(repoRoot, 'tmp', 'analyzer-tests')
+  const includeAnalyzerTestsRaw = (process.env.ANALYZER_INCLUDE_TESTS || '').toLowerCase()
+  const includeAnalyzerTests = includeAnalyzerTestsRaw === '1' || includeAnalyzerTestsRaw === 'true' || includeAnalyzerTestsRaw === 'yes'
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const ent of entries) {
+      const full = path.join(dir, ent.name)
+      if (ent.isDirectory()) {
+        if (ent.name === 'node_modules') continue
+        walk(full)
+        continue
+      }
+      if (!ent.isFile()) continue
+      const ext = path.extname(full).toLowerCase()
+      if (!allowedTestExts.has(ext)) continue
+      addRootFile(full)
+    }
+  }
+  if (includeAnalyzerTests && fs.existsSync(analyzerTestsDir)) walk(analyzerTestsDir)
+
+  return ts.createProgram(Array.from(roots), parsed.options)
 }
 
 function getLoc(sf: ts.SourceFile, node: ts.Node): Location {
@@ -452,7 +644,7 @@ function analyzeDelegatedHandler(node: ts.FunctionLikeDeclaration | ts.ArrowFunc
         }
       }
 
-      
+
     }
     child.forEachChild(visit)
   }
@@ -792,15 +984,30 @@ function collectImportGraph(program: ts.Program, include: string[] | undefined, 
         if (!ts.isStringLiteral(spec)) return
         const text = spec.text
         const resolved = resolveImport(sf.fileName, text)
-        if (resolved && inScope(resolved)) deps.add(resolved)
+        if (resolved) deps.add(resolved)
       } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && !node.isTypeOnly) {
         const spec = node.moduleSpecifier
         if (!ts.isStringLiteral(spec)) return
         const text = spec.text
         const resolved = resolveImport(sf.fileName, text)
-        if (resolved && inScope(resolved)) deps.add(resolved)
+        if (resolved) deps.add(resolved)
       }
     })
+    const visit = (node: ts.Node) => {
+      if (ts.isCallExpression(node)) {
+        const callee = unwrap(node.expression as ts.Expression)
+        if (ts.isIdentifier(callee) && callee.text === 'require') {
+          const arg = node.arguments[0]
+          const modText = arg && literalModuleSpecifier(arg as ts.Expression)
+          if (modText) {
+            const resolved = resolveImport(sf.fileName, modText)
+            if (resolved) deps.add(resolved)
+          }
+        }
+      }
+      node.forEachChild(visit)
+    }
+    sf.forEachChild(visit)
     graph[file] = Array.from(deps)
   }
   return graph
@@ -880,6 +1087,45 @@ function collectAliases(sf: ts.SourceFile, resolveImport: ImportResolver): Impor
     }
   })
 
+  sf.forEachChild(node => {
+    if (!ts.isVariableStatement(node)) return
+    for (const decl of node.declarationList.declarations) {
+      if (!decl.initializer) continue
+      const init = unwrap(decl.initializer as ts.Expression)
+      const resolveRequire = (call: ts.CallExpression) => {
+        const callee = unwrap(call.expression as ts.Expression)
+        if (!ts.isIdentifier(callee) || callee.text !== 'require') return null
+        const arg = call.arguments[0]
+        const modText = arg && literalModuleSpecifier(arg as ts.Expression)
+        if (!modText) return null
+        return resolveImport(sf.fileName, modText)
+      }
+
+      if (ts.isIdentifier(decl.name)) {
+        if (ts.isCallExpression(init)) {
+          const source = resolveRequire(init)
+          if (source) aliases.push({ local: decl.name.text, source, export: 'default' })
+        } else if (ts.isPropertyAccessExpression(init)) {
+          const base = unwrap(init.expression as ts.Expression)
+          if (ts.isCallExpression(base)) {
+            const source = resolveRequire(base)
+            if (source) aliases.push({ local: decl.name.text, source, export: init.name.getText(sf) })
+          }
+        }
+      } else if (ts.isObjectBindingPattern(decl.name)) {
+        if (!ts.isCallExpression(init)) continue
+        const source = resolveRequire(init)
+        if (!source) continue
+        for (const el of decl.name.elements) {
+          if (!ts.isBindingElement(el)) continue
+          const local = el.name.getText(sf)
+          const exported = el.propertyName ? el.propertyName.getText(sf) : el.name.getText(sf)
+          aliases.push({ local, source, export: exported })
+        }
+      }
+    }
+  })
+
   return aliases
 }
 
@@ -899,6 +1145,7 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
   const file = rel(sf.fileName)
   const locals = new Map<string, string>()
   const nodes: NodeInfo[] = []
+  const nodeInfoById = new Map<string, NodeInfo>()
   const instanceTypes = new Map<string, { source: string; className: string }>()
   const aliases = collectAliases(sf, resolveImport)
   const classNames = new Set<string>()
@@ -923,10 +1170,17 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
     const info: NodeInfo = { name, id, node, kind, exported }
     if (className) info.className = className
     nodes.push(info)
+    nodeInfoById.set(id, info)
     functionNodeById.set(id, { sf, node, file })
     functionIdByNode.set(node, id)
     if (declNode) functionIdByDeclNode.set(declNode, id)
     return id
+  }
+
+  const markExported = (id: string | null | undefined) => {
+    if (!id) return
+    const info = nodeInfoById.get(id)
+    if (info) info.exported = true
   }
 
   sf.forEachChild(node => {
@@ -941,7 +1195,7 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
           const kind: FunctionInfo['kind'] = ts.isArrowFunction(decl.initializer) ? 'arrow' : 'function'
           addFunc(decl.name.getText(sf), decl.initializer, kind, exported, undefined, true, decl)
         } else if (ts.isNewExpression(decl.initializer)) {
-  const classExpr = unwrap(decl.initializer.expression as ts.Expression)
+          const classExpr = unwrap(decl.initializer.expression as ts.Expression)
           if (classExpr && ts.isIdentifier(classExpr)) {
             const classToken = classExpr.getText(sf)
             const alias = aliases.find(a => a.local === classToken)
@@ -976,6 +1230,7 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
       const existingId = functionIdByDeclNode.get(node)
       if (existingId) {
         functionIndex.set(`${file}::default`, existingId)
+        markExported(existingId)
       } else {
         const exported = true
         const funcName = node.name?.getText(sf) ?? 'defaultExport'
@@ -988,7 +1243,10 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
       if (ts.isIdentifier(expr)) {
         const key = `${file}::${expr.text}`
         const id = functionIndex.get(key) || locals.get(expr.text)
-        if (id) functionIndex.set(`${file}::default`, id)
+        if (id) {
+          functionIndex.set(`${file}::default`, id)
+          markExported(id)
+        }
       } else if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
         const name = 'defaultExport'
         const kind: FunctionInfo['kind'] = ts.isArrowFunction(expr) ? 'arrow' : 'function'
@@ -1002,6 +1260,104 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
         nodes.push(info)
       }
     }
+    if (ts.isExpressionStatement(node)) {
+      const expr = unwrap(node.expression as ts.Expression)
+      if (!ts.isBinaryExpression(expr) || expr.operatorToken.kind !== ts.SyntaxKind.EqualsToken) return
+      const lhs = unwrap(expr.left as ts.Expression)
+      const rhs = unwrap(expr.right as ts.Expression)
+
+      const isModuleExports = (e: ts.Expression) =>
+        ts.isPropertyAccessExpression(e)
+          && ts.isIdentifier(unwrap(e.expression as ts.Expression))
+          && (unwrap(e.expression as ts.Expression) as ts.Identifier).text === 'module'
+          && e.name.getText(sf) === 'exports'
+
+      const resolveLocalId = (id: ts.Identifier) => locals.get(id.text) ?? functionIndex.get(`${file}::${id.text}`) ?? null
+
+      const addInlineExportFunc = (name: string, node: ts.ArrowFunction | ts.FunctionExpression | ts.MethodDeclaration) => {
+        const kind: FunctionInfo['kind'] =
+          ts.isMethodDeclaration(node) ? 'method' : (ts.isArrowFunction(node) ? 'arrow' : 'function')
+        return addFunc(name, node as any, kind, true, undefined, true)
+      }
+
+      const addObjectLiteralExports = (obj: ts.ObjectLiteralExpression) => {
+        for (const prop of obj.properties) {
+          if (ts.isShorthandPropertyAssignment(prop)) {
+            const id = resolveLocalId(prop.name)
+            if (id) {
+              functionIndex.set(`${file}::${prop.name.text}`, id)
+              markExported(id)
+            }
+            continue
+          }
+          if (ts.isPropertyAssignment(prop)) {
+            const exportName =
+              ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : prop.name.getText(sf)
+            const init = unwrap(prop.initializer as ts.Expression)
+            if (ts.isIdentifier(init)) {
+              const id = resolveLocalId(init)
+              if (id) {
+                functionIndex.set(`${file}::${exportName}`, id)
+                markExported(id)
+              }
+              continue
+            }
+            if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) {
+              addInlineExportFunc(exportName, init)
+              continue
+            }
+            continue
+          }
+          if (ts.isMethodDeclaration(prop)) {
+            const exportName = prop.name ? prop.name.getText(sf) : 'method'
+            addInlineExportFunc(exportName, prop)
+            continue
+          }
+        }
+      }
+
+      if (ts.isPropertyAccessExpression(lhs) && isModuleExports(lhs)) {
+        if (ts.isIdentifier(rhs)) {
+          const id = resolveLocalId(rhs)
+          if (id) {
+            functionIndex.set(`${file}::default`, id)
+            markExported(id)
+          }
+          return
+        }
+        if (ts.isArrowFunction(rhs) || ts.isFunctionExpression(rhs)) {
+          const id = addInlineExportFunc('default', rhs)
+          functionIndex.set(`${file}::default`, id)
+          return
+        }
+        if (ts.isObjectLiteralExpression(rhs)) {
+          addObjectLiteralExports(rhs)
+          return
+        }
+      }
+
+      if (ts.isPropertyAccessExpression(lhs)) {
+        const base = unwrap(lhs.expression as ts.Expression)
+        const exportName = lhs.name.getText(sf)
+        const isNamedExport =
+          (ts.isIdentifier(base) && base.text === 'exports')
+          || (ts.isPropertyAccessExpression(base) && isModuleExports(base))
+        if (!isNamedExport) return
+
+        if (ts.isIdentifier(rhs)) {
+          const id = resolveLocalId(rhs)
+          if (id) {
+            functionIndex.set(`${file}::${exportName}`, id)
+            markExported(id)
+          }
+          return
+        }
+        if (ts.isArrowFunction(rhs) || ts.isFunctionExpression(rhs)) {
+          addInlineExportFunc(exportName, rhs)
+          return
+        }
+      }
+    }
   })
 
   return { sf, file, nodes, locals, instanceTypes }
@@ -1010,14 +1366,13 @@ function gatherFile(sf: ts.SourceFile, functionIndex: Map<string, string>, resol
 function collectFunctions(program: ts.Program, resolveImport: ImportResolver, include?: string[]) {
   const functionIndex = new Map<string, string>()
   const fileData: FileData[] = []
+  const inScope = (file: string) => !include || include.length === 0 || include.some(p => file.includes(p))
 
   for (const sf of program.getSourceFiles()) {
     if (!isProjectSource(sf)) continue
     const file = rel(sf.fileName)
-    if (include && include.length && !include.some(p => file.includes(p))) {
-      continue
-    }
-    fileData.push(gatherFile(sf, functionIndex, resolveImport))
+    const data = gatherFile(sf, functionIndex, resolveImport)
+    if (inScope(file)) fileData.push(data)
   }
 
   const funcs: FunctionInfo[] = []
@@ -1802,102 +2157,145 @@ function analyzeFile(
               if (receiverInfo.via) handlerRecord.receiverVia = receiverInfo.via
               addHandlerRecord(handlerRecord)
             }
-          }
-        }
-        if (ts.isPropertyAccessExpression(expr)) {
-          const rawRecv = unwrap(expr.expression as ts.Expression)
-          const prop = expr.name.getText(sf)
-          const recvText = rawRecv.getText(sf)
+	          }
+	        }
+	        if (ts.isPropertyAccessExpression(expr)) {
+	          const rawRecv = unwrap(expr.expression as ts.Expression)
+	          const prop = expr.name.getText(sf)
+	          const recvText = rawRecv.getText(sf)
 
-          if (ts.isIdentifier(rawRecv)) {
-            const instance = instanceTypes.get(rawRecv.getText(sf))
-            if (instance) {
-              const resolved = resolveInstanceTarget(instance.source, instance.className, prop)
-              const fallback = resolved ?? `${instance.source}::${instance.className}.${prop}`
-              if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
-              recordEdge(resolved ?? fallback, `${recvText}.${prop}`, getLoc(sf, node))
-            } else {
-              const nsSrc = nsImports.get(rawRecv.text)
-              if (nsSrc) {
-                const target = functionIndex.get(`${nsSrc}::${prop}`)
-                if (target) recordEdge(target, `${recvText}.${prop}`, getLoc(sf, node))
-              }
-            }
-          } else if (isThisExpression(rawRecv) && className) {
-            const candidate = resolveIdentifier(`${className}.${prop}`)
-            if (candidate) {
-              recordEdge(candidate, `this.${prop}`, getLoc(sf, node))
-            }
-          } else if (ts.isPropertyAccessExpression(rawRecv) && className && isThisExpression(rawRecv.expression as ts.Expression)) {
-            const field = rawRecv.name.getText(sf)
-            const info = fieldInstances.get(field) || classFieldInstances.get(className)?.get(field)
-            if (info) {
-              const resolved = resolveInstanceTarget(info.source, info.className, prop)
-              const fallback = resolved ?? `${info.source}::${info.className}.${prop}`
-              if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
-              recordEdge(resolved ?? fallback, `${recvText}.${prop}`, getLoc(sf, node))
-            }
-          }
+	          if (!calleeLinked) {
+	            if (ts.isIdentifier(rawRecv)) {
+	              const instance = instanceTypes.get(rawRecv.getText(sf))
+	              if (instance) {
+	                const resolved = resolveInstanceTarget(instance.source, instance.className, prop)
+	                const fallback = resolved ?? `${instance.source}::${instance.className}.${prop}`
+	                if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
+	                recordEdge(resolved ?? fallback, `${recvText}.${prop}`, getLoc(sf, node))
+	              } else {
+	                const nsSrc = nsImports.get(rawRecv.text)
+	                if (nsSrc) {
+	                  const target = functionIndex.get(`${nsSrc}::${prop}`)
+	                  if (target) recordEdge(target, `${recvText}.${prop}`, getLoc(sf, node))
+	                }
+	              }
+	            } else if (isThisExpression(rawRecv) && className) {
+	              const candidate = resolveIdentifier(`${className}.${prop}`)
+	              if (candidate) {
+	                recordEdge(candidate, `this.${prop}`, getLoc(sf, node))
+	              }
+	            } else if (ts.isPropertyAccessExpression(rawRecv) && className && isThisExpression(rawRecv.expression as ts.Expression)) {
+	              const field = rawRecv.name.getText(sf)
+	              const info = fieldInstances.get(field) || classFieldInstances.get(className)?.get(field)
+	              if (info) {
+	                const resolved = resolveInstanceTarget(info.source, info.className, prop)
+	                const fallback = resolved ?? `${info.source}::${info.className}.${prop}`
+	                if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
+	                recordEdge(resolved ?? fallback, `${recvText}.${prop}`, getLoc(sf, node))
+	              }
+	            }
+	          }
 
-          if (recvText === 'fs') sideEffects.push(mkSideEffect('filesystem', `fs.${prop}`, getLoc(sf, node)))
-          const domRecv = recvText === 'document' || recvText === 'window' ||
-            recvText === 'globalThis' ||
-            recvText.endsWith('.document') || recvText.endsWith('.window')
-          if (domRecv) sideEffects.push(mkSideEffect('dom', `${recvText}.${prop}`, getLoc(sf, node)))
-          if (recvText === 'localStorage' || recvText === 'sessionStorage') sideEffects.push(mkSideEffect('state-write', `${recvText}.${prop}`, getLoc(sf, node)))
-          if (DOM_MUTATOR_METHODS.has(prop) ||
-             ((prop === 'add' || prop === 'remove' || prop === 'toggle' || prop === 'replace') && recvText.endsWith('.classList')) ||
-             ((prop === 'setProperty' || prop === 'removeProperty') && recvText.endsWith('.style'))) {
-            sideEffects.push(mkSideEffect('dom', `${recvText}.${prop}`, getLoc(sf, node)))
-          }
-        }
-        if (ts.isElementAccessExpression(expr)) {
-          const rawRecv = unwrap(expr.expression as ts.Expression)
-          const arg = expr.argumentExpression ? unwrap(expr.argumentExpression as ts.Expression) : null
-          let propLiteral: string | null = null
-          if (arg) {
-            if (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) {
-              propLiteral = arg.text
-            } else if (ts.isTemplateExpression(arg) && arg.templateSpans.length === 0) {
-              propLiteral = arg.head.text
-            } else if (ts.isIdentifier(arg)) {
-              propLiteral = resolveStringLiteralFromIdentifier(arg)
-            }
-          }
-          const prop = propLiteral ?? '[computed]'
-          const recvText = rawRecv.getText(sf)
-          if (ts.isIdentifier(rawRecv)) {
-            const instance = instanceTypes.get(rawRecv.getText(sf))
-            if (instance && propLiteral) {
-              const resolved = resolveInstanceTarget(instance.source, instance.className, propLiteral)
-              const fallback = resolved ?? `${instance.source}::${instance.className}.${prop}`
-              if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
-              recordEdge(resolved ?? fallback, `${recvText}[${prop}]`, getLoc(sf, node))
-            } else if (propLiteral) {
-              const nsSrc = nsImports.get(rawRecv.text)
-              if (nsSrc) {
-                const target = functionIndex.get(`${nsSrc}::${propLiteral}`)
-                if (target) recordEdge(target, `${recvText}[${prop}]`, getLoc(sf, node))
-              }
-            }
-          }
-        }
+	          if (recvText === 'fs') sideEffects.push(mkSideEffect('filesystem', `fs.${prop}`, getLoc(sf, node)))
+	          const domRecv = recvText === 'document' || recvText === 'window' ||
+	            recvText === 'globalThis' ||
+	            recvText.endsWith('.document') || recvText.endsWith('.window')
+	          if (domRecv) sideEffects.push(mkSideEffect('dom', `${recvText}.${prop}`, getLoc(sf, node)))
+	          const storageRecv = (recvText === 'localStorage' || recvText.endsWith('.localStorage'))
+	            ? 'localStorage'
+	            : ((recvText === 'sessionStorage' || recvText.endsWith('.sessionStorage')) ? 'sessionStorage' : null)
+	          if (storageRecv) {
+	            const isWrite = prop === 'setItem' || prop === 'removeItem' || prop === 'clear'
+	            const kind = isWrite ? 'state-write' : 'state-read'
+	            sideEffects.push(mkSideEffect(kind, `${storageRecv}.${prop}`, getLoc(sf, node)))
+	          }
+	          if (DOM_MUTATOR_METHODS.has(prop) ||
+	             ((prop === 'add' || prop === 'remove' || prop === 'toggle' || prop === 'replace') && recvText.endsWith('.classList')) ||
+	             ((prop === 'setProperty' || prop === 'removeProperty') && recvText.endsWith('.style'))) {
+	            sideEffects.push(mkSideEffect('dom', `${recvText}.${prop}`, getLoc(sf, node)))
+	          }
+	        }
+	        if (ts.isElementAccessExpression(expr)) {
+	          if (!calleeLinked) {
+	            const rawRecv = unwrap(expr.expression as ts.Expression)
+	            const arg = expr.argumentExpression ? unwrap(expr.argumentExpression as ts.Expression) : null
+	            let propLiteral: string | null = null
+	            if (arg) {
+	              if (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) {
+	                propLiteral = arg.text
+	              } else if (ts.isTemplateExpression(arg) && arg.templateSpans.length === 0) {
+	                propLiteral = arg.head.text
+	              } else if (ts.isIdentifier(arg)) {
+	                propLiteral = resolveStringLiteralFromIdentifier(arg)
+	              }
+	            }
+	            const prop = propLiteral ?? '[computed]'
+	            const recvText = rawRecv.getText(sf)
+	            if (ts.isIdentifier(rawRecv)) {
+	              const instance = instanceTypes.get(rawRecv.getText(sf))
+	              if (instance && propLiteral) {
+	                const resolved = resolveInstanceTarget(instance.source, instance.className, propLiteral)
+	                const fallback = resolved ?? `${instance.source}::${instance.className}.${prop}`
+	                if (!functionStableIdById.has(fallback)) ensureSyntheticFunction(funcs, fallback, fallback)
+	                recordEdge(resolved ?? fallback, `${recvText}[${prop}]`, getLoc(sf, node))
+	              } else if (propLiteral) {
+	                const nsSrc = nsImports.get(rawRecv.text)
+	                if (nsSrc) {
+	                  const target = functionIndex.get(`${nsSrc}::${propLiteral}`)
+	                  if (target) recordEdge(target, `${recvText}[${prop}]`, getLoc(sf, node))
+	                }
+	              }
+	            }
+	          }
+	        }
 
-        node.arguments.forEach(arg => {
-          const stripped = unwrap(arg as ts.Expression)
-          if (ts.isIdentifier(stripped)) {
-            const cbTarget = resolveIdentifier(stripped.getText(sf))
-            if (cbTarget) {
-              recordEdge(cbTarget, `arg:${stripped.getText(sf)}`, getLoc(sf, stripped))
-            }
-          } else if (ts.isArrowFunction(stripped) || ts.isFunctionExpression(stripped)) {
-            const anonId = addAnonFunc(stripped)
-            recordEdge(anonId, 'cb:inline', getLoc(sf, stripped))
-          } else if (ts.isObjectLiteralExpression(stripped)) {
-            visitObjectLiteralArg(stripped, sf, addAnonFunc, recordEdge)
-          }
-        })
-      }
+	        let callSignature: ts.Signature | undefined
+	        if (useTypeChecker && checker) {
+	          try {
+	            callSignature = checker.getResolvedSignature(node)
+	          } catch {
+	            callSignature = undefined
+	          }
+	        }
+
+	        node.arguments.forEach((arg, argIndex) => {
+	          const stripped = unwrap(arg as ts.Expression)
+	          const paramType = paramTypeForCallArg(callSignature, node, argIndex)
+	          const expectsCallback = (paramType ? isCallableType(paramType) : false) || callbackHeuristicForArg(expr, sf, argIndex)
+	          const expectsCallbackObject = paramType ? isCallbackObjectType(paramType) : false
+	          if (ts.isIdentifier(stripped)) {
+	            const name = stripped.getText(sf)
+	            const loc = getLoc(sf, stripped)
+	            if (!expectsCallback) return
+	            const cbTarget = resolveIdentifier(name)
+	            if (cbTarget) {
+	              recordEdge(cbTarget, `arg:${name}`, loc)
+	            } else if (useTypeChecker && checker) {
+	              const sym = unaliasSymbol(checker.getSymbolAtLocation(stripped))
+	              if (sym) {
+	                const decls = sym.getDeclarations() || []
+	                for (const d of decls) {
+	                  const sfDecl = d.getSourceFile()
+	                  if (!isProjectSource(sfDecl) || sfDecl.isDeclarationFile) continue
+	                  let toIdDirect = functionIdByDeclNode.get(d) || functionIdByNode.get(d as any)
+	                  if (!toIdDirect) toIdDirect = ensureRegisteredDecl(d)
+	                  if (toIdDirect) {
+	                    recordEdge(toIdDirect, `arg:${name}`, loc)
+	                    break
+	                  }
+	                }
+	              }
+	            }
+	          } else if (ts.isArrowFunction(stripped) || ts.isFunctionExpression(stripped)) {
+	            if (!expectsCallback) return
+	            const anonId = addAnonFunc(stripped)
+	            recordEdge(anonId, 'cb:inline', getLoc(sf, stripped))
+	          } else if (ts.isObjectLiteralExpression(stripped)) {
+	            if (!expectsCallbackObject) return
+	            visitObjectLiteralArg(stripped, sf, addAnonFunc, recordEdge)
+	          }
+	        })
+	      }
 
       if (ts.isBinaryExpression(node) && ['=', '+=', '-=', '*=', '/=', '%='].includes(ts.tokenToString(node.operatorToken.kind) || '')) {
         const left = node.left
@@ -1963,12 +2361,17 @@ function analyzeFile(
 }
 
 function stableIdForFunction(file: string, name: string, node: ts.Node, sf: ts.SourceFile): string {
-  const text = node.getText(sf)
+  let printed = ''
+  try {
+    printed = stableIdPrinter.printNode(ts.EmitHint.Unspecified, node, sf)
+  } catch {
+    printed = node.getText(sf)
+  }
   const digest = crypto
     .createHash('sha1')
     .update(file).update('\0')
     .update(name).update('\0')
-    .update(text)
+    .update(printed)
     .digest('hex')
     .slice(0, 12)
   return `${file}::${name}#${digest}`
@@ -2372,6 +2775,713 @@ function emitDomSuiteArtifacts() {
   fs.writeFileSync(path.join(outDir, 'domsuite_handlers.json'), JSON.stringify({ handlers: handlersPayload }, null, 2))
 }
 
+type BriefContext = {
+  opts: CliOptions
+  appliedPresets: string[]
+  entryCandidates: string[]
+  importGraph: ImportGraph
+  fanIn: FanMap
+  fanOut: FanMap
+  funcs: FunctionInfo[]
+  edges: CallEdge[]
+  assumptions: Assumption[]
+}
+
+function buildBriefMd(ctx: BriefContext): string {
+  const { opts, appliedPresets, entryCandidates, importGraph, fanIn, fanOut, funcs, edges, assumptions } = ctx
+  const areas = [
+    { key: 'src', prefix: 'src/' },
+    { key: 'core', prefix: 'core/' },
+    { key: 'bff', prefix: 'bff/' },
+    { key: 'SenseiMobile', prefix: 'SenseiMobile/' },
+    { key: 'server', prefix: 'server/' },
+    { key: 'scripts', prefix: 'scripts/' }
+  ]
+
+  const areaOf = (file: string): string => {
+    if (!file) return 'other'
+    if (file.startsWith('global::') || file === 'global::') return 'global'
+    if (file === '<synthetic>') return 'synthetic'
+    for (const a of areas) {
+      if (file.startsWith(a.prefix)) return a.key
+    }
+    if (file.startsWith('tmp/')) return 'tmp'
+    return 'other'
+  }
+
+  const fileFromStable = (stable: string | undefined): string | null => {
+    if (!stable) return null
+    if (stable.startsWith('global::')) return 'global::'
+    const idx = stable.indexOf('::')
+    if (idx <= 0) return null
+    return stable.slice(0, idx)
+  }
+
+  const inc = (m: Map<string, number>, k: string, by = 1) => {
+    m.set(k, (m.get(k) || 0) + by)
+  }
+
+  const inc2 = (m: Map<string, Map<string, number>>, a: string, b: string, by = 1) => {
+    if (!m.has(a)) m.set(a, new Map())
+    const row = m.get(a)!
+    row.set(b, (row.get(b) || 0) + by)
+  }
+
+  const allAreas = ['src', 'core', 'bff', 'SenseiMobile', 'server', 'scripts', 'global', 'synthetic', 'tmp', 'other']
+
+  const fileAreas = new Map<string, string>()
+  for (const f of Object.keys(importGraph)) fileAreas.set(f, areaOf(f))
+
+  const areaFileCount = new Map<string, number>()
+  for (const a of fileAreas.values()) inc(areaFileCount, a)
+
+  const areaFuncCount = new Map<string, number>()
+  const areaExportCount = new Map<string, number>()
+  const areaAssumptionCount = new Map<string, number>()
+  const sideEffectsByArea = new Map<string, Map<string, number>>()
+
+  for (const fn of funcs) {
+    const a = areaOf(fn.file)
+    inc(areaFuncCount, a)
+    if (fn.export) inc(areaExportCount, a)
+    if (fn.sideEffects && fn.sideEffects.length) {
+      if (!sideEffectsByArea.has(a)) sideEffectsByArea.set(a, new Map())
+      const seMap = sideEffectsByArea.get(a)!
+      for (const se of fn.sideEffects) {
+        const kind = se.kind || 'unknown'
+        seMap.set(kind, (seMap.get(kind) || 0) + 1)
+      }
+    }
+  }
+
+  for (const a of assumptions) {
+    const f = a.loc?.file
+    if (!f) continue
+    inc(areaAssumptionCount, areaOf(f))
+  }
+
+  const importAreaEdges = new Map<string, Map<string, number>>()
+  for (const [from, deps] of Object.entries(importGraph)) {
+    const fa = areaOf(from)
+    for (const dep of deps) {
+      const ta = areaOf(dep)
+      inc2(importAreaEdges, fa, ta)
+    }
+  }
+
+  const callAreaEdges = new Map<string, Map<string, number>>()
+  const globalTargets = new Map<string, number>()
+  const crossCallOutByFile = new Map<string, number>()
+  const globalCallOutByFile = new Map<string, number>()
+  const crossImportOutByFile = new Map<string, number>()
+
+  for (const e of edges) {
+    const fromFile = fileFromStable(e.fromStable || e.from)
+    const toFile = fileFromStable(e.toStable || e.to)
+    if (!fromFile || !toFile) continue
+    const fa = areaOf(fromFile)
+    const ta = areaOf(toFile)
+    inc2(callAreaEdges, fa, ta)
+    if (fa !== ta && fromFile !== 'global::' && fa !== 'global') {
+      if (ta === 'global') {
+        inc(globalCallOutByFile, fromFile)
+      } else {
+        inc(crossCallOutByFile, fromFile)
+      }
+    }
+    if (ta === 'global' && typeof (e.toStable || e.to) === 'string') {
+      const tgt = e.toStable || e.to
+      if (tgt) inc(globalTargets, tgt)
+    }
+  }
+
+  for (const [from, deps] of Object.entries(importGraph)) {
+    const fa = areaOf(from)
+    for (const dep of deps) {
+      const ta = areaOf(dep)
+      if (fa !== ta) inc(crossImportOutByFile, from)
+    }
+  }
+
+  const bridgeFiles: { file: string; score: number; callsOut: number; importsOut: number }[] = []
+  for (const f of new Set([...crossCallOutByFile.keys(), ...crossImportOutByFile.keys()])) {
+    const callsOut = crossCallOutByFile.get(f) || 0
+    const importsOut = crossImportOutByFile.get(f) || 0
+    const score = callsOut * 3 + importsOut
+    bridgeFiles.push({ file: f, score, callsOut, importsOut })
+  }
+  bridgeFiles.sort((a, b) => (b.score - a.score) || a.file.localeCompare(b.file))
+
+  const globalHeavyFiles = Array.from(globalCallOutByFile.entries())
+    .map(([file, n]) => ({ file, n }))
+    .sort((a, b) => (b.n - a.n) || a.file.localeCompare(b.file))
+
+  const stableToFn = new Map<string, FunctionInfo>()
+  for (const fn of funcs) stableToFn.set(fn.stableId, fn)
+
+  const exportedInboundCallers = new Map<string, Set<string>>()
+  for (const e of edges) {
+    const toStable = e.toStable
+    if (!toStable) continue
+    const target = stableToFn.get(toStable)
+    if (!target || !target.export) continue
+    const fromFile = fileFromStable(e.fromStable || e.from)
+    if (!fromFile) continue
+    if (!exportedInboundCallers.has(toStable)) exportedInboundCallers.set(toStable, new Set())
+    exportedInboundCallers.get(toStable)!.add(fromFile)
+  }
+
+  const exportedSurface = Array.from(exportedInboundCallers.entries())
+    .map(([stableId, callers]) => ({ stableId, callers: callers.size, fn: stableToFn.get(stableId)! }))
+    .sort((a, b) => (b.callers - a.callers) || a.stableId.localeCompare(b.stableId))
+
+  const assumptionsByFile = new Map<string, number>()
+  const assumptionsByStatement = new Map<string, number>()
+  for (const a of assumptions) {
+    const file = a.loc?.file || ''
+    if (file) inc(assumptionsByFile, file)
+    const stmt = a.statement || ''
+    if (stmt) inc(assumptionsByStatement, stmt)
+  }
+
+  const assumptionNoiseFnNames = new Set([
+    'useCallback',
+    'useContext',
+    'useDeferredValue',
+    'useEffect',
+    'useId',
+    'useImperativeHandle',
+    'useInsertionEffect',
+    'useLayoutEffect',
+    'useMemo',
+    'useReducer',
+    'useRef',
+    'useState',
+    'useSyncExternalStore',
+    'useTransition',
+    'vec'
+  ])
+  const assumptionsByStatementFiltered = new Map<string, number>()
+  let filteredAssumptionStatementCount = 0
+  for (const [stmt, n] of assumptionsByStatement.entries()) {
+    const m = stmt.match(/Invocation of global or external function '([^']+)'/)
+    const name = m && m[1] ? m[1] : ''
+    if (name && assumptionNoiseFnNames.has(name)) {
+      filteredAssumptionStatementCount += n
+      continue
+    }
+    assumptionsByStatementFiltered.set(stmt, n)
+  }
+
+  const topFanIn = Object.entries(fanIn).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  const topFanOut = Object.entries(fanOut).sort((a, b) => b[1] - a[1]).slice(0, 10)
+
+  const topSideEffectFuncs = funcs
+    .filter(f => f.sideEffects && f.sideEffects.length > 0)
+    .map(f => ({ fn: f, n: f.sideEffects.length }))
+    .sort((a, b) => (b.n - a.n) || a.fn.stableId.localeCompare(b.fn.stableId))
+    .slice(0, 15)
+
+  const byKind = (kind: string) =>
+    funcs
+      .filter(f => (f.sideEffects || []).some(se => se.kind === kind))
+      .map(f => ({ fn: f, n: (f.sideEffects || []).filter(se => se.kind === kind).length }))
+      .sort((a, b) => (b.n - a.n) || a.fn.stableId.localeCompare(b.fn.stableId))
+      .slice(0, 10)
+
+  const topNetwork = byKind('network')
+  const topFilesystem = byKind('filesystem')
+
+  const rows: string[] = []
+  rows.push('# Analyzer Brief')
+  rows.push('')
+  rows.push('## Run')
+  rows.push(`- TypeChecker: ${useTypeChecker ? 'enabled' : 'disabled'}`)
+  rows.push(`- Include: ${opts.include && opts.include.length ? opts.include.join(', ') : '(full)'}`)
+  rows.push(`- Presets: ${appliedPresets.length ? appliedPresets.join(', ') : '(none)'}`)
+  rows.push(`- DOM index: ${enableDomIndex ? 'on' : 'off'}`)
+  rows.push(`- Entry focus: ${opts.entry ? opts.entry : '(none)'}`)
+  rows.push('')
+  rows.push('## Entry Candidates')
+  for (const c of entryCandidates.slice(0, 10)) rows.push(`- ${c}`)
+  if (entryCandidates.length > 10) rows.push(`- … +${entryCandidates.length - 10} more`)
+  rows.push('')
+  rows.push('## Area Summary')
+  for (const a of allAreas) {
+    const files = areaFileCount.get(a) || 0
+    const fnc = areaFuncCount.get(a) || 0
+    const exp = areaExportCount.get(a) || 0
+    const ass = areaAssumptionCount.get(a) || 0
+    const seMap = sideEffectsByArea.get(a) || new Map()
+    const seTop = Array.from(seMap.entries()).sort((x, y) => y[1] - x[1]).slice(0, 3)
+    const seText = seTop.length ? seTop.map(([k, v]) => `${k}:${v}`).join(', ') : ''
+    rows.push(`- ${a}: files ${files}, funcs ${fnc}, exports ${exp}, assumptions ${ass}${seText ? `, sideEffects ${seText}` : ''}`)
+  }
+  rows.push('')
+  rows.push('## Top Fan-In Files')
+  for (const [f, n] of topFanIn) rows.push(`- ${f} (${n})`)
+  rows.push('')
+  rows.push('## Top Fan-Out Files')
+  for (const [f, n] of topFanOut) rows.push(`- ${f} (${n})`)
+  rows.push('')
+  rows.push('## Bridge Files (Cross-Area Out, excluding global)')
+  for (const b of bridgeFiles.slice(0, 10)) {
+    rows.push(`- ${b.file} (score ${b.score}, callsOut ${b.callsOut}, importsOut ${b.importsOut})`)
+  }
+  if (bridgeFiles.length > 10) rows.push(`- … +${bridgeFiles.length - 10} more`)
+  rows.push('')
+  rows.push('## Cross-Area Imports (Top 10, excluding same-area)')
+  const crossImportPairs: { from: string; to: string; n: number }[] = []
+  for (const [fa, row] of importAreaEdges.entries()) {
+    for (const [ta, n] of row.entries()) {
+      if (fa === ta) continue
+      crossImportPairs.push({ from: fa, to: ta, n })
+    }
+  }
+  crossImportPairs.sort((a, b) => (b.n - a.n) || `${a.from}->${a.to}`.localeCompare(`${b.from}->${b.to}`))
+  for (const p of crossImportPairs.slice(0, 10)) rows.push(`- ${p.from} -> ${p.to}: ${p.n}`)
+  if (crossImportPairs.length > 10) rows.push(`- … +${crossImportPairs.length - 10} more`)
+  rows.push('')
+  rows.push('## Cross-Area Calls (Top 10, excluding global)')
+  const crossCallPairs: { from: string; to: string; n: number }[] = []
+  for (const [fa, row] of callAreaEdges.entries()) {
+    for (const [ta, n] of row.entries()) {
+      if (fa === ta) continue
+      if (fa === 'global' || ta === 'global') continue
+      crossCallPairs.push({ from: fa, to: ta, n })
+    }
+  }
+  crossCallPairs.sort((a, b) => (b.n - a.n) || `${a.from}->${a.to}`.localeCompare(`${b.from}->${b.to}`))
+  for (const p of crossCallPairs.slice(0, 10)) rows.push(`- ${p.from} -> ${p.to}: ${p.n}`)
+  if (crossCallPairs.length > 10) rows.push(`- … +${crossCallPairs.length - 10} more`)
+  rows.push('')
+  rows.push('## Global-Heavy Files (Call Edges Into global::*)')
+  for (const item of globalHeavyFiles.slice(0, 10)) rows.push(`- ${item.file} (${item.n})`)
+  if (globalHeavyFiles.length > 10) rows.push(`- … +${globalHeavyFiles.length - 10} more`)
+  rows.push('')
+  rows.push('## Global Interactions (Top 10 call targets)')
+  const globalTop = Array.from(globalTargets.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  for (const [t, n] of globalTop) rows.push(`- ${t} (${n})`)
+  rows.push('')
+  rows.push('## Public API Surface (Top 20 exports by distinct callers)')
+  for (const item of exportedSurface.slice(0, 20)) {
+    const loc = `${item.fn.file}:${item.fn.startLine}`
+    rows.push(`- ${loc} (${item.callers} callers) ${item.stableId}`)
+  }
+  if (exportedSurface.length > 20) rows.push(`- … +${exportedSurface.length - 20} more`)
+  rows.push('')
+  rows.push('## Risk Hotspots (Top 15 functions by sideEffect count)')
+  for (const item of topSideEffectFuncs) {
+    const loc = `${item.fn.file}:${item.fn.startLine}`
+    const kinds = Array.from(new Set((item.fn.sideEffects || []).map(se => se.kind))).slice(0, 5).join(', ')
+    rows.push(`- ${loc} (${item.n} effects: ${kinds}) ${item.fn.stableId}`)
+  }
+  rows.push('')
+  rows.push('## Network Hotspots (Top 10)')
+  for (const item of topNetwork) {
+    rows.push(`- ${item.fn.file}:${item.fn.startLine} (${item.n}) ${item.fn.stableId}`)
+  }
+  rows.push('')
+  rows.push('## Filesystem Hotspots (Top 10)')
+  for (const item of topFilesystem) {
+    rows.push(`- ${item.fn.file}:${item.fn.startLine} (${item.n}) ${item.fn.stableId}`)
+  }
+  rows.push('')
+  rows.push('## Assumptions (Unlinked / External Calls)')
+  const topAssumpFiles = Array.from(assumptionsByFile.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  for (const [f, n] of topAssumpFiles) rows.push(`- ${f} (${n})`)
+  if (assumptionsByFile.size > 10) rows.push(`- … +${assumptionsByFile.size - 10} more`)
+  rows.push('')
+  rows.push('### Top Assumption Statements (Filtered, Top 20)')
+  if (filteredAssumptionStatementCount > 0) rows.push(`- (filtered out ${filteredAssumptionStatementCount} known framework calls)`)
+  const topAssumpStmts = Array.from(assumptionsByStatementFiltered.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20)
+  for (const [s, n] of topAssumpStmts) rows.push(`- (${n}) ${s}`)
+  if (assumptionsByStatementFiltered.size > 20) rows.push(`- … +${assumptionsByStatementFiltered.size - 20} more`)
+  rows.push('')
+  rows.push('### Top Assumption Statements (Unfiltered, Top 10)')
+  const topAssumpStmtsUnfiltered = Array.from(assumptionsByStatement.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  for (const [s, n] of topAssumpStmtsUnfiltered) rows.push(`- (${n}) ${s}`)
+  if (assumptionsByStatement.size > 10) rows.push(`- … +${assumptionsByStatement.size - 10} more`)
+  rows.push('')
+
+  return rows.join('\n')
+}
+
+function buildBriefJson(ctx: BriefContext): unknown {
+  const { opts, appliedPresets, entryCandidates, importGraph, fanIn, fanOut, funcs, edges, assumptions } = ctx
+  const areas = [
+    { key: 'src', prefix: 'src/' },
+    { key: 'core', prefix: 'core/' },
+    { key: 'bff', prefix: 'bff/' },
+    { key: 'SenseiMobile', prefix: 'SenseiMobile/' },
+    { key: 'server', prefix: 'server/' },
+    { key: 'scripts', prefix: 'scripts/' }
+  ]
+
+  const areaOf = (file: string): string => {
+    if (!file) return 'other'
+    if (file.startsWith('global::') || file === 'global::') return 'global'
+    if (file === '<synthetic>') return 'synthetic'
+    for (const a of areas) {
+      if (file.startsWith(a.prefix)) return a.key
+    }
+    if (file.startsWith('tmp/')) return 'tmp'
+    return 'other'
+  }
+
+  const fileFromStable = (stable: string | undefined): string | null => {
+    if (!stable) return null
+    if (stable.startsWith('global::')) return 'global::'
+    const idx = stable.indexOf('::')
+    if (idx <= 0) return null
+    return stable.slice(0, idx)
+  }
+
+  const inc = (m: Map<string, number>, k: string, by = 1) => {
+    m.set(k, (m.get(k) || 0) + by)
+  }
+
+  const inByTargetStable = new Map<string, Map<string, number>>()
+  const outBySourceStable = new Map<string, Map<string, number>>()
+  const ensureRow = (m: Map<string, Map<string, number>>, k: string) => {
+    if (!m.has(k)) m.set(k, new Map())
+    return m.get(k)!
+  }
+  for (const e of edges) {
+    const fromStable = e.fromStable
+    const toStable = e.toStable
+    if (fromStable && toStable) {
+      const outRow = ensureRow(outBySourceStable, fromStable)
+      outRow.set(toStable, (outRow.get(toStable) || 0) + 1)
+      const inRow = ensureRow(inByTargetStable, toStable)
+      inRow.set(fromStable, (inRow.get(fromStable) || 0) + 1)
+    }
+  }
+
+  const stableToFn = new Map<string, FunctionInfo>()
+  for (const fn of funcs) stableToFn.set(fn.stableId, fn)
+
+  const topRiskHotspots = funcs
+    .filter(f => f.sideEffects && f.sideEffects.length > 0)
+    .map(f => ({ stableId: f.stableId, sideEffectsCount: f.sideEffects.length, fn: f }))
+    .sort((a, b) => (b.sideEffectsCount - a.sideEffectsCount) || a.stableId.localeCompare(b.stableId))
+    .slice(0, 10)
+
+  const hotspotNeighborhoods = topRiskHotspots.map(h => {
+    const file = h.fn.file
+    const area = areaOf(file)
+    const callersRow = inByTargetStable.get(h.stableId) || new Map()
+    const calleesRow = outBySourceStable.get(h.stableId) || new Map()
+
+    const callerFiles = new Map<string, { file: string; area: string; calls: number; distinctCallerFunctions: number }>()
+    const callerFileFns = new Map<string, Set<string>>()
+    const callerAreas = new Map<string, number>()
+    let crossAreaInCalls = 0
+    for (const [callerStable, n] of callersRow.entries()) {
+      const callerFile = fileFromStable(callerStable)
+      if (!callerFile) continue
+      const callerArea = areaOf(callerFile)
+      inc(callerAreas, callerArea, n)
+      if (callerArea !== area && callerArea !== 'global') crossAreaInCalls += n
+      if (!callerFileFns.has(callerFile)) callerFileFns.set(callerFile, new Set())
+      callerFileFns.get(callerFile)!.add(callerStable)
+      if (!callerFiles.has(callerFile)) callerFiles.set(callerFile, { file: callerFile, area: callerArea, calls: 0, distinctCallerFunctions: 0 })
+      callerFiles.get(callerFile)!.calls += n
+    }
+    for (const [callerFile, fns] of callerFileFns.entries()) {
+      if (callerFiles.has(callerFile)) callerFiles.get(callerFile)!.distinctCallerFunctions = fns.size
+    }
+
+    const callees = new Map<
+      string,
+      { stableId: string; file: string | null; area: string; startLine: number | null; export: boolean | null; calls: number }
+    >()
+    let crossAreaOutCalls = 0
+    let globalOutCalls = 0
+    let sameAreaOutCalls = 0
+    for (const [calleeStable, n] of calleesRow.entries()) {
+      const calleeFile = fileFromStable(calleeStable)
+      const calleeArea = calleeFile ? areaOf(calleeFile) : 'other'
+      if (calleeArea === 'global') globalOutCalls += n
+      else if (calleeArea === area) sameAreaOutCalls += n
+      else crossAreaOutCalls += n
+      const calleeFn = stableToFn.get(calleeStable)
+      if (!callees.has(calleeStable)) {
+        callees.set(calleeStable, {
+          stableId: calleeStable,
+          file: calleeFn?.file ?? calleeFile,
+          area: calleeFn ? areaOf(calleeFn.file) : calleeArea,
+          startLine: calleeFn?.startLine ?? null,
+          export: typeof calleeFn?.export === 'boolean' ? calleeFn.export : null,
+          calls: 0
+        })
+      }
+      callees.get(calleeStable)!.calls += n
+    }
+
+    const callerFilesTop = Array.from(callerFiles.values()).sort((a, b) => (b.calls - a.calls) || a.file.localeCompare(b.file)).slice(0, 5)
+    const callerAreasTop = Array.from(callerAreas.entries())
+      .map(([k, v]) => ({ area: k, calls: v }))
+      .sort((a, b) => (b.calls - a.calls) || a.area.localeCompare(b.area))
+      .slice(0, 5)
+    const calleesTop = Array.from(callees.values()).sort((a, b) => (b.calls - a.calls) || a.stableId.localeCompare(b.stableId)).slice(0, 5)
+
+    const sideEffectsByKind = new Map<string, number>()
+    for (const se of h.fn.sideEffects || []) {
+      inc(sideEffectsByKind, se.kind || 'unknown', 1)
+    }
+
+	    const stateWriteMap = new Map<string, number>()
+	    const stateWriteRoots = new Map<string, Map<string, number>>()
+	    const rootOf = (detail: string): string => {
+	      const trimmed = detail.trim()
+	      if (!trimmed) return detail
+	      const parts = trimmed.split(/[\.\[\(]/).filter(Boolean)
+	      const first = parts.length ? parts[0]! : trimmed
+	      if (first === 'this' && parts.length >= 2) {
+	        const second = parts[1] || ''
+	        if (second) return `this.${second}`
+	      }
+	      const token = first.match(/[A-Za-z_$][A-Za-z0-9_$]*/)?.[0]
+	      if (token) return token
+	      const fallback = trimmed.match(/[A-Za-z_$][A-Za-z0-9_$]*/)?.[0]
+	      return fallback || trimmed
+	    }
+	    for (const se of h.fn.sideEffects || []) {
+	      if (se.kind !== 'state-write') continue
+	      const detail = se.detail || ''
+      if (!detail) continue
+      inc(stateWriteMap, detail)
+      const root = rootOf(detail)
+      if (!stateWriteRoots.has(root)) stateWriteRoots.set(root, new Map())
+      const row = stateWriteRoots.get(root)!
+      row.set(detail, (row.get(detail) || 0) + 1)
+    }
+    const mutationRoots = Array.from(stateWriteRoots.entries())
+      .map(([root, row]) => {
+        const paths = Array.from(row.entries())
+          .map(([pathText, count]) => ({ path: pathText, count }))
+          .sort((a, b) => (b.count - a.count) || a.path.localeCompare(b.path))
+          .slice(0, 10)
+        const writes = Array.from(row.values()).reduce((a, b) => a + b, 0)
+        return { root, writes, topPaths: paths }
+      })
+      .sort((a, b) => (b.writes - a.writes) || a.root.localeCompare(b.root))
+
+    return {
+      stableId: h.stableId,
+      file,
+      startLine: h.fn.startLine,
+      area,
+      export: h.fn.export,
+      sideEffectsCount: h.sideEffectsCount,
+      sideEffectsByKind: Object.fromEntries(Array.from(sideEffectsByKind.entries()).sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))),
+      neighborhood: {
+        callersTopFiles: callerFilesTop,
+        callersTopAreas: callerAreasTop,
+        calleesTop,
+        crossAreaInCalls,
+        crossAreaOutCalls,
+        sameAreaOutCalls,
+        globalOutCalls
+      },
+      mutationMap: {
+        totalStateWrites: Array.from(stateWriteMap.values()).reduce((a, b) => a + b, 0),
+        roots: mutationRoots
+      }
+    }
+  })
+
+  const boundaryTargets = new Map<
+    string,
+    { totalCalls: number; callerFiles: Map<string, number>; callerAreas: Map<string, number>; callerFilesSet: Set<string> }
+  >()
+  for (const e of edges) {
+    const fromStable = e.fromStable
+    const toStable = e.toStable
+    if (!fromStable || !toStable) continue
+    const fromFile = fileFromStable(fromStable)
+    const toFile = fileFromStable(toStable)
+    if (!fromFile || !toFile) continue
+    const fa = areaOf(fromFile)
+    const ta = areaOf(toFile)
+    if (fa === ta) continue
+    if (fa === 'global' || ta === 'global') continue
+    if (!boundaryTargets.has(toStable)) {
+      boundaryTargets.set(toStable, { totalCalls: 0, callerFiles: new Map(), callerAreas: new Map(), callerFilesSet: new Set() })
+    }
+    const rec = boundaryTargets.get(toStable)!
+    rec.totalCalls += 1
+    rec.callerFiles.set(fromFile, (rec.callerFiles.get(fromFile) || 0) + 1)
+    rec.callerAreas.set(fa, (rec.callerAreas.get(fa) || 0) + 1)
+    rec.callerFilesSet.add(fromFile)
+  }
+
+  const boundaryApis = Array.from(boundaryTargets.entries())
+    .map(([targetStableId, rec]) => {
+      const fn = stableToFn.get(targetStableId)
+      const file = fn?.file ?? fileFromStable(targetStableId)
+      const startLine = fn?.startLine ?? null
+      const area = file ? areaOf(file) : 'other'
+      const topCallerFiles = Array.from(rec.callerFiles.entries())
+        .map(([f, n]) => ({ file: f, area: areaOf(f), calls: n }))
+        .sort((a, b) => (b.calls - a.calls) || a.file.localeCompare(b.file))
+        .slice(0, 10)
+      const callerAreas = Object.fromEntries(Array.from(rec.callerAreas.entries()).sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0])))
+      return {
+        targetStableId,
+        file,
+        startLine,
+        area,
+        export: typeof fn?.export === 'boolean' ? fn.export : null,
+        totalCalls: rec.totalCalls,
+        distinctCallerFiles: rec.callerFilesSet.size,
+        callerAreas,
+        topCallerFiles
+      }
+    })
+    .sort((a, b) => (b.distinctCallerFiles - a.distinctCallerFiles) || (b.totalCalls - a.totalCalls) || a.targetStableId.localeCompare(b.targetStableId))
+    .slice(0, 20)
+
+  const fileAgg = new Map<
+    string,
+    { file: string; area: string; functionCount: number; sideEffectsTotal: number; sideEffectsByKind: Map<string, number> }
+  >()
+  for (const fn of funcs) {
+    const file = fn.file
+    if (!fileAgg.has(file)) fileAgg.set(file, { file, area: areaOf(file), functionCount: 0, sideEffectsTotal: 0, sideEffectsByKind: new Map() })
+    const rec = fileAgg.get(file)!
+    rec.functionCount += 1
+    const ses = fn.sideEffects || []
+    rec.sideEffectsTotal += ses.length
+    for (const se of ses) {
+      const kind = se.kind || 'unknown'
+      rec.sideEffectsByKind.set(kind, (rec.sideEffectsByKind.get(kind) || 0) + 1)
+    }
+  }
+
+  const kindWeights = new Map<string, number>([
+    ['network', 5],
+    ['filesystem', 5],
+    ['state-write', 1],
+    ['dom', 1],
+    ['timer', 1]
+  ])
+  const filesForRisk = new Set<string>([...Object.keys(importGraph), ...fileAgg.keys()])
+  const changeRiskIndex = Array.from(filesForRisk.values())
+    .map(file => {
+      const agg = fileAgg.get(file) || { file, area: areaOf(file), functionCount: 0, sideEffectsTotal: 0, sideEffectsByKind: new Map<string, number>() }
+      const fanInCount = fanIn[file] || 0
+      const fanOutCount = fanOut[file] || 0
+      let weighted = 0
+      for (const [kind, count] of agg.sideEffectsByKind.entries()) {
+        weighted += (kindWeights.get(kind) || 0.5) * count
+      }
+      const density = agg.functionCount > 0 ? weighted / agg.functionCount : 0
+      const score = (fanInCount + 1) * density
+      const sideEffectsByKind = Object.fromEntries(Array.from(agg.sideEffectsByKind.entries()).sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0])))
+      return {
+        file,
+        area: agg.area,
+        fanIn: fanInCount,
+        fanOut: fanOutCount,
+        functionCount: agg.functionCount,
+        sideEffectsTotal: agg.sideEffectsTotal,
+        sideEffectsByKind,
+        weightedSideEffectDensity: Number(density.toFixed(4)),
+        score: Number(score.toFixed(4))
+      }
+    })
+    .sort((a, b) => (b.score - a.score) || (b.fanIn - a.fanIn) || a.file.localeCompare(b.file))
+    .slice(0, 30)
+
+  const assumptionsByFile = new Map<string, number>()
+  const assumptionsByStatement = new Map<string, number>()
+  for (const a of assumptions) {
+    const file = a.loc?.file || ''
+    if (file) inc(assumptionsByFile, file)
+    const stmt = a.statement || ''
+    if (stmt) inc(assumptionsByStatement, stmt)
+  }
+
+  const assumptionNoiseFnNames = new Set([
+    'useCallback',
+    'useContext',
+    'useDeferredValue',
+    'useEffect',
+    'useId',
+    'useImperativeHandle',
+    'useInsertionEffect',
+    'useLayoutEffect',
+    'useMemo',
+    'useReducer',
+    'useRef',
+    'useState',
+    'useSyncExternalStore',
+    'useTransition',
+    'vec'
+  ])
+  const assumptionsByStatementFiltered = new Map<string, number>()
+  let filteredAssumptionStatementCount = 0
+  for (const [stmt, n] of assumptionsByStatement.entries()) {
+    const m = stmt.match(/Invocation of global or external function '([^']+)'/)
+    const name = m && m[1] ? m[1] : ''
+    if (name && assumptionNoiseFnNames.has(name)) {
+      filteredAssumptionStatementCount += n
+      continue
+    }
+    assumptionsByStatementFiltered.set(stmt, n)
+  }
+
+  const assumptionsTopFiles = Array.from(assumptionsByFile.entries())
+    .map(([file, count]) => ({ file, area: areaOf(file), count }))
+    .sort((a, b) => (b.count - a.count) || a.file.localeCompare(b.file))
+    .slice(0, 20)
+  const assumptionsTopStatementsFiltered = Array.from(assumptionsByStatementFiltered.entries())
+    .map(([statement, count]) => ({ statement, count }))
+    .sort((a, b) => (b.count - a.count) || a.statement.localeCompare(b.statement))
+    .slice(0, 50)
+  const assumptionsTopStatementsUnfiltered = Array.from(assumptionsByStatement.entries())
+    .map(([statement, count]) => ({ statement, count }))
+    .sort((a, b) => (b.count - a.count) || a.statement.localeCompare(b.statement))
+    .slice(0, 20)
+
+  return {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    run: {
+      typeChecker: useTypeChecker,
+      include: opts.include && opts.include.length ? opts.include : [],
+      presets: appliedPresets,
+      domIndex: enableDomIndex,
+      entryFocus: opts.entry || null
+    },
+    counts: {
+      entryCandidates: entryCandidates.length,
+      files: Object.keys(importGraph).length,
+      functions: funcs.length,
+      callEdges: edges.length,
+      assumptions: assumptions.length
+    },
+    hotspotNeighborhoods: {
+      risk: hotspotNeighborhoods
+    },
+    boundaryApis: boundaryApis,
+    changeRiskIndex: changeRiskIndex,
+    assumptionTriage: {
+      topFiles: assumptionsTopFiles,
+      filtered: {
+        filteredOutCount: filteredAssumptionStatementCount,
+        noiseFunctionNames: Array.from(assumptionNoiseFnNames.values()).sort((a, b) => a.localeCompare(b)),
+        topStatements: assumptionsTopStatementsFiltered
+      },
+      unfiltered: {
+        topStatements: assumptionsTopStatementsUnfiltered
+      }
+    }
+  }
+}
+
 function main() {
   ensureDir(outDir)
   const opts = parseArgs(process.argv.slice(2))
@@ -2453,6 +3563,14 @@ function main() {
   fs.writeFileSync(path.join(outDir, 'calls.json'), JSON.stringify(edges, null, 2))
   fs.writeFileSync(path.join(outDir, 'assumptions.json'), JSON.stringify(assumptions, null, 2))
   fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2))
+  fs.writeFileSync(
+    path.join(outDir, 'brief.md'),
+    buildBriefMd({ opts, appliedPresets, entryCandidates, importGraph, fanIn, fanOut, funcs, edges, assumptions })
+  )
+  fs.writeFileSync(
+    path.join(outDir, 'brief.json'),
+    JSON.stringify(buildBriefJson({ opts, appliedPresets, entryCandidates, importGraph, fanIn, fanOut, funcs, edges, assumptions }), null, 2) + '\n'
+  )
   const crosswalk = funcs.map(f => ({ id: f.id, stableId: f.stableId, file: f.file, name: f.name, startLine: f.startLine, startCol: f.startCol }))
   fs.writeFileSync(path.join(outDir, 'function_crosswalk.json'), JSON.stringify({ functions: crosswalk }, null, 2))
 
