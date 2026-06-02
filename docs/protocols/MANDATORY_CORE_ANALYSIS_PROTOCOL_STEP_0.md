@@ -9,14 +9,21 @@
         **Action:** Upon triggering any major protocol, perform a comprehensive core analysis—executing the required scopes sequentially BY USING ANALYZE TOOL to deliver EXTENSIVE MISSION STATE REPORT.
     </trigger>
     <steps>
-        <step number="0.5">
+        <step number="1">
             **Run Analyzer Snapshot:**
             *   Execute `npm run analysis:run` to refresh `tmp/analysis/*.json|.txt` artifacts. Re-run whenever the investigation scope changes.
             *   If analyzing a specific scenario (e.g., "user sends a message"), produce a focused trace: `npm run analysis:run -- --entry <file::func> --maxDepth <N>` `--preset <slug>` (e.g., `--preset curriculum`, `--preset ui-rendering`).
             *   For UI/DOM-focused missions, add `--dom-index` and plan to tap `domsuite_index.json`, `domsuite_templates.json`, and `domsuite_handlers.json` alongside your reasoning about selectors/events.
             *   When resuming an ongoing mission, rerun the analyzer and compare the new `summary.txt`/fan-in/out metrics against the mission-state snapshot to spot drift; log any differences in the renewed mission-state notes before proceeding.
         </step>
-        <step number="1">
+        <step number="2">
+            **Review Brief:**
+            *   You MUST open and read `tmp/analysis/brief.md` end-to-end as the first-pass map of the snapshot (areas, hotspots, bridge files, and cross-area edges).
+            *   You MUST use `tmp/analysis/brief.json` for structured drilldowns (hotspot neighborhoods, boundary APIs, change-risk index, mutation maps, and assumption triage) via `jq` before manually scanning `calls.json`/`functions.json`.
+            *   Use the brief to select the starting area/files and to seed your "Hot Modules" list before drilling into `summary.txt`, `imports.json`, `calls.json`, and `functions.json`.
+            *   Record the chosen entry candidates and any immediate risks/hypotheses surfaced by the brief in the mission-state notes.
+        </step>
+        <step number="3">
             **Identify Entry Point & Scope:**
             *   Based on the user's request, identify the initial entry point of the feature or the location of the bug (from tool artifacts).
             *   Use `tmp/analysis/summary.txt` (entry candidates, fan-in/out) and `imports.json` to jump-start the scope list.
@@ -24,14 +31,14 @@
             *   Ensure you capture broader system context connecting to focus area.
             *   Derive a "Hot Modules" list from Top fan-in/out to prioritize review and testing.
         </step>
-        <step number="2">
+        <step number="4">
             **Static Execution Trace:**
             *   Harvest call edges (`tmp/analysis/calls.json` or `focused_trace.txt`) and side-effect facts (`tmp/analysis/functions.json`) to populate the static execution trace for ALL entry points and risk register.
             *   USER VARIOUS RG CALL COMBINATIONS TO DISCOVER DIFFERENT CASES
             *   Document the reconciled sequence in the Static Execution Trace artifact so downstream validation knows exactly which functions must be covered.
             *   If a focused trace was generated, attach `focused_trace.txt` and use it as the baseline for downstream validation and test coverage.
         </step>
-        <step number="3">
+        <step number="5">
             **Dependency and Side-Effect Analysis:**
             *   For each function in the trace, create a **Dependency and Side-Effect (DSE) Table**. This table MUST include:
                 *   **Function Name:** The name of the function.
@@ -43,24 +50,24 @@
                 *   Impact risk (Low/Medium/High)
                 *   Verification plan (specific test/measure/log to confirm or refute)
                 *   Owner and target time
-            *   **Gate**: Do not proceed to Step 4 until all High‑impact items have an explicit verification plan.
+            *   **Gate**: Do not proceed to Step 7 until all High‑impact items have an explicit verification plan.
             *   Action Item: Build the dependency and side-effect table for all functions identified in the static execution trace.
             *   Deliverables for downstream protocols:
                 - **Risk Register**: extract all High-cost/High-blast side effects with owning function and file.
                 - **Coverage Checklist**: the list of function IDs from the (focused) Static Execution Trace to be validated by logs/tests during Implementation Step 10.
         </step>
-        <step number="3.5">
+        <step number="6">
             **Ground Analysis in Source Files:**
             *   For every function listed in the Static Execution Trace, open the corresponding source file and read the implementation in context. Use tools such as `sed -n '<start>,<end>p' <file>` or `rg -n "<functionName>" <file>` (followed by `sed`) to inspect the exact code block.
             *   While reviewing, confirm the call sequence, data mutations, guard conditions, and logging so your mental model matches the real code (not just analyzer output).
-            *   Capture any surprises or uncertainties discovered during this source scan in the Unknowns Register (Step 3). Update dependencies/side-effect notes if your direct inspection reveals additional behavior.
-            *   Do not advance to Step 4 until you have personally inspected every function in the trace.
+            *   Capture any surprises or uncertainties discovered during this source scan in the Unknowns Register (Step 5). Update dependencies/side-effect notes if your direct inspection reveals additional behavior.
+            *   Do not advance to Step 7 until you have personally inspected every function in the trace.
         </step>
-        <step number="4">
+        <step number="7">
             **Declare Initial Understanding:**
             *   Conclude by stating: "Core analysis complete. I have mapped the execution trace and identified all dependencies and side effects. I am now ready to proceed with the `[Name of Triggering Protocol]`."
         </step>
-        <step number="5">
+        <step number="8">
             **Context Checkpoint System**:
             *   **Action**: Create a comprehensive mission state checkpoint by documenting:
                 *   Current analysis scope and entry points identified
@@ -75,13 +82,13 @@
             *   **Action**: Ensure `<descriptive_title>` is a concise, human-readable slug (e.g., `socratic_reload_buttons_bug`) that communicates the mission focus without relying on the timestamp alone.
             *   **Action**: Ensure this context is preserved for the triggering protocol execution.
         </step>
-        <step number="6">
+        <step number="9">
             **Clarify Mission Objectives**
-            *   **Action**: Immediately after Step 5, engage the user with clarifying questions until the feature or bug request objectives, constraints, and acceptance signals are explicit.
+            *   **Action**: Immediately after Step 8, engage the user with clarifying questions until the feature or bug request objectives, constraints, and acceptance signals are explicit.
             *   **Action**: Base each question on the findings from the completed core analysis to keep the dialogue grounded in the system's current state.
             *   **Action**: Record the clarified scope in the mission notes before proceeding to any subsequent protocol.
         </step>
-        <step number="7">
+        <step number="10">
             **Decide What Protocol to Follow**
             *   **Action**: Analyze the nature of the request and determine the appropriate protocol to follow:
                 * **COMPREHENSIVE IMPACT ANALYSIS PROTOCOL**

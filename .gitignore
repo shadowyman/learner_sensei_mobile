@@ -22,6 +22,7 @@ logs/
 .scannerwork/
 .eslintcache
 *.tsbuildinfo
+.codex/config.toml
 
 # WebView bundle outputs (generated via `npm run webview:bundle`)
 SenseiMobile/app_web/webview_dist/

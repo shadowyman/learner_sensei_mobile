@@ -145,6 +145,8 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
             </options>
             <artifacts>
                 - `summary.json`: JSON summary with `entryCandidates`, `topFanIn`, `topFanOut`, and `functionCount`; confirm analyzer scope and surface unexpected fan-in/out spikes.
+                - `brief.md`: Human-readable first-pass map of the snapshot; read this first to orient (areas, fan-in/out hotspots, bridge files, risk hotspots, and cross-area edges) before drilling into the JSON artifacts.
+                - `brief.json`: Structured “answers layer” for advanced queries via `jq` (hotspot neighborhoods, boundary APIs, change-risk index, mutation maps, and assumption triage) without scanning `calls.json`/`functions.json`.
                 - `imports.json`: Mapping of file → imported files (relative paths only); map module dependencies before reasoning about cross-file impacts.
                 - `fan_in.json`: Fan-in counts per file derived from imports; prioritize regression testing for heavy inbound dependencies.
                 - `fan_out.json`: Fan-out counts per file; identify orchestrators likely to propagate side effects.
@@ -162,9 +164,9 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
                 - Include matching uses substring checks on project-relative paths (for example `src/ui/`); globbing is not supported.
                 - Entry matching relies on `file::name` prefixes; no `@pos` or `#Lline` syntax is required.
                 - Default depth is 6 and only affects focused traces.
-                - Import graph scope covers relative imports; package imports are excluded from `imports.json`.
+                - Import graph scope covers relative imports; package imports are excluded from `imports.json` unless they resolve to in-repo workspace sources (for example `@sensei/core/*`).
                 - Stable IDs follow the format `file::name#L<startLine>`; line movement changes anchors.
-                - Console output prints the path to `summary.txt` and, when `--entry` is set, the path to `focused_trace.txt`.
+                - Console output prints the path to `summary.txt` and, when `--entry` is set, the path to `focused_trace.txt`; the run also emits `brief.md` (read first) and `brief.json` (use `jq` for structured drilldowns).
             </semantics>
             <dom_suite_details>
                 - HTML strings containing `<...>` generate selector definitions (for example `id="x"` → `#x`, `class="a b"` → `.a`, `.b`).
@@ -173,7 +175,7 @@ CRITICAL: YOU MUST READ RESPECTIVE PROTOCOL'S DOCUMENTATION BEFORE BEGINNING THA
                 - Handler records include the event name, handler reference or inline location, delegation flag/selectors, and inferred receiver metadata when available.
             </dom_suite_details>
             <examples>
-                - Full snapshot: `npm run analysis:run && cat tmp/analysis/summary.txt`
+                - Full snapshot: `npm run analysis:run && cat tmp/analysis/brief.md && jq '.hotspotNeighborhoods.risk[0]' tmp/analysis/brief.json && cat tmp/analysis/summary.txt`
                 - Scope to UI shell: `npm run analysis:run -- --include index.tsx,ui.ts`
                 - Focused trace (depth 4): `npm run analysis:run -- --entry index.tsx::handleUserInput --maxDepth 4`
                 - Combined scope + trace: `npm run analysis:run -- --include index.tsx,interactionHelpers.ts --entry index.tsx::handleUserInput --maxDepth 4`
