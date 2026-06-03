@@ -9,7 +9,7 @@ This walkthrough breaks BFF implementation into small, testable steps, starting 
 > - When implementing new behavior or refactoring existing code:
 >   - Use this document together with:
 >     - `docs/architecture_mobile_sensei_phase1.md` (big‑picture mobile architecture).
->     - `docs/llm_entry_exit_traces.md` and `docs/architecture_mobile_llm_tools_migration_plan.md` (per‑function LLM guidance).
+>     - `docs/llm_entry_exit_traces.md` and `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md` (authoritative per-function LLM migration guidance).
 >   - Treat early steps’ patterns as **bootstrapping** unless explicitly called out as part of the final Phase 1 design.
 
 The first milestone is a **simple LLM streaming turn**: get real Gemini output flowing from the mobile app, through the BFF, back into the WebView, without migrating full Sensei Core logic yet.

@@ -167,7 +167,7 @@ This list is sourced from `docs/llm_entry_exit_traces.md` and reconciled with th
 
 No function may be removed from this inventory until the trace document is updated and the function has a recorded replacement path.
 
-*For concrete completed-work examples, see Section 13. Completed rows depend on a small set of shared commits plus the row-specific commit named for that capability.*
+*For concrete completed-work examples, see Section 14. Completed rows depend on a small set of shared commits plus the row-specific commit named for that capability.*
 
 ### How To Interpret Helper And Exit Functions In The Trace
 
@@ -329,7 +329,7 @@ Prompt files must be separated by capability, not by platform. There are no mobi
 
 Teaching plan, learner analysis, wrap-up assessment, and Mermaid repair have been moved functionally toward Core/BFF and have completed prompt normalization under `core/prompts/`.
 
-* Completed rows should refer to Section 13 for example commit structure, commit IDs, and file breakdowns. Future agents should inspect those commits before implementing another row.
+* Completed rows should refer to Section 14 for example commit structure, commit IDs, and file breakdowns. Future agents should inspect those commits before implementing another row.
 
 For these capabilities, the required maintenance standard is:
 
@@ -388,7 +388,70 @@ The required implementation is:
 3. `PedagogicalProfiler` remains the web-side orchestration owner and calls the routed capability.
 4. Desktop web uses the Core capability through the browser client.
 
-## 10. Ambiguities And Mandatory Resolutions
+## 10. Supplementary Backlog Implementation Notes
+
+This section preserves useful implementation context from older migration planning documents without changing the mandatory rules above. These notes are descriptive aids for future backlog rows. If any note appears to conflict with Sections 1 through 9, the earlier sections win.
+
+Use this shortcut when classifying a backlog function:
+
+1. A tool owns prompt text, model/task choice, provider request shape, response parsing, schema validation, and normalization. Tool work moves into Core and is executed through BFF for mobile.
+2. Orchestration decides when a tool runs and applies the result to UI, teaching state, transcript state, caches, timers, selections, and DOM/native controls. Orchestration stays in WebView or React Native unless it is pure response parsing.
+3. A mixed function must be split. Move only its prompt/provider/parser/normalizer work to Core/BFF. Leave stream application, modal state, insertion behavior, and teaching-state mutation in WebView/RN.
+
+### Streaming Backlog Notes
+
+`streamModuleIntroduction` and `streamMainSenseiResponse` currently combine prompt assembly, direct `Chat.sendMessageStream` usage, response accumulation, optional `KeyTakeawayEnhancerController` hooks, and `updateMessageStream` UI updates.
+
+When migrating these rows:
+
+1. Move the prompt builders and structured stream request contracts to Core prompt/capability modules.
+2. Let BFF own the mobile provider stream and emit text chunks or terminal events.
+3. Let React Native forward stream chunks and completion/error events to WebView.
+4. Keep `fullResponseText` accumulation, `KeyTakeawayEnhancerController.onChunk`, `finalize`, `getLatestText`, `updateMessageStream`, transcript updates, scroll behavior, and curriculum/teaching-state side effects in WebView.
+5. Do not add new direct `Chat` usage to `src/interactionHelpers.ts`.
+
+### Selection Sensei Backlog Notes
+
+`SelectionSensei.dispatchFollowupToAI` currently manages modal transcript state, loading messages, a provider chat, response formatting, and transcript insertion. The LLM-facing pieces are the selection prompt/system instruction, provider execution, and any pure response extraction or normalization. Modal rendering and transcript updates stay in WebView.
+
+When migrating Selection Sensei:
+
+1. Move selection prompt builders and pure response parsing/normalization into `core/prompts/selectionSensei.ts` and `core/selectionSensei.ts`.
+2. Keep selected text capture, selection geometry, toolbar rendering, ask mode, modal state, conversation IDs, and `appendModalMessage` in WebView/RN.
+3. Keep direct text insertion and notepad insertion behavior in WebView unless a helper is purely parsing an LLM response.
+4. Treat `handleToolbarAction` as orchestration unless the specific branch builds an LLM prompt or dispatches to the provider. The prompt/provider branch moves; toolbar UI and action routing stay.
+
+### Enhancement Backlog Notes
+
+`requestSenseiEnhancement` currently builds an enhancement prompt, calls the provider, strips JSON fences, parses JSON, and normalizes entries. Those pieces are LLM-facing and belong in Core. The UI state and insertion behavior do not.
+
+When migrating enhancement:
+
+1. Move `buildSenseiEnhancementPrompt`, JSON fence handling, and `normalizeEnhancementEntries` into `core/prompts/enhancement.ts` and `core/enhancement.ts`.
+2. Keep `toggleEnhancement`, loading/active state, `applyEnhancementSequence`, `applyEnhancements`, markdown re-rendering, and per-message enhancement state in WebView.
+3. Mobile sends structured enhancement context to BFF. BFF calls Core and returns normalized enhancement content.
+
+### Key Takeaway Enhancement Backlog Notes
+
+`KeyTakeawayEnhancerController.start` currently creates a provider chat, sends the key-takeaway prompt, caches results by prompt hash, and later integrates generated text into streaming output through `onChunk`, `finalize`, `handleEnhancerReady`, placeholder detection, and `updateMessageStream`.
+
+When migrating key takeaway enhancement:
+
+1. Move key-takeaway prompt construction and provider execution into `core/prompts/keyTakeawayEnhancement.ts` and `core/keyTakeawayEnhancement.ts`.
+2. Prefer structured context over sending an already-built final prompt from mobile to BFF.
+3. Keep cache coordination, placeholder detection, `findPlaceholderIndex`, `insertEnhancerText`, `onChunk`, `finalize`, `getLatestText`, `handleEnhancerReady`, and UI stream insertion in WebView.
+
+### Pedagogical Directive Backlog Notes
+
+`PedagogicalProfiler.getDirective` currently computes learner-context inputs such as active flags and recent conversation context, then calls `generateDirectiveFromMetaPrompt` for provider execution. The LLM-facing prompt/template text and provider call must move; learner-state inspection can remain with the profiler.
+
+When migrating pedagogical directives:
+
+1. Move directive prompt/template construction and provider execution into `core/prompts/pedagogicalDirective.ts` and `core/pedagogicalDirective.ts`.
+2. Keep learner-model inspection, active-flag selection, recent-conversation selection, and orchestration inside `PedagogicalProfiler`.
+3. Preserve the existing safe fallback behavior for empty or failed directive responses.
+
+## 11. Ambiguities And Mandatory Resolutions
 
 This section resolves expected future confusion. Engineers must not choose a different answer without updating this master document first.
 
@@ -432,7 +495,7 @@ flowchart TD
   O --> Q["Add mobile BFF routing sentinel and update trace status"]
 ```
 
-## 11. Definition Of Done For Each Capability
+## 12. Definition Of Done For Each Capability
 
 A capability is not migrated until all of these are true:
 
@@ -449,7 +512,7 @@ A capability is not migrated until all of these are true:
 11. Streaming capabilities prove chunk order, completion, and error behavior.
 12. `docs/llm_entry_exit_traces.md` or the project migration status is updated.
 
-## 12. Current Project State Summary
+## 13. Current Project State Summary
 
 As of this document:
 
@@ -481,7 +544,7 @@ Current compliance gaps:
 
 The next safest implementation step is to choose one not-yet-started backlog capability and apply this document's mandatory decision flow without changing the completed scoped migration surfaces.
 
-## 13. Commit Reference Examples For Completed Scoped Rows
+## 14. Commit Reference Examples For Completed Scoped Rows
 
 Use these commits as the concrete implementation examples for the completed Phase 1 scoped rows. Each completed row references both shared commits and its row-specific commit because prompt ownership, bridge dispatch, BFF registration, and row handlers are intentionally separated by responsibility.
 
@@ -543,7 +606,7 @@ Use these commits as the concrete implementation examples for the completed Phas
    - Tests: `__tests__/mermaidRecovery.mobileRoutingGate.sentinel.test.ts`.
    - Shared dependencies: uses prompt/Core normalization from `72b85e0`, bridge dispatch from `be1315c`, existing BFF Mermaid route/server registration, and shared foundation from `31e5e0a`.
 
-## 14. Required First Step For Future Sessions
+## 15. Required First Step For Future Sessions
 
 Before implementing any future LLM migration work, read these documents in this order:
 

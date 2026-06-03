@@ -39,7 +39,7 @@ External reference documents used:
 - `docs/architecture_mobile_sensei_phase1.md`
 - `docs/bff_implementation_walkthrough.md` (notably Steps 4 and 6).
 - `docs/llm_entry_exit_traces.md`
-- `docs/architecture_mobile_llm_tools_migration_plan.md` (§1.3, §6).
+- `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md`.
 - `docs/protocols/PLAN.md`
 
 ## Static Execution Trace (High-Level)

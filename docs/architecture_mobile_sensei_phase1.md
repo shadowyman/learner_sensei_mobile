@@ -27,7 +27,7 @@ If you are new to this codebase and need to understand or extend the mobile stac
 
 - `docs/bff_implementation_walkthrough.md` – for the phased BFF rollout and Step 8 intent.
 - `docs/llm_entry_exit_traces.md` – for the complete list of LLM entry points (`*` functions) in the web app.
-- `docs/architecture_mobile_llm_tools_migration_plan.md` – for detailed, per‑function migration guidance for those `*` functions.
+- `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md` – for authoritative Phase 1 LLM migration rules, completed-row references, and backlog migration guidance.
 - The source files referenced in each section (paths are listed explicitly).
 
 Recommended reading order / usage:
@@ -44,7 +44,7 @@ Recommended reading order / usage:
 3. **Extending BFF/Core (Sections 8–9):**
    - Before touching any LLM‑related code:
      - Look up the relevant `*` function(s) in `docs/llm_entry_exit_traces.md`.
-     - Use Section 9 here plus `docs/architecture_mobile_llm_tools_migration_plan.md` to:
+     - Use Section 9 here plus `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md` to:
        - Identify the tool vs orchestration parts.
        - Decide what belongs in Core, what stays in `src/`, and what BFF endpoints are needed.
 4. **While coding:**
@@ -111,7 +111,7 @@ High‑level structure relevant to mobile:
   - Specs, walkthroughs, mission state.
   - Particularly relevant:
     - `docs/bff_implementation_walkthrough.md` – Phased BFF rollout (this doc must match its Phase 1 intent).
-    - `docs/architecture_mobile_llm_tools_migration_plan.md` – per‑function migration guidance for all `*` LLM entry points.
+    - `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md` – authoritative per-function migration standard and completed-row examples.
     - `docs/engineering/mobile_phase1_engineering_spec.md`, `docs/functional_spec/recursive_sensei_mobile_phase1_functional_spec.md`.
 
 ---

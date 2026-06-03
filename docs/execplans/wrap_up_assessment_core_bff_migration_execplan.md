@@ -290,7 +290,7 @@ This section gives a prose description of the sequence of edits and additions. T
 10. Update documentation and mission state.
     - Update `docs/llm_entry_exit_traces.md`:
       - Reflect that wrap-up generation is now a Core tool accessed via `CoreLlmClient` rather than a direct `src/geminiService.ts` function.
-    - Update `docs/architecture_mobile_sensei_phase1.md` and `docs/architecture_mobile_llm_tools_migration_plan.md` only if necessary to align text with the final implementation (for example, confirming that `core/wrapUpAssessment.ts` exists and that BFF wrap-up endpoints are implemented).
+    - Update `docs/architecture_mobile_sensei_phase1.md` and `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md` only if necessary to align text with the final implementation (for example, confirming that `core/wrapUpAssessment.ts` exists and that BFF wrap-up endpoints are implemented).
     - Append a brief note to `docs/mission_state/mission_state_wrap_up_assessment_core_migration_20251210T000000Z.md` summarizing actual changes versus the planned scope.
 
 ## Concrete Steps
