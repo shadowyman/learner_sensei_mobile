@@ -7,6 +7,7 @@ import path from 'node:path'
 const repoRoot = path.resolve(__dirname, '..')
 const tsconfigPath = path.join(repoRoot, 'tsconfig.json')
 const originalTsconfig = fs.readFileSync(tsconfigPath, 'utf8')
+const pathAliasTsconfigPath = path.join(repoRoot, 'tests', 'fixtures', 'analyzer', 'path-alias-tsconfig.json')
 
 function cleanAnalysis() {
   fs.rmSync(path.join(repoRoot, 'tmp', 'analysis'), { recursive: true, force: true })
@@ -37,6 +38,10 @@ function setTsconfig(json: any) {
 
 function restoreTsconfig() {
   fs.writeFileSync(tsconfigPath, originalTsconfig)
+}
+
+function loadPathAliasTsconfig() {
+  return JSON.parse(fs.readFileSync(pathAliasTsconfigPath, 'utf8'))
 }
 
 function writeTempFile(root: string, rel: string, content: string) {
@@ -123,24 +128,28 @@ function testPathAlias() {
   const aliasDir = 'tmp/analyzer-tests/path-alias/src'
   writeFile(path.join(aliasDir, 'a.ts'), "import { b } from '@/b';\nexport function callB() { b(); }\n")
   writeFile(path.join(aliasDir, 'b.ts'), 'export function b() {}\n')
+  const pathAliasConfig = loadPathAliasTsconfig()
   const config = JSON.parse(originalTsconfig)
   config.compilerOptions = config.compilerOptions || {}
-  config.compilerOptions.baseUrl = '.'
+  config.compilerOptions.baseUrl = pathAliasConfig.compilerOptions.baseUrl
   const existingPaths = config.compilerOptions.paths || {}
-  existingPaths['@/*'] = [`${aliasDir}/*`]
+  Object.assign(existingPaths, pathAliasConfig.compilerOptions.paths)
   config.compilerOptions.paths = existingPaths
   setTsconfig(config)
-  runAnalyzer([])
-  let calls = readJSON<any[]>('tmp/analysis/calls.json')
-  let edge = calls.find(c => typeof c.from === 'string' && c.from.startsWith(`${aliasDir}/a.ts::callB`) && typeof c.to === 'string' && c.to.includes(`${aliasDir}/b.ts::b`))
-  assert(edge, 'edge missing for alias call')
-  assert(edge.toStable, 'toStable missing for alias call')
-  runAnalyzer(['--include', `${aliasDir}/a.ts`])
-  calls = readJSON<any[]>('tmp/analysis/calls.json')
-  edge = calls.find(c => typeof c.from === 'string' && c.from.startsWith(`${aliasDir}/a.ts::callB`) && typeof c.to === 'string' && c.to.includes(`${aliasDir}/b.ts::b`))
-  assert(edge, 'edge missing for alias include run')
-  assert(edge.toStable, 'toStable missing for alias include run')
-  restoreTsconfig()
+  try {
+    runAnalyzer([])
+    let calls = readJSON<any[]>('tmp/analysis/calls.json')
+    let edge = calls.find(c => typeof c.from === 'string' && c.from.startsWith(`${aliasDir}/a.ts::callB`) && typeof c.to === 'string' && c.to.includes(`${aliasDir}/b.ts::b`))
+    assert(edge, 'edge missing for alias call')
+    assert(edge.toStable, 'toStable missing for alias call')
+    runAnalyzer(['--include', `${aliasDir}/a.ts`])
+    calls = readJSON<any[]>('tmp/analysis/calls.json')
+    edge = calls.find(c => typeof c.from === 'string' && c.from.startsWith(`${aliasDir}/a.ts::callB`) && typeof c.to === 'string' && c.to.includes(`${aliasDir}/b.ts::b`))
+    assert(edge, 'edge missing for alias include run')
+    assert(edge.toStable, 'toStable missing for alias include run')
+  } finally {
+    restoreTsconfig()
+  }
 }
 
 function testStaticNamespace() {

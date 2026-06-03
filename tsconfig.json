@@ -25,7 +25,9 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "mocks/*": ["__mocks__/*"]
+      "mocks/*": [
+        "__mocks__/*"
+      ]
     }
   },
   "include": [
