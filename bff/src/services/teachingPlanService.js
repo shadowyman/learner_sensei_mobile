@@ -4,9 +4,10 @@ const { extractAndPlanTeachingOrder } = require('@sensei/core/teachingPlan');
 const CoreLlmAdapter = require('../integration/coreLlmAdapter');
 
 class TeachingPlanService {
-  constructor({ logger, geminiGateway }) {
+  constructor({ logger, geminiGateway, config = {} }) {
     this.logger = logger;
     this.coreLlmClient = new CoreLlmAdapter({ geminiGateway });
+    this.itemBasedPromptEnabled = Boolean(config.teachingPlanItemBasedPromptEnabled);
   }
 
   async generateTeachingPlan({ session, payload }) {
@@ -15,7 +16,8 @@ class TeachingPlanService {
     this.logger.info(TAG, 'request-start', {
       sessionId: session.id,
       phase,
-      textLength: typeof textToProcess === 'string' ? textToProcess.length : 0
+      textLength: typeof textToProcess === 'string' ? textToProcess.length : 0,
+      itemBasedPromptEnabled: this.itemBasedPromptEnabled
     });
 
     const result = await extractAndPlanTeachingOrder(this.coreLlmClient, {
@@ -24,7 +26,7 @@ class TeachingPlanService {
       moduleTitle: payload.moduleTitle,
       moduleGoal: payload.moduleGoal,
       conceptsSummary: payload.conceptsSummary,
-      itemBasedPromptEnabled: payload.itemBasedPromptEnabled
+      itemBasedPromptEnabled: this.itemBasedPromptEnabled
     });
 
     if (!Array.isArray(result) || result.length === 0) {
@@ -38,4 +40,3 @@ class TeachingPlanService {
 }
 
 module.exports = TeachingPlanService;
-

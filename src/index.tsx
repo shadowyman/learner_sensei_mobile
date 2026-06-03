@@ -149,7 +149,7 @@ import {
 import { initializeDebugMode, toggleDebugModalVisibility } from './debugMode'; // Import debug mode functions
 import { initializeSelectionSensei } from "./selectionSensei"; // Import the new initializer
 import modulesTxt from './Modules.txt';
-import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
+import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS } from './model_usage';
 import { notepad } from './notepad';
 import { runTestSuite } from './test';
 import { ModuleSelectionHandler } from './moduleSelectionHandler';
@@ -560,8 +560,7 @@ function createLLMPlannerCallback(
                 textToProcess: text,
                 moduleTitle: module.title,
                 moduleGoal: module.goal,
-                conceptsSummary,
-                itemBasedPromptEnabled: TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
+                conceptsSummary
             },
             requestViaBridge: requestTeachingPlanViaBridge,
             generateLocal: async () =>

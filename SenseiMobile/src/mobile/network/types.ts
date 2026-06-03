@@ -63,7 +63,6 @@ export interface TeachingPlanRequestPayload {
     moduleTitle?: string;
     moduleGoal?: string;
     conceptsSummary?: string;
-    itemBasedPromptEnabled?: boolean;
 }
 
 export interface BffClientLike {

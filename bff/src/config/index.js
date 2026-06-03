@@ -9,6 +9,20 @@ const {
 
 dotenv.config();
 
+const parseBooleanEnv = (value, defaultValue = false) => {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  return defaultValue;
+};
+
 const port = Number(process.env.PORT || 8787);
 const host = process.env.HOST || '0.0.0.0';
 const corsOrigin = process.env.CORS_ORIGIN || '*';
@@ -50,6 +64,10 @@ const hardStreamTimeoutMs = Number(process.env.STREAM_TIMEOUT_MS || 60_000);
 const keepaliveIntervalMs = Number(process.env.STREAM_KEEPALIVE_MS || 15_000);
 const stallToBufferedMs = Number(process.env.STALL_TO_BUFFERED_MS || 25_000);
 const sessionCleanupIntervalMs = Number(process.env.SESSION_CLEANUP_INTERVAL_MS || 60_000);
+const teachingPlanItemBasedPromptEnabled = parseBooleanEnv(
+  process.env.BFF_TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED ?? process.env.TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED,
+  false
+);
 
 const gemini = {
   apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY || 'AIzaSyD_Z16_FKAwMArnKLpXu1i2KQfRYsRa3iM',
@@ -79,6 +97,7 @@ module.exports = {
   hardStreamTimeoutMs,
   keepaliveIntervalMs,
   stallToBufferedMs,
+  teachingPlanItemBasedPromptEnabled,
   gemini,
   MAIN_RESPONSE_CONFIG,
   MERMAID_ERROR_RECOVERY_CONFIG,

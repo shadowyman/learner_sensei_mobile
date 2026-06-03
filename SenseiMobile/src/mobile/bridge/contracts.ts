@@ -68,7 +68,6 @@ export type WebToRNMessage =
         moduleTitle?: string;
         moduleGoal?: string;
         conceptsSummary?: string;
-        itemBasedPromptEnabled?: boolean;
       };
     }
   | { type: 'saveload:exportResult'; requestId: string; success: boolean; json?: string; error?: string }

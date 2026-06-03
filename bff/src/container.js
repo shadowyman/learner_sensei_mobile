@@ -29,7 +29,7 @@ const createContainer = () => {
   const mermaidService = new MermaidService({ logger, geminiGateway });
   const telemetryService = new TelemetryService({ logger });
   const wrapUpService = new WrapUpService({ logger, geminiGateway });
-  const teachingPlanService = new TeachingPlanService({ logger, geminiGateway });
+  const teachingPlanService = new TeachingPlanService({ logger, geminiGateway, config });
   const analysisService = new AnalysisService({ logger, geminiGateway });
   const senseiCoreAdapter = new SenseiCoreAdapter({ logger });
   const streamingService = new StreamingService({

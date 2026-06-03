@@ -62,7 +62,6 @@ export function requestTeachingPlanViaBridge(payload: {
   moduleTitle?: string;
   moduleGoal?: string;
   conceptsSummary?: string;
-  itemBasedPromptEnabled?: boolean;
 }): Promise<TeachingPoint[][]> {
   const requestId = createRequestId('teaching-plan');
   return new Promise((resolve, reject) => {

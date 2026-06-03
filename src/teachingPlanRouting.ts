@@ -8,7 +8,6 @@ export type TeachingPlanRequestPayload = {
   moduleTitle?: string;
   moduleGoal?: string;
   conceptsSummary?: string;
-  itemBasedPromptEnabled?: boolean;
 };
 
 export async function requestTeachingPlan<T>(params: {

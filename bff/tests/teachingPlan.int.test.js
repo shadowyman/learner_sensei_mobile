@@ -26,8 +26,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       textToProcess: 'Module Title: Sample Module\nCore Concept Content:\nExplain recursion with a base case and recursive step.',
       moduleTitle: 'Sample Module',
       moduleGoal: 'Build recursive intuition',
-      conceptsSummary: 'base case, recursive step',
-      itemBasedPromptEnabled: false
+      conceptsSummary: 'base case, recursive step'
     };
 
     const res = await fetch(`${BASE}/sessions/${encodeURIComponent(sessionId)}/teaching-plan`, {
@@ -122,4 +121,3 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shutdown();
   await sleep(50);
 })();
-
