@@ -1,5 +1,5 @@
 import { BridgeManager } from '../src/mobile/bridge/BridgeManager';
-import { SelectionOverlayController } from '../src/mobile/SelectionOverlay';
+import { SelectionOverlayController } from '../SenseiMobile/src/mobile/SelectionOverlay';
 import { SaveLoadService } from '../src/mobile/saveLoad/SaveLoadService';
 import { TelemetryManager } from '../src/mobile/telemetry/TelemetryManager';
 import { BffClient } from '../src/mobile/network/BffClient';

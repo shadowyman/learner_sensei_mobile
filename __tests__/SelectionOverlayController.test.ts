@@ -1,4 +1,4 @@
-import { SelectionOverlayController } from '../src/mobile/SelectionOverlay';
+import { SelectionOverlayController } from '../SenseiMobile/src/mobile/SelectionOverlay';
 import type { BridgeManager } from '../src/mobile/bridge/BridgeManager';
 
 describe('SelectionOverlayController', () => {
