@@ -4,19 +4,36 @@ _Notation: functions that make a direct call to `GoogleGenAI`/`Chat` APIs are ma
 
 Phase‑1 routing invariant: these traces list desktop/web LLM entry points. For mobile WebView builds (`window.__SENSEI_MOBILE_BUILD__`), every traced tool must be wired to a BFF‑backed path (bridge request or mobile `CoreLlmClient` proxy), and any direct `GoogleGenAI`/`Chat` usage must be gated to desktop only. When updating this document for a migration, record the mobile transport choice and confirm the routing gate and sentinel test are complete.
 
+## Phase 1 Scoped Migration Status
+
+As of 2026-06-03, the started LLM migrations below are complete against `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md`.
+
+| Capability | Canonical prompt file | Core capability | Mobile bridge message | BFF route/service | Desktop/web compatibility |
+| --- | --- | --- | --- | --- | --- |
+| Wrap-up assessment planner | `core/prompts/wrapUpAssessment.ts` | `core/wrapUpAssessment.ts:generateWrapUpAssessment` | `wrapup:requestShow` / `wrapup:result` | `POST /sessions/:sessionId/wrapup` -> `bff/src/services/wrapUpService.js` -> Core | `src/geminiService.ts:generateWrapUpAssessment` delegates to Core; primary web Solidify paths also use Core directly |
+| Teaching plan generation | `core/prompts/teachingPlan.ts` | `core/teachingPlan.ts:extractAndPlanTeachingOrder` | `teachingPlan:request` / `teachingPlan:result` | `POST /sessions/:sessionId/teaching-plan` -> `bff/src/services/teachingPlanService.js` -> Core | `src/geminiService.ts:llmExtractAndPlanTeachingOrder` delegates to Core |
+| Learner analysis | `core/prompts/learnerAnalysis.ts` | `core/learnerAnalysis.ts:getComprehensiveAnalysis` | `analysis:request` / `analysis:result` | `POST /sessions/:sessionId/analysis` -> `bff/src/services/analysisService.js` -> Core | `src/geminiService.ts:getAnalysisFromGemini` delegates to Core |
+| Mermaid error repair | `core/prompts/mermaidRepair.ts` | `core/mermaidErrorRecovery.ts:attemptMermaidFix` and `runMermaidRecovery` | `mermaid:recover` / `mermaid:recoverResult` | `POST /mermaid/recover` -> `bff/src/services/mermaidService.js` -> Core | `src/mermaidErrorRecovery.ts` re-exports Core |
+| Legacy wrap-up wrapper | `core/prompts/wrapUpAssessment.ts` | `core/wrapUpAssessment.ts:generateWrapUpAssessment` | Same wrap-up route when mobile needs server execution | Same wrap-up route | Compatibility wrapper only; do not reintroduce prompt, tool schema, parser, or normalizer bodies into `src/geminiService.ts` |
+
+Prompt parity is covered by `__tests__/corePromptParity.test.ts`. Representative Core/parser/routing coverage is covered by the capability Core tests and mobile routing sentinel tests, including `__tests__/mermaidErrorRecovery.core.functional.test.ts` and `__tests__/mermaidRecovery.mobileRoutingGate.sentinel.test.ts`.
+
 ## src/index.tsx
 
 1. `createLLMPlannerCallback` → `core/generateWrapUpAssessment` (via `CoreLlmClient`, task `'wrap_up_assessment'`) → `validateWrapUpAssessmentQuestions` → `createLLMPlannerCallback`
    - Solidify-phase planning. The Core tool builds the prompt, parses/normalizes 15 questions, and returns the result for web-side validation and overlay rendering.
-2. `createLLMPlannerCallback` → *`llmExtractAndPlanTeachingOrder` → `createLLMPlannerCallback`
-   - Intro/Socratic planning. Prompt assembly and Gemini parsing stay inside the service, and the normalized TeachingPoint[][] is returned to the callback.
-3. `generateNextSenseiResponse` → *`getAnalysisFromGemini` → `parseGeminiJsonResponse` → `generateNextSenseiResponse`
-   - Learner analysis path. The main loop awaits the Gemini analysis, normalizes it, then updates learner model + UI once control returns.
+2. `createLLMPlannerCallback` → `requestTeachingPlan` (routing gate)
+   - Mobile WebView: `requestTeachingPlanViaBridge` → bridge `teachingPlan:request`/`teachingPlan:result` → RN → BFF `POST /sessions/:sessionId/teaching-plan` → Core `extractAndPlanTeachingOrder` (task `'teaching_plan'`).
+   - Desktop: `llmExtractAndPlanTeachingOrder` (wrapper) → Core `extractAndPlanTeachingOrder` (task `'teaching_plan'`).
+3. `generateNextSenseiResponse` → `requestLearnerAnalysis` (routing gate)
+   - Mobile WebView: `requestLearnerAnalysisViaBridge` → bridge `analysis:request`/`analysis:result` → RN → BFF `POST /sessions/:sessionId/analysis` → Core `getComprehensiveAnalysis` (task `'comprehensive_analysis'`).
+   - Desktop: `getAnalysisFromGemini` (wrapper) → Core `getComprehensiveAnalysis` (task `'comprehensive_analysis'`).
+   - On success (`ComprehensiveAnalysisResultType`), the loop calls `updateLearnerModel` and then updates UI/footer; on failure it treats analysis as `null` and continues (best-effort).
 
 ## src/moduleSelectionHandler.ts
 
-1. `executePhaseSelection` → planner closure → *`llmExtractAndPlanTeachingOrder` → planner closure → `executePhaseSelection`
-   - Handles IntroIllustrate/Socratic transitions via the callback created inline.
+1. `executePhaseSelection` → planner closure → `requestTeachingPlan` (routing gate) → planner closure → `executePhaseSelection`
+   - Handles IntroIllustrate/Socratic transitions. Mobile uses the bridge+BFF path; desktop uses the local Core browser client path.
 2. `executePhaseSelection` → `createSolidifyTeachingPlan` → `core/generateWrapUpAssessment` (via `CoreLlmClient`, task `'wrap_up_assessment'`) → `validateWrapUpAssessmentQuestions` → `createSolidifyTeachingPlan` → `executePhaseSelection`
    - Solidify jump path; the handler stores overlay payloads before yielding the stub plan.
 
@@ -46,16 +63,16 @@ Phase‑1 routing invariant: these traces list desktop/web LLM entry points. For
 
 ## src/mermaidErrorRecovery.ts
 
-1. `attemptMermaidFix` → (rule-based helpers) → *`attemptMermaidFix` (Gemini fallback block) → JSON parsing helpers → `attemptMermaidFix`
-   - The same function performs deterministic fixes first, then calls Gemini when needed before returning the structured fix payload.
+1. `src/mermaidErrorRecovery.ts` → Core re-export → `core/mermaidErrorRecovery.ts:attemptMermaidFix` → deterministic helpers → Core LLM fallback → JSON parsing helpers → `attemptMermaidFix`
+   - Web source no longer owns the Mermaid prompt or fallback implementation. Core performs deterministic fixes first, then calls the injected LLM client when needed before returning the structured fix payload.
 
 ## src/geminiService.ts
 
-1. *`llmExtractAndPlanTeachingOrder` → Socratic metadata/JSON normalization helpers → `llmExtractAndPlanTeachingOrder`
-2. *`getAnalysisFromGemini` → `parseGeminiJsonResponse` → `getAnalysisFromGemini`
+1. `llmExtractAndPlanTeachingOrder` (wrapper) → Core `extractAndPlanTeachingOrder` (task `'teaching_plan'`) → `llmExtractAndPlanTeachingOrder`
+2. `getAnalysisFromGemini` (wrapper) → Core `getComprehensiveAnalysis` (task `'comprehensive_analysis'`) → `getAnalysisFromGemini`
 3. *`generateDirectiveFromMetaPrompt` → fallback logic → `generateDirectiveFromMetaPrompt`
-4. *`generateWrapUpAssessment` (legacy wrapper) → Core parsing helpers → `generateWrapUpAssessment`
-   - Legacy path retained for tests and desktop fallback; primary Solidify flows call the Core tool directly.
+4. `generateWrapUpAssessment` (legacy wrapper) → Core `generateWrapUpAssessment` → Core prompt/tool schema/parsing helpers → `generateWrapUpAssessment`
+   - Legacy path retained for tests and desktop fallback; it must remain a compatibility wrapper only. Primary Solidify flows call the Core tool directly.
 5. *`requestSenseiEnhancement` → `stripJsonFence` → `normalizeEnhancementEntries` → `requestSenseiEnhancement`
 
 ## src/pedagogicalProfiler.ts
@@ -93,9 +110,9 @@ Below, `*` marks operations that will call into `llmGateway.ts` (direct SDK call
     - Normalizes the JSON payload into `TeachingPoint[][]`.
 - *`getAnalysisFromGemini`  
   - Remains responsible for:
-    - Building the analysis prompt via `GET_COMPREHENSIVE_ANALYSIS_PROMPT_FUNCTION`.
+    - Building the analysis prompt via `core/learnerAnalysis.ts::buildComprehensiveAnalysisPrompt`.
     - Calling `llmGateway` with `COMPREHENSIVE_ANALYSIS_CONFIG`.
-    - Passing the raw text through `parseGeminiJsonResponse` to return `ComprehensiveAnalysisResultType`.
+    - Passing the raw text through `core/learnerAnalysis.ts::parseComprehensiveAnalysisJson` to return `ComprehensiveAnalysisResultType`.
 - *`generateDirectiveFromMetaPrompt`  
   - Stays as the meta-prompt adapter that:
     - Builds the meta-prompt string.
@@ -170,7 +187,7 @@ The following functions orchestrate LLM calls but should remain in their current
 - `executePhaseSelection` / `createSolidifyTeachingPlan` (src/moduleSelectionHandler.ts:289, 696)  
   - Maintain UI-driven phase selection and teaching-flow decisions; wrap gateway calls rather than importing `GoogleGenAI`.
 - `generateNextSenseiResponse` (src/index.tsx:602)  
-  - Continues to drive the lesson loop and learner model; calls `llmGateway.fetchLearnerAnalysis` instead of `getAnalysisFromGemini` directly.
+  - Continues to drive the lesson loop and learner model; calls the learner-analysis routing gate (`requestLearnerAnalysis`) instead of calling a provider SDK directly.
 
 This preserves a clear layering:
 
