@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, type LayoutChangeEvent } from 'react-native';
 
 import { logger } from '../logger';
 import { BridgeManager } from './bridge/BridgeManager';
 import type { DOMRectLike, SelectionSenseiActionId, ViewportSnapshot, WebToRNMessage } from './bridge/contracts';
+import { computeSelectionToolbarLayout } from '../../../src/mobile/selectionToolbarLayout';
+import { PlatformGlassBackground } from './components/PlatformGlassBackground';
 
 export interface SelectionOverlayState {
     visible: boolean;
@@ -38,10 +40,11 @@ interface SelectionActionConfig {
     requiresPrompt?: boolean;
 }
 
-const UTILITY_ACTIONS: SelectionActionConfig[] = [
-    { id: 'copy', label: 'Copy' },
-    { id: 'share', label: 'Share' }
-];
+const OVERLAY_PADDING_V = 2;
+const OVERLAY_PADDING_H = 10;
+const TOOLBAR_RADIUS = 24;
+const TOOLBAR_FALLBACK_COLOR = 'rgba(8,12,20,0.72)';
+const TOOLBAR_TINT_COLOR = 'rgba(8,12,20,0.28)';
 
 const ACTIONS: SelectionActionConfig[] = [
     { id: 'explainSimpler', label: 'Simpler' },
@@ -106,9 +109,10 @@ export class SelectionOverlayController {
     }
 }
 
-export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({ state, webViewFrame, onAction, onDismiss }) => {
+export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({ state, webViewFrame, onAction }) => {
     const [askVisible, setAskVisible] = useState(false);
     const [askText, setAskText] = useState('');
+    const [toolbarSize, setToolbarSize] = useState<{ width: number; height: number } | null>(null);
 
     useEffect(() => {
         if (!state.visible && askVisible) {
@@ -117,30 +121,47 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({ state, webVi
         }
     }, [state.visible, askVisible]);
 
-    const overlayMetrics = useMemo(() => {
-        if (!state.rect || !state.viewport) {
+    const layout = useMemo(() => {
+        if (!state.visible || !state.rect || !state.viewport) {
             return null;
         }
-        const viewport = state.viewport;
-        const windowSize = Dimensions.get('window');
-        const relativeY = state.rect.y - viewport.scrollY;
-        const relativeX = state.rect.x;
-        const width = Math.min(state.rect.width, windowSize.width - 16);
-        let top = webViewFrame.y + relativeY;
-        let left = webViewFrame.x + relativeX;
-        top = Math.max(0, Math.min(top, windowSize.height - 48));
-        left = Math.max(0, Math.min(left, windowSize.width - width));
-        logger.info('[MOBILE_PORT_SELECTION] overlay align', {
-            rectY: state.rect.y,
-            viewportScrollY: viewport.scrollY,
-            screenTop: top
+        if (!toolbarSize || webViewFrame.width <= 0 || webViewFrame.height <= 0) {
+            return null;
+        }
+        return computeSelectionToolbarLayout({
+            selectionRect: state.rect,
+            viewport: state.viewport,
+            webViewFrame,
+            toolbarSize
         });
-        return { top, left, width };
-    }, [state.rect, state.viewport, webViewFrame.x, webViewFrame.y, webViewFrame.width, webViewFrame.height]);
+    }, [state.visible, state.rect, state.viewport, toolbarSize, webViewFrame]);
 
-    if (!state.visible || !state.rect || !overlayMetrics) {
-        return null;
-    }
+    const overlayTransform = useMemo(() => {
+        if (!layout || !toolbarSize) {
+            return undefined;
+        }
+        if (layout.scale === 1) {
+            return undefined;
+        }
+        const translateX = -((toolbarSize.width * (1 - layout.scale)) / 2);
+        const translateY = -((toolbarSize.height * (1 - layout.scale)) / 2);
+        return [{ scale: layout.scale }, { translateX }, { translateY }];
+    }, [layout, toolbarSize]);
+
+    const handleToolbarLayout = (event: LayoutChangeEvent) => {
+        const { width, height } = event.nativeEvent.layout;
+        setToolbarSize(prev => {
+            if (!prev) {
+                return { width, height };
+            }
+            const deltaW = Math.abs(prev.width - width);
+            const deltaH = Math.abs(prev.height - height);
+            if (deltaW < 0.5 && deltaH < 0.5) {
+                return prev;
+            }
+            return { width, height };
+        });
+    };
 
     const handleActionPress = (action: SelectionActionConfig) => {
         if (action.requiresPrompt) {
@@ -161,53 +182,97 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({ state, webVi
         setAskText('');
     };
 
-    return (
-        <View style={[styles.overlay, { top: overlayMetrics.top, left: overlayMetrics.left, width: overlayMetrics.width }]}>
-            <View style={styles.utilityRow}>
-                {UTILITY_ACTIONS.map(action => (
-                    <TouchableOpacity
-                        key={action.id}
-                        accessibilityLabel={action.label}
-                        onPress={() => onAction(action.id, { actionLabel: action.label })}
-                        style={styles.utilityButton}
-                    >
-                        <Text style={styles.option}>{action.label}</Text>
-                    </TouchableOpacity>
-                ))}
-                <TouchableOpacity accessibilityLabel="Dismiss selection overlay" onPress={onDismiss} style={styles.utilityButton}>
-                    <Text style={styles.option}>Close</Text>
-                </TouchableOpacity>
-            </View>
-            <View style={styles.actionsContainer}>
-                {ACTIONS.map(action => (
-                    <TouchableOpacity
-                        key={action.id}
-                        accessibilityLabel={action.label}
-                        onPress={() => handleActionPress(action)}
-                        style={styles.actionButton}
-                    >
-                        <Text style={styles.option}>{action.label}</Text>
-                    </TouchableOpacity>
-                ))}
+    const toolbarContent = (
+        <>
+            <View style={styles.actionsRow}>
+                {ACTIONS.flatMap((action, index) => {
+                    const disabled = askVisible;
+                    const isNotepad = action.id === 'addToNotepad';
+                    const isAsk = action.id === 'askQuestion';
+                    const showDivider = index < ACTIONS.length - 1;
+                    const button = (
+                        <TouchableOpacity
+                            key={action.id}
+                            accessibilityLabel={action.label}
+                            onPress={() => handleActionPress(action)}
+                            style={[
+                                styles.actionButton,
+                                isNotepad || isAsk ? styles.coloredSectionButton : null,
+                                disabled ? styles.disabledButton : null
+                            ]}
+                            disabled={disabled}
+                        >
+                            {isAsk || isNotepad ? (
+                                <View
+                                    pointerEvents="none"
+                                    style={[
+                                        styles.coloredSectionBackground,
+                                        isAsk ? styles.askSectionBackground : null,
+                                        isNotepad ? styles.notepadSectionBackground : null
+                                    ]}
+                                />
+                            ) : null}
+                            <Text
+                                style={[
+                                    styles.actionText,
+                                    isNotepad || isAsk ? styles.coloredActionText : null,
+                                    disabled ? styles.disabledText : null
+                                ]}
+                            >
+                                {action.label}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                    if (!showDivider) {
+                        return [button];
+                    }
+                    return [button, <View key={`${action.id}-divider`} style={styles.actionDivider} />];
+                })}
             </View>
             {askVisible && (
-                <View style={styles.askPrompt}>
+                <View style={styles.askContainer}>
                     <TextInput
                         value={askText}
                         onChangeText={setAskText}
-                        placeholder="Ask a question about the selection"
+                        placeholder="Ask a question about the text..."
                         placeholderTextColor="#94a3b8"
                         multiline
                         style={styles.askInput}
                     />
-                    <View style={styles.askPromptActions}>
-                        <TouchableOpacity onPress={() => { setAskVisible(false); setAskText(''); }} style={styles.secondaryButton}>
-                            <Text style={styles.option}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={submitAsk} style={styles.primaryButton}>
-                            <Text style={styles.primaryText}>Send</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity onPress={submitAsk} style={styles.askSendButton}>
+                        <Text style={styles.askSendText}>Send</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+        </>
+    );
+
+    return (
+        <View
+            onLayout={handleToolbarLayout}
+            pointerEvents={layout ? 'auto' : 'none'}
+            style={[
+                styles.overlayWrap,
+                layout ? { top: layout.top, left: layout.left, opacity: 1 } : { top: 0, left: 0, opacity: 0 },
+                overlayTransform ? { transform: overlayTransform } : null
+            ]}
+        >
+            {layout ? (
+                <PlatformGlassBackground
+                    key={state.selectionId ?? 'selection-toolbar-visible'}
+                    style={styles.overlaySurface}
+                    testID="selection-toolbar-glass-background"
+                    borderRadius={TOOLBAR_RADIUS}
+                    fallbackColor={TOOLBAR_FALLBACK_COLOR}
+                    tintColor={TOOLBAR_TINT_COLOR}
+                    effect="clear"
+                    colorScheme="dark"
+                >
+                    {toolbarContent}
+                </PlatformGlassBackground>
+            ) : (
+                <View style={styles.overlaySurface}>
+                    {toolbarContent}
                 </View>
             )}
         </View>
@@ -215,78 +280,102 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({ state, webVi
 };
 
 const styles = StyleSheet.create({
-    overlay: {
+    overlayWrap: {
         position: 'absolute',
-        backgroundColor: '#0f172a',
-        borderRadius: 12,
-        padding: 12,
+        zIndex: 2010,
+        elevation: 2010,
         shadowColor: '#000',
-        shadowOpacity: 0.3,
-        shadowRadius: 8
+        shadowOpacity: 0.4,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 }
     },
-    actionsContainer: {
+    overlaySurface: {
+        backgroundColor: 'transparent',
+        borderRadius: TOOLBAR_RADIUS,
+        borderWidth: 1,
+        borderColor: 'rgba(148, 163, 184, 0.22)',
+        overflow: 'hidden',
+        paddingVertical: OVERLAY_PADDING_V,
+        paddingHorizontal: OVERLAY_PADDING_H
+    },
+    actionsRow: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        alignItems: 'center'
+        alignItems: 'center',
+        justifyContent: 'center'
     },
-    utilityRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 12,
-        alignItems: 'center'
-    },
-    option: {
+    actionText: {
         color: '#e2e8f0',
-        fontWeight: '600'
-    },
-    utilityButton: {
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        backgroundColor: '#1f2937',
-        borderRadius: 8
+        fontSize: 14,
+        fontWeight: '600',
+        letterSpacing: 0.2
     },
     actionButton: {
         paddingVertical: 6,
-        paddingHorizontal: 10,
-        backgroundColor: '#1f2937',
-        borderRadius: 8
+        paddingHorizontal: 8,
+        borderRadius: 10
     },
-    askPrompt: {
-        marginTop: 12,
-        backgroundColor: '#0b1120',
-        borderRadius: 8,
-        padding: 12,
-        width: '100%'
+    coloredSectionButton: {
+        borderRadius: 0
+    },
+    coloredSectionBackground: {
+        position: 'absolute',
+        top: -OVERLAY_PADDING_V,
+        bottom: -OVERLAY_PADDING_V,
+        left: 0,
+        right: 0
+    },
+    actionDivider: {
+        width: StyleSheet.hairlineWidth,
+        alignSelf: 'stretch',
+        backgroundColor: 'rgba(148, 163, 184, 0.22)',
+        marginHorizontal: 0,
+        marginVertical: -OVERLAY_PADDING_V
+    },
+    askSectionBackground: {
+        backgroundColor: 'rgba(245,158,11,0.4)'
+    },
+    notepadSectionBackground: {
+        backgroundColor: 'rgba(59,130,246,0.4)',
+        right: -OVERLAY_PADDING_H
+    },
+    coloredActionText: {
+        color: '#ffffff'
+    },
+    disabledButton: {
+        opacity: 0.35
+    },
+    disabledText: {
+        opacity: 0.6
+    },
+    askContainer: {
+        marginTop: 8,
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center'
     },
     askInput: {
-        minHeight: 60,
-        color: '#f8fafc',
-        backgroundColor: '#1e293b',
-        borderRadius: 8,
-        padding: 10,
+        flexGrow: 1,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        fontSize: 13,
+        color: '#e2e8f0',
+        backgroundColor: 'rgba(2, 6, 23, 0.4)',
+        borderWidth: 1,
+        borderColor: 'rgba(148, 163, 184, 0.22)',
+        borderRadius: 18,
         textAlignVertical: 'top'
     },
-    askPromptActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 8,
-        marginTop: 8
+    askSendButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 18,
+        backgroundColor: '#C4E538',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.16)'
     },
-    primaryButton: {
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        backgroundColor: '#22d3ee',
-        borderRadius: 8
-    },
-    secondaryButton: {
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        backgroundColor: '#1f2937',
-        borderRadius: 8
-    },
-    primaryText: {
-        color: '#031220',
-        fontWeight: '600'
+    askSendText: {
+        color: '#0f172a',
+        fontSize: 12,
+        fontWeight: '700'
     }
 });

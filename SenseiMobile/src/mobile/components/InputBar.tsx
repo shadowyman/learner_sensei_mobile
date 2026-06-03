@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { BlurView } from '@react-native-community/blur';
 import { CodeEditorBadge } from './CodeEditorBadge';
+import { PlatformGlassBackground } from './PlatformGlassBackground';
 import { SendIconSkia } from './SendIconSkia';
 import { logger } from '../../logger';
 import {
@@ -20,6 +20,9 @@ const INPUT_LINE_HEIGHT = 20;
 const INPUT_VERTICAL_PADDING = 10;
 const DEFAULT_SEND_BASE = '#0b231b';
 const DEFAULT_SEND_BORDER = 'rgba(16,185,129,0.35)';
+const FIELD_RADIUS = 16;
+const FIELD_FALLBACK_COLOR = 'rgba(8,12,20,0.72)';
+const FIELD_TINT_COLOR = 'rgba(0,0,0,0.70)';
 
 interface InputBarProps {
     onSubmit?: (text: string) => boolean | void | Promise<boolean | void>;
@@ -130,16 +133,15 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
     return (
         <View ref={wrapperRef} style={styles.wrapper} onLayout={measureRect}>
             <View ref={inputContainerRef} style={[styles.inputContainer, isKeyboardVisible && styles.inputContainerKeyboardVisible]}>
-                <View style={styles.fieldFrame}>
-                    {Platform.OS === 'ios' ? (
-                        <BlurView
-                            style={styles.fieldBlur}
-                            blurType="systemUltraThinMaterialDark"
-                            blurAmount={1}
-                            reducedTransparencyFallbackColor="rgba(8,12,20,0.7)"
-                            pointerEvents="none"
-                        />
-                    ) : null}
+                <PlatformGlassBackground
+                    testID="input-bar-glass-background"
+                    style={styles.fieldFrame}
+                    borderRadius={FIELD_RADIUS}
+                    fallbackColor={FIELD_FALLBACK_COLOR}
+                    tintColor={FIELD_TINT_COLOR}
+                    effect="clear"
+                    colorScheme="dark"
+                >
                     <TextInput
                         ref={inputRef}
                         value={text}
@@ -162,7 +164,7 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
                         returnKeyType={'default'}
                         blurOnSubmit={false}
                     />
-                </View>
+                </PlatformGlassBackground>
             </View>
             <View style={[styles.actions, isKeyboardVisible && styles.actionsKeyboardVisible]}>
                 <View style={[styles.sendStack, isKeyboardVisible && styles.sendStackKeyboardVisible]}>
@@ -180,8 +182,9 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
                             end={{ x: 1, y: 1 }}
                             style={[styles.sendGradient, { borderColor: sendBorderColor }]}
                         />
-                        <View style={[styles.sendInnerRing, { borderColor: innerRingColor }]} />
-                        <SendIconSkia size={14} />
+                        <View style={[styles.sendIconWell, { borderColor: innerRingColor }]}>
+                            <SendIconSkia size={14} />
+                        </View>
                     </TouchableOpacity>
                     {!isKeyboardVisible && (
                         <View style={[styles.editorOverlay, { top: -6, right: -17 }]}>
@@ -229,7 +232,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.12)',
-        borderRadius: 16,
+        borderRadius: FIELD_RADIUS,
         color: '#e2e8f0',
         fontSize: 16,
         lineHeight: INPUT_LINE_HEIGHT,
@@ -237,11 +240,9 @@ const styles = StyleSheet.create({
     },
     fieldFrame: {
         position: 'relative',
-        borderRadius: 16,
-        overflow: 'hidden'
-    },
-    fieldBlur: {
-        ...StyleSheet.absoluteFillObject
+        borderRadius: FIELD_RADIUS,
+        overflow: 'hidden',
+        backgroundColor: 'transparent'
     },
     actions: {
         flexDirection: 'row',
@@ -262,9 +263,10 @@ const styles = StyleSheet.create({
         paddingRight: 4
     },
     sendButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        position: 'relative',
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000000',
@@ -278,24 +280,23 @@ const styles = StyleSheet.create({
     },
     sendLayerBase: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: 19,
+        borderRadius: 22,
         backgroundColor: '#0b231b'
     },
     sendGradient: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: 19,
-        borderWidth: 1,
+        borderRadius: 22,
+        borderWidth: 1.5,
         borderColor: 'rgba(16,185,129,0.35)'
     },
-    sendInnerRing: {
-        position: 'absolute',
-        left: 6,
-        right: 6,
-        top: 6,
-        bottom: 6,
-        borderRadius: 13,
+    sendIconWell: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.22)'
+        borderColor: 'rgba(255,255,255,0.22)',
+        alignItems: 'center',
+        justifyContent: 'center'
     },
     sendButtonText: {
         color: '#050505',

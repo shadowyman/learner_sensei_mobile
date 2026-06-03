@@ -736,7 +736,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                 webviewDebuggingEnabled={enableIOSWebInspector}
                                 style={styles.webview}
                                 setBackgroundColor={'transparent'}
-                                opaque={true}
+                                opaque={false}
                                 onLoad={() => {
                                     hasLoadedRef.current = true;
                                     logger.info('[MOBILE_PORT] webview load success');

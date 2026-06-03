@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@callstack/liquid-glass": "^0.8.0",
     "@react-native-community/blur": "^4.4.0",
     "@react-native/new-app-screen": "0.85.3",
     "@shopify/react-native-skia": "^2.6.4",
