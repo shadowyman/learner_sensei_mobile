@@ -10,14 +10,30 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '..');
 const defaultConfig = getDefaultConfig(projectRoot);
+const sharedWatchFolders = [
+  path.resolve(workspaceRoot, 'core'),
+  path.resolve(workspaceRoot, 'protocol'),
+  path.resolve(workspaceRoot, 'src'),
+];
+const escapePathForRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const projectRootPattern = escapePathForRegex(projectRoot);
+const workspaceRootPattern = escapePathForRegex(workspaceRoot);
 
 const config = {
-  watchFolders: [workspaceRoot],
+  watchFolders: sharedWatchFolders,
   transformer: {
     babelTransformerPath: require.resolve('react-native-svg-transformer'),
   },
   resolver: {
     assetExts: defaultConfig.resolver.assetExts.filter(ext => ext !== 'svg'),
+    blockList: [
+      /\/__tests__\/.*/,
+      new RegExp(`${projectRootPattern}\\/node_modules\\s+\\d+\\/.*`),
+      new RegExp(`${workspaceRootPattern}\\/node_modules\\s+\\d+\\/.*`),
+      new RegExp(`${workspaceRootPattern}\\/backup\\/.*`),
+      new RegExp(`${workspaceRootPattern}\\/tmp\\/.*`),
+      new RegExp(`${workspaceRootPattern}\\/\\.git\\/.*`),
+    ],
     sourceExts: [...defaultConfig.resolver.sourceExts, 'svg'],
     unstable_enablePackageExports: true,
     nodeModulesPaths: [
