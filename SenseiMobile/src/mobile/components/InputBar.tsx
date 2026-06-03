@@ -22,13 +22,14 @@ const DEFAULT_SEND_BASE = '#0b231b';
 const DEFAULT_SEND_BORDER = 'rgba(16,185,129,0.35)';
 
 interface InputBarProps {
-    onSubmit?: (text: string) => void;
+    onSubmit?: (text: string) => boolean | void | Promise<boolean | void>;
     onOpenEditor?: () => void;
     onLayoutRect?: (rect: { x: number; y: number; width: number; height: number } | null) => void;
     themeColors?: ThemeColors;
+    disabled?: boolean;
 }
 
-export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLayoutRect, themeColors }) => {
+export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLayoutRect, themeColors, disabled = false }) => {
     const [text, setText] = useState('');
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
     const inputRef = useRef<TextInput | null>(null);
@@ -40,13 +41,30 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
 
     const handleSubmit = useCallback(() => {
         const trimmed = text.trim();
-        if (!trimmed) return;
+        if (!trimmed || disabled) return;
+        let result: boolean | void | Promise<boolean | void>;
         try {
-            onSubmit?.(trimmed);
-        } finally {
+            result = onSubmit?.(trimmed);
+        } catch (error) {
+            logger.error('Sensei(debug)', { tag: 'inputbar.submit.error', error: error instanceof Error ? error.message : String(error) });
+            return;
+        }
+        if (result && typeof (result as Promise<boolean | void>).then === 'function') {
+            void Promise.resolve(result)
+                .then(accepted => {
+                    if (accepted !== false) {
+                        setText('');
+                    }
+                })
+                .catch(error => {
+                    logger.error('Sensei(debug)', { tag: 'inputbar.submit.error', error: error instanceof Error ? error.message : String(error) });
+                });
+            return;
+        }
+        if (result !== false) {
             setText('');
         }
-    }, [onSubmit, text]);
+    }, [disabled, onSubmit, text]);
 
     const measureRect = useCallback(() => {
         const node: any = wrapperRef.current;
@@ -126,6 +144,7 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
                         ref={inputRef}
                         value={text}
                         onChangeText={setText}
+                        editable={!disabled}
                         placeholder="Ask Sensei a question or type your thoughts..."
                         multiline={true}
                         scrollEnabled={true}
@@ -151,7 +170,8 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
                         accessibilityRole="button"
                         accessibilityLabel="Send message"
                         onPress={handleSubmit}
-                        style={styles.sendButton}
+                        disabled={disabled}
+                        style={[styles.sendButton, disabled && styles.sendButtonDisabled]}
                     >
                         <View style={[styles.sendLayerBase, { backgroundColor: sendBaseColor }]} />
                         <LinearGradient
@@ -252,6 +272,9 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         shadowOffset: { width: 0, height: 2 },
         overflow: 'visible'
+    },
+    sendButtonDisabled: {
+        opacity: 0.45
     },
     sendLayerBase: {
         ...StyleSheet.absoluteFillObject,

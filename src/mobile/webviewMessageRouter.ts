@@ -1,11 +1,18 @@
-import type { RNToWebMessage } from './bridge/contracts';
-import { MERMAID_RECOVERY_TIMEOUT_MS } from '@sensei/core/modelUsage';
+import type { FooterPayload, RNToWebMessage } from './bridge/contracts';
+import {
+  COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS,
+  MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS,
+  TEACHING_PLAN_BRIDGE_TIMEOUT_MS
+} from '@sensei/protocol/timeouts';
+import type { Phase, TeachingPoint } from '@sensei/core/teachingPlan';
+import type { ComprehensiveAnalysisResultType, LearnerAnalysisRequest } from '@sensei/core/learnerAnalysis';
 import { sendToNative } from './webviewBridge';
+import { hasPendingWrapUpBridgeRequest, resolveWrapUpBridgeRequest } from './wrapUpBridgeState';
 
 type MermaidResolver = { resolve: (v: { fixed: boolean; fixedCode?: string }) => void; reject: (err: any) => void; timer: number };
 
 const mermaidResolvers = new Map<string, MermaidResolver>();
-const MERMAID_BRIDGE_TIMEOUT_MS = MERMAID_RECOVERY_TIMEOUT_MS + 4000;
+const MERMAID_BRIDGE_TIMEOUT_MS = MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS;
 
 export function requestMermaidRecoveryViaBridge(payload: {
   messageId: string;
@@ -36,6 +43,86 @@ export function handleMermaidRecoverResult(message: RNToWebMessage): boolean {
   return true;
 }
 
+type TeachingPlanResolver = { resolve: (v: TeachingPoint[][]) => void; reject: (err: any) => void; timer: number };
+
+const teachingPlanResolvers = new Map<string, TeachingPlanResolver>();
+
+function createRequestId(prefix: string): string {
+  const c = typeof crypto !== 'undefined' ? crypto : undefined;
+  if (c && typeof (c as any).randomUUID === 'function') {
+    return `${prefix}-${(c as any).randomUUID()}`;
+  }
+  const rand = Math.random().toString(16).slice(2);
+  return `${prefix}-${Date.now()}-${rand}`;
+}
+
+export function requestTeachingPlanViaBridge(payload: {
+  phase: Phase;
+  textToProcess: string;
+  moduleTitle?: string;
+  moduleGoal?: string;
+  conceptsSummary?: string;
+  itemBasedPromptEnabled?: boolean;
+}): Promise<TeachingPoint[][]> {
+  const requestId = createRequestId('teaching-plan');
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      teachingPlanResolvers.delete(requestId);
+      reject(new Error('teaching plan bridge timeout'));
+    }, TEACHING_PLAN_BRIDGE_TIMEOUT_MS);
+    teachingPlanResolvers.set(requestId, { resolve, reject, timer });
+    sendToNative({ type: 'teachingPlan:request', requestId, payload });
+  });
+}
+
+function handleTeachingPlanResult(message: RNToWebMessage): boolean {
+  if (message.type !== 'teachingPlan:result') return false;
+  const resolver = teachingPlanResolvers.get(message.requestId);
+  if (resolver) {
+    clearTimeout(resolver.timer);
+    teachingPlanResolvers.delete(message.requestId);
+    if (!message.success) {
+      resolver.reject(new Error(message.error || 'teaching plan request failed'));
+    } else if (!Array.isArray(message.teachingPlan)) {
+      resolver.reject(new Error('teaching plan response missing teachingPlan'));
+    } else {
+      resolver.resolve(message.teachingPlan as TeachingPoint[][]);
+    }
+  }
+  return true;
+}
+
+type LearnerAnalysisResolver = { resolve: (v: ComprehensiveAnalysisResultType | null) => void; timer: number };
+
+const learnerAnalysisResolvers = new Map<string, LearnerAnalysisResolver>();
+
+export function requestLearnerAnalysisViaBridge(payload: LearnerAnalysisRequest): Promise<ComprehensiveAnalysisResultType | null> {
+  const requestId = createRequestId('analysis');
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      learnerAnalysisResolvers.delete(requestId);
+      resolve(null);
+    }, COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS);
+    learnerAnalysisResolvers.set(requestId, { resolve, timer });
+    sendToNative({ type: 'analysis:request', requestId, payload });
+  });
+}
+
+function handleLearnerAnalysisResult(message: RNToWebMessage): boolean {
+  if (message.type !== 'analysis:result') return false;
+  const resolver = learnerAnalysisResolvers.get(message.requestId);
+  if (resolver) {
+    clearTimeout(resolver.timer);
+    learnerAnalysisResolvers.delete(message.requestId);
+    if (!message.success || !message.analysis || typeof message.analysis !== 'object') {
+      resolver.resolve(null);
+    } else {
+      resolver.resolve(message.analysis as ComprehensiveAnalysisResultType);
+    }
+  }
+  return true;
+}
+
 type SaveLoadService = {
   exportSessionAsJson: () => Promise<string>;
   restoreFromSerializedJson: (json: string) => Promise<void>;
@@ -50,7 +137,8 @@ export function createWebviewMessageHandler(deps: {
   SENDER_DISPLAY_NAMES: Record<'user' | 'sensei', string>;
   processMermaidBlocks: (messageId: string) => Promise<void>;
   presentWrapUpAssessmentOverlay: (params: { overlay: any | null; failed: boolean; moduleTitle: string | null }) => Promise<void>;
-  updateFooter: (footer: any) => void;
+  applyFooterPayload: (payload: FooterPayload) => void;
+  handleUserInputText: (text: string) => Promise<void>;
   updateMessageStream: (id: string, text: string) => Promise<void>;
   invokeSelectionSenseiBridgeAction: (actionId: string, payload: { actionLabel?: string; userQuestion?: string }) => void;
   showMeditationOverlayFromNative: (mode: 'brand' | 'status') => void;
@@ -75,6 +163,8 @@ export function createWebviewMessageHandler(deps: {
   return async function handleReactNativeMessage(message: RNToWebMessage): Promise<void> {
     deps.logger.info('[MOBILE_PORT] webview bridge', { direction: 'to-web', type: message.type });
     if (handleMermaidRecoverResult(message)) return;
+    if (handleTeachingPlanResult(message)) return;
+    if (handleLearnerAnalysisResult(message)) return;
     switch (message.type) {
       case 'ui:inputOffset': {
         applyInputOffset(message.height);
@@ -142,7 +232,24 @@ export function createWebviewMessageHandler(deps: {
         await deps.processMermaidBlocks(message.messageId);
         break;
       }
+      case 'chat:userInput': {
+        try {
+          await deps.handleUserInputText(message.text);
+        } catch (error) {
+          deps.logger.error('[MOBILE_PORT] webview bridge user input error', { error });
+        } finally {
+          deps.sendToNative({ type: 'chat:turnComplete' });
+        }
+        break;
+      }
       case 'wrapup:show': {
+        if (!hasPendingWrapUpBridgeRequest(message.moduleId)) {
+          deps.logger.info('[WRAP_UP_ASSESSMENT] bridge show ignored (no pending request)', {
+            moduleId: message.moduleId
+          });
+          break;
+        }
+        resolveWrapUpBridgeRequest(message.moduleId);
         await deps.presentWrapUpAssessmentOverlay({
           overlay: message.data,
           failed: false,
@@ -151,6 +258,13 @@ export function createWebviewMessageHandler(deps: {
         break;
       }
       case 'wrapup:failed': {
+        if (!hasPendingWrapUpBridgeRequest(message.moduleId)) {
+          deps.logger.info('[WRAP_UP_ASSESSMENT] bridge failed ignored (no pending request)', {
+            moduleId: message.moduleId
+          });
+          break;
+        }
+        resolveWrapUpBridgeRequest(message.moduleId);
         await deps.presentWrapUpAssessmentOverlay({
           overlay: null,
           failed: true,
@@ -159,7 +273,7 @@ export function createWebviewMessageHandler(deps: {
         break;
       }
       case 'footer:update': {
-        deps.updateFooter(message.payload);
+        deps.applyFooterPayload(message.payload);
         break;
       }
       case 'selectionSensei:invoke': {

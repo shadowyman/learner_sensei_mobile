@@ -350,6 +350,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
     const enableIOSWebInspector = Platform.OS === 'ios';
     const [isStreaming, setIsStreaming] = useState(false);
+    const [webViewTurnInFlight, setWebViewTurnInFlight] = useState(false);
+    const webViewTurnInFlightRef = useRef(false);
     const [footer, setFooter] = useState<FooterPayload | null>(null);
     const [headerStatus, setHeaderStatus] = useState('Loading curriculum…');
     const [navButtonsVisible, setNavButtonsVisible] = useState(false);
@@ -540,12 +542,48 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         await runForwardStream(handle, { bridge, telemetryManager, setFooter, setIsStreaming });
     }, [bridge, telemetryManager]);
 
+    const releaseWebViewTurn = useCallback((reason: string) => {
+        if (!webViewTurnInFlightRef.current) {
+            return;
+        }
+        webViewTurnInFlightRef.current = false;
+        setWebViewTurnInFlight(false);
+        setIsStreaming(false);
+        logger.info('[MOBILE_TURN_GUARD] released', { reason });
+    }, []);
+
+    /*
+        TBD (Phase 1 Step 8 alignment):
+        - Primary path: RN input forwards text into the WebView-owned teaching loop (so WebView handles module selection,
+          phase routing, and all UI/state exactly like the desktop/web path).
+        - Legacy path: RN submits directly to BFF and forwards the streamed response into WebView (RN→BFF→WebView).
+          We keep this for future experimentation/perf comparisons and as a fallback path.
+     */
+    const MOBILE_TURN_PIPELINE_MODE: 'webview_owned' | 'legacy_bff_streaming' = 'webview_owned';
+
     const handleSubmit = useCallback(
         async (text: string) => {
             const trimmed = text.trim();
-            if (!trimmed || isStreaming) {
-                return;
+            if (!trimmed) {
+                return false;
             }
+
+            if (MOBILE_TURN_PIPELINE_MODE === 'webview_owned') {
+                if (webViewTurnInFlightRef.current) {
+                    logger.info('[MOBILE_TURN_GUARD] duplicate-submit-blocked', { textLength: trimmed.length });
+                    return false;
+                }
+                webViewTurnInFlightRef.current = true;
+                setWebViewTurnInFlight(true);
+                setIsStreaming(true);
+                bridge.enqueue({ type: 'chat:userInput', text: trimmed });
+                return true;
+            }
+
+            if (isStreaming) {
+                return false;
+            }
+
             const clientTurnId = telemetryManager.nextClientTurnId();
             const userMessageId = `user-${clientTurnId}`;
             bridge.enqueue({ type: 'chat:startMessage', messageId: userMessageId, sender: 'user', text: trimmed });
@@ -558,6 +596,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 return handle;
             })();
             forwardStream(handlePromise);
+            return true;
         },
         [bffClient, bridge, forwardStream, isStreaming, telemetryManager]
     );
@@ -567,8 +606,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             const parsed: WebToRNMessage = JSON.parse(event.nativeEvent.data);
             if (parsed.type === 'webview:error') {
                 logger.error('[MOBILE_PORT] webview bootstrap error', { message: parsed.message, stack: parsed.stack });
+                releaseWebViewTurn('webview-error');
                 onWebViewEvent?.(parsed);
                 return;
+            }
+            if (parsed.type === 'chat:turnComplete') {
+                releaseWebViewTurn('webview-turn-complete');
             }
             if (parsed.type === 'footer:update') {
                 setFooter(parsed.payload);
@@ -616,13 +659,81 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             if (parsed.type === 'wrapup:requestShow') {
                 (async () => {
                     try {
-                        await bffClient.generateWrapUp(parsed.moduleId, parsed.promptContext);
-                    } catch (error) {
-                        logger.error('[MOBILE_PORT] wrap-up request via BFF failed', { error });
+                        const overlay = await bffClient.generateWrapUp(parsed.moduleId, parsed.promptContext);
+                        if (overlay) {
+                            bridge.enqueue({
+                                type: 'wrapup:show',
+                                moduleId: parsed.moduleId,
+                                data: overlay
+                            } as RNToWebMessage);
+                            return;
+                        }
+                        logger.error('[MOBILE_PORT] wrap-up request via BFF returned no overlay', {
+                            moduleId: parsed.moduleId,
+                            moduleTitle: parsed.promptContext.moduleTitle
+                        });
                         bridge.enqueue({
                             type: 'wrapup:failed',
                             moduleId: parsed.moduleId,
                             moduleTitle: parsed.promptContext.moduleTitle
+                        } as RNToWebMessage);
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] wrap-up request via BFF threw', { error });
+                        bridge.enqueue({
+                            type: 'wrapup:failed',
+                            moduleId: parsed.moduleId,
+                            moduleTitle: parsed.promptContext.moduleTitle
+                        } as RNToWebMessage);
+                    }
+                })();
+            }
+            if (parsed.type === 'teachingPlan:request') {
+                (async () => {
+                    try {
+                        const teachingPlan = await bffClient.generateTeachingPlan(parsed.payload);
+                        bridge.enqueue({
+                            type: 'teachingPlan:result',
+                            requestId: parsed.requestId,
+                            success: true,
+                            teachingPlan
+                        } as RNToWebMessage);
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] teaching plan request via BFF failed', { error });
+                        bridge.enqueue({
+                            type: 'teachingPlan:result',
+                            requestId: parsed.requestId,
+                            success: false,
+                            error: error instanceof Error ? error.message : String(error)
+                        } as RNToWebMessage);
+                    }
+                })();
+            }
+            if (parsed.type === 'analysis:request') {
+                (async () => {
+                    try {
+                        const analysis = await bffClient.getLearnerAnalysis(parsed.payload);
+                        if (analysis) {
+                            bridge.enqueue({
+                                type: 'analysis:result',
+                                requestId: parsed.requestId,
+                                success: true,
+                                analysis
+                            } as RNToWebMessage);
+                        } else {
+                            bridge.enqueue({
+                                type: 'analysis:result',
+                                requestId: parsed.requestId,
+                                success: false,
+                                error: 'analysis unavailable'
+                            } as RNToWebMessage);
+                        }
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] learner analysis request via BFF failed', { error });
+                        bridge.enqueue({
+                            type: 'analysis:result',
+                            requestId: parsed.requestId,
+                            success: false,
+                            error: error instanceof Error ? error.message : String(error)
                         } as RNToWebMessage);
                     }
                 })();
@@ -641,7 +752,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         } catch (error) {
             logger.error('[MOBILE_PORT] webview message parse error', { error });
         }
-    }, [onWebViewEvent, saveLoadService, telemetryManager, bffClient, bridge]);
+    }, [onWebViewEvent, saveLoadService, telemetryManager, bffClient, bridge, releaseWebViewTurn]);
 
     const handleSave = useCallback(async () => {
         await saveLoadService.exportSession();
@@ -684,12 +795,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             />
             <SafeAreaView style={styles.container} edges={['left','right']}>
                 <View style={{ flex: 1 }}>
-                    <SelectionOverlay
-                        state={selectionOverlay}
-                        webViewFrame={webViewFrame}
-                        onAction={(actionId, extras) => selectionControllerRef.current?.invoke(actionId, extras)}
-                        onDismiss={() => selectionControllerRef.current?.dismiss()}
-                    />
                     <SenseiHeader
                         statusText={headerStatus}
                         onConceptPrev={handleConceptPrev}
@@ -712,7 +817,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     />
                     {!isCompactIOS && <View style={styles.headerDivider} />}
                     {SHOW_WEBVIEW ? (
-                        <View style={styles.webviewWrapper}>
+                        <View style={styles.webviewWrapper} onLayout={event => setWebViewFrame(event.nativeEvent.layout)}>
                             <WebView
                                 key={webviewKey}
                                 ref={webViewRef}
@@ -746,7 +851,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                         logger.warn('[MOBILE_PORT] webview late error ignored', { url: ne?.url, code: ne?.code });
                                     }
                                 }}
-                                onLayout={event => setWebViewFrame(event.nativeEvent.layout)}
                             />
                         </View>
                     ) : (
@@ -754,6 +858,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             <Text style={styles.placeholderText}>WebView temporarily disabled</Text>
                         </View>
                     )}
+                    <SelectionOverlay
+                        state={selectionOverlay}
+                        webViewFrame={webViewFrame}
+                        onAction={(actionId, extras) => selectionControllerRef.current?.invoke(actionId, extras)}
+                        onDismiss={() => selectionControllerRef.current?.dismiss()}
+                    />
                 </View>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'position' : undefined}
@@ -779,13 +889,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         <InputBar
                             onSubmit={(txt) => {
                                 logger.info('Sensei(debug)', { tag: 'inputbar.submit', length: txt.length });
-                                void handleSubmit(txt);
+                                return handleSubmit(txt);
                             }}
                             onOpenEditor={() => {
                                 logger.info('Sensei(debug)', { tag: 'inputbar.editor.open' });
                             }}
                             onLayoutRect={setInputBarRect}
                             themeColors={themeColors}
+                            disabled={MOBILE_TURN_PIPELINE_MODE === 'webview_owned' ? webViewTurnInFlight : isStreaming}
                         />
                     </View>
                 </KeyboardAvoidingView>

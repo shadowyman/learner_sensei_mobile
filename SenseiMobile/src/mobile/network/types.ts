@@ -1,5 +1,13 @@
-import type { FooterPayload, WrapUpAssessmentOverlayData, WrapUpAssessmentPromptContext } from '../bridge/contracts';
-export type { WrapUpAssessmentPromptContext } from '../bridge/contracts';
+import type {
+    ComprehensiveAnalysisResultType,
+    FooterPayload,
+    LearnerAnalysisRequest,
+    WrapUpAssessmentOverlayData,
+    WrapUpAssessmentPromptContext,
+    Phase,
+    TeachingPoint
+} from '../bridge/contracts';
+export type { ComprehensiveAnalysisResultType, LearnerAnalysisRequest, WrapUpAssessmentPromptContext } from '../bridge/contracts';
 
 export interface SelectionContext {
     actionId: string;
@@ -49,10 +57,21 @@ export interface MermaidRecoveryResult {
     fixedCode?: string;
 }
 
+export interface TeachingPlanRequestPayload {
+    phase: Phase;
+    textToProcess: string;
+    moduleTitle?: string;
+    moduleGoal?: string;
+    conceptsSummary?: string;
+    itemBasedPromptEnabled?: boolean;
+}
+
 export interface BffClientLike {
     ensureSession(): Promise<void>;
     submitTurn(payload: SubmitTurnPayload): Promise<TurnStreamHandle>;
     reconnectIfNeeded(): Promise<void>;
     recoverMermaid(payload: MermaidRecoveryPayload): Promise<MermaidRecoveryResult>;
     generateWrapUp(moduleId: string, promptContext: WrapUpAssessmentPromptContext): Promise<WrapUpAssessmentOverlayData | null>;
+    generateTeachingPlan(payload: TeachingPlanRequestPayload): Promise<TeachingPoint[][]>;
+    getLearnerAnalysis(payload: LearnerAnalysisRequest): Promise<ComprehensiveAnalysisResultType | null>;
 }

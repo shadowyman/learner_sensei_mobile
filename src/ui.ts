@@ -6,6 +6,7 @@
 
 import { logger, DEBUG_FLAGS } from './logger';
 import { sendToNative } from './mobile/webviewBridge';
+import type { FooterPayload } from './mobile/bridge/contracts';
 import { resetEnhancementState } from './enhancementManager';
 import type { EnhancementHighlight, RenderMarkdownOptions } from './enhancementManager';
 import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen } from './codeEditorModal';
@@ -1161,6 +1162,30 @@ function areAllChunksUnderstood(
 
 let lastFooterState = { confidence: '', confusion: '', intent: '' };
 
+export function applyFooterPayload(payload: FooterPayload): void {
+    if (!footerConfidence || !footerConfusion || !footerIntentValue) return;
+
+    const confidence = typeof payload?.confidence === 'string' ? payload.confidence : 'N/A';
+    const confusion = typeof payload?.confusion === 'string' ? payload.confusion : 'N/A';
+    const intent = typeof payload?.intent === 'string' ? payload.intent : 'N/A';
+
+    if (confidence !== lastFooterState.confidence) {
+        footerConfidence.textContent = confidence;
+        footerConfidence.className = `status-value confidence-${confidence.toLowerCase()}`;
+        lastFooterState.confidence = confidence;
+    }
+    if (confusion !== lastFooterState.confusion) {
+        footerConfusion.textContent = confusion;
+        footerConfusion.className = `status-value confusion-${confusion.toLowerCase()}`;
+        lastFooterState.confusion = confusion;
+    }
+    if (intent !== lastFooterState.intent) {
+        footerIntentValue.textContent = intent;
+        footerIntentValue.className = 'status-value intent-value';
+        lastFooterState.intent = intent;
+    }
+}
+
 export function updateFooter(learnerModel: LearnerModel) {
     if (!footerConfidence || !footerConfusion || !footerIntentValue) return;
 
@@ -1170,21 +1195,7 @@ export function updateFooter(learnerModel: LearnerModel) {
         intent: learnerModel.LastAnalysis?.primary_intent || 'N/A'
     };
 
-    if (newState.confidence !== lastFooterState.confidence) {
-        footerConfidence.textContent = newState.confidence;
-        footerConfidence.className = `status-value confidence-${newState.confidence.toLowerCase()}`;
-        lastFooterState.confidence = newState.confidence;
-    }
-    if (newState.confusion !== lastFooterState.confusion) {
-        footerConfusion.textContent = newState.confusion;
-        footerConfusion.className = `status-value confusion-${newState.confusion.toLowerCase()}`;
-        lastFooterState.confusion = newState.confusion;
-    }
-    if (newState.intent !== lastFooterState.intent) {
-        footerIntentValue.textContent = newState.intent;
-        footerIntentValue.className = 'status-value intent-value';
-        lastFooterState.intent = newState.intent;
-    }
+    applyFooterPayload(newState);
     sendToNative({ type: 'footer:update', payload: newState });
 }
 
@@ -1850,6 +1861,27 @@ type EnhancementRange = {
 const touchEventSupported = typeof window !== 'undefined' && typeof TouchEvent !== 'undefined';
 const pointerEventSupported = typeof window !== 'undefined' && typeof PointerEvent !== 'undefined';
 
+function attachTapListener(element: HTMLElement, handler: () => void): void {
+    let lastTouchEnd = 0;
+    if (touchEventSupported) {
+        element.addEventListener(
+            'touchend',
+            (event) => {
+                lastTouchEnd = Date.now();
+                event.preventDefault();
+                handler();
+            },
+            { passive: false }
+        );
+    }
+    element.addEventListener('click', () => {
+        if (lastTouchEnd && Date.now() - lastTouchEnd < 800) {
+            return;
+        }
+        handler();
+    });
+}
+
 function triggerSenseiBoldSelection(element: HTMLElement) {
     const selection = window.getSelection();
     if (!selection) {
@@ -2109,9 +2141,14 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
                                 button.dataset.moduleId = moduleObject.id;
                                 button.dataset.moduleTitle = title;
                                 button.setAttribute('aria-label', `Select Module ${displayId}: ${title}`);
-                                button.addEventListener('click', () => {
+                                attachTapListener(button, () => {
                                     if (typeof (window as any).handleModuleClick === 'function') {
                                         (window as any).handleModuleClick(moduleObject.id, title);
+                                    } else {
+                                        logger.warn('[MODULE_SELECTION] handleModuleClick missing', {
+                                            moduleId: moduleObject.id,
+                                            moduleTitle: title
+                                        });
                                     }
                                 });
                                 moduleListContainer.appendChild(button);
@@ -2160,10 +2197,15 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
                 button.appendChild(prefixSpan);
                 button.appendChild(label);
                 button.setAttribute('aria-label', `Select Concept ${conceptNumber ?? ''} ${conceptText}`.trim());
-                button.addEventListener('click', () => {
+                attachTapListener(button, () => {
                     logger.debug('[CONCEPT_SELECT] Concept button clicked UI', { moduleId: payload.moduleId, conceptIndex: concept.index });
                     if (typeof (window as any).handleConceptSelection === 'function') {
                         (window as any).handleConceptSelection(payload.moduleId, concept.index);
+                    } else {
+                        logger.warn('[MODULE_SELECTION] handleConceptSelection missing', {
+                            moduleId: payload.moduleId,
+                            conceptIndex: concept.index
+                        });
                     }
                 });
                 conceptContainer.appendChild(button);
@@ -2195,9 +2237,13 @@ export async function displayMessage(message: Message, options: DisplayMessageOp
                 
                 button.textContent = phase.display;
                 
-                button.addEventListener('click', () => {
+                attachTapListener(button, () => {
                     if (typeof (window as any).handlePhaseSelection === 'function') {
                         (window as any).handlePhaseSelection(phase.name);
+                    } else {
+                        logger.warn('[MODULE_SELECTION] handlePhaseSelection missing', {
+                            phaseName: phase.name
+                        });
                     }
                 });
                 

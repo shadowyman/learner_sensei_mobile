@@ -101,6 +101,7 @@ import {
     displayMessage,
     processMermaidBlocks,
     updateFooter,
+    applyFooterPayload,
     setupFullscreenToggle,
     setupTextareaAutosize,
     streamingMessagesRawText,
@@ -113,7 +114,7 @@ import {
 } from './ui';
 import { SaveLoadProgressManager } from './saveloadProgressManager';
 import { initializeWebviewBridge, sendToNative } from './mobile/webviewBridge';
-import { createWebviewMessageHandler } from './mobile/webviewMessageRouter';
+import { createWebviewMessageHandler, requestLearnerAnalysisViaBridge, requestTeachingPlanViaBridge } from './mobile/webviewMessageRouter';
 import type { RNToWebMessage } from './mobile/bridge/contracts';
 import { invokeSelectionSenseiBridgeAction } from './selectionSensei';
 import { ChatWindowController } from './chatWindowController';
@@ -123,7 +124,10 @@ import {
 } from './geminiService';
 import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
+import type { LearnerAnalysisPhase, LearnerAnalysisRequest } from '@sensei/core/learnerAnalysis';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
+import { requestLearnerAnalysis } from './learnerAnalysisRouting';
+import { requestTeachingPlan } from './teachingPlanRouting';
 import {
     WrapUpAssessmentOverlayData,
     presentWrapUpAssessmentOverlay
@@ -145,7 +149,7 @@ import {
 import { initializeDebugMode, toggleDebugModalVisibility } from './debugMode'; // Import debug mode functions
 import { initializeSelectionSensei } from "./selectionSensei"; // Import the new initializer
 import modulesTxt from './Modules.txt';
-import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS } from './model_usage';
+import { MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
 import { notepad } from './notepad';
 import { runTestSuite } from './test';
 import { ModuleSelectionHandler } from './moduleSelectionHandler';
@@ -548,14 +552,22 @@ function createLLMPlannerCallback(
             return [[stubTeachingPoint]];
         }
         const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-        const result = await llmExtractAndPlanTeachingOrder(
-            ai,
-            text,
-            phase,
-            module.title,
-            module.goal,
-            conceptsSummary
-        );
+        const isMobileWebView = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
+        const routed = await requestTeachingPlan<TeachingPoint[][] | null>({
+            isMobileWebView,
+            payload: {
+                phase,
+                textToProcess: text,
+                moduleTitle: module.title,
+                moduleGoal: module.goal,
+                conceptsSummary,
+                itemBasedPromptEnabled: TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
+            },
+            requestViaBridge: requestTeachingPlanViaBridge,
+            generateLocal: async () =>
+                llmExtractAndPlanTeachingOrder(ai, text, phase, module.title, module.goal, conceptsSummary)
+        });
+        const result = routed.result;
         if (!result || result.length === 0) {
             throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
                 moduleId: module.id,
@@ -673,7 +685,31 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         });
     }
     if (!skipPedagogicalIntervention || hasUserInput) {
-        analysisResult = await getAnalysisFromGemini(ai!, inputText, lastSenseiResponses[0] || null, currentTaskIdForAnalysis, expectedContentPointTextsForCurrentChunk);
+        const isMobileWebView = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
+        const rawPhase = (window as any).curriculumState?.currentPhase || 'Unknown';
+        const phase: LearnerAnalysisPhase =
+            rawPhase === 'Socratic' || rawPhase === 'IntroIllustrate' || rawPhase === 'Solidify' ? rawPhase : 'Unknown';
+        const analysisPayload: LearnerAnalysisRequest = {
+            userInputText: inputText,
+            lastSenseiMsg: lastSenseiResponses[0] || null,
+            currentTaskIdForAnalysis,
+            expectedContentPointsForCurrentChunk: expectedContentPointTextsForCurrentChunk,
+            phase
+        };
+        const routed = await requestLearnerAnalysis({
+            isMobileWebView,
+            payload: analysisPayload,
+            requestViaBridge: requestLearnerAnalysisViaBridge,
+            generateLocal: async () =>
+                getAnalysisFromGemini(
+                    ai!,
+                    inputText,
+                    lastSenseiResponses[0] || null,
+                    currentTaskIdForAnalysis,
+                    expectedContentPointTextsForCurrentChunk
+                )
+        });
+        analysisResult = routed.result;
     }
 
 
@@ -994,9 +1030,7 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
 
 }
 
-async function handleUserInput(event: Event) {
-    event.preventDefault();
-    const rawInput = userInputElement.value;
+async function handleUserInputText(rawInput: string): Promise<void> {
     if (!rawInput.trim() || !ai || !profiler) {
         return;
     }
@@ -1087,6 +1121,12 @@ async function handleUserInput(event: Event) {
     showLoading(true);
     // Normal processing path
     await generateNextSenseiResponse(rawInput);
+}
+
+async function handleUserInput(event: Event) {
+    event.preventDefault();
+    const rawInput = userInputElement.value;
+    await handleUserInputText(rawInput);
 }
 
 async function handleReloadSenseiMessage(messageId: string, context: ReloadContext) {
@@ -1184,7 +1224,20 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
 }
 
 async function handleClickedModuleSelection(moduleTitle: string) {
-    if (!moduleSelectionHandler) return;
+    if (!moduleSelectionHandler) {
+        logger.error('[MODULE_SELECTION] handler-missing', { action: 'module-click', moduleTitle });
+        currentMessageId++;
+        await displayMessage({
+            id: `msg-${currentMessageId}`,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: "I'm still initializing. Please wait a moment and try selecting the module again.",
+            timestamp: new Date(),
+            isLoading: false,
+            isReloadable: false
+        });
+        return;
+    }
     
     // Update handler state before processing
     moduleSelectionHandler.updateState({
@@ -1217,6 +1270,17 @@ async function handleClickedModuleSelection(moduleTitle: string) {
 
 async function handlePhaseSelection(phaseName: string) {
     if (!moduleSelectionHandler) {
+        logger.error('[MODULE_SELECTION] handler-missing', { action: 'phase-click', phaseName });
+        currentMessageId++;
+        await displayMessage({
+            id: `msg-${currentMessageId}`,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: "I'm still initializing. Please wait a moment and try selecting the phase again.",
+            timestamp: new Date(),
+            isLoading: false,
+            isReloadable: false
+        });
         return;
     }
     
@@ -1255,6 +1319,17 @@ async function handlePhaseSelection(phaseName: string) {
 
 async function handleConceptSelection(moduleId: string, conceptIndex: number) {
     if (!moduleSelectionHandler) {
+        logger.error('[MODULE_SELECTION] handler-missing', { action: 'concept-click', moduleId, conceptIndex });
+        currentMessageId++;
+        await displayMessage({
+            id: `msg-${currentMessageId}`,
+            sender: 'sensei',
+            displayName: 'Recursive Sensei',
+            text: "I'm still initializing. Please wait a moment and try selecting the concept again.",
+            timestamp: new Date(),
+            isLoading: false,
+            isReloadable: false
+        });
         return;
     }
 
@@ -1378,32 +1453,6 @@ async function loadCurriculumAndGreet() {
             logger.error("Failed to run test suite:", error);
         }
     }
-    
-    (window as any).handleModuleClick = (moduleId: string, moduleTitle: string) => {
-        handleClickedModuleSelection(moduleTitle);
-    };
-    
-    (window as any).handlePhaseSelection = async (phaseName: string) => {
-        await handlePhaseSelection(phaseName);
-    };
-    (window as any).handleConceptSelection = async (moduleId: string, conceptIndex: number) => {
-        await handleConceptSelection(moduleId, conceptIndex);
-    };
-
-    (window as any).handleReloadSenseiMessage = 
-        (messageId: string, context: ReloadContext) => 
-        handleReloadSenseiMessage(messageId, context);
-
-    (window as any).handleEnhanceSenseiMessage = (messageId: string) => {
-        toggleEnhancement(messageId).catch(error => {
-            logger.error('[ENHANCE] Toggle failed', { messageId, error });
-        });
-    };
-    
-    // Expose SaveLoadProgressManager for save/load functionality
-    (window as any).SaveLoadManager = SaveLoadProgressManager;
-    (window as any).saveProgress = () => SaveLoadProgressManager.saveProgress();
-    (window as any).loadProgress = (file: File) => SaveLoadProgressManager.loadProgress(file);
     
     setupFullscreenToggle('main-chat-fullscreen-button', 'chat-container', 'main-chat-fullscreen');
 
@@ -1764,7 +1813,8 @@ const handleReactNativeMessage = createWebviewMessageHandler({
             showApology: showWrapUpAssessmentApologyMessage
         });
     },
-    updateFooter,
+    applyFooterPayload,
+    handleUserInputText,
     updateMessageStream,
     invokeSelectionSenseiBridgeAction,
     showMeditationOverlayFromNative
@@ -1772,13 +1822,60 @@ const handleReactNativeMessage = createWebviewMessageHandler({
 
 // Expose function globally with namespace to avoid conflicts
 if (typeof window !== 'undefined') {
-    (window as any).recursiveSensei = (window as any).recursiveSensei || {};
-    (window as any).recursiveSensei.updateKCProgressBar = updateKCProgressBar;
+    const senseiWindow = window as any;
+    senseiWindow.handleModuleClick = (moduleId: string, moduleTitle: string) => {
+        logger.info('[MODULE_SELECTION] module-click', { moduleId, moduleTitle });
+        void handleClickedModuleSelection(moduleTitle).catch(error => {
+            logger.error('[MODULE_SELECTION] module-click failed', {
+                moduleId,
+                moduleTitle,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        });
+    };
+
+    senseiWindow.handlePhaseSelection = (phaseName: string) => {
+        logger.info('[MODULE_SELECTION] phase-click', { phaseName });
+        void handlePhaseSelection(phaseName).catch(error => {
+            logger.error('[MODULE_SELECTION] phase-click failed', {
+                phaseName,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        });
+    };
+
+    senseiWindow.handleConceptSelection = (moduleId: string, conceptIndex: number) => {
+        logger.info('[MODULE_SELECTION] concept-click', { moduleId, conceptIndex });
+        void handleConceptSelection(moduleId, conceptIndex).catch(error => {
+            logger.error('[MODULE_SELECTION] concept-click failed', {
+                moduleId,
+                conceptIndex,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        });
+    };
+
+    senseiWindow.handleReloadSenseiMessage =
+        (messageId: string, context: ReloadContext) =>
+        handleReloadSenseiMessage(messageId, context);
+
+    senseiWindow.handleEnhanceSenseiMessage = (messageId: string) => {
+        toggleEnhancement(messageId).catch(error => {
+            logger.error('[ENHANCE] Toggle failed', { messageId, error });
+        });
+    };
+
+    senseiWindow.SaveLoadManager = SaveLoadProgressManager;
+    senseiWindow.saveProgress = () => SaveLoadProgressManager.saveProgress();
+    senseiWindow.loadProgress = (file: File) => SaveLoadProgressManager.loadProgress(file);
+
+    senseiWindow.recursiveSensei = senseiWindow.recursiveSensei || {};
+    senseiWindow.recursiveSensei.updateKCProgressBar = updateKCProgressBar;
     // Backward compatibility
-    (window as any).updateKCProgressBar = updateKCProgressBar;
+    senseiWindow.updateKCProgressBar = updateKCProgressBar;
     
     // Expose concept index getter for notepad
-    (window as any).getCurrentActiveConceptIndex = () => currentActiveConceptIndex;
+    senseiWindow.getCurrentActiveConceptIndex = () => currentActiveConceptIndex;
 
     initializeWebviewBridge(handleReactNativeMessage);
 }

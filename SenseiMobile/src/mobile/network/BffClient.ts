@@ -1,7 +1,26 @@
 import { logger } from '../../logger';
 import type { BridgeManager } from '../bridge/BridgeManager';
-import type { BffClientLike, SubmitTurnPayload, TurnStreamHandle, StreamChunk, StreamStatus, StreamError, MermaidRecoveryPayload, MermaidRecoveryResult, WrapUpAssessmentPromptContext } from './types';
-import type { WrapUpAssessmentOverlayData } from '../bridge/contracts';
+import type {
+    BffClientLike,
+    ComprehensiveAnalysisResultType,
+    LearnerAnalysisRequest,
+    SubmitTurnPayload,
+    TurnStreamHandle,
+    StreamChunk,
+    StreamStatus,
+    StreamError,
+    MermaidRecoveryPayload,
+    MermaidRecoveryResult,
+    WrapUpAssessmentPromptContext,
+    TeachingPlanRequestPayload
+} from './types';
+import type { WrapUpAssessmentOverlayData, TeachingPoint } from '../bridge/contracts';
+import {
+    COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS,
+    MERMAID_RECOVERY_RN_TIMEOUT_MS,
+    WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS,
+    TEACHING_PLAN_RN_TIMEOUT_MS
+} from '@sensei/protocol/timeouts';
 
 type FetchLike = typeof fetch;
 
@@ -33,8 +52,10 @@ interface BffClientOptions {
 
 type StreamEvent = StreamChunk | StreamStatus | StreamError;
 
-const MERMAID_RECOVERY_REQUEST_TIMEOUT_MS = 42000;
-const WRAP_UP_REQUEST_TIMEOUT_MS = 250000;
+const MERMAID_RECOVERY_REQUEST_TIMEOUT_MS = MERMAID_RECOVERY_RN_TIMEOUT_MS;
+const WRAP_UP_REQUEST_TIMEOUT_MS = WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS;
+const TEACHING_PLAN_REQUEST_TIMEOUT_MS = TEACHING_PLAN_RN_TIMEOUT_MS;
+const COMPREHENSIVE_ANALYSIS_REQUEST_TIMEOUT_MS = COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS;
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {
     private queue: (IteratorResult<T>)[] = [];
@@ -209,19 +230,81 @@ export class BffClient implements BffClientLike {
 
     async generateWrapUp(moduleId: string, promptContext: WrapUpAssessmentPromptContext): Promise<WrapUpAssessmentOverlayData | null> {
         const requestBody = { moduleId, promptContext };
-        return this.postWrapUpWithRetry(requestBody, false);
+        return this.postWrapUpWithRetry(requestBody, moduleId, promptContext.moduleTitle, false);
     }
 
-    private async postWrapUpWithRetry(body: Record<string, unknown>, hasRetried: boolean): Promise<WrapUpAssessmentOverlayData | null> {
-        await this.ensureSession();
+    private async postWrapUpWithRetry(
+        body: Record<string, unknown>,
+        moduleId: string,
+        moduleTitle: string,
+        hasRetried: boolean
+    ): Promise<WrapUpAssessmentOverlayData | null> {
+        try {
+            await this.ensureSession();
+        } catch (error) {
+            logger.error('[MOBILE_PORT] wrap-up session init failed', { error, moduleId });
+            return null;
+        }
         if (!this.sessionId) {
-            throw new Error('Session missing for wrap-up generation');
+            logger.error('[MOBILE_PORT] wrap-up session missing', { moduleId });
+            return null;
         }
         const controller = new AbortController();
         const timerId = setTimeout(() => controller.abort(), WRAP_UP_REQUEST_TIMEOUT_MS);
         let response: Response;
         try {
             response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/wrapup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+        } catch (error) {
+            logger.error('[MOBILE_PORT] wrap-up request failed', { error, moduleId });
+            return null;
+        } finally {
+            clearTimeout(timerId);
+        }
+        if (response.status === 400) {
+            const errorBody = await this.safeParseJson(response);
+            if (!hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postWrapUpWithRetry(body, moduleId, moduleTitle, true);
+            }
+            logger.error('[MOBILE_PORT] wrap-up request rejected', { status: response.status, body: errorBody, moduleId });
+            return null;
+        }
+        if (!response.ok) {
+            const errorBody = await this.safeParseJson(response);
+            logger.error('[MOBILE_PORT] wrap-up request failed', { status: response.status, body: errorBody, moduleId });
+            return null;
+        }
+        try {
+            const overlay = await response.json() as WrapUpAssessmentOverlayData;
+            if (overlay && typeof overlay === 'object') {
+                return overlay;
+            }
+        } catch (error) {
+            logger.error('[MOBILE_PORT] wrap-up response parse failed', { error, moduleId });
+        }
+        logger.error('[MOBILE_PORT] wrap-up response missing overlay payload', { moduleId, moduleTitle });
+        return null;
+    }
+
+    async generateTeachingPlan(payload: TeachingPlanRequestPayload): Promise<TeachingPoint[][]> {
+        return this.postTeachingPlanWithRetry(payload, false);
+    }
+
+    private async postTeachingPlanWithRetry(body: TeachingPlanRequestPayload, hasRetried: boolean): Promise<TeachingPoint[][]> {
+        await this.ensureSession();
+        if (!this.sessionId) {
+            throw new Error('Session missing for teaching plan generation');
+        }
+        const controller = new AbortController();
+        const timerId = setTimeout(() => controller.abort(), TEACHING_PLAN_REQUEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+            response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/teaching-plan`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
@@ -234,16 +317,73 @@ export class BffClient implements BffClientLike {
             const errorBody = await this.safeParseJson(response);
             if (!hasRetried && this.isUnknownSessionError(errorBody)) {
                 this.sessionId = null;
-                return this.postWrapUpWithRetry(body, true);
+                return this.postTeachingPlanWithRetry(body, true);
             }
-            throw new Error(`Wrap-up generation failed: ${response.status}`);
+            throw new Error(`Teaching plan generation failed: ${response.status}`);
         }
         if (!response.ok) {
-            throw new Error(`Wrap-up generation failed: ${response.status}`);
+            throw new Error(`Teaching plan generation failed: ${response.status}`);
         }
-        const overlay = await response.json() as WrapUpAssessmentOverlayData;
-        this.bridge.enqueue({ type: 'wrapup:show', data: overlay });
-        return overlay;
+        const json = await response.json();
+        const teachingPlan = json?.teachingPlan;
+        if (!Array.isArray(teachingPlan)) {
+            throw new Error('Teaching plan response missing teachingPlan');
+        }
+        return teachingPlan as TeachingPoint[][];
+    }
+
+    async getLearnerAnalysis(payload: LearnerAnalysisRequest): Promise<ComprehensiveAnalysisResultType | null> {
+        return this.postLearnerAnalysisWithRetry(payload, false);
+    }
+
+    private async postLearnerAnalysisWithRetry(body: LearnerAnalysisRequest, hasRetried: boolean): Promise<ComprehensiveAnalysisResultType | null> {
+        try {
+            await this.ensureSession();
+        } catch (error) {
+            logger.error('[MOBILE_PORT] learner analysis session init failed', { error });
+            return null;
+        }
+        if (!this.sessionId) {
+            logger.error('[MOBILE_PORT] learner analysis session missing');
+            return null;
+        }
+        const controller = new AbortController();
+        const timerId = setTimeout(() => controller.abort(), COMPREHENSIVE_ANALYSIS_REQUEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+            response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/analysis`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+        } catch (error) {
+            logger.error('[MOBILE_PORT] learner analysis request failed', { error });
+            return null;
+        } finally {
+            clearTimeout(timerId);
+        }
+        if (response.status === 400) {
+            const errorBody = await this.safeParseJson(response);
+            if (!hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postLearnerAnalysisWithRetry(body, true);
+            }
+            return null;
+        }
+        if (!response.ok) {
+            return null;
+        }
+        try {
+            const json = await response.json();
+            if (!json || typeof json !== 'object') {
+                return null;
+            }
+            return json as ComprehensiveAnalysisResultType;
+        } catch (error) {
+            logger.error('[MOBILE_PORT] learner analysis parse failed', { error });
+            return null;
+        }
     }
 
     private createStream(streamUrl: string, turnId: string): AsyncIterable<StreamEvent> {
@@ -267,7 +407,9 @@ export class BffClient implements BffClientLike {
                 } else if (parsed.type === 'status') {
                     queue.push({ type: 'status', phase: parsed.phase, footer: parsed.footer } as StreamStatus);
                 } else if (parsed.type === 'wrapUp') {
-                    this.bridge.enqueue({ type: 'wrapup:show', data: parsed.payload } as any);
+                    const payload = parsed.payload as WrapUpAssessmentOverlayData;
+                    const moduleId = typeof payload?.moduleId === 'string' && payload.moduleId ? payload.moduleId : 'unknown';
+                    this.bridge.enqueue({ type: 'wrapup:show', moduleId, data: payload });
                 } else if (parsed.type === 'error') {
                     queue.push({ type: 'error', code: parsed.code, message: parsed.message } as StreamError);
                 }
