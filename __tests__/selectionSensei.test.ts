@@ -1,4 +1,4 @@
-import { initializeSelectionSensei, reinitializeSelectionSensei } from '../selectionSensei'
+import { initializeSelectionSensei, reinitializeSelectionSensei, invokeSelectionSenseiBridgeAction } from '../selectionSensei'
 import { GoogleGenAI } from '@google/genai'
 
 jest.mock('marked')
@@ -32,7 +32,8 @@ jest.mock('../mermaidErrorRecovery', () => ({
 
 jest.mock('../notepad', () => ({
   notepad: {
-    setActiveCurriculumContext: jest.fn()
+    setActiveCurriculumContext: jest.fn(),
+    addNote: jest.fn()
   }
 }))
 
@@ -97,6 +98,14 @@ const setupDom = () => {
 describe('selectionSensei initializeSelectionSensei', () => {
   beforeEach(() => {
     setupDom()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    messageArea.innerHTML = `
+      <div class="message-bubble" data-sender="sensei">
+        <div class="message-text">Original context text</div>
+      </div>
+    `
+    const { notepad } = require('../notepad')
+    notepad.addNote.mockClear()
   })
 
   test('registers mouse listeners on message area', () => {
@@ -126,6 +135,70 @@ describe('selectionSensei initializeSelectionSensei', () => {
     reinitializeSelectionSensei(new GoogleGenAI({}))
     const modal = document.getElementById('response-modal') as HTMLDivElement
     expect(modal.style.display).toBe('none')
+  })
+
+  test('bridge addToNotepad uses captured HTML when selection collapses', () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const textNode = messageText.firstChild as Text
+    const originalGetSelection = window.getSelection
+
+    const fragment = document.createDocumentFragment()
+    const node = document.createElement('em')
+    node.textContent = 'Selected'
+    fragment.appendChild(node)
+
+    const range = {
+      commonAncestorContainer: textNode,
+      getBoundingClientRect: () => ({
+        x: 10,
+        y: 20,
+        left: 10,
+        top: 20,
+        width: 30,
+        height: 10,
+        right: 40,
+        bottom: 30,
+        toJSON: () => ({})
+      }),
+      cloneContents: () => fragment
+    } as any
+
+    const selectionWithRange = {
+      isCollapsed: false,
+      rangeCount: 1,
+      toString: () => 'Selected',
+      getRangeAt: () => range
+    } as any
+
+    const selectionCollapsed = {
+      isCollapsed: true,
+      rangeCount: 0,
+      toString: () => '',
+      getRangeAt: () => {
+        throw new Error('no range')
+      }
+    } as any
+
+    Object.defineProperty(window, 'getSelection', {
+      configurable: true,
+      value: jest.fn(() => selectionWithRange)
+    })
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+
+    ;(window.getSelection as any).mockImplementation(() => selectionCollapsed)
+
+    const { notepad } = require('../notepad')
+    invokeSelectionSenseiBridgeAction('addToNotepad')
+    expect(notepad.addNote).toHaveBeenCalledWith('Selected', 'Selected', '<em>Selected</em>')
+    Object.defineProperty(window, 'getSelection', {
+      configurable: true,
+      value: originalGetSelection
+    })
+    delete (window as any).__SENSEI_MOBILE_BUILD__
   })
 
   test.todo('expand SelectionSensei follow-up interactions with real AI fixtures')
