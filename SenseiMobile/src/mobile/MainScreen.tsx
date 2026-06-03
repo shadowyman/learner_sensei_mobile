@@ -124,7 +124,6 @@ interface SaveLoadServiceLike {
 interface TelemetryManagerLike {
     isEnabled(): boolean;
     toggle(enabled: boolean): Promise<void>;
-    nextClientTurnId(): string;
     record(event: string, data: Record<string, unknown>): void;
 }
 
@@ -275,64 +274,6 @@ function deriveThemeColors(main: string): ThemeColors {
     return { linear, radialA, radialB, radialC };
 }
 
-interface ForwardStreamOptions {
-    bridge: BridgeManager;
-    telemetryManager: TelemetryManagerLike;
-    setFooter: (footer: FooterPayload) => void;
-    setIsStreaming: (value: boolean) => void;
-}
-
-export async function runForwardStream(
-    handlePromise: ReturnType<BffClientLike['submitTurn']>,
-    options: ForwardStreamOptions
-): Promise<void> {
-    const { bridge, telemetryManager, setFooter, setIsStreaming } = options;
-    setIsStreaming(true);
-    try {
-        const resolved = await handlePromise;
-        const iteratorFactory = (resolved.stream as any)[Symbol.asyncIterator];
-        if (typeof iteratorFactory !== 'function') {
-            throw new Error('Stream is not async iterable');
-        }
-        const iterator = iteratorFactory.call(resolved.stream) as AsyncIterator<StreamChunk | StreamStatus | StreamError>;
-        while (true) {
-            const { value, done } = await iterator.next();
-            if (done) {
-                break;
-            }
-            const event = value;
-            switch (event.type) {
-                case 'chunk':
-                    bridge.enqueue({ type: 'chat:update', messageId: resolved.messageId, text: event.text });
-                    break;
-                case 'status':
-                    if (event.footer) {
-                        bridge.enqueue({ type: 'footer:update', payload: event.footer as FooterPayload });
-                        setFooter(event.footer as FooterPayload);
-                    }
-                    telemetryManager.record('stream_status', { phase: event.phase });
-                    if (event.phase === 'completed') {
-                        bridge.enqueue({ type: 'chat:completeMessage', messageId: resolved.messageId });
-                    }
-                    break;
-                case 'error':
-                    logger.error('[MOBILE_PORT] stream error', { code: event.code, message: event.message });
-                    telemetryManager.record('stream_error', { code: event.code, message: event.message });
-                    return;
-                default:
-                    break;
-            }
-        }
-        telemetryManager.record('stream_completed', {});
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        logger.error('[MOBILE_PORT] stream failure', { error: message });
-        telemetryManager.record('stream_error', { code: 'submit_failure', message });
-    } finally {
-        setIsStreaming(false);
-    }
-}
-
 export const MainScreen: React.FC<MainScreenProps> = ({
     bridge,
     bffClient,
@@ -349,7 +290,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const internalWebViewRef = useRef<WebView>(null);
     const webViewRef = webViewRefOverride ?? internalWebViewRef;
     const enableIOSWebInspector = Platform.OS === 'ios';
-    const [isStreaming, setIsStreaming] = useState(false);
     const [webViewTurnInFlight, setWebViewTurnInFlight] = useState(false);
     const webViewTurnInFlightRef = useRef(false);
     const [footer, setFooter] = useState<FooterPayload | null>(null);
@@ -538,28 +478,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         sendWebViewCommand(script);
     }, [sendWebViewCommand]);
 
-    const forwardStream = useCallback(async (handle: ReturnType<BffClientLike['submitTurn']>) => {
-        await runForwardStream(handle, { bridge, telemetryManager, setFooter, setIsStreaming });
-    }, [bridge, telemetryManager]);
-
     const releaseWebViewTurn = useCallback((reason: string) => {
         if (!webViewTurnInFlightRef.current) {
             return;
         }
         webViewTurnInFlightRef.current = false;
         setWebViewTurnInFlight(false);
-        setIsStreaming(false);
         logger.info('[MOBILE_TURN_GUARD] released', { reason });
     }, []);
-
-    /*
-        TBD (Phase 1 Step 8 alignment):
-        - Primary path: RN input forwards text into the WebView-owned teaching loop (so WebView handles module selection,
-          phase routing, and all UI/state exactly like the desktop/web path).
-        - Legacy path: RN submits directly to BFF and forwards the streamed response into WebView (RN→BFF→WebView).
-          We keep this for future experimentation/perf comparisons and as a fallback path.
-     */
-    const MOBILE_TURN_PIPELINE_MODE: 'webview_owned' | 'legacy_bff_streaming' = 'webview_owned';
 
     const handleSubmit = useCallback(
         async (text: string) => {
@@ -568,37 +494,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 return false;
             }
 
-            if (MOBILE_TURN_PIPELINE_MODE === 'webview_owned') {
-                if (webViewTurnInFlightRef.current) {
-                    logger.info('[MOBILE_TURN_GUARD] duplicate-submit-blocked', { textLength: trimmed.length });
-                    return false;
-                }
-                webViewTurnInFlightRef.current = true;
-                setWebViewTurnInFlight(true);
-                setIsStreaming(true);
-                bridge.enqueue({ type: 'chat:userInput', text: trimmed });
-                return true;
-            }
-
-            if (isStreaming) {
+            if (webViewTurnInFlightRef.current) {
+                logger.info('[MOBILE_TURN_GUARD] duplicate-submit-blocked', { textLength: trimmed.length });
                 return false;
             }
-
-            const clientTurnId = telemetryManager.nextClientTurnId();
-            const userMessageId = `user-${clientTurnId}`;
-            bridge.enqueue({ type: 'chat:startMessage', messageId: userMessageId, sender: 'user', text: trimmed });
-            await bffClient.ensureSession();
-            logger.info('[MOBILE_PORT] turn submit', { clientTurnId, textLength: trimmed.length });
-            telemetryManager.record('turn_submitted', { textLength: trimmed.length });
-            const handlePromise = (async () => {
-                const handle = await bffClient.submitTurn({ text: trimmed, clientTurnId });
-                bridge.enqueue({ type: 'chat:startMessage', messageId: handle.messageId, sender: 'sensei' });
-                return handle;
-            })();
-            forwardStream(handlePromise);
+            webViewTurnInFlightRef.current = true;
+            setWebViewTurnInFlight(true);
+            bridge.enqueue({ type: 'chat:userInput', text: trimmed });
             return true;
         },
-        [bffClient, bridge, forwardStream, isStreaming, telemetryManager]
+        [bridge]
     );
 
     const handleWebViewMessage = useCallback((event: WebViewMessageEvent) => {
@@ -896,7 +801,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             }}
                             onLayoutRect={setInputBarRect}
                             themeColors={themeColors}
-                            disabled={MOBILE_TURN_PIPELINE_MODE === 'webview_owned' ? webViewTurnInFlight : isStreaming}
+                            disabled={webViewTurnInFlight}
                         />
                     </View>
                 </KeyboardAvoidingView>

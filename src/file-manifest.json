@@ -108,7 +108,6 @@
   "src/mobile/bridge/BridgeManager.ts",
   "src/mobile/bridge/contracts.ts",
   "src/mobile/bridge/index.ts",
-  "src/mobile/MainScreen.tsx",
   "src/mobile/network/BffClient.ts",
   "src/mobile/network/types.ts",
   "src/mobile/saveLoad/SaveLoadService.ts",
