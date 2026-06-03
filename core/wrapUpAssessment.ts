@@ -1,4 +1,9 @@
 import type { CoreLlmClient } from './llmTypes';
+import type { WrapUpAssessmentPromptContext } from './prompts/wrapUpAssessment';
+import { buildWrapUpAssessmentPrompt, WRAP_UP_ASSESSMENT_TOOLS } from './prompts/wrapUpAssessment';
+
+export type { WrapUpAssessmentPromptContext } from './prompts/wrapUpAssessment';
+export { buildWrapUpAssessmentPrompt, WRAP_UP_ASSESSMENT_TOOLS } from './prompts/wrapUpAssessment';
 
 const WRAP_UP_ASSESSMENT_DEBUG_DEFAULT = false;
 const WRAP_UP_ASSESSMENT_DEBUG_FLAG = false;
@@ -18,76 +23,6 @@ export interface WrapUpAssessmentQuestion {
 
 export interface WrapUpAssessmentGenerationResult {
   questions: WrapUpAssessmentQuestion[];
-}
-
-export interface WrapUpAssessmentPromptContext {
-  moduleTitle: string;
-  moduleGoal: string;
-  solidifyContent: string;
-  conceptSummaries: string[];
-}
-
-export const WRAP_UP_ASSESSMENT_TOOLS = [
-  {
-    functionDeclarations: [
-      {
-        name: 'submit_wrap_up_assessment',
-        description: 'Delivers the full wrap-up assessment question set for the current module solidify phase. Always include exactly 15 questions with five snippet items.',
-        parametersJsonSchema: {
-          type: 'object',
-          description: 'Payload containing the generated wrap-up assessment questions.',
-          properties: {
-            questions: {
-              type: 'array',
-              description: 'Ordered wrap-up assessment questions to present to the learner.',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string', description: 'Stable identifier for the question.' },
-                  type: { type: 'string', enum: ['snippet', 'concept'], description: 'Question category.' },
-                  prompt: { type: 'string', description: 'Question stem shown to the learner.' },
-                  code: { type: 'string', description: 'Optional C++ snippet for snippet questions.' },
-                  choices: {
-                    type: 'array',
-                    description: 'Exactly four answer choices formatted as Markdown-capable strings.',
-                    items: { type: 'string' }
-                  },
-                  correct_choice: { type: 'string', description: 'The choice string that is correct.' },
-                  explanation: { type: 'string', description: 'Detailed reasoning explaining the answer.' },
-                  interviewer_insight: { type: 'string', description: 'FAANG interviewer perspective highlighting the trap or signal.' }
-                },
-                required: ['id', 'type', 'prompt', 'choices', 'correct_choice', 'explanation', 'interviewer_insight']
-              }
-            }
-          },
-          required: ['questions']
-        }
-      }
-    ]
-  }
-] as const;
-
-export function buildWrapUpAssessmentPrompt(context: WrapUpAssessmentPromptContext): string {
-  const { moduleTitle, moduleGoal, conceptSummaries } = context;
-  const conceptSection = conceptSummaries.length
-    ? conceptSummaries.map((concept, index) => `Concept ${index + 1}: ${concept}`).join('\n')
-    : 'No individual concept summaries were supplied; infer coverage from the solidify material.';
-
-  return [
-    'You are an assessment author. Prepare a 15-question multiple-choice assessment that spans every concept in the provided material. Each question should feel tricky and creative—draw on implied knowledge within scope, not just verbatim details—so the set mirrors the rigor of FAANG-style interviews.',
-    'Deliver the finished assessment by invoking the submit_wrap_up_assessment tool with the questions array. Do not emit JSON, tool_code, or natural language outside of the tool invocation.',
-    'Requirements:',
-    '1. Exactly five questions must be C++ code-snippet items (`"type": "snippet"`) with a valid C++ `code` field; the remaining ten are conceptual (`"type": "concept"`).',
-    '2. For code snippets, assume surrounding infrastructure already exists—show only the lines necessary to illustrate the bug or question.',
-    '3. Every question must present four answer choices, and the `"correct_choice"` string must match one of those choices exactly.',
-    '4. Provide both `"explanation"` (why the correct answer is right) and `"interviewer_insight"` (how a FAANG interviewer disguises the concept, the trap they set, and the weakness they are screening for).',
-    '5. Ensure the questions are tricky and thought-provoking, requiring deep understanding rather than surface recall.',
-    'Each question object supplied to the tool must include these fields: id (string), type ("snippet" | "concept"), prompt (string), optional code (string for snippet questions), choices (array of four strings), correct_choice (string matching one choice), explanation (string), interviewer_insight (string).',
-    `Module Title: ${moduleTitle}`,
-    `Module Goal:\n${moduleGoal}`,
-    'Concept Summaries:\n' + conceptSection,
-    'Ensure the full set covers algorithms, complexity, pitfalls, and systems-thinking cues implicit in the Solidify content. Every question should feel like a FAANG interview moment that rewards precise reasoning.'
-  ].join('\n');
 }
 
 function isWrapUpDebugEnabled(): boolean {
@@ -143,6 +78,82 @@ function buildDebugAssessment(moduleTitle: string): WrapUpAssessmentGenerationRe
   });
 
   return { questions: [...snippetQuestions, ...conceptQuestions] };
+}
+
+function assertNonEmptyString(value: unknown, message: string): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  throw new Error(message);
+}
+
+function optionalString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  return undefined;
+}
+
+export function validateWrapUpAssessmentQuestions(
+  questions: WrapUpAssessmentQuestion[]
+): WrapUpAssessmentQuestion[] {
+  if (!Array.isArray(questions)) {
+    throw new Error('Wrap Up assessment payload is not an array.');
+  }
+
+  if (questions.length !== 15) {
+    throw new Error(`Wrap Up assessment must contain exactly 15 questions; received ${questions.length}.`);
+  }
+
+  const snippetCount = questions.filter(question => question.type === 'snippet').length;
+  if (snippetCount !== 5) {
+    throw new Error(`Wrap Up assessment must include exactly 5 snippet questions; received ${snippetCount}.`);
+  }
+
+  return questions.map((question, index) => {
+    const displayIndex = index + 1;
+    const id = assertNonEmptyString(question.id, `Question ${displayIndex} is missing an id.`);
+    const prompt = assertNonEmptyString(question.prompt, `Question ${displayIndex} prompt is missing.`);
+    const explanation = assertNonEmptyString(question.explanation, `Question ${displayIndex} explanation is missing.`);
+    const interviewerInsight = assertNonEmptyString(
+      question.interviewer_insight,
+      `Question ${displayIndex} interviewer insight is missing.`
+    );
+    const choicesArray = Array.isArray(question.choices) ? question.choices : [];
+    if (choicesArray.length !== 4) {
+      throw new Error(`Question ${displayIndex} must contain exactly four answer choices.`);
+    }
+    const normalizedChoices = choicesArray.map((choice, choiceIndex) =>
+      assertNonEmptyString(choice, `Question ${displayIndex} choice ${choiceIndex + 1} is empty.`)
+    );
+    const correctChoice = assertNonEmptyString(
+      question.correct_choice,
+      `Question ${displayIndex} correct choice is missing.`
+    );
+    if (!normalizedChoices.includes(correctChoice)) {
+      throw new Error(`Question ${displayIndex} correct choice must match one of the provided choices.`);
+    }
+    const code = optionalString(question.code);
+    const type = question.type === 'snippet' ? 'snippet' : 'concept';
+    if (type === 'snippet' && !code) {
+      throw new Error(`Snippet question ${displayIndex} is missing required C++ code.`);
+    }
+
+    return {
+      id,
+      type,
+      prompt,
+      code,
+      choices: normalizedChoices,
+      correct_choice: correctChoice,
+      explanation,
+      interviewer_insight: interviewerInsight
+    } as WrapUpAssessmentQuestion;
+  });
 }
 
 function coerceString(value: unknown): string {
@@ -281,7 +292,10 @@ function parseQuestionsFromText(text: string): WrapUpAssessmentQuestion[] | null
 export async function generateWrapUpAssessment(
   llm: CoreLlmClient | null,
   _moduleId: string,
-  promptContext: WrapUpAssessmentPromptContext
+  promptContext: WrapUpAssessmentPromptContext,
+  options?: {
+    onAttemptError?: (params: { attempt: number; maxAttempts: number; error: unknown }) => void;
+  }
 ): Promise<WrapUpAssessmentGenerationResult | null> {
   if (!llm) {
     return null;
@@ -292,9 +306,9 @@ export async function generateWrapUpAssessment(
   }
 
   const prompt = buildWrapUpAssessmentPrompt(promptContext);
-  let lastError: unknown = null;
+  const maxAttempts = 2;
 
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const toolResult = await llm.callWithTools(prompt, { task: 'wrap_up_assessment', tools: WRAP_UP_ASSESSMENT_TOOLS });
       const toolCalls = toolResult.toolCalls;
@@ -317,11 +331,33 @@ export async function generateWrapUpAssessment(
       if (!enforcedQuestions) {
         throw new Error('Model returned malformed wrap-up question set');
       }
-      return { questions: enforcedQuestions };
+      const validatedQuestions = validateWrapUpAssessmentQuestions(enforcedQuestions);
+      return { questions: validatedQuestions };
     } catch (error) {
-      lastError = error;
+      options?.onAttemptError?.({ attempt, maxAttempts, error });
+      if (isTimeoutError(error)) {
+        break;
+      }
     }
   }
 
   return null;
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const anyError = error;
+  const name = typeof (anyError as any)?.name === 'string' ? (anyError as any).name : '';
+  const code = typeof (anyError as any)?.code === 'string' ? (anyError as any).code : '';
+  const message = typeof (anyError as any)?.message === 'string' ? (anyError as any).message : '';
+  const lowered = message.toLowerCase();
+  return (
+    name === 'AbortError' ||
+    code === 'ETIMEDOUT' ||
+    lowered.includes('timed out') ||
+    lowered.includes('timeout') ||
+    lowered.includes('deadline exceeded')
+  );
 }

@@ -7,8 +7,15 @@
   "exports": {
     ".": "./dist/index.js",
     "./mermaidErrorRecovery": "./dist/mermaidErrorRecovery.js",
+    "./learnerAnalysis": "./dist/learnerAnalysis.js",
     "./modelUsage": "./dist/modelUsage.js",
-    "./wrapUpAssessment": "./dist/wrapUpAssessment.js"
+    "./wrapUpAssessment": "./dist/wrapUpAssessment.js",
+    "./teachingPlan": "./dist/teachingPlan.js",
+    "./prompts": "./dist/prompts/index.js",
+    "./prompts/wrapUpAssessment": "./dist/prompts/wrapUpAssessment.js",
+    "./prompts/teachingPlan": "./dist/prompts/teachingPlan.js",
+    "./prompts/learnerAnalysis": "./dist/prompts/learnerAnalysis.js",
+    "./prompts/mermaidRepair": "./dist/prompts/mermaidRepair.js"
   },
   "files": [
     "dist"

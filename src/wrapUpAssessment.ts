@@ -1,5 +1,5 @@
 import { sanitizeMarkdownFences, parseSanitizedMarkdown, addLanguageDisplayToCodeBlocks, addCopyButtonsToCodeBlocks } from './ui';
-import type { WrapUpAssessmentQuestion } from '@sensei/core/wrapUpAssessment';
+import { validateWrapUpAssessmentQuestions, type WrapUpAssessmentQuestion } from '@sensei/core/wrapUpAssessment';
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
 
@@ -52,73 +52,7 @@ export interface WrapUpAssessmentOverlayData {
     questions: WrapUpAssessmentQuestion[];
 }
 
-function assertNonEmptyString(value: unknown, message: string): string {
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (trimmed.length > 0) {
-            return trimmed;
-        }
-    }
-    throw new Error(message);
-}
-
-function optionalString(value: unknown): string | undefined {
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
-        return trimmed.length > 0 ? trimmed : undefined;
-    }
-    return undefined;
-}
-
-export function validateWrapUpAssessmentQuestions(questions: WrapUpAssessmentQuestion[]): WrapUpAssessmentQuestion[] {
-    if (!Array.isArray(questions)) {
-        throw new Error('Wrap Up assessment payload is not an array.');
-    }
-
-    if (questions.length !== 15) {
-        throw new Error(`Wrap Up assessment must contain exactly 15 questions; received ${questions.length}.`);
-    }
-
-    const snippetCount = questions.filter(question => question.type === 'snippet').length;
-    if (snippetCount !== 5) {
-        throw new Error(`Wrap Up assessment must include exactly 5 snippet questions; received ${snippetCount}.`);
-    }
-
-    return questions.map((question, index) => {
-        const displayIndex = index + 1;
-        const id = assertNonEmptyString(question.id, `Question ${displayIndex} is missing an id.`);
-        const prompt = assertNonEmptyString(question.prompt, `Question ${displayIndex} prompt is missing.`);
-        const explanation = assertNonEmptyString(question.explanation, `Question ${displayIndex} explanation is missing.`);
-        const interviewerInsight = assertNonEmptyString(question.interviewer_insight, `Question ${displayIndex} interviewer insight is missing.`);
-        const choicesArray = Array.isArray(question.choices) ? question.choices : [];
-        if (choicesArray.length !== 4) {
-            throw new Error(`Question ${displayIndex} must contain exactly four answer choices.`);
-        }
-        const normalizedChoices = choicesArray.map((choice, choiceIndex) =>
-            assertNonEmptyString(choice, `Question ${displayIndex} choice ${choiceIndex + 1} is empty.`)
-        );
-        const correctChoice = assertNonEmptyString(question.correct_choice, `Question ${displayIndex} correct choice is missing.`);
-        if (!normalizedChoices.includes(correctChoice)) {
-            throw new Error(`Question ${displayIndex} correct choice must match one of the provided choices.`);
-        }
-        const code = optionalString(question.code);
-        const type = question.type === 'snippet' ? 'snippet' : 'concept';
-        if (type === 'snippet' && !code) {
-            throw new Error(`Snippet question ${displayIndex} is missing required C++ code.`);
-        }
-
-        return {
-            id,
-            type,
-            prompt,
-            code,
-            choices: normalizedChoices,
-            correct_choice: correctChoice,
-            explanation,
-            interviewer_insight: interviewerInsight
-        } as WrapUpAssessmentQuestion;
-    });
-}
+export { validateWrapUpAssessmentQuestions };
 
 function prepareRenderQuestions(questions: WrapUpAssessmentQuestion[]): RenderQuestion[] {
     return questions.map(question => {
@@ -574,7 +508,11 @@ export async function presentWrapUpAssessmentOverlay(params: {
         const validatedQuestions = validateWrapUpAssessmentQuestions(overlay.questions);
         clearPhaseLoadingBubbles();
         showWrapUpAssessmentOverlayValidated(overlay, validatedQuestions);
-    } catch (_error) {
+    } catch (error) {
+        console.warn('[WRAP_UP_ASSESSMENT] overlay-validation-failed', {
+            moduleTitle,
+            message: error instanceof Error ? error.message : String(error)
+        });
         clearPhaseLoadingBubbles();
         await params.showApology(moduleTitle);
         unlockWrapUpChatControls();

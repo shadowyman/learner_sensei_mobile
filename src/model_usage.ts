@@ -12,13 +12,7 @@ const GEMINI_FLASH = 'gemini-flash-latest'; // Faster, for analysis/structured o
  * Used in geminiService.ts for llmExtractAndPlanTeachingOrder.
  * Switched to Flash model as it's a structured JSON generation task that might benefit from speed.
  */
-export const TEACHING_PLAN_GENERATION_CONFIG = {
-  modelName: GEMINI_PRO,
-  config: {
-    responseMimeType: "application/json",
-    temperature: 0.7,
-  },
-};
+export { TEACHING_PLAN_GENERATION_CONFIG } from '@sensei/core/modelUsage';
 
 export { WRAP_UP_ASSESSMENT_GENERATION_CONFIG } from '@sensei/core/modelUsage';
 export { WRAP_UP_ASSESSMENT_TOOLS } from '@sensei/core/wrapUpAssessment';
@@ -30,13 +24,7 @@ export const TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED = false;
  * Used in geminiService.ts for getAnalysisFromGemini.
  * Switched to Flash model for structured JSON output, potentially faster analysis.
  */
-export const COMPREHENSIVE_ANALYSIS_CONFIG = {
-  modelName: GEMINI_FLASH,
-  config: {
-    responseMimeType: "application/json",
-    temperature: 0.5,
-  },
-};
+export { COMPREHENSIVE_ANALYSIS_CONFIG } from '@sensei/core/modelUsage';
 
 /**
  * Configuration for the "Module Introduction Chat" task.
