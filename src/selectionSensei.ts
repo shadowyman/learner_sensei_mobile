@@ -116,13 +116,48 @@ class SelectionSensei {
     private isMinimizeAnimationInFlight = false;
     private isRestoreAnimationInFlight = false;
 
-    private isAskModeActive = false; // Add this line
-    private askInputContainer: HTMLDivElement | null = null; // Add this property
+    private isAskModeActive = false;
+    private askInputContainer: HTMLDivElement | null = null;
     private isDragging = false;
     private offsetX = 0;
     private offsetY = 0;
     private boundOutsidePointerHandler: (event: PointerEvent) => void;
-    private lastSelectionSnapshot: { text: string; context: string } | null = null;
+    private lastSelectionSnapshot: { text: string; context: string; html: string } | null = null;
+    private nativeSelectionActive = false;
+
+    private notifyNativeSelectionActive(active: boolean): void {
+        if (!this.isNativeBridgeActive()) {
+            return;
+        }
+        if (this.nativeSelectionActive === active) {
+            return;
+        }
+        this.nativeSelectionActive = active;
+        try {
+            window.dispatchEvent(new CustomEvent('sensei-mobile-selection-active-change', { detail: { active } }));
+        } catch {
+            return;
+        }
+    }
+
+    private captureSelectionHtml(selection: Selection): string {
+        try {
+            if (typeof document === 'undefined') {
+                return '';
+            }
+            if (selection.rangeCount === 0) {
+                return '';
+            }
+            const range = selection.getRangeAt(0);
+            const fragment = range.cloneContents();
+            const div = document.createElement('div');
+            div.appendChild(fragment);
+            return div.innerHTML;
+        } catch (error) {
+            logger.warn('[MOBILE_PORT_SELECTION] html capture failed', { error: error instanceof Error ? error.message : String(error) });
+            return '';
+        }
+    }
 
     private async copySelectionText(text: string): Promise<void> {
         try {
@@ -708,8 +743,13 @@ class SelectionSensei {
             : null;
         if (senseiMessageTextElement) {
             const originalSenseiMessageText = senseiMessageTextElement.textContent || '';
-            this.lastSelectionSnapshot = { text: selectedText, context: originalSenseiMessageText };
-            if (this.isNativeBridgeActive()) {
+            const isNativeBridgeActive = this.isNativeBridgeActive();
+            this.lastSelectionSnapshot = {
+                text: selectedText,
+                context: originalSenseiMessageText,
+                html: this.captureSelectionHtml(selection),
+            };
+            if (isNativeBridgeActive) {
                 this.sendSelectionToNative(selection, selectedText);
                 return true;
             }
@@ -723,8 +763,13 @@ class SelectionSensei {
         if (contextCarrier) {
             const contextText = contextCarrier.dataset.selectionSenseiContext;
             if (contextText && contextText.trim().length > 0) {
-                this.lastSelectionSnapshot = { text: selectedText, context: contextText };
-                if (this.isNativeBridgeActive()) {
+                const isNativeBridgeActive = this.isNativeBridgeActive();
+                this.lastSelectionSnapshot = {
+                    text: selectedText,
+                    context: contextText,
+                    html: this.captureSelectionHtml(selection),
+                };
+                if (isNativeBridgeActive) {
                     this.sendSelectionToNative(selection, selectedText);
                     return true;
                 }
@@ -1127,6 +1172,10 @@ class SelectionSensei {
         if (this.isAskModeActive) return; // Add this guard clause
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) {
+            if (this.isNativeBridgeActive()) {
+                this.hideSelectionToolbar();
+                return;
+            }
             if (this.selectionToolbarElement && this.selectionToolbarElement.classList.contains('visible')) {
                 this.hideSelectionToolbar();
             }
@@ -1149,7 +1198,9 @@ class SelectionSensei {
             button.textContent = action.label; 
             button.title = action.label;
             
-            if (action.actionType === 'addToNotepad') {
+            if (action.actionType === 'askQuestion') {
+                button.className = 'ask-button';
+            } else if (action.actionType === 'addToNotepad') {
                 button.className = 'notepad-button';
             }
             
@@ -1157,7 +1208,7 @@ class SelectionSensei {
                 if (action.actionType === 'askQuestion') {
                     this.activateAskMode(selectedText, originalSenseiMessageText, action.label);
                 } else if (action.actionType === 'addToNotepad') {
-                    this.handleAddToNotepad(selectedText);
+                    this.handleAddToNotepad(selectedText, this.lastSelectionSnapshot?.html);
                 } else {
                     this.handleToolbarAction(selectedText, action.actionType, originalSenseiMessageText, action.label);
                 }
@@ -1216,12 +1267,19 @@ class SelectionSensei {
         if (this.selectionToolbarElement) {
             this.selectionToolbarElement.remove();
             this.selectionToolbarElement = null;
-            this.askInputContainer = null; // Reset the container
+            this.askInputContainer = null;
         }
-        if (this.isNativeBridgeActive()) {
+        if (this.isNativeBridgeActive() && this.nativeSelectionActive) {
             sendToNative({ type: 'selection:clear' });
+            this.notifyNativeSelectionActive(false);
+            try {
+                const selection = window.getSelection();
+                if (selection && selection.isCollapsed) {
+                    selection.removeAllRanges();
+                }
+            } catch {}
         }
-        this.isAskModeActive = false; // Add this line
+        this.isAskModeActive = false;
     }
 
     private isNativeBridgeActive(): boolean {
@@ -1229,6 +1287,7 @@ class SelectionSensei {
     }
 
     private sendSelectionToNative(selection: Selection, selectedText: string): void {
+        this.notifyNativeSelectionActive(true);
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         sendToNative({
@@ -1259,7 +1318,7 @@ class SelectionSensei {
             fromBridge: true,
             hasQuestion: !!extras?.userQuestion
         });
-        const { text, context } = this.lastSelectionSnapshot;
+        const { text, context, html } = this.lastSelectionSnapshot;
         if (actionId === 'copy') {
             void this.copySelectionText(text);
             return;
@@ -1269,7 +1328,7 @@ class SelectionSensei {
             return;
         }
         if (actionId === 'addToNotepad') {
-            this.handleAddToNotepad(text);
+            this.handleAddToNotepad(text, html);
             return;
         }
         if (actionId === 'askQuestion') {
@@ -1286,10 +1345,9 @@ class SelectionSensei {
     }
 
     private activateAskMode(selectedText: string, originalSenseiMessageText: string, actionLabel: string): void {
-        if (!this.selectionToolbarElement || this.askInputContainer) return; // Prevent creating multiple inputs
+        if (!this.selectionToolbarElement || this.askInputContainer) return;
 
-        this.isAskModeActive = true; // Add this line
-        // Disable other buttons
+        this.isAskModeActive = true;
         this.selectionToolbarElement.querySelectorAll('.selection-toolbar-buttons button').forEach(btn => {
             (btn as HTMLButtonElement).disabled = true;
         });
@@ -1325,45 +1383,40 @@ class SelectionSensei {
         this.askInputContainer.appendChild(sendButton);
         this.selectionToolbarElement.appendChild(this.askInputContainer);
 
-        // Trigger the animation and setup autosize
         requestAnimationFrame(() => {
             this.selectionToolbarElement?.classList.add('ask-mode-active');
-            setupTextareaAutosize(textInput); // ADD THIS LINE
+            setupTextareaAutosize(textInput);
             textInput.focus();
         });
     }
     
-    private handleAddToNotepad(selectedText: string): void {
+    private handleAddToNotepad(selectedText: string, selectionHtml?: string): void {
         logSelectionSenseiValidation('notepad-add-requested', {
             textLength: selectedText.length
         });
-        
-        // Get the selection for HTML capture
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) {
-            logger.error('No selection available');
-            return;
+
+        let selectedHTML = selectionHtml ?? '';
+        if (!selectedHTML) {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+                logger.error('No selection available');
+            } else {
+                const range = selection.getRangeAt(0);
+                try {
+                    const fragment = range.cloneContents();
+                    const div = document.createElement('div');
+                    div.appendChild(fragment);
+                    selectedHTML = div.innerHTML;
+                    logSelectionSenseiValidation('html-fragment-captured', {
+                        textLength: selectedText.length,
+                        htmlLength: selectedHTML.length
+                    });
+                } catch (error) {
+                    logger.error('Error capturing HTML fragment:', error);
+                }
+            }
         }
         
-        const range = selection.getRangeAt(0);
-        
-        // Capture the HTML fragment of the selection
-        let selectedHTML = '';
-        try {
-            const fragment = range.cloneContents();
-            const div = document.createElement('div');
-            div.appendChild(fragment);
-            selectedHTML = div.innerHTML;
-            logSelectionSenseiValidation('html-fragment-captured', {
-                textLength: selectedText.length,
-                htmlLength: selectedHTML.length
-            });
-        } catch (error) {
-            logger.error('Error capturing HTML fragment:', error);
-        }
-        
-        // Add to notepad with the plain text and HTML version
-        // Pass selectedText for both text and markdown parameters since markdown extraction doesn't work
         notepad.addNote(selectedText, selectedText, selectedHTML);
         
         this.hideSelectionToolbar();
