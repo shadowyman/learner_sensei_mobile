@@ -43,7 +43,7 @@ interface SelectionActionConfig {
 const OVERLAY_PADDING_V = 2;
 const OVERLAY_PADDING_H = 10;
 const TOOLBAR_RADIUS = 24;
-const TOOLBAR_FALLBACK_COLOR = 'rgba(8,12,20,0.72)';
+const TOOLBAR_FALLBACK_COLOR = 'rgba(0,0,0,0.70)';
 const TOOLBAR_TINT_COLOR = 'rgba(8,12,20,0.28)';
 
 const ACTIONS: SelectionActionConfig[] = [

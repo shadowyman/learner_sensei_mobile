@@ -1,13 +1,11 @@
 import React, { useEffect, type PropsWithChildren } from 'react';
 import {
     Platform,
-    StyleSheet,
     View,
     type ColorValue,
     type StyleProp,
     type ViewStyle
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
 import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import { logger } from '../../logger';
 
@@ -21,12 +19,10 @@ interface PlatformGlassBackgroundProps {
     tintColor?: ColorValue;
     effect?: LiquidGlassEffect;
     colorScheme?: LiquidGlassColorScheme;
-    iosFallbackBlurType?: string;
-    iosFallbackBlurAmount?: number;
     testID?: string;
 }
 
-const DEFAULT_FALLBACK_COLOR = 'rgba(8,12,20,0.72)';
+const DEFAULT_FALLBACK_COLOR = 'rgba(0,0,0,0.70)';
 const DEFAULT_TINT_COLOR = 'rgba(8,12,20,0.28)';
 const loggedFallbackSurfaces = new Set<string>();
 
@@ -37,8 +33,6 @@ export const PlatformGlassBackground: React.FC<PropsWithChildren<PlatformGlassBa
     tintColor = DEFAULT_TINT_COLOR,
     effect = 'regular',
     colorScheme = 'dark',
-    iosFallbackBlurType = 'systemMaterialDark',
-    iosFallbackBlurAmount = 24,
     testID,
     children
 }) => {
@@ -54,22 +48,26 @@ export const PlatformGlassBackground: React.FC<PropsWithChildren<PlatformGlassBa
             return;
         }
         loggedFallbackSurfaces.add(surface);
-        logger.warn('[MOBILE_PORT_GLASS] liquid glass unsupported, using blur fallback', {
+        logger.warn('[MOBILE_PORT_GLASS] liquid glass unsupported, using color fallback', {
             surface,
             fallbackColor: String(fallbackColor),
-            tintColor: String(tintColor),
-            iosFallbackBlurType,
-            iosFallbackBlurAmount
+            tintColor: String(tintColor)
         });
-    }, [fallbackColor, iosFallbackBlurAmount, iosFallbackBlurType, surface, tintColor]);
+    }, [fallbackColor, surface, tintColor]);
 
+    const baseSurfaceStyle = {
+        position: 'relative' as const,
+        overflow: 'hidden' as const,
+        borderRadius
+    };
     const glassStyle = [
-        { borderRadius },
-        style
+        style,
+        baseSurfaceStyle
     ];
     const containerStyle = [
-        { borderRadius, backgroundColor: fallbackColor },
-        style
+        style,
+        baseSurfaceStyle,
+        { backgroundColor: fallbackColor }
     ];
 
     if (Platform.OS === 'ios' && isLiquidGlassSupported) {
@@ -87,30 +85,5 @@ export const PlatformGlassBackground: React.FC<PropsWithChildren<PlatformGlassBa
         );
     }
 
-    if (Platform.OS === 'ios') {
-        return (
-            <View testID={testID} collapsable={false} style={containerStyle}>
-                <BlurView
-                    pointerEvents="none"
-                    style={[styles.absoluteFill, { borderRadius }]}
-                    blurType={iosFallbackBlurType as any}
-                    blurAmount={iosFallbackBlurAmount}
-                    reducedTransparencyFallbackColor={String(fallbackColor)}
-                />
-                <View
-                    pointerEvents="none"
-                    style={[styles.absoluteFill, { borderRadius, backgroundColor: tintColor }]}
-                />
-                {children}
-            </View>
-        );
-    }
-
     return <View testID={testID} collapsable={false} style={containerStyle}>{children}</View>;
 };
-
-const styles = StyleSheet.create({
-    absoluteFill: {
-        ...StyleSheet.absoluteFillObject
-    }
-});

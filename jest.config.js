@@ -44,7 +44,6 @@ const config = {
     '^react-native$': '<rootDir>/__mocks__/react-native.js',
     '^react-native-webview$': '<rootDir>/__mocks__/react-native-webview.js',
     '^@callstack/liquid-glass$': '<rootDir>/__mocks__/@callstack/liquid-glass.js',
-    '^@react-native-community/blur$': '<rootDir>/__mocks__/@react-native-community/blur.js',
     '^\\./interactionHelpers\\.js$': '<rootDir>/src/interactionHelpers.ts',
     '^\\./selectionSensei\\.js$': '<rootDir>/src/selectionSensei.ts',
     '^\\./ui\\.js$': '<rootDir>/src/ui.ts',

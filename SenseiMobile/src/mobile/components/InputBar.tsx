@@ -21,7 +21,7 @@ const INPUT_VERTICAL_PADDING = 10;
 const DEFAULT_SEND_BASE = '#0b231b';
 const DEFAULT_SEND_BORDER = 'rgba(16,185,129,0.35)';
 const FIELD_RADIUS = 16;
-const FIELD_FALLBACK_COLOR = 'rgba(8,12,20,0.72)';
+const FIELD_FALLBACK_COLOR = 'rgba(0,0,0,0.70)';
 const FIELD_TINT_COLOR = 'rgba(0,0,0,0.70)';
 
 interface InputBarProps {
