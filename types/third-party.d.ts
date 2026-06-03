@@ -57,6 +57,7 @@ declare module '@lezer/highlight' {
 
 declare module '@google/genai' {
   export type GenerateContentResponse = any;
+  export type FunctionCall = any;
   export type Chat = any;
   export const Chat: any;
   export type GoogleGenAI = any;

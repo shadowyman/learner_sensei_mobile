@@ -9,16 +9,16 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@types/animejs": "^3.1.12",
-    "typescript": "^5.5.3",
-    "vite": "^5.3.4"
+    "@types/animejs": "^3.1.13",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.16"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
-    "@google/genai": "^1.6.0",
+    "@google/genai": "^1.52.0",
     "@google/generative-ai": "^0.24.1",
     "jszip": "^3.10.1",
     "marked": "^15.0.12",
-    "mermaid": "^11.6.0"
+    "mermaid": "^11.15.0"
   }
 }

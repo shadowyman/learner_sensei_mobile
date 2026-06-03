@@ -1956,7 +1956,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context (5.6.2):
+  - react-native-safe-area-context (5.8.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -1974,8 +1974,8 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - react-native-safe-area-context/common (= 5.6.2)
-    - react-native-safe-area-context/fabric (= 5.6.2)
+    - react-native-safe-area-context/common (= 5.8.0)
+    - react-native-safe-area-context/fabric (= 5.8.0)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -1986,7 +1986,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context/common (5.6.2):
+  - react-native-safe-area-context/common (5.8.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2014,7 +2014,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context/fabric (5.6.2):
+  - react-native-safe-area-context/fabric (5.8.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2043,7 +2043,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-skia (2.3.10):
+  - react-native-skia (2.6.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -2073,7 +2073,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-webview (13.16.0):
+  - react-native-webview (13.16.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -3038,9 +3038,9 @@ SPEC CHECKSUMS:
   React-mutationobservernativemodule: 4f7e4c18735cfbb0f81eada4f34aa527697e8704
   react-native-blur: 6af83e7e3c4c1446a188d9b2c493600fc4beb173
   react-native-document-picker: dcf5e57f3bcae61bf8384a1c6f90896f81e17941
-  react-native-safe-area-context: c00143b4823773bba23f2f19f85663ae89ceb460
-  react-native-skia: 4e875f211153cdb86b37520e346c27c360ba0091
-  react-native-webview: 654f794a7686b47491cf43aa67f7f428bea00eed
+  react-native-safe-area-context: ebd2c2ece5e6e650a6963184039ec8cfd8960d86
+  react-native-skia: 80db9e2f8f8b16f8f22b563f0a3874c14026c1e2
+  react-native-webview: 8407aaaf6b539b1e38b72fabb55d6885de03beaf
   React-NativeModulesApple: eca825acade21068049647855e5e89767d38696f
   React-networking: 239d962dc531e8f04f802d45fef7c3d920084e08
   React-oscompat: 563c536fc2d9cece1f54442fa2a3d9f68a9621e3

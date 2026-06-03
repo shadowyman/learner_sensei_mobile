@@ -13,9 +13,9 @@
     <script type="importmap">
     {
       "imports": {
-        "@google/genai": "https://esm.sh/@google/genai@^1.6.0",
+        "@google/genai": "https://esm.sh/@google/genai@^1.52.0",
         "marked": "https://esm.sh/marked@^15.0.12",
-        "mermaid": "https://esm.sh/mermaid@^11.11.0",
+        "mermaid": "https://esm.sh/mermaid@^11.15.0",
         "jszip": "https://esm.sh/jszip@^3.10.1",
         "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1",
         "@codemirror/state": "https://esm.sh/@codemirror/state",
@@ -401,7 +401,7 @@
                 var CONFIG = {
                     speed: isNaN(speedValue) ? 0.002 : speedValue,
                     height: 12,
-                    detail: 100
+                    detail: 80
                 };
 
                 var size = getSize();
@@ -414,9 +414,9 @@
                 camera.position.set(0, 0, 120);
                 camera.lookAt(0, 0, 0);
 
-                var renderer = new ThreeGlobal.WebGLRenderer({ alpha: true, antialias: true });
+                var renderer = new ThreeGlobal.WebGLRenderer({ alpha: true, antialias: false });
                 renderer.setSize(w, h);
-                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+                renderer.setPixelRatio(1);
                 container.appendChild(renderer.domElement);
 
                 var geometry = new ThreeGlobal.PlaneGeometry(400, 400, CONFIG.detail, CONFIG.detail);
@@ -448,6 +448,29 @@
                 var time = 0;
                 var positions = geometry.attributes.position;
                 var originalPositions = positions.array.slice();
+                var vertexCount = positions.count;
+                var sinK1 = new Float32Array(vertexCount);
+                var cosK1 = new Float32Array(vertexCount);
+                var sinK2 = new Float32Array(vertexCount);
+                var cosK2 = new Float32Array(vertexCount);
+                var sinK3 = new Float32Array(vertexCount);
+                var cosK3 = new Float32Array(vertexCount);
+
+                for (var i = 0; i < vertexCount; i++) {
+                    var baseIndex = i * 3;
+                    var x = originalPositions[baseIndex];
+                    var y = originalPositions[baseIndex + 1];
+                    var k1 = (x + y) * 0.04;
+                    var k2 = Math.sqrt(x * x + y * y) * 0.06;
+                    var k3 = x * 0.1;
+
+                    sinK1[i] = Math.sin(k1);
+                    cosK1[i] = Math.cos(k1);
+                    sinK2[i] = Math.sin(k2);
+                    cosK2[i] = Math.cos(k2);
+                    sinK3[i] = Math.sin(k3);
+                    cosK3[i] = Math.cos(k3);
+                }
 
                 function applyLiquidFromCss() {
                     var rs = getComputedStyle(document.documentElement);
@@ -481,34 +504,86 @@
                 applyLiquidFromCss();
                 window.addEventListener('sensei-theme-changed', applyLiquidFromCss);
 
-                var lastFrameTime = 0;
-                var frameIntervalMs = 1000 / 30;
-                var normalsFrameCounter = 0;
-                var normalsFrameSkip = 2;
+	                var frameIntervalMs = 1000 / 30;
+	                var normalsFrameCounter = 0;
+	                var normalsFrameSkip = 4;
+	                var animationTimeoutId = null;
+	                var animationRafId = null;
+	                var selectionActive = false;
 
-                function animate(now) {
-                    requestAnimationFrame(animate);
-
-                    if (typeof now === 'number') {
-                        if (lastFrameTime && now - lastFrameTime < frameIntervalMs) {
-                            return;
-                        }
-                        lastFrameTime = now;
+	                function cancelScheduledFrame() {
+	                    if (animationTimeoutId !== null) {
+	                        clearTimeout(animationTimeoutId);
+	                        animationTimeoutId = null;
                     }
+                    if (animationRafId !== null) {
+                        cancelAnimationFrame(animationRafId);
+	                        animationRafId = null;
+	                    }
+	                }
 
-                    time += CONFIG.speed;
+	                function setSelectionActive(nextValue) {
+	                    var next = !!nextValue;
+	                    if (selectionActive === next) {
+	                        return;
+	                    }
+	                    selectionActive = next;
+	                    if (selectionActive) {
+	                        cancelScheduledFrame();
+	                        return;
+	                    }
+	                    if (!document.hidden && animationRafId === null && animationTimeoutId === null) {
+	                        animationRafId = requestAnimationFrame(animate);
+	                    }
+	                }
 
-                    for (var i = 0; i < positions.count; i++) {
-                        var x = originalPositions[i * 3];
-                        var y = originalPositions[i * 3 + 1];
+	                function handleSelectionActiveChange(event) {
+	                    if (!event || !event.detail) {
+	                        return;
+	                    }
+	                    if (typeof event.detail.active !== 'boolean') {
+	                        return;
+	                    }
+	                    setSelectionActive(event.detail.active);
+	                }
 
-                        var wave1 = Math.sin((x + y) * 0.04 + time * 2.0);
-                        var dist = Math.sqrt(x * x + y * y);
-                        var wave2 = Math.cos(dist * 0.06 - time * 3.0);
-                        var wave3 = Math.sin(x * 0.1 + time) * 0.5;
+	                window.__senseiMobileMessageBg = {
+	                    setSelectionActive: setSelectionActive
+	                };
+	                window.addEventListener('sensei-mobile-selection-active-change', handleSelectionActiveChange);
 
+	                function scheduleNextFrame() {
+	                    if (document.hidden || selectionActive) {
+	                        return;
+	                    }
+	                    animationTimeoutId = setTimeout(function () {
+	                        animationTimeoutId = null;
+	                        animationRafId = requestAnimationFrame(animate);
+                    }, frameIntervalMs);
+                }
+
+	                function animate() {
+	                    animationRafId = null;
+	                    if (document.hidden || selectionActive) {
+	                        cancelScheduledFrame();
+	                        return;
+	                    }
+	                    time += CONFIG.speed;
+
+                    var sinT = Math.sin(time);
+                    var cosT = Math.cos(time);
+                    var sin2T = 2 * sinT * cosT;
+                    var cos2T = cosT * cosT - sinT * sinT;
+                    var sin3T = 3 * sinT - 4 * sinT * sinT * sinT;
+                    var cos3T = 4 * cosT * cosT * cosT - 3 * cosT;
+
+                    var posArray = positions.array;
+                    for (var i = 0, i3 = 0; i < vertexCount; i++, i3 += 3) {
+                        var wave1 = sinK1[i] * cos2T + cosK1[i] * sin2T;
+                        var wave2 = cosK2[i] * cos3T + sinK2[i] * sin3T;
+                        var wave3 = (sinK3[i] * cosT + cosK3[i] * sinT) * 0.5;
                         var z = (wave1 + wave2 + wave3) * CONFIG.height;
-                        positions.setZ(i, z);
+                        posArray[i3 + 2] = z;
                     }
 
                     positions.needsUpdate = true;
@@ -516,6 +591,9 @@
                     normalsFrameCounter++;
                     if (normalsFrameCounter >= normalsFrameSkip) {
                         geometry.computeVertexNormals();
+                        if (geometry.attributes.normal) {
+                            geometry.attributes.normal.needsUpdate = true;
+                        }
                         normalsFrameCounter = 0;
                     }
 
@@ -524,9 +602,22 @@
                     blueLight.position.x = Math.sin(time * 0.3 + Math.PI) * 150;
 
                     renderer.render(scene, camera);
+                    scheduleNextFrame();
                 }
 
-                requestAnimationFrame(animate);
+	                document.addEventListener('visibilitychange', function () {
+	                    if (document.hidden) {
+	                        cancelScheduledFrame();
+	                        return;
+	                    }
+	                    if (!selectionActive && animationRafId === null && animationTimeoutId === null) {
+	                        animationRafId = requestAnimationFrame(animate);
+	                    }
+	                });
+
+	                if (!document.hidden && !selectionActive) {
+	                    animationRafId = requestAnimationFrame(animate);
+	                }
 
                 window.addEventListener('resize', function () {
                     var s = getSize();
