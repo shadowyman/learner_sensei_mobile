@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js",
-    "test": "node tests/jsonBodyLimit.int.test.js && node tests/mermaidRecover.int.test.js && node tests/wrapUp.int.test.js",
+    "test": "node tests/jsonBodyLimit.int.test.js && node tests/mermaidRecover.int.test.js && node tests/wrapUp.int.test.js && node tests/teachingPlan.int.test.js && node tests/analysis.int.test.js",
     "postinstall": "cd .. && npm run core:build"
   },
   "engines": {

@@ -6,6 +6,8 @@ const sessionsRouterFactory = require('./routes/sessions');
 const mermaidRouterFactory = require('./routes/mermaid');
 const telemetryRouterFactory = require('./routes/telemetry');
 const wrapUpRouterFactory = require('./routes/wrapUp');
+const teachingPlanRouterFactory = require('./routes/teachingPlan');
+const analysisRouterFactory = require('./routes/analysis');
 const initStreamServer = require('./stream/streamServer');
 const requestContext = require('./middleware/requestContext');
 
@@ -31,6 +33,18 @@ const startServer = (overrides = {}) => {
     sessionService: container.sessionService,
     logger: container.logger,
     wrapUpRateLimiter: container.wrapUpRateLimiter
+  }));
+  app.use(teachingPlanRouterFactory({
+    teachingPlanService: container.teachingPlanService,
+    sessionService: container.sessionService,
+    logger: container.logger,
+    teachingPlanRateLimiter: container.teachingPlanRateLimiter
+  }));
+  app.use(analysisRouterFactory({
+    analysisService: container.analysisService,
+    sessionService: container.sessionService,
+    logger: container.logger,
+    analysisRateLimiter: container.analysisRateLimiter
   }));
   app.use(telemetryRouterFactory({ telemetryService: container.telemetryService, logger: container.logger }));
   const host = overrides.host ?? container.config.host;
