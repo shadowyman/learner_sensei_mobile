@@ -30,13 +30,13 @@ const defaultAgentCommand = [
   'exec',
   '--experimental-json',
   '--model',
-  'gpt-5-codex',
+  'gpt-5.5',
   '--sandbox',
   'danger-full-access',
   '-c',
   'approval_policy="never"',
   '-c',
-  'model_reasoning_effort="high"'
+  'model_reasoning_effort="xhigh"'
 ];
 
 function tokenizeCommand(raw: string): string[] {
