@@ -219,11 +219,12 @@ describe('save & load progress functional suite', () => {
       notepad: { notes: [] },
       consolidation: null
     })
-    const validationSpy = jest.spyOn(serialization, 'validateSerializedData').mockReturnValue({ isValid: false, errors: ['Missing required field: learnerModel'] })
-    await expect(SaveLoadProgressManager.saveProgress()).rejects.toThrow('State validation failed: Missing required field: learnerModel')
-    expect(downloadSpies.createObjectURL).not.toHaveBeenCalled()
-    collectSpy.mockRestore()
-    validationSpy.mockRestore()
+    try {
+      await expect(SaveLoadProgressManager.saveProgress()).rejects.toThrow('State validation failed: Missing required field: learnerModel')
+      expect(downloadSpies.createObjectURL).not.toHaveBeenCalled()
+    } finally {
+      collectSpy.mockRestore()
+    }
     completeScenario('SAV-009')
   })
 
