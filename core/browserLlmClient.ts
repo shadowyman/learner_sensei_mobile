@@ -1,5 +1,26 @@
-import { MERMAID_ERROR_RECOVERY_CONFIG, WRAP_UP_ASSESSMENT_GENERATION_CONFIG } from './modelUsage';
+import {
+  COMPREHENSIVE_ANALYSIS_CONFIG,
+  MAIN_TEXT_CONFIG,
+  MERMAID_ERROR_RECOVERY_CONFIG,
+  TEACHING_PLAN_GENERATION_CONFIG,
+  WRAP_UP_ASSESSMENT_GENERATION_CONFIG
+} from './modelUsage';
 import type { CoreLlmClient } from './llmTypes';
+
+function getTaskConfig(task?: string) {
+  switch (task) {
+    case 'comprehensive_analysis':
+      return COMPREHENSIVE_ANALYSIS_CONFIG;
+    case 'mermaid_repair':
+      return MERMAID_ERROR_RECOVERY_CONFIG;
+    case 'wrap_up_assessment':
+      return WRAP_UP_ASSESSMENT_GENERATION_CONFIG;
+    case 'teaching_plan':
+      return TEACHING_PLAN_GENERATION_CONFIG;
+    default:
+      return MAIN_TEXT_CONFIG;
+  }
+}
 
 export function createBrowserCoreLlmClient(ai: any): CoreLlmClient | null {
   if (!ai || !ai.models || !ai.models.generateContent) {
@@ -8,7 +29,7 @@ export function createBrowserCoreLlmClient(ai: any): CoreLlmClient | null {
   return {
     async callText(prompt: string, options?: { task?: string }) {
       const task = options?.task;
-      const cfg = task === 'wrap_up_assessment' ? WRAP_UP_ASSESSMENT_GENERATION_CONFIG : MERMAID_ERROR_RECOVERY_CONFIG;
+      const cfg = getTaskConfig(task);
       const res = await ai.models.generateContent({
         model: cfg.modelName,
         contents: [{ parts: [{ text: prompt }] }],
@@ -24,10 +45,8 @@ export function createBrowserCoreLlmClient(ai: any): CoreLlmClient | null {
       return JSON.parse(text) as T;
     },
     async callWithTools(prompt: string, options: { task: string; tools: unknown }) {
-      const cfg = options.task === 'wrap_up_assessment' ? WRAP_UP_ASSESSMENT_GENERATION_CONFIG : MERMAID_ERROR_RECOVERY_CONFIG;
-      const config = options.task === 'wrap_up_assessment'
-        ? { ...cfg.config, tools: options.tools }
-        : cfg.config;
+      const cfg = getTaskConfig(options.task);
+      const config = options.task === 'wrap_up_assessment' ? { ...cfg.config, tools: options.tools } : cfg.config;
       const res = await ai.models.generateContent({
         model: cfg.modelName,
         contents: [{ parts: [{ text: prompt }] }],

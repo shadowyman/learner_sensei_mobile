@@ -1,4 +1,12 @@
 const GEMINI_FLASH = 'gemini-flash-latest';
+const GEMINI_FLASH_PREVIEW = 'gemini-3-flash-preview';
+const {
+  MAIN_RESPONSE_TIMEOUT_MS,
+  MERMAID_RECOVERY_TIMEOUT_MS,
+  WRAP_UP_ASSESSMENT_TIMEOUT_MS,
+  TEACHING_PLAN_TIMEOUT_MS,
+  COMPREHENSIVE_ANALYSIS_TIMEOUT_MS
+} = require('@sensei/core/modelUsage');
 
 const DEFAULT_SAFETY_SETTINGS = [
   { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -9,7 +17,7 @@ const DEFAULT_SAFETY_SETTINGS = [
 
 const MAIN_RESPONSE_CONFIG = {
   modelName: GEMINI_FLASH,
-  timeoutMs: 180_000,
+  timeoutMs: MAIN_RESPONSE_TIMEOUT_MS,
   safetySettings: DEFAULT_SAFETY_SETTINGS,
   config: {
     temperature: 0.7
@@ -18,7 +26,7 @@ const MAIN_RESPONSE_CONFIG = {
 
 const MERMAID_ERROR_RECOVERY_CONFIG = {
   modelName: GEMINI_FLASH,
-  timeoutMs: 40_000,
+  timeoutMs: MERMAID_RECOVERY_TIMEOUT_MS,
   safetySettings: DEFAULT_SAFETY_SETTINGS,
   config: {
     responseMimeType: 'application/json',
@@ -27,11 +35,31 @@ const MERMAID_ERROR_RECOVERY_CONFIG = {
 };
 
 const WRAP_UP_ASSESSMENT_GENERATION_CONFIG = {
-  modelName: GEMINI_FLASH,
-  timeoutMs: 240_000,
+  modelName: GEMINI_FLASH_PREVIEW,
+  timeoutMs: WRAP_UP_ASSESSMENT_TIMEOUT_MS,
   safetySettings: DEFAULT_SAFETY_SETTINGS,
   config: {
     temperature: 0.6
+  }
+};
+
+const TEACHING_PLAN_GENERATION_CONFIG = {
+  modelName: GEMINI_FLASH,
+  timeoutMs: TEACHING_PLAN_TIMEOUT_MS,
+  safetySettings: DEFAULT_SAFETY_SETTINGS,
+  config: {
+    responseMimeType: 'application/json',
+    temperature: 0.7
+  }
+};
+
+const COMPREHENSIVE_ANALYSIS_CONFIG = {
+  modelName: GEMINI_FLASH,
+  timeoutMs: COMPREHENSIVE_ANALYSIS_TIMEOUT_MS,
+  safetySettings: DEFAULT_SAFETY_SETTINGS,
+  config: {
+    responseMimeType: 'application/json',
+    temperature: 0.5
   }
 };
 
@@ -39,5 +67,7 @@ module.exports = {
   DEFAULT_SAFETY_SETTINGS,
   MAIN_RESPONSE_CONFIG,
   MERMAID_ERROR_RECOVERY_CONFIG,
-  WRAP_UP_ASSESSMENT_GENERATION_CONFIG
+  WRAP_UP_ASSESSMENT_GENERATION_CONFIG,
+  TEACHING_PLAN_GENERATION_CONFIG,
+  COMPREHENSIVE_ANALYSIS_CONFIG
 };

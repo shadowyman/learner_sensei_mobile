@@ -1,5 +1,11 @@
 const dotenv = require('dotenv');
-const { MAIN_RESPONSE_CONFIG, MERMAID_ERROR_RECOVERY_CONFIG, WRAP_UP_ASSESSMENT_GENERATION_CONFIG } = require('./modelUsage');
+const {
+  MAIN_RESPONSE_CONFIG,
+  MERMAID_ERROR_RECOVERY_CONFIG,
+  WRAP_UP_ASSESSMENT_GENERATION_CONFIG,
+  TEACHING_PLAN_GENERATION_CONFIG,
+  COMPREHENSIVE_ANALYSIS_CONFIG
+} = require('./modelUsage');
 
 dotenv.config();
 
@@ -24,6 +30,20 @@ const wrapUpRateLimit = {
   blockMs: 5 * 60_000
 };
 
+const teachingPlanRateLimit = {
+  minIntervalMs: 20_000,
+  burstWindowMs: 2 * 60_000,
+  burstLimit: 3,
+  blockMs: 5 * 60_000
+};
+
+const analysisRateLimit = {
+  minIntervalMs: 2_000,
+  burstWindowMs: 2 * 60_000,
+  burstLimit: 30,
+  blockMs: 5 * 60_000
+};
+
 const sessionTtlMs = Number(process.env.SESSION_TTL_MS || 2 * 60 * 60 * 1000);
 const idempotencyTtlMs = Number(process.env.IDEMPOTENCY_TTL_MS || 10 * 60 * 1000);
 const hardStreamTimeoutMs = Number(process.env.STREAM_TIMEOUT_MS || 60_000);
@@ -36,7 +56,9 @@ const gemini = {
   mainModel: process.env.GEMINI_MAIN_MODEL || MAIN_RESPONSE_CONFIG.modelName,
   mermaidModel: process.env.GEMINI_MERMAID_MODEL || MERMAID_ERROR_RECOVERY_CONFIG.modelName,
   wrapUpModel: process.env.GEMINI_WRAPUP_MODEL || WRAP_UP_ASSESSMENT_GENERATION_CONFIG.modelName,
-  requestTimeoutMs: Number(process.env.GEMINI_REQUEST_TIMEOUT_MS || 180_000),
+  teachingPlanModel: process.env.GEMINI_TEACHING_PLAN_MODEL || TEACHING_PLAN_GENERATION_CONFIG.modelName,
+  analysisModel: process.env.GEMINI_ANALYSIS_MODEL || COMPREHENSIVE_ANALYSIS_CONFIG.modelName,
+  requestTimeoutMs: Number(process.env.GEMINI_REQUEST_TIMEOUT_MS || MAIN_RESPONSE_CONFIG.timeoutMs),
   maxRetries: Number(process.env.GEMINI_MAX_RETRIES || 1),
   temperature: Number(process.env.GEMINI_TEMPERATURE || MAIN_RESPONSE_CONFIG.config.temperature || 0.7)
 };
@@ -49,6 +71,8 @@ module.exports = {
   topicRegistry,
   rateLimit,
   wrapUpRateLimit,
+  teachingPlanRateLimit,
+  analysisRateLimit,
   sessionTtlMs,
   idempotencyTtlMs,
   sessionCleanupIntervalMs,
@@ -58,5 +82,6 @@ module.exports = {
   gemini,
   MAIN_RESPONSE_CONFIG,
   MERMAID_ERROR_RECOVERY_CONFIG,
-  WRAP_UP_ASSESSMENT_GENERATION_CONFIG
+  WRAP_UP_ASSESSMENT_GENERATION_CONFIG,
+  TEACHING_PLAN_GENERATION_CONFIG
 };
