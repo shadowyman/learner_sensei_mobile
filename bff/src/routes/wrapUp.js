@@ -10,7 +10,8 @@ module.exports = (deps) => {
   router.post('/sessions/:sessionId/wrapup', (req, res, next) => {
     const rateLimiter = deps.wrapUpRateLimiter;
     if (rateLimiter) {
-      const key = `${req.ip || 'unknown'}::${req.get('User-Agent') || 'unknown'}`;
+      const sessionKey = req.params.sessionId || 'unknown';
+      const key = `${sessionKey}::${req.ip || 'unknown'}::${req.get('User-Agent') || 'unknown'}`;
       const rate = rateLimiter.check(key);
       if (!rate.allowed) {
         deps.logger.warn(TAG, 'rate limited', { sessionId: req.params.sessionId, ip: req.ip, requestId: req.requestId });

@@ -15,15 +15,29 @@ class WrapUpService {
       moduleId,
       moduleTitle: promptContext.moduleTitle
     });
-    const result = await generateWrapUpAssessment(this.coreLlmClient, moduleId, promptContext);
+    let lastAttemptError = null;
+    const result = await generateWrapUpAssessment(this.coreLlmClient, moduleId, promptContext, {
+      onAttemptError: ({ attempt, maxAttempts, error }) => {
+        const anyError = error || {};
+        lastAttemptError = {
+          attempt,
+          maxAttempts,
+          name: typeof anyError.name === 'string' ? anyError.name : undefined,
+          code: typeof anyError.code === 'string' ? anyError.code : undefined,
+          message: typeof anyError.message === 'string' ? anyError.message : String(error)
+        };
+      }
+    });
     if (!result || !Array.isArray(result.questions) || result.questions.length === 0) {
       this.logger.error(TAG, 'request-fail', {
         sessionId: session.id,
-        moduleId
+        moduleId,
+        lastAttemptError
       });
       return null;
     }
     const overlay = {
+      moduleId,
       moduleTitle: promptContext.moduleTitle,
       moduleGoal: promptContext.moduleGoal || undefined,
       conceptSummaries: promptContext.conceptSummaries,
