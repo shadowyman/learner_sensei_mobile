@@ -1,14 +1,13 @@
 # Enhance Button Inline Enrichment
 
-- Added structured enhancement rules to Geminiprompt so clarifications stay on-topic and can introduce new, related paragraphs when they deepen understanding (`prompts.ts:921-934`).
-- Reused the central prompt builder inside `geminiService.ts:12-440`, ensured the Flash model fallback stays available even when `model_usage.ts` is missing the export, and kept per-enhancement logging for traceability.
-- Introduced `enhancementManager.ts:1-258` to orchestrate toggle behavior, mermaid stripping, and to feed highlight metadata back to the UI.
-- Upgraded UI rendering to support multi-node highlights (including inline code) and load-state animation while keeping the fallback limited to the inserted text (`ui.ts:900-1062`, `index.css:2080-2145`).
-- Wired initialization/handler exposure so the new manager participates in the existing lifecycle (`index.tsx:70-1082`).
+- The enhancement request path still uses a dedicated prompt builder plus a Flash-backed config with a local fallback when `ModelUsage.ENHANCEMENT_REQUEST_CONFIG` is missing (`src/geminiService.ts:256-289`, `src/model_usage.ts:117-120`).
+- `src/enhancementManager.ts:64-167` still orchestrates toggle behavior, Mermaid stripping, ordered insertion, and highlight metadata generation.
+- `src/ui.ts:1683-1795` and `src/ui.ts:1985-1991` still render enhanced markdown, apply multi-node highlights, and fall back safely when a highlight span cannot be wrapped.
+- `src/index.tsx:1432-1437` and `src/index.tsx:1861-1863` still wire manager initialization and the exposed enhance handler into the main lifecycle.
 
 ## Validation
-- `npx tsc --noEmit`
-- Manual Enhance run (2025-09-24 20:42:14 logs) shows Gemini additions and highlight behavior working without paragraph-wide fallback.
+- Current `npx tsc --noEmit` is no longer a passing validation step for this repo; it now fails with broader TypeScript issues outside this document's scope.
+- The historical 2025-09-24 manual Enhance run is not preserved in the current `logs/console_logs.log`, so that specific runtime proof cannot be re-verified from retained artifacts.
 
 ## Backup
 - `backup/sensei_backup_enhance_multinode_highlight_20250924_200950.zip`

@@ -1,19 +1,21 @@
 # Mermaid Recovery Unification
 
 ## Summary
-- Centralized the AI-assisted Mermaid retry workflow and extended it to SelectionSensei so every surface leverages the same five-attempt recovery loop before falling back to static error messaging.
+- Main conversation rendering still uses the shared `runMermaidRecovery` workflow before falling back to static error messaging (`src/ui.ts:3069-3083`, `core/mermaidErrorRecovery.ts:296-323`).
+- SelectionSensei no longer participates in Mermaid recovery; current code strips Mermaid blocks and logs `[SEL_MERMAID_DISABLE]` events instead (`src/selectionSensei.ts:1540`, `src/selectionSensei.ts:1585-1600`).
 
 ## Rationale
-- Previous single-attempt modal rendering left SelectionSensei users without AI fixes. Consolidating retry logic ensures consistent resilience across both real-time Sensei responses and selection popups.
+- The shared recovery path still matters for main conversation Mermaid renders, but SelectionSensei has since moved away from Mermaid rendering entirely.
 
 ## Key Changes
-- Introduced `runMermaidRecovery` orchestrator to sequence render attempts and delegate fixes (`mermaidErrorRecovery.ts:386`).
-- Updated conversation rendering to invoke the orchestrator and reuse the shared spinner/error UI (`ui.ts:1167`).
-- Swapped SelectionSensei’s bespoke renderer for the shared recovery pathway (`selectionSensei.ts:562`).
+- `core/mermaidErrorRecovery.ts:296-323` still provides the shared retry orchestrator with a default `maxAttempts = 5`.
+- `src/ui.ts:3069-3083` still invokes that orchestrator for main conversation Mermaid recovery.
+- `src/selectionSensei.ts:1585-1600` now normalizes Mermaid code blocks out of SelectionSensei responses instead of routing them through recovery.
 
 ## Behavioral Impact
-- Conversation bubbles and SelectionSensei modals now retry up to five times with Gemini-provided diagrams before declaring failure.
-- Exhausted retries emit a single error log while success paths quietly replace the thumbnail, keeping noise low outside debug mode.
+- Conversation bubbles can still retry Mermaid renders up to five times before failing over.
+- SelectionSensei responses no longer attempt Mermaid repair; Mermaid blocks are downgraded to regular code blocks in that surface.
 
 ## Validation
-- Triggered a failing SelectionSensei diagram; logs record the staged attempts and eventual success (`logs/console_logs.log`, `MERMAID_RECOVERY Attempt 1/2`).
+- Current static verification confirms shared recovery usage in `src/ui.ts` and the current Mermaid-disable path in `src/selectionSensei.ts`.
+- The historical `MERMAID_RECOVERY` log sample cited in the original note is not present in the current `logs/console_logs.log`, so that run cannot be re-proven from retained artifacts.

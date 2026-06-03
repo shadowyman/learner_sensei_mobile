@@ -8,10 +8,11 @@
 - Phase routing is decided in the UI; carrying that signal through the planner removes brittle text scanning and ensures deterministic behaviour across phases.
 
 ## Code Changes
-- `geminiService.ts:47` – `llmExtractAndPlanTeachingOrder` now requires a `phase` parameter and branches solely on that explicit value.
-- `curriculum.ts:275` – `generateTeachingPlanForPhase` forwards `(phase, text)` to planner callbacks after constructing combined content.
-- `moduleSelectionHandler.ts:272` – Phase selection passes the chosen phase into `llmExtractAndPlanTeachingOrder`.
-- `index.tsx:395` – `createLLMPlannerCallback` now accepts `phase` and relays it to the teaching-plan extractor.
+- `src/geminiService.ts:60-89` – `llmExtractAndPlanTeachingOrder` requires a `phase` parameter and branches on that explicit value.
+- `src/moduleSelectionHandler.ts:431-442` – phase selection forwards the chosen phase into the routed teaching-plan request.
+- `src/index.tsx:476-568` – `createLLMPlannerCallback` accepts `phase` and relays it into the teaching-plan extractor.
+- `src/curriculum.ts:162-190` – phase-specific curriculum content is still assembled before the planner is called.
 
 ## Validation
-- Verified that IntroIllustrate routes to the archetype prompt and Socratic routes to the Socratic prompt; see `logs/console_logs.log` entries at 2025-09-23 02:36:59 and 2025-09-23 02:39:16 respectively.
+- Current static verification confirms explicit phase plumbing across `src/geminiService.ts`, `src/moduleSelectionHandler.ts`, `src/index.tsx`, and `src/curriculum.ts`.
+- The specific 2025-09-23 log timestamps cited in the original note are not present in the current `logs/console_logs.log`, but current logs still show `TEACHING_PLAN_VALIDATION` activity for IntroIllustrate flows.

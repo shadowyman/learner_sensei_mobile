@@ -1,8 +1,8 @@
 # Jest Test Harness
 
 ## Running The Suite
-- `npm test` executes Jest with coverage enabled.
-- `npm test -- --watch` runs Jest in watch mode for interactive workflows.
+- `npm test` executes the default Jest suite without coverage output.
+- `npm run test:coverage` enables coverage reporting, and `npm test -- --watch` or `npm run test:watch` starts watch mode for interactive workflows.
 - Keep `npx tsc --noEmit` in CI alongside Jest to preserve static type checking.
 
 ## Default Environment
@@ -15,13 +15,13 @@
 - Asset and style imports resolve to `__mocks__/assetStub.js` and `__mocks__/styleStub.js` to keep tests lightweight.
 
 ## Google GenAI Mocking
-- Manual mocks for `@google/genai` reside in `__mocks__/@google/genai.ts`.
+- Manual mocks for `@google/genai` reside in `__mocks__/@google/genai.js`.
 - Configure responses per test with `__setMockGenerativeContent` and reset state using `__resetMockGenerativeContent`.
 - Streaming helpers yield async iterator chunks with optional delays for deterministic fake timer scenarios.
 
 ## Transformer Strategy
 - The default configuration uses `@swc/jest` targeting NodeNext/ESM for fast transpilation.
-- If ESM interop issues surface, switch to `ts-jest` by updating `jest.config.ts` to use `ts-jest/presets/default-esm` and set `globals['ts-jest'] = { useESM: true }`. Retain `tsconfig.jest.json` but change its `module` option to `commonjs` only when CommonJS fallback is required.
+- If ESM interop issues surface, switch the fallback configuration in `jest.config.js` to the `ts-jest` path already wired there, keeping `tsconfig.jest.json` aligned with the module mode you need for the fallback.
 - Revert to the SWC path once the ESM fixes land to minimize compile times.
 
 ## Extending Placeholder Suites

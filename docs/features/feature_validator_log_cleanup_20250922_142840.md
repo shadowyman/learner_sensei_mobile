@@ -15,4 +15,5 @@
 - `test.ts:1120` – suppressed suite banner logs when no tests are enabled.
 
 ## Validation
-- Manual inspection of `logs/console_logs.log` to confirm only validator events remain.
+- Static verification confirms the validator helper tags still exist in `src/selectionSensei.ts` and `src/prompts.ts`, and the obsolete startup string is absent from `src/logger.ts`.
+- The current `logs/console_logs.log` now contains broader runtime telemetry, so the original "only validator events remain" observation is no longer current.

@@ -9,11 +9,9 @@
 - Aligns Intro phase outputs with LeetCode-style interview preparation expectations.
 
 ## Code Changes
-- `curriculum.ts`:1186 added Intro/Illustrate expansion directive in curriculum focus and gated debug logging behind `DEBUG_FLAGS.curriculum_debug`.
-- `curriculum.ts`:1120 updated new-content case to emit enhanced chunk prompt when Intro/Illustrate is active.
-- `prompts.ts`:820 expanded execution directive with Intro/Illustrate structure checklist.
-- `prompts.ts`:884 rewrote `TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE` to support Intro-specific dual-pass structure, scenarios, communication guidance, and reflection.
+- `src/prompts.ts:175-229` defines the current Intro/Illustrate dual-pass structure, application scenarios, interview-oriented perspective, and self-assessment checklist.
+- `src/prompts.ts:653-658` keeps the condensed structure summary aligned with those richer requirements.
 
 ## Validation
-- `npm test` (fails: script intentionally exits with "Error: no test specified").
-- Manual inspection confirms new prompt sections; requesting user to run an Intro/Illustrate turn to observe the full structure in practice.
+- `npm test` is no longer a placeholder script. The current run fails earlier because Jest cannot resolve `node_modules/agent-base/dist/src/index`, so the original validation note is stale.
+- Manual prompt inspection is still the reliable verification path for this document's prompt-structure claims; a live Intro/Illustrate turn is still needed to observe the full structure in practice.

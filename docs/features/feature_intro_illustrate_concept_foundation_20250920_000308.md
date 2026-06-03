@@ -5,13 +5,13 @@
 - Reinforced that the expansive drilldown follows after the foundational pass, and kept the optional walkthrough/reveal modes intact.
 
 ## Key Changes
-- `curriculum.ts:1120` – replaced the Conceptual Narrative bullet in the IntroIllustrate dual-pass structure with the new learner-first wording.
-- `prompts.ts:820` – synchronized the global execution directive to match the revised conceptual narrative requirements.
+- `src/prompts.ts:180-191` – the Conceptual Narrative section now explicitly requires the plain-language restatement, Pain & Stakes, prior-knowledge bridge, thought experiment, readiness signal, and drilldown preview.
+- `src/prompts.ts:653-658` – the higher-level teaching structure summary still mirrors that learner-first conceptual flow.
 
 ## Behavioral Impact
 - Learners get a gentle confidence-building foundation before the heavy technical drilldown.
 - The system still enforces deep coverage, contrasting scenarios, and optional supplemental modes, but now the first pass warms up without overwhelming detail.
 
 ## Validation
-- Manual inspection of `curriculum.ts` and `prompts.ts` to confirm the new directive text.
+- Static verification of the current prompt structure in `src/prompts.ts:180-191` and `src/prompts.ts:653-658`.
 - No automated tests applicable (prompt-only change).
