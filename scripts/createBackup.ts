@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join, dirname, relative } from 'path';
 import { spawnSync } from 'child_process';
+import ignore from 'ignore';
 
 function fail(message: string): never {
   console.error(message);
@@ -57,34 +58,43 @@ if (!normalizedFeature) {
   fail('Feature slug did not contain any alphanumeric characters.');
 }
 const repoRoot = process.cwd();
-const srcManifestPath = join(repoRoot, 'src', 'file-manifest.json');
-let manifestPath = srcManifestPath;
+const manifestPath = join(repoRoot, 'src', 'backup-file-manifest.json');
 if (!existsSync(manifestPath)) {
-  manifestPath = join(repoRoot, 'file-manifest.json');
-}
-if (!existsSync(manifestPath)) {
-  fail('file-manifest.json not found.');
+  fail('backup-file-manifest.json not found.');
 }
 const manifestDir = dirname(manifestPath);
 let manifestContent: string;
 try {
   manifestContent = readFileSync(manifestPath, 'utf8');
 } catch (error) {
-  fail('Unable to read file-manifest.json.');
+  fail('Unable to read backup-file-manifest.json.');
 }
 let manifestEntries: unknown;
 try {
   manifestEntries = JSON.parse(manifestContent);
 } catch (error) {
-  fail('file-manifest.json contains invalid JSON.');
+  fail('backup-file-manifest.json contains invalid JSON.');
 }
 if (!Array.isArray(manifestEntries) || !manifestEntries.every(item => typeof item === 'string')) {
-  fail('file-manifest.json must be an array of strings.');
+  fail('backup-file-manifest.json must be an array of strings.');
 }
 const manifestFiles = manifestEntries as string[];
 if (manifestFiles.length === 0) {
-  fail('file-manifest.json is empty.');
+  fail('backup-file-manifest.json is empty.');
 }
+const backupConfigPath = join(repoRoot, 'config', 'backup-manifest.roots.json');
+let excludePatterns: string[] = [];
+if (existsSync(backupConfigPath)) {
+  try {
+    const parsed = JSON.parse(readFileSync(backupConfigPath, 'utf8')) as { excludePatterns?: unknown };
+    if (Array.isArray(parsed.excludePatterns) && parsed.excludePatterns.every(item => typeof item === 'string')) {
+      excludePatterns = parsed.excludePatterns;
+    }
+  } catch (error) {
+    fail('Unable to read backup manifest exclude patterns.');
+  }
+}
+const forbiddenMatcher = ignore().add(excludePatterns);
 const resolvedManifestFiles: string[] = [];
 manifestFiles.forEach(relativePath => {
   const manifestRelativePath = join(manifestDir, relativePath);
@@ -138,7 +148,7 @@ if (zipResult.error || typeof zipResult.status === 'number' && zipResult.status 
   }
   fail('zip command failed.');
 }
-const verifyResult = spawnSync('unzip', ['-l', zipPath], { encoding: 'utf8' });
+const verifyResult = spawnSync('unzip', ['-Z1', zipPath], { encoding: 'utf8' });
 if (verifyResult.error || typeof verifyResult.status === 'number' && verifyResult.status !== 0) {
   try {
     unlinkSync(contextPath);
@@ -146,12 +156,66 @@ if (verifyResult.error || typeof verifyResult.status === 'number' && verifyResul
   }
   fail('Unable to verify backup contents.');
 }
-if (!verifyResult.stdout.includes('BACKUP_CONTEXT.md')) {
+const archiveEntries = verifyResult.stdout.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+const archiveEntrySet = new Set(archiveEntries);
+const allowedEntries = new Set([...archiveFiles, 'backup/BACKUP_CONTEXT.md']);
+if (!archiveEntrySet.has('backup/BACKUP_CONTEXT.md')) {
   try {
     unlinkSync(contextPath);
   } catch (error) {
   }
   fail('Backup archive is missing BACKUP_CONTEXT.md.');
+}
+for (const entry of archiveEntries) {
+  if (!allowedEntries.has(entry)) {
+    try {
+      unlinkSync(contextPath);
+    } catch (error) {
+    }
+    fail(`Backup archive contains non-manifest entry: ${entry}`);
+  }
+  if (entry !== 'backup/BACKUP_CONTEXT.md' && forbiddenMatcher.test(entry).ignored) {
+    try {
+      unlinkSync(contextPath);
+    } catch (error) {
+    }
+    fail(`Backup archive contains excluded entry: ${entry}`);
+  }
+}
+const requiredEntries = [
+  'AGENTS.md',
+  'package.json',
+  'package-lock.json',
+  'config/file-manifest.roots.json',
+  'config/backup-manifest.roots.json',
+  'src/file-manifest.json',
+  'src/backup-file-manifest.json',
+  '__tests__/saveLoadProgress.test.ts',
+  '__mocks__/react-native.js',
+  'bff/package.json',
+  'bff/src/server.js',
+  'core/index.ts',
+  'protocol/index.ts',
+  'SenseiMobile/package.json',
+  'SenseiMobile/metro.config.js',
+  'SenseiMobile/src/mobile/MainScreen.tsx',
+  'SenseiMobile/ios/Podfile',
+  'SenseiMobile/ios/SenseiMobile.xcodeproj/project.pbxproj',
+  'SenseiMobile/ios/SenseiMobile/AppDelegate.swift',
+  'SenseiMobile/ios/SenseiMobile/Info.plist',
+  'SenseiMobile/ios/SenseiMobile/LaunchScreen.storyboard',
+  'SenseiMobile/ios/SenseiMobile/Images.xcassets/Contents.json',
+  'SenseiMobile/android/settings.gradle',
+  'SenseiMobile/android/app/src/main/AndroidManifest.xml'
+];
+for (const entry of requiredEntries) {
+  if (!archiveEntrySet.has(entry)) {
+    try {
+      unlinkSync(contextPath);
+    } catch (error) {
+    }
+    fail(`Backup archive missing required restore anchor: ${entry}`);
+  }
 }
 try {
   unlinkSync(contextPath);

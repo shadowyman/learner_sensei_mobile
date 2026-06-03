@@ -45,7 +45,8 @@ backup/
 .mcp-storage/
 sonarqube-25.6.0.109173/
 code_review/
-/config/
+/config/*
+!/config/backup-manifest.roots.json
 scripts/create_worktree.py
 scripts/vetUnusedExports.ts
 .claude/settings.local.json

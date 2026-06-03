@@ -50,10 +50,11 @@ function writeTempFile(root: string, rel: string, content: string) {
   fs.writeFileSync(abs, content)
 }
 
-function runManifestSyncIn(root: string) {
+function runManifestSyncIn(root: string, args: string[] = []) {
   execFileSync(process.execPath, [
     path.join(repoRoot, 'node_modules', 'ts-node', 'dist', 'bin.js'),
-    path.join(repoRoot, 'scripts', 'manifestSync.ts')
+    path.join(repoRoot, 'scripts', 'manifestSync.ts'),
+    ...args
   ], {
     cwd: root,
     stdio: 'ignore',
@@ -119,6 +120,52 @@ function testManifestSyncHonorsGitignoreFiles() {
     assert(!entries.has('SenseiMobile/node_modules 2/copied.ts'), 'default copied node_modules ignore leaked')
     assert(!entries.has('SenseiMobile/.bundle/config.ts'), 'default bundle ignore leaked')
     assert(!entries.has('SenseiMobile/app 2.js'), 'default copied file ignore leaked')
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+}
+
+function testManifestSyncCustomConfigAndOutput() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sensei-backup-manifest-'))
+  try {
+    const config = {
+      roots: ['src/', 'docs/'],
+      forceIncludeFiles: ['Podfile', 'config/backup-manifest.roots.json'],
+      extensions: ['.ts', '.d.ts', '.md', '.css'],
+      ignoreDirs: ['tmp'],
+      excludePatterns: ['.DS_Store', '*.env', 'tmp/', 'config/ignored.json']
+    }
+    writeTempFile(tempRoot, 'config/backup-manifest.roots.json', JSON.stringify(config, null, 2))
+    writeTempFile(tempRoot, '.gitignore', 'config/\n')
+    writeTempFile(tempRoot, 'src/app.ts', 'export function app() {}\n')
+    writeTempFile(tempRoot, 'src/types.d.ts', 'export type App = string\n')
+    writeTempFile(tempRoot, 'src/style.css', '.app {}\n')
+    writeTempFile(tempRoot, 'src/secret.env', 'TOKEN=secret\n')
+    writeTempFile(tempRoot, 'docs/readme.md', '# Readme\n')
+    writeTempFile(tempRoot, 'docs/.DS_Store', 'store\n')
+    writeTempFile(tempRoot, 'tmp/cache.ts', 'export function cache() {}\n')
+    writeTempFile(tempRoot, 'Podfile', 'platform :ios\n')
+
+    runManifestSyncIn(tempRoot, [
+      '--config',
+      'config/backup-manifest.roots.json',
+      '--out',
+      'src/backup-file-manifest.json'
+    ])
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(tempRoot, 'src/backup-file-manifest.json'), 'utf8')) as string[]
+    const entries = new Set(manifest)
+
+    assert(entries.has('src/app.ts'), 'custom source file missing')
+    assert(entries.has('src/types.d.ts'), 'd.ts file missing when enabled')
+    assert(entries.has('src/style.css'), 'css file missing when enabled')
+    assert(entries.has('docs/readme.md'), 'docs file missing')
+    assert(entries.has('Podfile'), 'force-included extensionless file missing')
+    assert(entries.has('config/backup-manifest.roots.json'), 'force-included ignored config missing')
+    assert(entries.has('src/backup-file-manifest.json'), 'custom output manifest missing from manifest')
+    assert(!entries.has('src/secret.env'), 'excluded env file leaked')
+    assert(!entries.has('docs/.DS_Store'), 'excluded OS file leaked')
+    assert(!entries.has('tmp/cache.ts'), 'ignored tmp file leaked')
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true })
   }
@@ -746,6 +793,8 @@ async function main() {
     testConsoleEdgeStableIds()
     console.log('Running testManifestSyncHonorsGitignoreFiles')
     testManifestSyncHonorsGitignoreFiles()
+    console.log('Running testManifestSyncCustomConfigAndOutput')
+    testManifestSyncCustomConfigAndOutput()
 
     console.log('Analyzer integration tests passed.')
   } catch (err) {

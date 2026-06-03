@@ -6,8 +6,10 @@ import type { Ignore } from 'ignore';
 type ManifestSyncConfig = {
   roots: string[];
   extraFiles?: string[];
+  forceIncludeFiles?: string[];
   extensions?: string[];
   ignoreDirs?: string[];
+  excludePatterns?: string[];
 };
 
 type GitignoreMatcher = {
@@ -34,8 +36,50 @@ function isPathInside(parent: string, child: string) {
   return rel === '' || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
-function loadConfig(repoRoot: string): ManifestSyncConfig {
-  const configPath = path.join(repoRoot, 'config', 'file-manifest.roots.json');
+type CliOptions = {
+  configPath: string;
+  outPath: string;
+};
+
+function parseArgs(argv: string[]): CliOptions {
+  const opts: CliOptions = {
+    configPath: 'config/file-manifest.roots.json',
+    outPath: 'src/file-manifest.json'
+  };
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (typeof token !== 'string') continue;
+    if (token === '--config') {
+      const next = argv[i + 1];
+      if (typeof next !== 'string' || !next.trim()) fail('Missing value for --config argument.');
+      opts.configPath = next;
+      i += 1;
+      continue;
+    }
+    if (token.startsWith('--config=')) {
+      opts.configPath = token.slice('--config='.length);
+      continue;
+    }
+    if (token === '--out') {
+      const next = argv[i + 1];
+      if (typeof next !== 'string' || !next.trim()) fail('Missing value for --out argument.');
+      opts.outPath = next;
+      i += 1;
+      continue;
+    }
+    if (token.startsWith('--out=')) {
+      opts.outPath = token.slice('--out='.length);
+      continue;
+    }
+  }
+  return opts;
+}
+
+function loadConfig(repoRoot: string, configArg: string): ManifestSyncConfig {
+  const configPath = path.resolve(repoRoot, configArg);
+  if (!isPathInside(repoRoot, configPath)) {
+    fail(`Config must be inside repo: ${configArg}`);
+  }
   if (!fs.existsSync(configPath)) {
     fail(`Missing config at ${configPath}`);
   }
@@ -61,7 +105,11 @@ function loadConfig(repoRoot: string): ManifestSyncConfig {
   return cfg;
 }
 
-function loadGitignoreMatchers(repoRoot: string, scanRoots: string[], contextRoots: string[], ignoreDirNames: Set<string>) {
+function buildIgnoreMatcher(patterns: string[]) {
+  return ignore().add(patterns);
+}
+
+function loadGitignoreMatchers(repoRoot: string, scanRoots: string[], contextRoots: string[], ignoreDirNames: Set<string>, excludePatterns: string[]) {
   const gitignorePaths = new Set<string>();
   const addGitignoreInDir = (dir: string) => {
     if (!isPathInside(repoRoot, dir)) return;
@@ -115,6 +163,9 @@ function loadGitignoreMatchers(repoRoot: string, scanRoots: string[], contextRoo
     'SenseiMobile/* 2.*',
     'SenseiMobile/* copy*'
   ]);
+  if (excludePatterns.length) {
+    defaults.add(excludePatterns);
+  }
   const matchers: GitignoreMatcher[] = [{
     baseAbs: repoRoot,
     baseRel: '',
@@ -176,9 +227,19 @@ function walkFiles(absDir: string, repoRoot: string, ignoreDirNames: Set<string>
   }
 }
 
+function extensionAllowed(absPath: string, extensions: Set<string>) {
+  if (isDtsFile(absPath)) return extensions.has('.d.ts');
+  return extensions.has(path.extname(absPath).toLowerCase());
+}
+
 function main() {
   const repoRoot = process.cwd();
-  const cfg = loadConfig(repoRoot);
+  const cli = parseArgs(process.argv.slice(2));
+  const cfg = loadConfig(repoRoot, cli.configPath);
+  const outputPath = path.resolve(repoRoot, cli.outPath);
+  if (!isPathInside(repoRoot, outputPath)) {
+    fail(`Output manifest must be inside repo: ${cli.outPath}`);
+  }
 
   const defaultExtensions = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
   const extensions = new Set(
@@ -190,10 +251,15 @@ function main() {
     if (typeof d === 'string' && d.trim().length) ignoreDirNames.add(d.trim());
   });
   const rootCandidates = cfg.roots.filter(item => typeof item === 'string' && item.trim().length);
-  const contextCandidates = [...cfg.roots, ...(cfg.extraFiles || [])].filter(item => typeof item === 'string' && item.trim().length);
-  const gitignoreMatchers = loadGitignoreMatchers(repoRoot, rootCandidates, contextCandidates, ignoreDirNames);
+  const extraFiles = (cfg.extraFiles || []).filter(item => typeof item === 'string' && item.trim().length);
+  const forceIncludeFiles = (cfg.forceIncludeFiles || []).filter(item => typeof item === 'string' && item.trim().length);
+  const excludePatterns = (cfg.excludePatterns || []).filter(item => typeof item === 'string' && item.trim().length);
+  const configExcludeMatcher = buildIgnoreMatcher(excludePatterns);
+  const contextCandidates = [...cfg.roots, ...extraFiles, ...forceIncludeFiles].filter(item => typeof item === 'string' && item.trim().length);
+  const gitignoreMatchers = loadGitignoreMatchers(repoRoot, rootCandidates, contextCandidates, ignoreDirNames, excludePatterns);
 
   const allFilesAbs: string[] = [];
+  const forcedFilesAbs: string[] = [];
   for (const root of cfg.roots) {
     const resolved = path.resolve(repoRoot, root);
     if (!fs.existsSync(resolved)) {
@@ -212,7 +278,7 @@ function main() {
     }
     fail(`Unsupported root type: ${root}`);
   }
-  for (const file of cfg.extraFiles || []) {
+  for (const file of extraFiles) {
     if (typeof file !== 'string' || !file.trim()) continue;
     const resolved = path.resolve(repoRoot, file);
     if (!fs.existsSync(resolved)) {
@@ -225,25 +291,43 @@ function main() {
     if (isIgnoredByGitignore(resolved, repoRoot, gitignoreMatchers, false)) continue;
     allFilesAbs.push(resolved);
   }
+  for (const file of forceIncludeFiles) {
+    const resolved = path.resolve(repoRoot, file);
+    if (!fs.existsSync(resolved)) {
+      fail(`forceIncludeFiles entry missing: ${file}`);
+    }
+    const st = fs.statSync(resolved);
+    if (!st.isFile()) {
+      fail(`forceIncludeFiles entry is not a file: ${file}`);
+    }
+    const rel = normalizeSlashes(path.relative(repoRoot, resolved));
+    const result = configExcludeMatcher.test(rel);
+    if (result.ignored) {
+      fail(`forceIncludeFiles entry is excluded: ${file}`);
+    }
+    forcedFilesAbs.push(resolved);
+  }
 
   const relPaths: string[] = [];
   for (const abs of allFilesAbs) {
-    const ext = path.extname(abs).toLowerCase();
-    if (!extensions.has(ext)) continue;
-    if (isDtsFile(abs)) continue;
+    if (!extensionAllowed(abs, extensions)) continue;
     const rel = normalizeSlashes(path.relative(repoRoot, abs));
     if (!rel || rel.startsWith('..')) continue;
     relPaths.push(rel);
   }
-  relPaths.push('src/file-manifest.json');
-  relPaths.push('config/file-manifest.roots.json');
+  for (const abs of forcedFilesAbs) {
+    const rel = normalizeSlashes(path.relative(repoRoot, abs));
+    if (!rel || rel.startsWith('..')) continue;
+    relPaths.push(rel);
+  }
+  relPaths.push(normalizeSlashes(path.relative(repoRoot, outputPath)));
+  relPaths.push(normalizeSlashes(path.relative(repoRoot, path.resolve(repoRoot, cli.configPath))));
 
   const unique = Array.from(new Set(relPaths)).sort((a, b) => a.localeCompare(b));
 
-  const manifestPath = path.join(repoRoot, 'src', 'file-manifest.json');
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.writeFileSync(manifestPath, `${JSON.stringify(unique, null, 2)}\n`, 'utf8');
-  console.log(`Wrote ${unique.length} entries to ${manifestPath}`);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, `${JSON.stringify(unique, null, 2)}\n`, 'utf8');
+  console.log(`Wrote ${unique.length} entries to ${outputPath}`);
 }
 
 main();
