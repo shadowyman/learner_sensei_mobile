@@ -7,6 +7,18 @@ import { logger } from './logger';
 // Based on Section I-B: The Recursive Sensei's Adaptive Teaching Engine - Operational Mechanisms (Version 2.1)
 import { CurriculumState, PHASE_MASTERY_THRESHOLD, CurriculumItem } from "./curriculum"; 
 import type { TeachingPoint as CurriculumTeachingPoint } from "./curriculum"; // For clarity when dealing with teachingPlanForPhase
+import { MISCONCEPTION_IDS } from '@sensei/core/learnerAnalysis';
+import type {
+    AffectiveStateAnalysis,
+    CognitiveLoadIndicatorsAnalysis,
+    ComprehensiveAnalysisResultType,
+    KeyContentPointAssessment,
+    KnowledgeComponentReference,
+    MisconceptionHint,
+    RawHelpSeekingStyle,
+    SRLIndicatorsAnalysis,
+    TopicInteractionAnalysis
+} from '@sensei/core/learnerAnalysis';
 
 function logAdaptiveValidation(event: string, payload?: Record<string, unknown>): void {
     if (payload && Object.keys(payload).length > 0) {
@@ -18,64 +30,23 @@ function logAdaptiveValidation(event: string, payload?: Record<string, unknown>)
 
 // --- INTERFACES ---
 
-export interface AffectiveStateAnalysis {
-    confidence: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    engagement: 'Waning' | 'Low' | 'Medium' | 'High' | 'Uncertain';
-    frustration: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    confusion: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    boredom: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    self_efficacy: 'Low' | 'Medium' | 'High' | 'Uncertain';
-}
+export type {
+    AffectiveStateAnalysis,
+    CognitiveLoadIndicatorsAnalysis,
+    ComprehensiveAnalysisResultType,
+    KeyContentPointAssessment,
+    KnowledgeComponentReference,
+    MisconceptionHint,
+    RawHelpSeekingStyle,
+    SRLIndicatorsAnalysis,
+    TopicInteractionAnalysis
+};
 
-export interface CognitiveLoadIndicatorsAnalysis {
-    perceived_intrinsic_difficulty: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    extraneous_load_signals: 'Low' | 'Medium' | 'High' | 'Uncertain';
-}
+export { MISCONCEPTION_IDS };
 
-export type RawHelpSeekingStyle = 'Low' | 'Medium' | 'High' | 'None' | 'Uncertain' | 'Appropriate' | 'Vague' | 'Demanding';
 export type NormalizedHelpSeekingStyle = 'Low' | 'Medium' | 'High' | 'None' | 'Uncertain';
 
-export interface SRLIndicatorsAnalysis {
-    planning_observed: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    monitoring_observed: 'Low' | 'Medium' | 'High' | 'Uncertain';
-    help_seeking_style: RawHelpSeekingStyle;
-    strategy_hint: string[]; 
-}
-
-export interface MisconceptionHint {
-    id: string; 
-    likelihood: 'Low' | 'Medium' | 'High' | 'Uncertain';
-}
-
-export interface KnowledgeComponentReference {
-    kc_id: string; 
-    understanding_signal: 'Positive' | 'Negative' | 'Neutral' | 'Uncertain';
-}
-
-export interface TopicInteractionAnalysis {
-    continues_current_topic: boolean | 'Uncertain';
-    signals_topic_resolution: boolean | 'Uncertain';
-}
-
-export interface KeyContentPointAssessment {
-    point_id: string; // This is the text of the teaching point, used as an ID
-    coverage: 'NotAddressed' | 'ImplicitlyAddressed' | 'ExplicitlyAddressed';
-    understanding_score: number; 
-}
-export type KEY_CONTENT_POINT_ASSESSMENT_TYPE = KeyContentPointAssessment; 
-// Removed: export type TeachingPoint = KeyContentPointAssessment;
-
-
-export interface ComprehensiveAnalysisResultType {
-    affective_state: AffectiveStateAnalysis;
-    cognitive_load_indicators: CognitiveLoadIndicatorsAnalysis;
-    srl_indicators: SRLIndicatorsAnalysis;
-    misconception_hints: MisconceptionHint[];
-    knowledge_component_references: KnowledgeComponentReference[];
-    primary_intent: 'AskingQuestion' | 'AnsweringQuestion' | 'ExpressingConfusion' | 'ExpressingUnderstanding' | 'ProvidingFeedback' | 'SeekingReassurance' | "RequestingCurriculumStart" | 'Other' | 'Uncertain';
-    topic_interaction: TopicInteractionAnalysis;
-    key_content_point_assessment?: KeyContentPointAssessment[]; 
-}
+export type KEY_CONTENT_POINT_ASSESSMENT_TYPE = KeyContentPointAssessment;
 
 
 export interface KnowledgeComponents {
@@ -89,10 +60,6 @@ export interface KCMasteryLastUpdated {
 export interface Misconceptions {
     [key: string]: number; 
 }
-export const MISCONCEPTION_IDS = [ 
-    "Misconception_LoopingModel", "Misconception_MagicModel", "Misconception_BaseCaseOffByOne",
-    "Misconception_StackOrderError", "Misconception_ParametersDontChange", "Misconception_ReturnValuesLost"
-];
 
 
 export interface MentalModelState {

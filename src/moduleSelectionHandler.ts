@@ -31,6 +31,8 @@ import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
 import { sendToNative } from './mobile/webviewBridge';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
+import { requestTeachingPlan } from './teachingPlanRouting';
+import { requestTeachingPlanViaBridge } from './mobile/webviewMessageRouter';
 import {
     MODULE_INTRODUCTION_TASK_TEMPLATE,
     KEY_TAKEAWAY_PROMPT_PREFIX
@@ -301,11 +303,15 @@ Where would you like to begin your learning journey?`;
         const ai = this.state.ai;
         const phaseMessages = Array.from(document.querySelectorAll<HTMLElement>('.message-bubble:not(#response-modal-sensei-bubble)'));
         let phaseMessageBubble: HTMLElement | null = null;
+        let phaseBubbleMode: 'selection' | 'loader' | null = null;
+        let phaseButtonsToRestore: HTMLButtonElement[] = [];
         for (const bubble of phaseMessages) {
             if (bubble.querySelector('.phase-buttons-container')) {
                 phaseMessageBubble = bubble;
+                phaseBubbleMode = 'selection';
                 const buttons = bubble.querySelectorAll<HTMLButtonElement>('.phase-button');
-                buttons.forEach(button => {
+                phaseButtonsToRestore = Array.from(buttons);
+                phaseButtonsToRestore.forEach(button => {
                     button.disabled = true;
                 });
                 break;
@@ -325,15 +331,31 @@ Where would you like to begin your learning journey?`;
                 phaseLoadingAnimation: true
             });
             phaseMessageBubble = document.getElementById(loaderId);
+            phaseBubbleMode = 'loader';
         }
 
         const isSolidify = phase === 'Solidify';
+        const isMobileWebView = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
         let cleanupPhaseBubble: (() => void) | null = null;
 
         if (phaseMessageBubble) {
             const messageText = phaseMessageBubble.querySelector<HTMLElement>('.message-text');
             if (messageText) {
-                messageText.innerHTML = '';
+                const hiddenChildren: HTMLElement[] = [];
+                if (phaseBubbleMode === 'selection') {
+                    Array.from(messageText.children).forEach((child) => {
+                        const element = child as HTMLElement;
+                        if (element.classList.contains('phase-loading-container')) {
+                            return;
+                        }
+                        hiddenChildren.push(element);
+                        element.style.display = 'none';
+                    });
+                }
+                const existingLoading = messageText.querySelector('.phase-loading-container');
+                if (existingLoading) {
+                    existingLoading.remove();
+                }
                 const loadingContainer = document.createElement('div');
                 loadingContainer.classList.add('phase-loading-container');
                 const spinner = document.createElement('div');
@@ -387,7 +409,17 @@ Where would you like to begin your learning journey?`;
                 cleanupPhaseBubble = () => {
                     clearInterval(dotAnimation);
                     clearInterval(messageAnimation);
-                    phaseMessageBubble?.remove();
+                    if (phaseBubbleMode === 'selection') {
+                        hiddenChildren.forEach((child) => {
+                            child.style.display = '';
+                        });
+                        phaseButtonsToRestore.forEach((button) => {
+                            button.disabled = false;
+                        });
+                        messageText.querySelectorAll('.phase-loading-container').forEach((el) => el.remove());
+                    } else {
+                        phaseMessageBubble?.remove();
+                    }
                 };
             }
         }
@@ -396,14 +428,20 @@ Where would you like to begin your learning journey?`;
             ? async (phaseForPlan: Phase) => this.createSolidifyTeachingPlan(module, phaseForPlan, ai)
             : async (phaseForPlan: Phase, text: string) => {
                 const conceptsSummary = module.concepts.map(c => c.title).join(', ');
-                const result = await llmExtractAndPlanTeachingOrder(
-                    ai,
-                    text,
-                    phaseForPlan,
-                    module.title,
-                    module.goal,
-                    conceptsSummary
-                );
+                const routed = await requestTeachingPlan<TeachingPoint[][] | null>({
+                    isMobileWebView,
+                    payload: {
+                        phase: phaseForPlan,
+                        textToProcess: text,
+                        moduleTitle: module.title,
+                        moduleGoal: module.goal,
+                        conceptsSummary
+                    },
+                    requestViaBridge: requestTeachingPlanViaBridge,
+                    generateLocal: async () =>
+                        llmExtractAndPlanTeachingOrder(ai, text, phaseForPlan, module.title, module.goal, conceptsSummary)
+                });
+                const result = routed.result;
                 if (!result || result.length === 0) {
                     throw new TeachingPlanGenerationError('LLM returned an empty teaching plan.', {
                         moduleId: module.id,
@@ -423,6 +461,7 @@ Where would you like to begin your learning journey?`;
         );
 
         if (!this.state.curriculumState) {
+            cleanupPhaseBubble?.();
             this.state.currentMessageId++;
             await displayMessage({
                 id: `msg-${this.state.currentMessageId}`,

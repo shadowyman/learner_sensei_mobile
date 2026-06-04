@@ -27,10 +27,23 @@ jest.mock('../interactionHelpers', () => ({
 }))
 
 jest.mock('../curriculum', () => {
-  const actual = jest.requireActual('../curriculum')
   return {
-    ...actual,
-    jumpToPhase: jest.fn(() => Promise.resolve(null))
+    TeachingPlanGenerationError: class TeachingPlanGenerationError extends Error {
+      details: Record<string, unknown>
+      constructor(message: string, details: Record<string, unknown>) {
+        super(message)
+        this.name = 'TeachingPlanGenerationError'
+        this.details = details
+      }
+    },
+    jumpToPhase: jest.fn(() => Promise.resolve(null)),
+    getCurrentCurriculumItem: jest.fn(() => null),
+    getCurriculumFocusInstruction: jest.fn(() => ''),
+    calculateFocusPoints: jest.fn(() => ({
+      currentChunkItemTexts: [],
+      revisitPointTexts: []
+    })),
+    buildPrimaryActionBlockForKeyTakeaway: jest.fn(() => '')
   }
 })
 

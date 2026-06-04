@@ -24,23 +24,9 @@ import {
     USER_LAST_INPUT_PLACEHOLDER
 } from "./prompts";
 import { TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
+import type { Phase, TeachingPoint } from '@sensei/core/teachingPlan';
 
-
-// Define TeachingPoint as the structure for items in the teaching plan
-export interface TeachingPoint {
-    text: string;
-    kcValue: number;
-    // Optional Socratic phase properties
-    isSocraticIntent?: boolean;
-    interactionGuidance?: {
-        expectedTurns: number;
-        turnManagement?: any;
-        completionTriggers?: any;
-    };
-    socraticMetadata?: {
-        detectedCategory?: string;
-    };
-}
+export type { Phase, TeachingPoint };
 
 
 export interface Concept {
@@ -67,8 +53,6 @@ export interface Module {
 export interface Curriculum {
     modules: Module[];
 }
-
-export type Phase = 'IntroIllustrate' | 'Socratic' | 'Solidify';
 
 const CONCEPT_PEDAGOGICAL_PHASES: Phase[] = ['IntroIllustrate'];
 const MODULE_PEDAGOGICAL_PHASES: Phase[] = ['Socratic', 'Solidify'];
