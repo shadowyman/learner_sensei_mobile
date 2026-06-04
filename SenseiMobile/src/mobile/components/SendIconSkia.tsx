@@ -9,12 +9,12 @@ interface SendIconSkiaProps {
 export const SendIconSkia: React.FC<SendIconSkiaProps> = ({ size = 14, color = 'rgba(255,255,255,0.95)' }) => {
 	const path = useMemo(() => {
 		const scale = size / 24;
-		const p = Skia.Path.Make();
-		p.moveTo(3 * scale, 21 * scale);
-		p.lineTo(21 * scale, 12 * scale);
-		p.lineTo(3 * scale, 3 * scale);
-		p.close();
-		return p;
+		return Skia.PathBuilder.Make()
+			.moveTo(3 * scale, 21 * scale)
+			.lineTo(21 * scale, 12 * scale)
+			.lineTo(3 * scale, 3 * scale)
+			.close()
+			.build();
 	}, [size]);
 
 	return (

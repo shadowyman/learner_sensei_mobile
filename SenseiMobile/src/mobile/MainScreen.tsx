@@ -29,6 +29,31 @@ const DEFAULT_THEME_COLORS: ThemeColors = {
 
 const DEFAULT_MAIN_HEX = '#5c56f5';
 
+function withExactAlpha(color: string, alpha: number, fallback: string): string {
+    const hexMatch = color.trim().match(/^#([0-9a-fA-F]{3,8})$/);
+    if (hexMatch) {
+        const raw = hexMatch[1];
+        const expanded = raw.length === 3 || raw.length === 4 ? raw.slice(0, 3).split('').map(char => char + char).join('') : raw.slice(0, 6);
+        const r = parseInt(expanded.slice(0, 2), 16);
+        const g = parseInt(expanded.slice(2, 4), 16);
+        const b = parseInt(expanded.slice(4, 6), 16);
+        if (![r, g, b].some(value => Number.isNaN(value))) {
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+    }
+    const rgbaMatch = color.match(/rgba?\s*\(([^)]+)\)/i);
+    if (rgbaMatch) {
+        const parts = rgbaMatch[1].split(',').map(part => part.trim());
+        const r = Number(parts[0]);
+        const g = Number(parts[1]);
+        const b = Number(parts[2]);
+        if (![r, g, b].some(value => Number.isNaN(value))) {
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+    }
+    return fallback;
+}
+
 const WEBVIEW_ERROR_BRIDGE = `
 (function() {
     if (window.__senseiWebviewErrorBridge) {
@@ -302,13 +327,31 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const [inputBarRect, setInputBarRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [themeColors, setThemeColors] = useState<ThemeColors>(DEFAULT_THEME_COLORS);
     const [webViewReady, setWebViewReady] = useState(false);
-    const { width: viewportWidth } = useWindowDimensions();
+    const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
     const webviewErrorInjection = useMemo(() => `
         window.__SENSEI_MOBILE_BUILD__ = true;
         ${WEBVIEW_ERROR_BRIDGE}
     `, []);
     const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
     const isCompactIOS = Platform.OS === 'ios' && !isPad && viewportWidth <= 430;
+    const inputBarShadowColors = useMemo(() => {
+        const bottomTint = withExactAlpha(themeColors.radialB, 0.30, 'rgba(0,0,0,0.22)');
+        const lowerTint = withExactAlpha(themeColors.radialB, 0.18, 'rgba(0,0,0,0.16)');
+        const middleTint = withExactAlpha(themeColors.linear[1], 0.42, 'rgba(0,0,0,0.42)');
+        return [
+            bottomTint,
+            lowerTint,
+            middleTint,
+            'rgba(0,0,0,0)'
+        ];
+    }, [themeColors]);
+    const inputBarShadowHeight = useMemo(() => {
+        const measuredInputHeight = inputBarRect?.height ?? 64;
+        const desiredHeight = measuredInputHeight * 1.8;
+        const viewportCap = viewportHeight * 0.19;
+        const minimumHeight = measuredInputHeight + 32;
+        return Math.round(Math.min(viewportCap, Math.max(minimumHeight, desiredHeight)));
+    }, [inputBarRect?.height, viewportHeight]);
     const handleHeaderRectUpdate = useCallback((rect: { x: number; y: number; width: number; height: number } | null) => {
         logger.info('Sensei(debug)', {
             tag: 'headerRect.update',
@@ -778,17 +821,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 >
                     <View style={styles.inputBarOverlay} pointerEvents="box-none">
                         <LinearGradient
-                            colors={[
-                                'rgba(0,0,0,0.4)',
-                                'rgba(0,0,0,0.3)',
-                                'rgba(0,0,0,0.2)',
-                                'rgba(0,0,0,0.08)',
-                                'rgba(0,0,0,0)'
-                            ]}
-                            locations={[0, 0.5, 0.75, 0.9, 1]}
+                            colors={inputBarShadowColors}
+                            locations={[0, 0.34, 0.75, 0.8]}
                             start={{ x: 0, y: 1 }}
                             end={{ x: 0, y: 0 }}
-                            style={styles.inputBarBackground}
+                            style={[styles.inputBarBackground, { height: inputBarShadowHeight }]}
                             pointerEvents="none"
                         />
                         <InputBar
@@ -879,10 +916,13 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         zIndex: 4,
-        paddingTop: 14
+        paddingTop: 24
     },
     inputBarBackground: {
-        ...StyleSheet.absoluteFillObject,
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
         backgroundColor: 'transparent'
     }
 });

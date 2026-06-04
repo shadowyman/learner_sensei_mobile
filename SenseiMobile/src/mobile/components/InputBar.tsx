@@ -59,6 +59,7 @@ interface InputBarProps {
 export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLayoutRect, themeColors, disabled = false }) => {
     const [text, setText] = useState('');
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+    const [isInputFocused, setIsInputFocused] = useState(false);
     const inputRef = useRef<TextInput | null>(null);
     const wrapperRef = useRef<View | null>(null);
     const inputContainerRef = useRef<View | null>(null);
@@ -223,12 +224,20 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
         return setColorAlpha(lightenColor(editorMiddle, -0.08, 'rgba(255,255,255,0.08)'), 0.62, 'rgba(255,255,255,0.08)');
     }, [themeColors]);
 
+    const inputOuterBorderColor = useMemo(() => {
+        const resolved = themeColors ?? DEFAULT_THEME_COLORS;
+        const base = resolved.radialB ?? resolved.linear?.[1] ?? 'rgba(94,234,212,0.18)';
+        return setColorAlpha(base, isInputFocused ? 0.34 : 0.20, 'rgba(94,234,212,0.18)');
+    }, [isInputFocused, themeColors]);
+
+    const inputInnerBorderColor = isInputFocused ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.075)';
+
     return (
         <View ref={wrapperRef} style={styles.wrapper} onLayout={measureRect}>
             <View ref={inputContainerRef} style={[styles.inputContainer, isKeyboardVisible && styles.inputContainerKeyboardVisible]}>
                 <PlatformGlassBackground
                     testID="input-bar-glass-background"
-                    style={styles.fieldFrame}
+                    style={[styles.fieldFrame, { borderColor: inputOuterBorderColor }]}
                     borderRadius={FIELD_RADIUS}
                     fallbackColor={FIELD_FALLBACK_COLOR}
                     tintColor={FIELD_TINT_COLOR}
@@ -250,8 +259,10 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
                         // @ts-ignore
                         overrideUserInterfaceStyle="dark"
                         onContentSizeChange={handleContentSizeChange}
+                        onFocus={() => setIsInputFocused(true)}
+                        onBlur={() => setIsInputFocused(false)}
                         textAlignVertical="top"
-                        style={[styles.textInput, { minHeight, maxHeight }]}
+                        style={[styles.textInput, { minHeight, maxHeight, borderColor: inputInnerBorderColor }]}
                         placeholderTextColor={'rgba(148,163,184,0.65)'}
                         selectionColor={'#22d3ee'}
                         returnKeyType={'default'}
@@ -364,6 +375,7 @@ const styles = StyleSheet.create({
     },
     fieldFrame: {
         position: 'relative',
+        borderWidth: 1,
         borderRadius: FIELD_RADIUS,
         overflow: 'hidden',
         backgroundColor: 'transparent'
