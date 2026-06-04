@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Keyboard, Platform, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { CodeEditorBadge } from './CodeEditorBadge';
 import { PlatformGlassBackground } from './PlatformGlassBackground';
-import { SendIconSkia } from './SendIconSkia';
+import { SendIconSkia, SendOrbRingSkia, SendOrbSheenSkia } from './SendIconSkia';
 import { logger } from '../../logger';
 import {
     ThemeColors,
@@ -19,10 +19,34 @@ import {
 const INPUT_LINE_HEIGHT = 20;
 const INPUT_VERTICAL_PADDING = 10;
 const DEFAULT_SEND_BASE = '#0b231b';
-const DEFAULT_SEND_BORDER = 'rgba(16,185,129,0.35)';
 const FIELD_RADIUS = 16;
 const FIELD_FALLBACK_COLOR = 'rgba(0,0,0,0.70)';
 const FIELD_TINT_COLOR = 'rgba(0,0,0,0.70)';
+
+const setColorAlpha = (color: string, alpha: number, fallback: string): string => {
+    const hexMatch = color.trim().match(/^#([0-9a-fA-F]{3,8})$/);
+    if (hexMatch) {
+        const raw = hexMatch[1];
+        const expanded = raw.length === 3 || raw.length === 4 ? raw.slice(0, 3).split('').map(char => char + char).join('') : raw.slice(0, 6);
+        const r = parseInt(expanded.slice(0, 2), 16);
+        const g = parseInt(expanded.slice(2, 4), 16);
+        const b = parseInt(expanded.slice(4, 6), 16);
+        if (![r, g, b].some(value => Number.isNaN(value))) {
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+    }
+    const rgbaMatch = color.match(/rgba?\s*\(([^)]+)\)/i);
+    if (rgbaMatch) {
+        const parts = rgbaMatch[1].split(',').map(part => part.trim());
+        const r = Number(parts[0]);
+        const g = Number(parts[1]);
+        const b = Number(parts[2]);
+        if (![r, g, b].some(value => Number.isNaN(value))) {
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+    }
+    return fallback;
+};
 
 interface InputBarProps {
     onSubmit?: (text: string) => boolean | void | Promise<boolean | void>;
@@ -38,6 +62,7 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
     const inputRef = useRef<TextInput | null>(null);
     const wrapperRef = useRef<View | null>(null);
     const inputContainerRef = useRef<View | null>(null);
+    const { width: viewportWidth } = useWindowDimensions();
 
     const minHeight = 44;
     const maxHeight = 110;
@@ -108,8 +133,62 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
     }, []);
 
     const editorSize = 26;
+    const isPad = Platform.OS === 'ios' && (Platform as any).isPad;
+    const isCompactIOS = Platform.OS === 'ios' && !isPad && viewportWidth <= 430;
 
-    const sendGradientColors = useMemo(() => deriveSendGradient(themeColors), [themeColors]);
+    const sendMetrics = useMemo(() => {
+        if (isPad) {
+            return {
+                button: 56,
+                radius: 28,
+                innerWell: 36,
+                icon: 16,
+                editorTop: -8,
+                editorRight: -12,
+                highlightTop: 11,
+                highlightLeft: 14,
+                highlightWidth: 23,
+                highlightHeight: 10,
+                shadowRadius: 7
+            };
+        }
+        if (isCompactIOS) {
+            return {
+                button: 46,
+                radius: 23,
+                innerWell: 28,
+                icon: 14,
+                editorTop: -6,
+                editorRight: -15,
+                highlightTop: 8,
+                highlightLeft: 11,
+                highlightWidth: 18,
+                highlightHeight: 8,
+                shadowRadius: 5
+            };
+        }
+        return {
+            button: 52,
+            radius: 26,
+            innerWell: 32,
+            icon: 15,
+            editorTop: -7,
+            editorRight: -14,
+            highlightTop: 9,
+            highlightLeft: 12,
+            highlightWidth: 21,
+            highlightHeight: 9,
+            shadowRadius: 6
+        };
+    }, [isCompactIOS, isPad]);
+
+    const sendGradientColors = useMemo(() => {
+        const resolved = themeColors ?? DEFAULT_THEME_COLORS;
+        const base = resolved.linear?.[1] ?? DEFAULT_SEND_GRADIENT[1];
+        const derived = deriveSendGradient(themeColors);
+        const deep = ensureReadable(lightenColor(base, 0.08, DEFAULT_SEND_BASE), DEFAULT_SEND_BASE);
+        return [derived[0], derived[1], deep];
+    }, [themeColors]);
 
     const sendBaseColor = useMemo(() => {
         const resolved = themeColors ?? DEFAULT_THEME_COLORS;
@@ -117,10 +196,17 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
         return ensureReadable(lightenColor(base, -0.05, DEFAULT_SEND_BASE), DEFAULT_SEND_BASE);
     }, [themeColors]);
 
-    const sendBorderColor = useMemo(() => {
+    const sendRingGradientColors = useMemo(() => {
         const resolved = themeColors ?? DEFAULT_THEME_COLORS;
-        const base = resolved.linear?.[1] ?? DEFAULT_SEND_BORDER;
-        return ensureReadable(withAlpha(lightenColor(base, 0.05, DEFAULT_SEND_BORDER), 0.7), DEFAULT_SEND_BORDER);
+        const base = resolved.linear?.[1] ?? DEFAULT_SEND_GRADIENT[1];
+        const bright = ensureReadable(lightenColor(shiftHue(base, 0.04, DEFAULT_SEND_GRADIENT[0]), 0.46, DEFAULT_SEND_GRADIENT[0]), DEFAULT_SEND_GRADIENT[0]);
+        const middle = ensureReadable(lightenColor(base, 0.26, DEFAULT_SEND_GRADIENT[1]), DEFAULT_SEND_GRADIENT[1]);
+        const deep = ensureReadable(lightenColor(shiftHue(base, -0.04, DEFAULT_SEND_GRADIENT[2]), 0.12, DEFAULT_SEND_GRADIENT[2]), DEFAULT_SEND_GRADIENT[2]);
+        return [
+            setColorAlpha(bright, 0.28, 'rgba(255,255,255,0.2)'),
+            setColorAlpha(middle, 0.18, 'rgba(255,255,255,0.13)'),
+            setColorAlpha(deep, 0.09, 'rgba(255,255,255,0.075)')
+        ];
     }, [themeColors]);
 
     const innerRingColor = useMemo(() => {
@@ -128,6 +214,13 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
         const base = resolved.linear?.[1] ?? DEFAULT_SEND_GRADIENT[1];
         const shifted = shiftHue(base, 0.5, '#ffffff');
         return ensureReadable(lightenColor(shifted, 0.25, '#ffffff'), '#ffffff');
+    }, [themeColors]);
+
+    const sendWellColor = useMemo(() => {
+        const resolved = themeColors ?? DEFAULT_THEME_COLORS;
+        const base = resolved.linear?.[1] ?? DEFAULT_SEND_GRADIENT[1];
+        const editorMiddle = ensureReadable(lightenColor(base, 0.4, DEFAULT_SEND_GRADIENT[1]), DEFAULT_SEND_GRADIENT[1]);
+        return setColorAlpha(lightenColor(editorMiddle, -0.08, 'rgba(255,255,255,0.08)'), 0.62, 'rgba(255,255,255,0.08)');
     }, [themeColors]);
 
     return (
@@ -173,21 +266,52 @@ export const InputBar: React.FC<InputBarProps> = ({ onSubmit, onOpenEditor, onLa
                         accessibilityLabel="Send message"
                         onPress={handleSubmit}
                         disabled={disabled}
-                        style={[styles.sendButton, disabled && styles.sendButtonDisabled]}
+                        style={[
+                            styles.sendButton,
+                            {
+                                width: sendMetrics.button,
+                                height: sendMetrics.button,
+                                borderRadius: sendMetrics.radius,
+                                shadowRadius: sendMetrics.shadowRadius,
+                                backgroundColor: sendBaseColor
+                            },
+                            disabled && styles.sendButtonDisabled
+                        ]}
                     >
-                        <View style={[styles.sendLayerBase, { backgroundColor: sendBaseColor }]} />
                         <LinearGradient
                             colors={sendGradientColors}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
-                            style={[styles.sendGradient, { borderColor: sendBorderColor }]}
+                            style={[
+                                styles.sendOrbGradient,
+                                {
+                                    borderRadius: sendMetrics.radius
+                                }
+                            ]}
                         />
-                        <View style={[styles.sendIconWell, { borderColor: innerRingColor }]}>
-                            <SendIconSkia size={14} />
+                        <View pointerEvents="none" style={[styles.sendOrbSheen, { width: sendMetrics.button, height: sendMetrics.button }]}>
+                            <SendOrbSheenSkia size={sendMetrics.button} />
+                        </View>
+                        <View pointerEvents="none" style={[styles.sendOrbRing, { width: sendMetrics.button, height: sendMetrics.button }]}>
+                            <SendOrbRingSkia size={sendMetrics.button} colors={sendRingGradientColors} />
+                        </View>
+                        <View
+                            style={[
+                                styles.sendIconWell,
+                                {
+                                    width: sendMetrics.innerWell,
+                                    height: sendMetrics.innerWell,
+                                    borderRadius: sendMetrics.innerWell / 2,
+                                    borderColor: innerRingColor,
+                                    backgroundColor: sendWellColor
+                                }
+                            ]}
+                        >
+                            <SendIconSkia size={sendMetrics.icon} />
                         </View>
                     </TouchableOpacity>
                     {!isKeyboardVisible && (
-                        <View style={[styles.editorOverlay, { top: -6, right: -17 }]}>
+                        <View style={[styles.editorOverlay, { top: sendMetrics.editorTop, right: sendMetrics.editorRight }]}>
                             <CodeEditorBadge
                                 size={editorSize}
                                 onPress={onOpenEditor}
@@ -263,40 +387,44 @@ const styles = StyleSheet.create({
         paddingRight: 4
     },
     sendButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
         position: 'relative',
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000000',
         shadowOpacity: 0.7,
-        shadowRadius: 5,
         shadowOffset: { width: 0, height: 2 },
         overflow: 'visible'
     },
     sendButtonDisabled: {
         opacity: 0.45
     },
-    sendLayerBase: {
+    sendOrbGradient: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: 22,
-        backgroundColor: '#0b231b'
+        shadowColor: '#000000',
+        shadowOpacity: 0.35,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 1 }
     },
-    sendGradient: {
-        ...StyleSheet.absoluteFillObject,
-        borderRadius: 22,
-        borderWidth: 1.5,
-        borderColor: 'rgba(16,185,129,0.35)'
+    sendOrbRing: {
+        position: 'absolute',
+        top: 0,
+        left: 0
+    },
+    sendOrbSheen: {
+        position: 'absolute',
+        top: 0,
+        left: 0
     },
     sendIconWell: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
+        position: 'relative',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.22)',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        shadowColor: '#000000',
+        shadowOpacity: 0.25,
+        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 1 }
     },
     sendButtonText: {
         color: '#050505',
