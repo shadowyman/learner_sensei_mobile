@@ -163,6 +163,10 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({ state, webVi
         });
     };
 
+    if (!state.visible || !state.rect || !state.viewport) {
+        return null;
+    }
+
     const handleActionPress = (action: SelectionActionConfig) => {
         if (action.requiresPrompt) {
             setAskVisible(true);
