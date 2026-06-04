@@ -6,9 +6,13 @@
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { LearnerModel } from "./adaptiveEngine";
 import { updateMessageStream } from './ui';
-import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION, buildSocraticInitialInstruction, USER_LAST_INPUT_PLACEHOLDER } from './prompts';
+import { MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION, USER_LAST_INPUT_PLACEHOLDER } from './prompts';
 import { logger } from './logger';
 import { KeyTakeawayEnhancerController } from './keyTakeawayEnhancerController';
+import { requestLlmStreamViaBridge } from './mobile/webviewMessageRouter';
+import { buildSocraticExecutionInstruction as buildCoreSocraticExecutionInstruction } from '@sensei/core/prompts/mainSenseiResponse';
+import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
+import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
 
 function logSenseiPromptValidation(event: string, payload: Record<string, unknown>): void {
     const normalizedPayload: Record<string, unknown> = { ...payload };
@@ -22,6 +26,14 @@ import {
     MODULE_INTRODUCTION_CHAT_MODEL_CONFIG,
     MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG
 } from './model_usage';
+
+function canUseNativeLlmStream(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    const channel = (window as any).ReactNativeWebView;
+    return Boolean(channel && typeof channel.postMessage === 'function');
+}
 
 /**
  * Streams the introductory module message from Sensei.
@@ -37,9 +49,44 @@ export async function streamModuleIntroduction(
     introContext: string,
     moduleTitleForPrompt: string,
     senseiMessageId: string,
-    options?: { enhancerController?: KeyTakeawayEnhancerController }
+    options?: { enhancerController?: KeyTakeawayEnhancerController; llmStreamRequest?: ModuleIntroductionPromptRequest }
 ): Promise<string> {
     let fullResponseText = "";
+    const enhancerController = options?.enhancerController;
+
+    if (options?.llmStreamRequest && canUseNativeLlmStream()) {
+        let nativeRequestId = '';
+        const nativeText = await requestLlmStreamViaBridge({
+            capability: 'moduleIntroduction',
+            messageId: senseiMessageId,
+            body: options.llmStreamRequest as unknown as Record<string, unknown>,
+            onRequestId: (requestId) => {
+                nativeRequestId = requestId;
+                logger.info('[LLM_STREAM_MIGRATION] webview-mobile-stream-start', {
+                    requestId,
+                    capability: 'moduleIntroduction',
+                    messageId: senseiMessageId
+                });
+            },
+            onText: async (text) => {
+                fullResponseText = text;
+                if (enhancerController) {
+                    fullResponseText = await enhancerController.onChunk(fullResponseText);
+                }
+                updateMessageStream(senseiMessageId, fullResponseText);
+            }
+        });
+        logger.info('[LLM_STREAM_MIGRATION] webview-mobile-stream-complete', {
+            requestId: nativeRequestId,
+            capability: 'moduleIntroduction',
+            messageId: senseiMessageId
+        });
+        if (enhancerController) {
+            await enhancerController.finalize();
+            return enhancerController.getLatestText();
+        }
+        return nativeText;
+    }
     
     // Combine context with module start message
     const messageWithContext = `${introContext}
@@ -56,7 +103,6 @@ Let's begin ${moduleTitleForPrompt}.`;
     });
     
     const stream = await chat.sendMessageStream({ message: messageWithContext });
-    const enhancerController = options?.enhancerController;
     for await (const chunk of stream) {
         const chunkText = chunk.text;
         if (chunkText) {
@@ -144,84 +190,38 @@ export function buildSocraticExecutionInstruction(
         completionTriggerCount: guidance.completionTriggers?.length || 0
     });
     
-    // For system initialization, include full teaching plan
     if (isSystemInitialization) {
-        const initialInstruction = buildSocraticInitialInstruction(teachingPlan, conceptContext);
+        const initialInstruction = buildCoreSocraticExecutionInstruction({
+            teachingPlan,
+            pedagogicalGuidance,
+            isSystemInitialization,
+            navigationContext,
+            conceptContext
+        });
         logSenseiPromptValidation('socratic-initial-instruction-ready', {
             instructionLength: initialInstruction.length
         });
-        
-        if (!navigationContext) {
-            return initialInstruction;
-        }
-
-        return `[NavigationContext]
-${navigationContext}
-
-${initialInstruction}`;
+        return initialInstruction;
     }
     
-    // Check if MUST_OBEY
     const isMustObey = pedagogicalGuidance.metaPrompt && 
                        pedagogicalGuidance.metaPrompt.includes('MUST_OBEY');
     logSenseiPromptValidation('socratic-guidance-evaluated', {
         mustObey: !!isMustObey
     });
     
-    if (isMustObey) {
-        // Critical override - ONLY execute MUST_OBEY, ignore Socratic plan this turn
-        const overrideInstruction = `[RecursiveSensei CRITICAL OVERRIDE for THIS TURN:
-A high-priority situation has been detected. For this turn, you MUST IGNORE the standard Socratic dialogue plan provided below.
-Your SOLE TASK is to execute the following high-priority directive with immense detail, empathy, and care. This directive takes absolute precedence.
-
-High-Priority Directive: ${pedagogicalGuidance.metaPrompt}
-
-(The standard Socratic dialogue plan, which you will ignore for this turn, is:
-${intent.text}
-
-You will continue with this plan in the next turn after addressing the current critical situation.)
-]`;
-
-        if (!navigationContext) {
-            return overrideInstruction;
-        }
-
-        return `[NavigationContext]
-${navigationContext}
-
-${overrideInstruction}`;
-    }
-
-    // Normal Socratic turn with pedagogical guidance
-    const subsequentTurnInstruction = `[RecursiveSensei Task & Checklist for THIS TURN:
-Your task is to generate a response by following this prioritized checklist. You MUST evaluate and execute these steps in order.
-
-**Your Response Checklist:**
-1.  **Execute Socratic Plan:** Continue your Socratic dialogue according to your teaching plan.
-2.  **Integrate Guidance Strategy:** You MUST use the methods, tone, and style from the \`PedagogicalGuidance\` to facilitate the Socratic dialogue. For example, if the guidance suggests using simpler language, adjust your questions accordingly.
-
----
-**Inputs for your checklist:**
-
-- **PedagogicalGuidance:** ${pedagogicalGuidance.directive || 'Continue with standard Socratic questioning approach'}
-- **SocraticContext:** You are executing a Socratic dialogue. Expected length: ~${guidance.expectedTurns} turns. Monitor for completion triggers: ${JSON.stringify(guidance.completionTriggers)}
-
----
-
-COMPLETION MONITORING: If any completion trigger is met, add [SOCRATIC_COMPLETION_TRIGGERED: <trigger>] at the END of your response.]`;
+    const subsequentTurnInstruction = buildCoreSocraticExecutionInstruction({
+        teachingPlan,
+        pedagogicalGuidance,
+        isSystemInitialization,
+        navigationContext,
+        conceptContext
+    });
     logSenseiPromptValidation('socratic-subsequent-instruction-ready', {
         instructionLength: subsequentTurnInstruction.length,
-        mustObey: false
+        mustObey: !!isMustObey
     });
-    
-    if (!navigationContext) {
-        return subsequentTurnInstruction;
-    }
-
-    return `[NavigationContext]
-${navigationContext}
-
-${subsequentTurnInstruction}`;
+    return subsequentTurnInstruction;
 }
 
 /**
@@ -238,9 +238,44 @@ export async function streamMainSenseiResponse(
     dynamicContext: string,
     currentUserInput: string,
     senseiMessageId: string,
-    options?: { enhancerController?: KeyTakeawayEnhancerController }
+    options?: { enhancerController?: KeyTakeawayEnhancerController; llmStreamRequest?: MainSenseiResponsePromptRequest }
 ): Promise<string> {
     let fullResponseText = "";
+    const enhancerController = options?.enhancerController;
+
+    if (options?.llmStreamRequest && canUseNativeLlmStream()) {
+        let nativeRequestId = '';
+        const nativeText = await requestLlmStreamViaBridge({
+            capability: 'mainSenseiResponse',
+            messageId: senseiMessageId,
+            body: options.llmStreamRequest as unknown as Record<string, unknown>,
+            onRequestId: (requestId) => {
+                nativeRequestId = requestId;
+                logger.info('[LLM_STREAM_MIGRATION] webview-mobile-stream-start', {
+                    requestId,
+                    capability: 'mainSenseiResponse',
+                    messageId: senseiMessageId
+                });
+            },
+            onText: async (text) => {
+                fullResponseText = text;
+                if (enhancerController) {
+                    fullResponseText = await enhancerController.onChunk(fullResponseText);
+                }
+                updateMessageStream(senseiMessageId, fullResponseText);
+            }
+        });
+        logger.info('[LLM_STREAM_MIGRATION] webview-mobile-stream-complete', {
+            requestId: nativeRequestId,
+            capability: 'mainSenseiResponse',
+            messageId: senseiMessageId
+        });
+        if (enhancerController) {
+            await enhancerController.finalize();
+            return enhancerController.getLatestText();
+        }
+        return nativeText;
+    }
 
     const userLine = `User: ${currentUserInput}`;
     const messageWithContext = dynamicContext.includes(USER_LAST_INPUT_PLACEHOLDER)
@@ -260,8 +295,6 @@ ${userLine}`;
 
     // Start streaming from LLM
     const stream = await chat.sendMessageStream({ message: messageWithContext });
-    const enhancerController = options?.enhancerController;
-
     let chunkCount = 0;
     const streamStart = performance.now();
     let firstChunkLatencyMs: number | null = null;

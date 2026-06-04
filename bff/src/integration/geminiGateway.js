@@ -212,7 +212,7 @@ class GeminiGateway {
     }
   }
 
-  async *streamMainResponse(prompt, { context }) {
+  async *streamMainResponse(prompt, { context, allowFallback = true }) {
     const turnId = context.turn?.id;
     const cfg = MAIN_RESPONSE_CONFIG;
     const baseTimeoutMs = typeof cfg.timeoutMs === 'number' ? cfg.timeoutMs : this.timeoutMs;
@@ -227,7 +227,6 @@ class GeminiGateway {
     });
 
     const startTime = Date.now();
-    let lastChunkTime = startTime;
 
     try {
       const stream = await client.models.generateContentStream({
@@ -245,9 +244,6 @@ class GeminiGateway {
         if (!text) {
           continue;
         }
-        const now = Date.now();
-        this.logger.info(TAG, 'chunk', { turnId, bytes: text.length, sincePrevMs: now - lastChunkTime });
-        lastChunkTime = now;
         yield { text };
       }
 
@@ -259,9 +255,15 @@ class GeminiGateway {
         message: error?.message,
         code: error?.code
       });
-      // Fallback to deterministic stub
-      const base = context.turn?.input?.text ?? '';
-      const response = `Sensei (fallback) response to: ${base}`;
+      if (!allowFallback) {
+        throw error;
+      }
+      this.logger.warn('LLM_STREAM_MIGRATION', 'provider-fallback-used', {
+        requestId: turnId,
+        capability: context.capability,
+        messageId: context.messageId
+      });
+      const response = "Sensei services are currently degraded. We're working on this issue, and if this issue persists, please report it to us using the Feedback button in the header menu.";
       for (const part of split(response)) {
         yield { text: part };
       }

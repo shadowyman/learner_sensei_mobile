@@ -46,6 +46,9 @@ export type RNToWebMessage =
   | { type: 'wrapup:failed'; moduleId: string; moduleTitle: string }
   | { type: 'analysis:result'; requestId: string; success: boolean; analysis?: ComprehensiveAnalysisResultType; error?: string }
   | { type: 'teachingPlan:result'; requestId: string; success: boolean; teachingPlan?: TeachingPoint[][]; error?: string }
+  | { type: 'llmStream:status'; requestId: string; messageId: string; capability: LlmStreamCapability; phase: 'started' | 'keepalive' | 'completed' }
+  | { type: 'llmStream:chunk'; requestId: string; messageId: string; capability: LlmStreamCapability; text: string }
+  | { type: 'llmStream:error'; requestId: string; messageId: string; capability: LlmStreamCapability; code: string; message: string }
   | { type: 'footer:update'; payload: FooterPayload }
   | { type: 'theme:update'; value: string }
   | { type: 'telemetry:configure'; enabled: boolean }
@@ -70,9 +73,11 @@ export type WebToRNMessage =
         conceptsSummary?: string;
       };
     }
+  | { type: 'llmStream:request'; requestId: string; messageId: string; capability: LlmStreamCapability; payload: Record<string, unknown> }
   | { type: 'saveload:exportResult'; requestId: string; success: boolean; json?: string; error?: string }
   | { type: 'saveload:importResult'; requestId: string; success: boolean; error?: string }
   | { type: 'telemetry:event'; eventName: string; data: Record<string, unknown> }
+  | { type: 'theme:update'; value: string }
   | { type: 'chat:turnComplete' }
   | { type: 'mermaid:error'; messageId: string; code: string; errorHash?: string }
   | { type: 'mermaid:recover'; messageId: string; code: string; theme?: string; errorHash?: string; errorMessage?: string; mode?: 'auto' | 'llm' }
@@ -110,3 +115,5 @@ export interface FooterPayload {
   confusion: string;
   intent: string;
 }
+
+export type LlmStreamCapability = 'moduleIntroduction' | 'mainSenseiResponse';

@@ -4,8 +4,11 @@ import type {
     BffClientLike,
     ComprehensiveAnalysisResultType,
     LearnerAnalysisRequest,
+    SubmitLlmStreamPayload,
     SubmitTurnPayload,
+    LlmStreamHandle,
     TurnStreamHandle,
+    LlmStreamCapability,
     StreamChunk,
     StreamStatus,
     StreamError,
@@ -160,6 +163,20 @@ export class BffClient implements BffClientLike {
         return this.postTurnWithRetry(requestBody, false);
     }
 
+    async submitLlmStream(payload: SubmitLlmStreamPayload): Promise<LlmStreamHandle> {
+        const requestBody = {
+            capability: payload.capability,
+            messageId: payload.messageId,
+            payload: payload.payload,
+            metadata: {
+                source: this.clientMetadata.source,
+                appVersion: this.clientMetadata.appVersion
+            },
+            options: payload.options
+        };
+        return this.postLlmStreamWithRetry(requestBody, payload.capability, payload.messageId, false);
+    }
+
     private async postTurnWithRetry(body: Record<string, unknown>, hasRetried: boolean): Promise<TurnStreamHandle> {
         await this.ensureSession();
         const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/turns`, {
@@ -187,6 +204,43 @@ export class BffClient implements BffClientLike {
         }
         const message = typeof body.message === 'string' ? body.message.toLowerCase() : '';
         return body.code === 'BAD_REQUEST' && message.includes('unknown session');
+    }
+
+    private async postLlmStreamWithRetry(
+        body: Record<string, unknown>,
+        capability: LlmStreamCapability,
+        messageId: string,
+        hasRetried: boolean
+    ): Promise<LlmStreamHandle> {
+        await this.ensureSession();
+        const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/llm-stream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (response.status === 400) {
+            const errorBody = await this.safeParseJson(response);
+            if (!hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postLlmStreamWithRetry(body, capability, messageId, true);
+            }
+            throw new Error(`LLM stream submission failed: ${response.status}`);
+        }
+        if (!response.ok) {
+            throw new Error(`LLM stream submission failed: ${response.status}`);
+        }
+        const json = await response.json();
+        if (!json || typeof json.requestId !== 'string' || typeof json.streamUrl !== 'string') {
+            throw new Error('LLM stream response missing requestId or streamUrl');
+        }
+        logger.info('[MOBILE_PORT] llm stream status', { phase: 'requested', requestId: json.requestId, messageId, capability });
+        logger.info('[LLM_STREAM_MIGRATION] mobile-stream-requested', { requestId: json.requestId, capability, messageId });
+        return {
+            requestId: json.requestId,
+            messageId,
+            capability,
+            stream: this.createLlmStream(json.streamUrl, json.requestId, messageId, capability)
+        };
     }
 
     private async safeParseJson(response: Response): Promise<any | null> {
@@ -425,6 +479,79 @@ export class BffClient implements BffClientLike {
         ws.onclose = () => {
             logger.info('[MOBILE_PORT] ws status', { phase: 'completed', turnId });
             queue.push({ type: 'status', phase: 'completed' } as StreamStatus);
+            queue.close();
+        };
+
+        return queue;
+    }
+
+    private createLlmStream(
+        streamUrl: string,
+        requestId: string,
+        messageId: string,
+        capability: LlmStreamCapability
+    ): AsyncIterable<StreamEvent> {
+        if (!this.WebSocketImpl) {
+            return this.createErrorStream('DOWNSTREAM_UNAVAILABLE', 'WebSocket implementation missing');
+        }
+        const queue = new AsyncEventQueue<StreamEvent>();
+        const ws = new this.WebSocketImpl(streamUrl);
+        let terminalReceived = false;
+        logger.info('[MOBILE_PORT] llm stream status', { phase: 'connecting', requestId, messageId, capability });
+
+        ws.onopen = () => {
+            logger.info('[MOBILE_PORT] llm stream status', { phase: 'started', requestId, messageId, capability });
+        };
+
+        ws.onmessage = event => {
+            try {
+                const parsed = JSON.parse(event.data);
+                if (parsed.type === 'chunk') {
+                    queue.push({
+                        type: 'chunk',
+                        text: parsed.text,
+                        requestId: parsed.requestId ?? requestId,
+                        messageId: parsed.messageId ?? messageId,
+                        capability: parsed.capability ?? capability
+                    } as StreamChunk);
+                } else if (parsed.type === 'status') {
+                    if (parsed.phase === 'completed') {
+                        terminalReceived = true;
+                    }
+                    queue.push({
+                        type: 'status',
+                        phase: parsed.phase,
+                        requestId: parsed.requestId ?? requestId,
+                        messageId: parsed.messageId ?? messageId,
+                        capability: parsed.capability ?? capability
+                    } as StreamStatus);
+                } else if (parsed.type === 'error') {
+                    terminalReceived = true;
+                    queue.push({
+                        type: 'error',
+                        code: parsed.code,
+                        message: parsed.message,
+                        requestId: parsed.requestId ?? requestId,
+                        messageId: parsed.messageId ?? messageId,
+                        capability: parsed.capability ?? capability
+                    } as StreamError);
+                }
+            } catch (error) {
+                terminalReceived = true;
+                queue.push({ type: 'error', code: 'PARSE_ERROR', message: (error as Error).message, requestId, messageId, capability } as StreamError);
+            }
+        };
+
+        ws.onerror = event => {
+            terminalReceived = true;
+            queue.push({ type: 'error', code: 'DOWNSTREAM_UNAVAILABLE', message: event.message ?? 'WebSocket error', requestId, messageId, capability } as StreamError);
+        };
+
+        ws.onclose = () => {
+            logger.info('[MOBILE_PORT] llm stream status', { phase: 'closed', requestId, messageId, capability });
+            if (!terminalReceived) {
+                queue.push({ type: 'error', code: 'DOWNSTREAM_UNAVAILABLE', message: 'LLM stream closed before completion', requestId, messageId, capability } as StreamError);
+            }
             queue.close();
         };
 

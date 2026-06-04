@@ -3,6 +3,26 @@
  
 This document describes the requirements for an execution plan ("ExecPlan"), a design document that a coding agent can follow to deliver a working feature or system change. Treat the reader as a complete beginner to this repository: they have only the current working tree and the single ExecPlan file you provide. There is no memory of prior plans and no external context.
  
+## Live Execution Requirement
+
+An ExecPlan is a living execution document, not a retrospective report. The agent must maintain it continuously while working.
+
+The agent must update the ExecPlan before crossing any of these boundaries:
+
+- before starting implementation after research;
+- before starting each milestone;
+- after each protocol run or analysis pass;
+- after discovering a mismatch between the plan and the codebase;
+- after any failed command, failed test, or surprising output;
+- after deciding between two possible implementation paths;
+- before modifying scope;
+- before moving to the next milestone;
+- before stopping for any reason.
+
+The update must record what changed, why it changed, what evidence supports it, and what remains.
+
+Continuation standard: another agent with no chat history must be able to open only this ExecPlan and continue safely. Therefore, do not leave important reasoning, discoveries, command output, file paths, protocol conclusions, or design decisions only in the chat transcript.
+
 ## How to use ExecPlans and PLANS.md
  
 When authoring an executable specification (ExecPlan), follow PLANS.md _to the letter_. If it is not in your context, refresh your memory by reading the entire PLANS.md file. Be thorough in reading (and re-reading) source material to produce an accurate specification. When creating a spec, start from the skeleton and flesh it out as you do your research.

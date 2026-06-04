@@ -8,6 +8,7 @@ import type { Phase, TeachingPoint } from '@sensei/core/teachingPlan';
 import type { ComprehensiveAnalysisResultType, LearnerAnalysisRequest } from '@sensei/core/learnerAnalysis';
 import { sendToNative } from './webviewBridge';
 import { hasPendingWrapUpBridgeRequest, resolveWrapUpBridgeRequest } from './wrapUpBridgeState';
+import { logger } from '../logger';
 
 type MermaidResolver = { resolve: (v: { fixed: boolean; fixedCode?: string }) => void; reject: (err: any) => void; timer: number };
 
@@ -47,6 +48,47 @@ type TeachingPlanResolver = { resolve: (v: TeachingPoint[][]) => void; reject: (
 
 const teachingPlanResolvers = new Map<string, TeachingPlanResolver>();
 
+type LlmStreamCapability = 'moduleIntroduction' | 'mainSenseiResponse';
+type LlmStreamResolver = {
+  resolve: (v: string) => void;
+  reject: (err: any) => void;
+  timer: number;
+  text: string;
+  onText: (text: string) => Promise<void> | void;
+  pendingTextUpdate: Promise<void>;
+  settled: boolean;
+};
+
+const llmStreamResolvers = new Map<string, LlmStreamResolver>();
+const LLM_STREAM_BRIDGE_TIMEOUT_MS = 90_000;
+
+function rejectLlmStreamResolver(requestId: string, resolver: LlmStreamResolver, error: any): void {
+  if (resolver.settled) {
+    return;
+  }
+  resolver.settled = true;
+  clearTimeout(resolver.timer);
+  llmStreamResolvers.delete(requestId);
+  resolver.reject(error);
+}
+
+function resolveLlmStreamResolver(requestId: string, resolver: LlmStreamResolver): void {
+  if (resolver.settled) {
+    return;
+  }
+  resolver.settled = true;
+  clearTimeout(resolver.timer);
+  llmStreamResolvers.delete(requestId);
+  resolver.resolve(resolver.text);
+}
+
+function refreshLlmStreamTimeout(requestId: string, resolver: LlmStreamResolver): void {
+  clearTimeout(resolver.timer);
+  resolver.timer = window.setTimeout(() => {
+    rejectLlmStreamResolver(requestId, resolver, new Error('LLM stream bridge timeout'));
+  }, LLM_STREAM_BRIDGE_TIMEOUT_MS);
+}
+
 function createRequestId(prefix: string): string {
   const c = typeof crypto !== 'undefined' ? crypto : undefined;
   if (c && typeof (c as any).randomUUID === 'function') {
@@ -72,6 +114,85 @@ export function requestTeachingPlanViaBridge(payload: {
     teachingPlanResolvers.set(requestId, { resolve, reject, timer });
     sendToNative({ type: 'teachingPlan:request', requestId, payload });
   });
+}
+
+export function requestLlmStreamViaBridge(payload: {
+  capability: LlmStreamCapability;
+  messageId: string;
+  body: Record<string, unknown>;
+  onText: (text: string) => Promise<void> | void;
+  onRequestId?: (requestId: string) => void;
+}): Promise<string> {
+  const requestId = createRequestId('llm-stream');
+  payload.onRequestId?.(requestId);
+  return new Promise((resolve, reject) => {
+    const resolver: LlmStreamResolver = {
+      resolve,
+      reject,
+      timer: 0,
+      text: '',
+      onText: payload.onText,
+      pendingTextUpdate: Promise.resolve(),
+      settled: false
+    };
+    refreshLlmStreamTimeout(requestId, resolver);
+    llmStreamResolvers.set(requestId, resolver);
+    logger.info('[LLM_STREAM_MIGRATION] bridge-request', {
+      requestId,
+      capability: payload.capability,
+      messageId: payload.messageId
+    });
+    sendToNative({
+      type: 'llmStream:request',
+      requestId,
+      messageId: payload.messageId,
+      capability: payload.capability,
+      payload: payload.body
+    });
+  });
+}
+
+function handleLlmStreamEvent(message: RNToWebMessage): boolean {
+  if (message.type !== 'llmStream:status' && message.type !== 'llmStream:chunk' && message.type !== 'llmStream:error') return false;
+  const resolver = llmStreamResolvers.get(message.requestId);
+  if (!resolver) {
+    return true;
+  }
+  if (message.type === 'llmStream:error') {
+    rejectLlmStreamResolver(message.requestId, resolver, new Error(message.message || message.code || 'LLM stream request failed'));
+    return true;
+  }
+  if (message.type === 'llmStream:chunk') {
+    refreshLlmStreamTimeout(message.requestId, resolver);
+    resolver.text += message.text;
+    const text = resolver.text;
+    resolver.pendingTextUpdate = resolver.pendingTextUpdate
+      .then(() => {
+        if (!resolver.settled) {
+          return resolver.onText(text);
+        }
+      })
+      .catch((error) => {
+        rejectLlmStreamResolver(message.requestId, resolver, error);
+      });
+    return true;
+  }
+  refreshLlmStreamTimeout(message.requestId, resolver);
+  if (message.phase === 'completed') {
+    void resolver.pendingTextUpdate
+      .then(() => {
+        logger.info('[LLM_STREAM_MIGRATION] bridge-complete', {
+          requestId: message.requestId,
+          capability: message.capability,
+          messageId: message.messageId
+        });
+        resolveLlmStreamResolver(message.requestId, resolver);
+      })
+      .catch((error) => {
+        rejectLlmStreamResolver(message.requestId, resolver, error);
+      });
+  }
+  return true;
 }
 
 function handleTeachingPlanResult(message: RNToWebMessage): boolean {
@@ -164,6 +285,7 @@ export function createWebviewMessageHandler(deps: {
     if (handleMermaidRecoverResult(message)) return;
     if (handleTeachingPlanResult(message)) return;
     if (handleLearnerAnalysisResult(message)) return;
+    if (handleLlmStreamEvent(message)) return;
     switch (message.type) {
       case 'ui:inputOffset': {
         applyInputOffset(message.height);

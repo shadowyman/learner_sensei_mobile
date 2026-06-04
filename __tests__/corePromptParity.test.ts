@@ -14,6 +14,17 @@ import {
   buildComprehensiveAnalysisPrompt
 } from '@sensei/core/prompts/learnerAnalysis';
 import { MERMAID_FIX_PROMPT_TEMPLATE } from '@sensei/core/prompts/mermaidRepair';
+import { MODULE_INTRODUCTION_TASK_TEMPLATE } from '@sensei/core/prompts/moduleIntroduction';
+import { buildModuleIntroductionPrompt } from '@sensei/core/moduleIntroduction';
+import {
+  MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION,
+  buildSocraticExecutionInstruction,
+  buildSocraticInitialInstruction
+} from '@sensei/core/prompts/mainSenseiResponse';
+import {
+  buildMainSenseiDynamicSystemInstruction,
+  buildMainSenseiResponsePrompt
+} from '@sensei/core/mainSenseiResponse';
 
 function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -66,5 +77,93 @@ describe('Core prompt parity fixtures', () => {
     const prompt = MERMAID_FIX_PROMPT_TEMPLATE('graph TD\nA-->B', 'Parse error on line 2');
 
     expect(sha256(prompt)).toBe('233a04a6d6d81f3f1897abae509e9f0c70c55b62084ab40f3171292b46700d0e');
+  });
+
+  test('module introduction prompt builders match pre-normalization output', () => {
+    const request = {
+      selectedModuleTitle: 'Module Alpha',
+      firstConceptTitle: 'Base Case',
+      phaseDisplayName: 'Intro & Illustrate',
+      userInputText: 'Phase: Intro & Illustrate',
+      curriculumFocusInstruction: '## Curriculum Focus\nCurrent Module: Module Alpha\n__PEDAGOGICAL_GUIDANCE__',
+      moduleTitleForPrompt: 'Module Alpha'
+    };
+
+    expect(sha256(MODULE_INTRODUCTION_TASK_TEMPLATE(
+      request.selectedModuleTitle,
+      request.firstConceptTitle,
+      request.phaseDisplayName,
+      request.userInputText
+    ))).toBe('f01a504ec3537c4b0b4122cfccd95b9f72c6fe1800c73a37bda11c8a4238def2');
+    expect(sha256(buildModuleIntroductionPrompt(request))).toBe('a8580064a20598c1b90a8a2bb3b5e7055a6b9950084588b36c186f30daeec08d');
+  });
+
+  test('main Sensei response prompt builders match pre-normalization output', () => {
+    const curriculumFocusInstruction = '## Primary Action\nTeach recursion base cases.\n__PEDAGOGICAL_GUIDANCE__';
+    const request = {
+      curriculumFocusInstruction,
+      pedagogicalGuidanceDirective: 'GUIDE: Encourage concrete analogies for recursion.',
+      currentUserInput: 'How do I know when to stop recursion?',
+      navigationContext: 'The learner opened the recursion module.'
+    };
+
+    expect(sha256(MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
+      curriculumFocusInstruction,
+      'Encourage concrete analogies for recursion.',
+      false
+    ))).toBe('bc1627e8e2a214f438ea1545c1ab091e15f145e644ce721360a7989bd7bc365e');
+    expect(sha256(buildMainSenseiDynamicSystemInstruction(request))).toBe('07241cbd3579b4cb8410ece38c1003036eaa856241fd13742e08fea0c32dd0cc');
+    expect(sha256(buildMainSenseiResponsePrompt(request))).toBe('702b8e3886cef8901f377dbd67952ae35a6855dec5f79de860cc0db72046c67e');
+    expect(sha256(MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
+      curriculumFocusInstruction,
+      'Focus only on reassurance.',
+      true
+    ))).toBe('2fffa08fac2993736f91876284dc34366780431b6a5e9f0192646c171ef2f7da');
+  });
+
+  test('Socratic main Sensei prompt builders match migrated output', () => {
+    const teachingPlan = [[{
+      text: 'Ask why the base case stops recursive calls.',
+      interactionGuidance: {
+        expectedTurns: 2,
+        completionTriggers: ['learner explains base case'],
+        turnManagement: 'Ask one question at a time.'
+      },
+      socraticMetadata: {
+        detectedCategory: 'GENERAL_CONCEPT'
+      }
+    }]];
+
+    expect(sha256(buildSocraticInitialInstruction(
+      teachingPlan,
+      'Concept: Base Case'
+    ))).toBe('6e5e8cf6963b0ad22b41404395838a50be65d5b986caf691ee488f09dcfd7caa');
+    expect(sha256(buildSocraticExecutionInstruction({
+      teachingPlan,
+      pedagogicalGuidance: {
+        directive: 'Use short probing questions.'
+      },
+      isSystemInitialization: false,
+      navigationContext: 'Navigation anchor'
+    }))).toBe('fd49f0a13b8fde0afe5d376c9aba575e0456ab847d4def52aa576967200a5061');
+    expect(sha256(buildMainSenseiResponsePrompt({
+      mode: 'socratic',
+      teachingPlan,
+      pedagogicalGuidance: {
+        directive: 'Use short probing questions.'
+      },
+      isSystemInitialization: false,
+      navigationContext: 'Navigation anchor',
+      currentUserInput: 'I do not understand the base case.'
+    }))).toBe('4ebed4af8da024c0d95558217a3cea31ba549c2cadde7990131b68eb9fad99f4');
+    expect(sha256(buildMainSenseiResponsePrompt({
+      mode: 'socratic',
+      teachingPlan,
+      pedagogicalGuidance: {
+        metaPrompt: 'MUST_OBEY ACTION: calm the learner and ask one diagnostic question.'
+      },
+      isSystemInitialization: false,
+      currentUserInput: 'I am frustrated.'
+    }))).toBe('4fc9bf19e852aded01baccc9659449fbe16261056d26fd21cc9759eb18990614');
   });
 });

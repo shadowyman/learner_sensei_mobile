@@ -11,11 +11,15 @@
     "./modelUsage": "./dist/modelUsage.js",
     "./wrapUpAssessment": "./dist/wrapUpAssessment.js",
     "./teachingPlan": "./dist/teachingPlan.js",
+    "./moduleIntroduction": "./dist/moduleIntroduction.js",
+    "./mainSenseiResponse": "./dist/mainSenseiResponse.js",
     "./prompts": "./dist/prompts/index.js",
     "./prompts/wrapUpAssessment": "./dist/prompts/wrapUpAssessment.js",
     "./prompts/teachingPlan": "./dist/prompts/teachingPlan.js",
     "./prompts/learnerAnalysis": "./dist/prompts/learnerAnalysis.js",
-    "./prompts/mermaidRepair": "./dist/prompts/mermaidRepair.js"
+    "./prompts/mermaidRepair": "./dist/prompts/mermaidRepair.js",
+    "./prompts/moduleIntroduction": "./dist/prompts/moduleIntroduction.js",
+    "./prompts/mainSenseiResponse": "./dist/prompts/mainSenseiResponse.js"
   },
   "files": [
     "dist"

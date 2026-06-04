@@ -25,14 +25,90 @@ const TurnSubmitSchema = z.object({
   }).optional()
 });
 
+const LlmStreamSubmitSchema = z.object({
+  capability: z.enum(['moduleIntroduction', 'mainSenseiResponse']),
+  messageId: z.string().min(1),
+  payload: z.record(z.any()),
+  metadata: z.object({
+    source: z.string().optional(),
+    appVersion: z.string().optional()
+  }).optional(),
+  options: z.object({
+    allowFallback: z.boolean().optional(),
+    requireRealProvider: z.boolean().optional()
+  }).optional()
+});
+
+const ModuleIntroductionPayloadSchema = z.object({
+  selectedModuleTitle: z.string().min(1),
+  firstConceptTitle: z.string().min(1),
+  phaseDisplayName: z.string().min(1),
+  userInputText: z.string(),
+  curriculumFocusInstruction: z.string().min(1),
+  moduleTitleForPrompt: z.string().optional()
+});
+
+const StandardMainSenseiResponsePayloadSchema = z.object({
+  mode: z.enum(['standard']).optional(),
+  curriculumFocusInstruction: z.string().min(1),
+  pedagogicalGuidanceDirective: z.string().optional(),
+  cleanPedagogicalGuidance: z.string().optional(),
+  isMustObey: z.boolean().optional(),
+  currentUserInput: z.string(),
+  navigationContext: z.string().optional(),
+  promptOptions: z.object({
+    executionDirectiveEnabled: z.boolean().optional(),
+    pedagogicalGuidanceEnabled: z.boolean().optional()
+  }).optional()
+});
+
+const SocraticTeachingPointSchema = z.object({
+  text: z.string().min(1),
+  interactionGuidance: z.object({
+    expectedTurns: z.number(),
+    completionTriggers: z.array(z.string()).min(1),
+    turnManagement: z.string().min(1)
+  }),
+  socraticMetadata: z.object({
+    detectedCategory: z.string().optional()
+  }).optional()
+});
+
+const SocraticMainSenseiResponsePayloadSchema = z.object({
+  mode: z.literal('socratic'),
+  teachingPlan: z.array(z.array(SocraticTeachingPointSchema).min(1)).min(1),
+  pedagogicalGuidance: z.object({
+    metaPrompt: z.string().optional(),
+    directive: z.string().optional()
+  }).optional(),
+  isSystemInitialization: z.boolean().optional(),
+  navigationContext: z.string().optional(),
+  conceptContext: z.string().optional(),
+  currentUserInput: z.string()
+});
+
+const validateLlmStreamCapabilityPayload = (capability, payload) => {
+  if (capability === 'moduleIntroduction') {
+    return ModuleIntroductionPayloadSchema.safeParse(payload);
+  }
+  if (capability === 'mainSenseiResponse' && payload?.mode === 'socratic') {
+    return SocraticMainSenseiResponsePayloadSchema.safeParse(payload);
+  }
+  if (capability === 'mainSenseiResponse') {
+    return StandardMainSenseiResponsePayloadSchema.safeParse(payload);
+  }
+  return { success: false, error: { errors: [{ message: 'Unsupported capability' }] } };
+};
+
 const MAX_INPUT_CHARS = 4000;
 
 class SessionController {
-  constructor({ sessionService, turnService, rateLimiter, logger }) {
+  constructor({ sessionService, turnService, rateLimiter, logger, streamingService }) {
     this.sessionService = sessionService;
     this.turnService = turnService;
     this.rateLimiter = rateLimiter;
     this.logger = logger;
+    this.streamingService = streamingService;
   }
 
   createSession(req, res) {
@@ -98,6 +174,57 @@ class SessionController {
       requestId: req.requestId
     });
     return res.status(200).json({ turnId: result.turn.id, streamUrl });
+  }
+
+  submitLlmStream(req, res) {
+    const { sessionId } = req.params;
+    const session = this.sessionService.getSession(sessionId);
+    if (!session) {
+      this.logger.warn(TAG, 'session not found for llm stream', { sessionId });
+      return sendError(res, 400, 'BAD_REQUEST', 'Unknown session');
+    }
+    const parseResult = LlmStreamSubmitSchema.safeParse(req.body || {});
+    if (!parseResult.success) {
+      this.logger.warn(TAG, 'llm stream payload invalid', { errors: parseResult.error.errors, requestId: req.requestId });
+      return sendError(res, 400, 'BAD_REQUEST', 'Invalid LLM stream payload');
+    }
+    const capabilityPayloadResult = validateLlmStreamCapabilityPayload(parseResult.data.capability, parseResult.data.payload);
+    if (!capabilityPayloadResult.success) {
+      this.logger.warn(TAG, 'llm stream capability payload invalid', {
+        capability: parseResult.data.capability,
+        errors: capabilityPayloadResult.error.errors,
+        requestId: req.requestId
+      });
+      return sendError(res, 400, 'BAD_REQUEST', 'Invalid LLM stream capability payload');
+    }
+    const rate = this.rateLimiter.check(req.ip, req.get('User-Agent'));
+    if (!rate.allowed) {
+      this.logger.warn(TAG, 'llm stream rate limited', { sessionId, ip: req.ip, requestId: req.requestId });
+      res.set('Retry-After', String(rate.retryAfterSeconds || 60));
+      return sendError(res, 429, 'RATE_LIMITED', 'Too many messages—wait a moment before trying again.');
+    }
+    const accepted = this.streamingService.createLlmStreamRequest({
+      sessionId,
+      capability: parseResult.data.capability,
+      messageId: parseResult.data.messageId,
+      payload: parseResult.data.payload,
+      metadata: {
+        ...(parseResult.data.metadata || {}),
+        source: parseResult.data.metadata?.source || 'mobile',
+        appVersion: parseResult.data.metadata?.appVersion
+      },
+      options: parseResult.data.options
+    });
+    const baseUrl = this.#deriveBaseUrl(req);
+    const streamUrl = `${baseUrl.replace('http', 'ws')}/sessions/${encodeURIComponent(sessionId)}/llm-stream?requestId=${encodeURIComponent(accepted.requestId)}`;
+    this.logger.info(TAG, 'llm stream accepted', {
+      sessionId,
+      requestId: accepted.requestId,
+      capability: accepted.capability,
+      messageId: accepted.messageId,
+      requestIdHeader: req.requestId
+    });
+    return res.status(200).json({ requestId: accepted.requestId, streamUrl });
   }
 
   #deriveBaseUrl(req) {

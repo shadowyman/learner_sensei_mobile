@@ -2,7 +2,7 @@ import { ModuleSelectionHandler } from '../moduleSelectionHandler'
 import { initializeLearnerModel } from '../adaptiveEngine'
 import { displayMessage } from '../ui'
 import type { Curriculum } from '../curriculum'
-import { jumpToPhase } from '../curriculum'
+import { getCurrentCurriculumItem, jumpToPhase } from '../curriculum'
 import { logger } from '../logger'
 
 jest.mock('../ui', () => ({
@@ -21,6 +21,7 @@ jest.mock('../geminiService', () => ({
 
 jest.mock('../interactionHelpers', () => ({
   streamModuleIntroduction: jest.fn(() => Promise.resolve('Intro text')),
+  streamMainSenseiResponse: jest.fn(() => Promise.resolve('Socratic intro text')),
   buildSocraticExecutionInstruction: jest.fn(() => 'instruction'),
   buildSenseiDynamicSystemInstruction: jest.fn(() => 'instruction'),
   updateMessageStream: jest.fn()
@@ -238,6 +239,78 @@ describe('ModuleSelectionHandler', () => {
     expect(document.querySelector('.phase-buttons-container')).toBeTruthy()
     warnSpy.mockRestore()
     document.body.innerHTML = ''
+  })
+
+  test('handlePhaseSelection sends initial Socratic system message with structured LLM stream request', async () => {
+    const interactionHelpers = await import('../interactionHelpers')
+    const ai = createMockAI()
+    const state = buildState({
+      pendingModuleSelection: 0,
+      ai: ai as any,
+      mainSenseiChat: {} as any
+    })
+    const teachingPlan = [[{
+      text: 'Ask why the base case ends recursion.',
+      interactionGuidance: {
+        expectedTurns: 2,
+        completionTriggers: ['base case understood'],
+        turnManagement: 'Ask one question at a time.'
+      },
+      socraticMetadata: {
+        detectedCategory: 'GENERAL_CONCEPT'
+      }
+    }]]
+    const mockedJumpToPhase = jumpToPhase as jest.MockedFunction<typeof jumpToPhase>
+    mockedJumpToPhase.mockResolvedValue({
+      currentModuleIndex: 0,
+      currentConceptIndex: 0,
+      currentPhase: 'Socratic',
+      activeConsolidationState: null,
+      isCompleted: false,
+      teachingPlanForPhase: teachingPlan,
+      currentTeachingChunkIndex: 0,
+      coveredPointsInCurrentChunk: new Set(),
+      pointsToRevisitInCurrentChunk: new Set()
+    } as any)
+    const mockedGetCurrentCurriculumItem = getCurrentCurriculumItem as jest.MockedFunction<typeof getCurrentCurriculumItem>
+    mockedGetCurrentCurriculumItem.mockReturnValue({
+      curriculumPathId: 'Module1-Concept1-Phase_Socratic',
+      concept: {
+        title: 'Concept 1',
+        text: 'Recursion requires base cases.'
+      }
+    } as any)
+
+    const handler = new ModuleSelectionHandler(state)
+    await handler.handlePhaseSelection('Socratic')
+
+    expect(interactionHelpers.streamMainSenseiResponse).toHaveBeenCalledWith(
+      state.mainSenseiChat,
+      'instruction',
+      '',
+      expect.any(String),
+      {
+        llmStreamRequest: {
+          mode: 'socratic',
+          teachingPlan,
+          pedagogicalGuidance: { directive: undefined },
+          isSystemInitialization: true,
+          conceptContext: expect.stringContaining('Concept 1'),
+          currentUserInput: ''
+        }
+      }
+    )
+    expect(displayMessage).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'Socratic intro text',
+      isReloadable: true,
+      reloadContext: expect.objectContaining({
+        type: 'mainResponse',
+        llmStreamRequest: expect.objectContaining({
+          mode: 'socratic',
+          isSystemInitialization: true
+        })
+      })
+    }))
   })
 
   test.todo('populate full phase selection handoff once LLM integration fixtures are ready')

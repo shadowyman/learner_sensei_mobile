@@ -29,6 +29,7 @@ import {
 } from './geminiService';
 import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
+import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
 import { sendToNative } from './mobile/webviewBridge';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import { requestTeachingPlan } from './teachingPlanRouting';
@@ -636,7 +637,17 @@ ${coreInstruction}
                         introContext,
                         selectedModule.title,
                         senseiIntroId,
-                        { enhancerController: introEnhancerController }
+                        {
+                            enhancerController: introEnhancerController,
+                            llmStreamRequest: {
+                                selectedModuleTitle: selectedModule.title,
+                                firstConceptTitle: conceptTitle,
+                                phaseDisplayName,
+                                userInputText: `Phase: ${phaseDisplayName}`,
+                                curriculumFocusInstruction: coreInstruction,
+                                moduleTitleForPrompt: selectedModule.title
+                            }
+                        }
                     );
                     this.updateResponseHistory(introResponseText, senseiIntroId);
                 } catch (error) {
@@ -824,6 +835,14 @@ ${coreInstruction}
             undefined,
             this.buildSocraticConceptReference()
         );
+        const llmStreamRequest: MainSenseiResponsePromptRequest = {
+            mode: 'socratic',
+            teachingPlan: this.state.curriculumState.teachingPlanForPhase,
+            pedagogicalGuidance: { directive: undefined },
+            isSystemInitialization: true,
+            conceptContext: this.buildSocraticConceptReference(),
+            currentUserInput: ''
+        };
         
         this.state.currentMessageId++;
         const messageId = `msg-${this.state.currentMessageId}`;
@@ -842,12 +861,13 @@ ${coreInstruction}
         const reloadContext: ReloadContext = {
             type: 'mainResponse',
             dynamicSystemInstruction: systemInstruction,
-            userInput: ''
+            userInput: '',
+            llmStreamRequest
         };
         
         try {
             const { streamMainSenseiResponse } = await import('./interactionHelpers.js');
-            finalResponse = await streamMainSenseiResponse(this.state.mainSenseiChat!, systemInstruction, "", messageId);
+            finalResponse = await streamMainSenseiResponse(this.state.mainSenseiChat!, systemInstruction, "", messageId, { llmStreamRequest });
             this.updateResponseHistory(finalResponse, messageId);
         } catch (error) {
             logger.error('[SOCRATIC_FIX] Error in system message generation:', error);

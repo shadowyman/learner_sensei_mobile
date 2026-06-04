@@ -2,3 +2,5 @@ export * from './wrapUpAssessment';
 export * from './teachingPlan';
 export * from './learnerAnalysis';
 export * from './mermaidRepair';
+export * from './moduleIntroduction';
+export * from './mainSenseiResponse';
