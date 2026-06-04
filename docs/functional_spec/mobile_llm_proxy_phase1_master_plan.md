@@ -616,3 +616,7 @@ Before implementing any future LLM migration work, read these documents in this 
 4. The protocol documents required by `AGENTS.md`
 
 If any older document proposes moving broad teaching or business logic to BFF for Phase 1, treat that as superseded unless the user explicitly revives that larger scope.
+
+## 16. Post-Phase-1 Curriculum Extension
+
+After Phase 1 completes, the next curriculum-content ownership extension is documented in `docs/functional_spec/server_owned_curriculum_post_phase1_extension.md`. That follow-up is explicitly outside Phase 1. It covers moving curriculum content authority from bundled `Modules.txt` to a server-owned, versioned curriculum source; serving a lightweight catalog first; fetching selected module content on demand; and eventually letting BFF/Core reconstruct LLM-facing curriculum context from compact curriculum/module/version identifiers.
