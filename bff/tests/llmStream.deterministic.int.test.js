@@ -656,7 +656,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
         currentUserInput: 'Keep history bounded.',
         conversationHistory: Array.from({ length: 8 }, (_, index) => ({
           role: index % 2 === 0 ? 'user' : 'sensei',
-          content: `history-${index}-start ${'x'.repeat(2500)} history-${index}-tail`
+          content: `history-${index}-start ${'x'.repeat(4500)} history-${index}-tail`
         }))
       }
     }, 'deterministic:mainSenseiResponse:msg-history-bounded');

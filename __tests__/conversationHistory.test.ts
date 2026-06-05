@@ -34,4 +34,26 @@ describe('conversation history builder', () => {
       { role: 'sensei', content: 'Prior answer' }
     ])
   })
+
+  test('ignores transient phase selection and loading bubbles in DOM history', () => {
+    const messageArea = document.createElement('div')
+    messageArea.innerHTML = `
+      <div id="msg-1" class="message-bubble" data-sender="sensei"><div class="message-text">Module intro.</div></div>
+      <div id="msg-2" class="message-bubble" data-sender="sensei"><div class="message-text">Where would you like to begin?<div class="phase-buttons-container"><button>Teaching</button><button>Exploration</button><button>Wrap Up</button></div></div></div>
+      <div id="msg-3" class="message-bubble" data-sender="sensei"><div class="message-text"><div class="phase-loading-container">Sensei is generating a teaching plan</div></div></div>
+      <div id="msg-4" class="message-bubble" data-sender="user"><div class="message-text">I want to explore.</div></div>
+      <div id="msg-5" class="message-bubble" data-sender="sensei"><div class="message-text">Let's use questions.</div></div>
+    `
+
+    expect(buildRecentConversationHistory({
+      currentUserInput: '',
+      userInputHistory: ['I want to explore.'],
+      lastSenseiResponses: ["Let's use questions.", 'Module intro.'],
+      messageArea
+    })).toEqual([
+      { role: 'sensei', content: 'Module intro.' },
+      { role: 'user', content: 'I want to explore.' },
+      { role: 'sensei', content: "Let's use questions." }
+    ])
+  })
 })

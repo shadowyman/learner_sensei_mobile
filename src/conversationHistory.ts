@@ -21,6 +21,10 @@ function getBubbleText(bubble: Element, streamingMessagesRawText?: Map<string, s
     return normalizeContent(bubble.querySelector('.message-text')?.textContent ?? bubble.textContent ?? '');
 }
 
+function isTransientPhaseBubble(bubble: Element): boolean {
+    return Boolean(bubble.querySelector('.phase-buttons-container') || bubble.querySelector('.phase-loading-container'));
+}
+
 function extractDomHistory(
     currentUserInput: string,
     messageArea?: Element | null,
@@ -31,6 +35,9 @@ function extractDomHistory(
     }
     const entries = Array.from(messageArea.querySelectorAll('.message-bubble[data-sender]'))
         .map((bubble) => {
+            if (isTransientPhaseBubble(bubble)) {
+                return null;
+            }
             const sender = (bubble as HTMLElement).dataset.sender;
             if (sender !== 'user' && sender !== 'sensei') {
                 return null;

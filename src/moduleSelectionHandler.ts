@@ -509,10 +509,6 @@ Where would you like to begin your learning journey?`;
         if (this.state.curriculumState.currentPhase === 'Socratic') {
             this.state.curriculumState.socraticTurnCount = 0;
         }
-        const socraticInitializationConversationHistory = this.state.curriculumState.currentPhase === 'Socratic'
-            ? this.buildRecentConversationHistory('')
-            : undefined;
-
         this.state.currentActiveConceptIndex = this.state.curriculumState.currentConceptIndex;
         logModuleSelectionValidation('active-concept-tracking-initialized', {
             activeConceptIndex: this.state.currentActiveConceptIndex
@@ -571,6 +567,7 @@ Where would you like to begin your learning journey?`;
             let introResponseText = "";
 
             if (this.state.curriculumState.currentPhase === 'Socratic') {
+                const socraticInitializationConversationHistory = this.buildRecentConversationHistory('');
                 await this.sendSystemSocraticMessage(socraticInitializationConversationHistory);
             } else {
                 const focusPointsSnapshot = calculateFocusPoints(this.state.curriculumState);

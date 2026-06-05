@@ -22,14 +22,13 @@ const MAX_SOCRATIC_TRIGGERS = 12;
 const MAX_SOCRATIC_TRIGGER_CHARS = 500;
 const MAX_SOCRATIC_TURN_MANAGEMENT_CHARS = 2000;
 const MAX_METADATA_TEXT_CHARS = 240;
-const MAX_RAW_HISTORY_ENTRY_CHARS = 4000;
 const MAX_STRUCTURED_PROMPT_INPUT_CHARS = 24000;
 
 const BoundedString = (max) => z.string().max(max);
 const RequiredBoundedString = (max) => z.string().min(1).max(max);
 const ConversationHistorySchema = z.array(z.object({
   role: z.enum(['user', 'sensei']),
-  content: z.string().min(1).max(MAX_RAW_HISTORY_ENTRY_CHARS)
+  content: z.string().min(1)
 })).max(8);
 
 const SessionCreateSchema = z.object({

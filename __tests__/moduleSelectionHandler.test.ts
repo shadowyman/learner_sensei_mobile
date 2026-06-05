@@ -379,6 +379,24 @@ describe('ModuleSelectionHandler', () => {
 
     const handler = new ModuleSelectionHandler(state)
     appendTranscript()
+    const messageArea = document.getElementById('message-area')!
+    const phaseBubble = document.createElement('div')
+    phaseBubble.id = 'msg-phase-picker'
+    phaseBubble.classList.add('message-bubble')
+    phaseBubble.setAttribute('data-sender', 'sensei')
+    const phaseText = document.createElement('div')
+    phaseText.classList.add('message-text')
+    phaseText.appendChild(document.createTextNode('Where would you like to begin?'))
+    const phaseButtons = document.createElement('div')
+    phaseButtons.classList.add('phase-buttons-container')
+    for (const label of ['Teaching', 'Exploration', 'Wrap Up']) {
+      const button = document.createElement('button')
+      button.textContent = label
+      phaseButtons.appendChild(button)
+    }
+    phaseText.appendChild(phaseButtons)
+    phaseBubble.appendChild(phaseText)
+    messageArea.appendChild(phaseBubble)
     expect((handler as any).buildRecentConversationHistory('')).toEqual([
       { role: 'sensei', content: 'Intro text for recursion.' },
       { role: 'user', content: 'Why do we need a base case?' },
