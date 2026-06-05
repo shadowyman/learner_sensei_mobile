@@ -15,8 +15,12 @@ class SenseiCoreAdapter {
   }
 
   async buildCapabilityPrompt(request) {
+    const payload = {
+      ...request.payload,
+      includeBaseSystemInstruction: true
+    };
     if (request.capability === 'moduleIntroduction') {
-      const prompt = buildModuleIntroductionPrompt(request.payload);
+      const prompt = buildModuleIntroductionPrompt(payload);
       this.logger.info(TAG, 'capability prompt built', {
         capability: request.capability,
         requestId: request.requestId,
@@ -25,7 +29,7 @@ class SenseiCoreAdapter {
       return prompt;
     }
     if (request.capability === 'mainSenseiResponse') {
-      const prompt = buildMainSenseiResponsePrompt(request.payload);
+      const prompt = buildMainSenseiResponsePrompt(payload);
       this.logger.info(TAG, 'capability prompt built', {
         capability: request.capability,
         requestId: request.requestId,

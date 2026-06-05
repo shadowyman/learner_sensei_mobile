@@ -8,6 +8,7 @@
     ".": "./dist/index.js",
     "./mermaidErrorRecovery": "./dist/mermaidErrorRecovery.js",
     "./learnerAnalysis": "./dist/learnerAnalysis.js",
+    "./promptEnvelope": "./dist/promptEnvelope.js",
     "./modelUsage": "./dist/modelUsage.js",
     "./wrapUpAssessment": "./dist/wrapUpAssessment.js",
     "./teachingPlan": "./dist/teachingPlan.js",

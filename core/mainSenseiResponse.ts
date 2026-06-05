@@ -5,6 +5,7 @@ import {
   type MainSenseiResponsePromptOptions,
   type SocraticExecutionInstructionRequest
 } from './prompts/mainSenseiResponse';
+import { buildCapabilityPromptEnvelope, type ConversationHistoryEntry } from './promptEnvelope';
 
 export const MAIN_SENSEI_RESPONSE_CAPABILITY = 'mainSenseiResponse' as const;
 
@@ -20,11 +21,15 @@ export interface StandardMainSenseiResponsePromptRequest extends MainSenseiGuida
   currentUserInput: string;
   navigationContext?: string;
   promptOptions?: MainSenseiResponsePromptOptions;
+  includeBaseSystemInstruction?: boolean;
+  conversationHistory?: ConversationHistoryEntry[];
 }
 
 export interface SocraticMainSenseiResponsePromptRequest extends SocraticExecutionInstructionRequest {
   mode: 'socratic';
   currentUserInput: string;
+  includeBaseSystemInstruction?: boolean;
+  conversationHistory?: ConversationHistoryEntry[];
 }
 
 export type MainSenseiResponsePromptRequest =
@@ -98,9 +103,14 @@ export function buildMainSenseiResponsePrompt(request: MainSenseiResponsePromptR
     ? buildSocraticExecutionInstruction(request)
     : buildMainSenseiDynamicSystemInstruction(request);
   const userLine = `User: ${request.currentUserInput}`;
-  return dynamicContext.includes(USER_LAST_INPUT_PLACEHOLDER)
+  const taskPrompt = dynamicContext.includes(USER_LAST_INPUT_PLACEHOLDER)
     ? dynamicContext.replace(USER_LAST_INPUT_PLACEHOLDER, userLine)
     : `${dynamicContext}
 
 ${userLine}`;
+  return buildCapabilityPromptEnvelope({
+    taskPrompt,
+    includeBaseSystemInstruction: request.includeBaseSystemInstruction,
+    conversationHistory: request.conversationHistory
+  });
 }

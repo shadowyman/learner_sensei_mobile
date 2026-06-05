@@ -64,6 +64,12 @@ class StreamingService {
     return request;
   }
 
+  getLlmStreamTimeoutMs() {
+    const streamTimeout = Number(this.config.hardStreamTimeoutMs || 0);
+    const mainResponseTimeout = Number(this.config.MAIN_RESPONSE_CONFIG?.timeoutMs || 0);
+    return Math.max(streamTimeout, mainResponseTimeout, 1);
+  }
+
   async handleConnection({ ws, sessionId, turnId }) {
     const turn = this.turnService.getTurn(turnId);
     if (!turn || turn.sessionId !== sessionId) {
@@ -209,7 +215,7 @@ class StreamingService {
       try {
         ws.close();
       } catch (_) {}
-    }, this.config.hardStreamTimeoutMs);
+    }, this.getLlmStreamTimeoutMs());
 
     const cleanup = () => {
       open = false;

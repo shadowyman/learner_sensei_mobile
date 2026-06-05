@@ -30,6 +30,7 @@ import {
 import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
 import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
+import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
 import { sendToNative } from './mobile/webviewBridge';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import { requestTeachingPlan } from './teachingPlanRouting';
@@ -580,10 +581,20 @@ Where would you like to begin your learning journey?`;
 ${coreInstruction}
 `;
 
+                const moduleIntroLlmStreamRequest: ModuleIntroductionPromptRequest = {
+                    selectedModuleTitle: selectedModule.title,
+                    firstConceptTitle: conceptTitle,
+                    phaseDisplayName,
+                    userInputText: `Phase: ${phaseDisplayName}`,
+                    curriculumFocusInstruction: coreInstruction,
+                    moduleTitleForPrompt: selectedModule.title
+                };
+
                 const reloadContext: ReloadContext = {
                     type: 'moduleIntro',
                     introSystemInstruction: introContext,
-                    moduleTitleForPrompt: selectedModule.title
+                    moduleTitleForPrompt: selectedModule.title,
+                    llmStreamRequest: moduleIntroLlmStreamRequest
                 };
 
                 let introEnhancerController: KeyTakeawayEnhancerController | undefined;
@@ -639,14 +650,7 @@ ${coreInstruction}
                         senseiIntroId,
                         {
                             enhancerController: introEnhancerController,
-                            llmStreamRequest: {
-                                selectedModuleTitle: selectedModule.title,
-                                firstConceptTitle: conceptTitle,
-                                phaseDisplayName,
-                                userInputText: `Phase: ${phaseDisplayName}`,
-                                curriculumFocusInstruction: coreInstruction,
-                                moduleTitleForPrompt: selectedModule.title
-                            }
+                            llmStreamRequest: moduleIntroLlmStreamRequest
                         }
                     );
                     this.updateResponseHistory(introResponseText, senseiIntroId);

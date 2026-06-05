@@ -14,6 +14,7 @@ import { LearnerModel } from './adaptiveEngine';
 import { runMermaidRecovery } from '@sensei/core/mermaidErrorRecovery';
 import { createBrowserCoreLlmClient } from '@sensei/core';
 import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
+import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { API_KEY } from './index';
@@ -78,7 +79,7 @@ export interface ReloadContext {
     type: ReloadableMessageType;
     dynamicSystemInstruction?: string; // For mainResponse
     userInput?: string;                // User input that triggered this Sensei response
-    llmStreamRequest?: MainSenseiResponsePromptRequest;
+    llmStreamRequest?: MainSenseiResponsePromptRequest | ModuleIntroductionPromptRequest;
     introSystemInstruction?: string;   // For moduleIntro
     moduleTitleForPrompt?: string;     // For moduleIntro
     keyTakeawayEnhancer?: {

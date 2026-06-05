@@ -126,6 +126,8 @@ import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
 import type { LearnerAnalysisPhase, LearnerAnalysisRequest } from '@sensei/core/learnerAnalysis';
 import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
+import type { ConversationHistoryEntry } from '@sensei/core/promptEnvelope';
+import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import { requestLearnerAnalysis } from './learnerAnalysisRouting';
 import { requestTeachingPlan } from './teachingPlanRouting';
@@ -626,6 +628,28 @@ function updateResponseHistory(
     chronologicallyLastLLMSenseiMessageId = messageId;
 }
 
+function buildRecentConversationHistory(currentUserInput: string): ConversationHistoryEntry[] {
+    const previousUserInputs = userInputHistory.slice(-4);
+    if (previousUserInputs.length > 0 && previousUserInputs[previousUserInputs.length - 1] === currentUserInput) {
+        previousUserInputs.pop();
+    }
+    const userEntries = previousUserInputs.slice(-3);
+    const senseiEntries = lastSenseiResponses.slice(0, 3).reverse();
+    const history: ConversationHistoryEntry[] = [];
+    const maxLength = Math.max(userEntries.length, senseiEntries.length);
+    for (let index = 0; index < maxLength; index++) {
+        const userContent = userEntries[index];
+        if (userContent && userContent.trim().length > 0) {
+            history.push({ role: 'user', content: userContent });
+        }
+        const senseiContent = senseiEntries[index];
+        if (senseiContent && senseiContent.trim().length > 0) {
+            history.push({ role: 'sensei', content: senseiContent });
+        }
+    }
+    return history.slice(-8);
+}
+
 
 async function generateNextSenseiResponse(inputText: string, skipPedagogicalIntervention: boolean = false) {
     // Update module selection handler state before processing
@@ -867,7 +891,8 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             teachingPlan: curriculumState.teachingPlanForPhase,
             pedagogicalGuidance,
             isSystemInitialization: false,
-            currentUserInput: effectiveUserInput
+            currentUserInput: effectiveUserInput,
+            conversationHistory: buildRecentConversationHistory(effectiveUserInput)
         };
         if (navigationContext) {
             mainSenseiLlmStreamRequest.navigationContext = navigationContext;
@@ -885,7 +910,8 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         mainSenseiLlmStreamRequest = {
             curriculumFocusInstruction,
             pedagogicalGuidanceDirective: guidanceText,
-            currentUserInput: effectiveUserInput
+            currentUserInput: effectiveUserInput,
+            conversationHistory: buildRecentConversationHistory(effectiveUserInput)
         };
         if (navigationContext) {
             mainSenseiLlmStreamRequest.navigationContext = navigationContext;
@@ -1214,11 +1240,19 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
                 messageId,
                 {
                     enhancerController: reloadEnhancerController,
-                    llmStreamRequest: context.llmStreamRequest
+                    llmStreamRequest: context.llmStreamRequest as MainSenseiResponsePromptRequest | undefined
                 }
             );
         } else if (context.type === 'moduleIntro' && context.introSystemInstruction && context.moduleTitleForPrompt) {
-            newSenseiText = await streamModuleIntroduction(mainSenseiChat!, context.introSystemInstruction, context.moduleTitleForPrompt, messageId);
+            newSenseiText = await streamModuleIntroduction(
+                mainSenseiChat!,
+                context.introSystemInstruction,
+                context.moduleTitleForPrompt,
+                messageId,
+                {
+                    llmStreamRequest: context.llmStreamRequest as ModuleIntroductionPromptRequest | undefined
+                }
+            );
         } else {
             throw new Error("Invalid reload context type or missing data for reload.");
         }

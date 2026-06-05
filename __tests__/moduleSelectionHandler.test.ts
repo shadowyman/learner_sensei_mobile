@@ -181,6 +181,62 @@ describe('ModuleSelectionHandler', () => {
     expect(callArgs[4]).toEqual({ targetConceptIndex: 1 })
   })
 
+  test('handleConceptSelection stores module introduction LLM stream request in reload context', async () => {
+    const interactionHelpers = await import('../interactionHelpers')
+    const ai = createMockAI()
+    const state = buildState({
+      pendingModuleSelection: 0,
+      pendingPhaseSelection: 'IntroIllustrate',
+      ai: ai as any,
+      mainSenseiChat: {} as any
+    })
+    const mockedJumpToPhase = jumpToPhase as jest.MockedFunction<typeof jumpToPhase>
+    mockedJumpToPhase.mockResolvedValue({
+      currentModuleIndex: 0,
+      currentConceptIndex: 0,
+      currentPhase: 'IntroIllustrate',
+      activeConsolidationState: null,
+      isCompleted: false,
+      teachingPlanForPhase: [[{ text: 'Point', kcValue: 0.1 }]],
+      currentTeachingChunkIndex: 0,
+      coveredPointsInCurrentChunk: new Set(),
+      pointsToRevisitInCurrentChunk: new Set()
+    } as any)
+    const mockedGetCurrentCurriculumItem = getCurrentCurriculumItem as jest.MockedFunction<typeof getCurrentCurriculumItem>
+    mockedGetCurrentCurriculumItem.mockReturnValue({
+      curriculumPathId: 'Module1-Concept1-Phase_IntroIllustrate',
+      concept: {
+        title: 'Concept 1',
+        text: 'Recursion requires base cases.'
+      }
+    } as any)
+
+    const handler = new ModuleSelectionHandler(state)
+    await handler.handleConceptSelection('Module1', 0)
+
+    const streamCall = (interactionHelpers.streamModuleIntroduction as jest.Mock).mock.calls[0]
+    expect(streamCall[4]).toEqual(expect.objectContaining({
+      llmStreamRequest: expect.objectContaining({
+        selectedModuleTitle: 'Adaptive Module',
+        firstConceptTitle: 'Concept 1',
+        phaseDisplayName: 'IntroIllustrate',
+        userInputText: 'Phase: IntroIllustrate',
+        moduleTitleForPrompt: 'Adaptive Module'
+      })
+    }))
+    expect(displayMessage).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'Intro text',
+      isReloadable: true,
+      reloadContext: expect.objectContaining({
+        type: 'moduleIntro',
+        llmStreamRequest: expect.objectContaining({
+          selectedModuleTitle: 'Adaptive Module',
+          firstConceptTitle: 'Concept 1'
+        })
+      })
+    }))
+  })
+
   test('handleConceptSelection ignores requests when pending phase is not IntroIllustrate', async () => {
     const ai = createMockAI()
     const state = buildState({

@@ -111,14 +111,48 @@ describe('Core prompt parity fixtures', () => {
       curriculumFocusInstruction,
       'Encourage concrete analogies for recursion.',
       false
-    ))).toBe('bc1627e8e2a214f438ea1545c1ab091e15f145e644ce721360a7989bd7bc365e');
-    expect(sha256(buildMainSenseiDynamicSystemInstruction(request))).toBe('07241cbd3579b4cb8410ece38c1003036eaa856241fd13742e08fea0c32dd0cc');
-    expect(sha256(buildMainSenseiResponsePrompt(request))).toBe('702b8e3886cef8901f377dbd67952ae35a6855dec5f79de860cc0db72046c67e');
+    ))).toBe('5a08eef5316d2345ac1d985b25bf07502ec0212b5ac70efb00cd637d141bb1f5');
+    expect(sha256(buildMainSenseiDynamicSystemInstruction(request))).toBe('382c0b304a25e40452a68919c60e8f09d40c25eddbe5c155630cad997b2d02c4');
+    expect(sha256(buildMainSenseiResponsePrompt(request))).toBe('635bbe9f09af5973374b028dc51dc1ff31cc526e96fc0ed69f48dd0e826d5868');
     expect(sha256(MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
       curriculumFocusInstruction,
       'Focus only on reassurance.',
       true
     ))).toBe('2fffa08fac2993736f91876284dc34366780431b6a5e9f0192646c171ef2f7da');
+  });
+
+  test('main Sensei migrated prompt envelope preserves base persona and recent history when requested', () => {
+    const prompt = buildMainSenseiResponsePrompt({
+      curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+      currentUserInput: 'Can you explain that example again?',
+      includeBaseSystemInstruction: true,
+      conversationHistory: [
+        { role: 'user', content: 'I am confused about base cases.' },
+        { role: 'sensei', content: 'A base case stops the recursive chain.' }
+      ]
+    });
+
+    expect(prompt).toContain('[RecursiveSensei Base System Instruction]');
+    expect(prompt).toContain('You ARE the Recursive Sensei');
+    expect(prompt).toContain('[Recent Conversation History]');
+    expect(prompt).toContain('User: I am confused about base cases.');
+    expect(prompt).toContain('Sensei: A base case stops the recursive chain.');
+    expect(prompt).toContain('User: Can you explain that example again?');
+  });
+
+  test('module introduction migrated prompt envelope preserves base persona when requested', () => {
+    const prompt = buildModuleIntroductionPrompt({
+      selectedModuleTitle: 'Module Alpha',
+      firstConceptTitle: 'Base Case',
+      phaseDisplayName: 'IntroIllustrate',
+      userInputText: 'Phase: IntroIllustrate',
+      curriculumFocusInstruction: 'Focus on base cases.',
+      includeBaseSystemInstruction: true
+    });
+
+    expect(prompt).toContain('[RecursiveSensei Base System Instruction]');
+    expect(prompt).toContain('You ARE the Recursive Sensei');
+    expect(prompt).toContain("Let's begin Module Alpha.");
   });
 
   test('Socratic main Sensei prompt builders match migrated output', () => {
@@ -137,7 +171,7 @@ describe('Core prompt parity fixtures', () => {
     expect(sha256(buildSocraticInitialInstruction(
       teachingPlan,
       'Concept: Base Case'
-    ))).toBe('6e5e8cf6963b0ad22b41404395838a50be65d5b986caf691ee488f09dcfd7caa');
+    ))).toBe('3cff9a97088f2cfada7e83b8ac993fc98407199ccdb3453f4494725f6227db67');
     expect(sha256(buildSocraticExecutionInstruction({
       teachingPlan,
       pedagogicalGuidance: {

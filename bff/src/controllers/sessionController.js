@@ -45,7 +45,11 @@ const ModuleIntroductionPayloadSchema = z.object({
   phaseDisplayName: z.string().min(1),
   userInputText: z.string(),
   curriculumFocusInstruction: z.string().min(1),
-  moduleTitleForPrompt: z.string().optional()
+  moduleTitleForPrompt: z.string().optional(),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'sensei']),
+    content: z.string().min(1)
+  })).max(8).optional()
 });
 
 const StandardMainSenseiResponsePayloadSchema = z.object({
@@ -56,6 +60,10 @@ const StandardMainSenseiResponsePayloadSchema = z.object({
   isMustObey: z.boolean().optional(),
   currentUserInput: z.string(),
   navigationContext: z.string().optional(),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'sensei']),
+    content: z.string().min(1)
+  })).max(8).optional(),
   promptOptions: z.object({
     executionDirectiveEnabled: z.boolean().optional(),
     pedagogicalGuidanceEnabled: z.boolean().optional()
@@ -84,7 +92,11 @@ const SocraticMainSenseiResponsePayloadSchema = z.object({
   isSystemInitialization: z.boolean().optional(),
   navigationContext: z.string().optional(),
   conceptContext: z.string().optional(),
-  currentUserInput: z.string()
+  currentUserInput: z.string(),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'sensei']),
+    content: z.string().min(1)
+  })).max(8).optional()
 });
 
 const validateLlmStreamCapabilityPayload = (capability, payload) => {
@@ -101,6 +113,16 @@ const validateLlmStreamCapabilityPayload = (capability, payload) => {
 };
 
 const MAX_INPUT_CHARS = 4000;
+
+const getLlmStreamLearnerInputText = (capability, payload) => {
+  if (capability === 'moduleIntroduction') {
+    return payload.userInputText || '';
+  }
+  if (capability === 'mainSenseiResponse') {
+    return payload.currentUserInput || '';
+  }
+  return '';
+};
 
 class SessionController {
   constructor({ sessionService, turnService, rateLimiter, logger, streamingService }) {
@@ -197,6 +219,10 @@ class SessionController {
       });
       return sendError(res, 400, 'BAD_REQUEST', 'Invalid LLM stream capability payload');
     }
+    const learnerInputText = getLlmStreamLearnerInputText(parseResult.data.capability, capabilityPayloadResult.data);
+    if (learnerInputText.length > MAX_INPUT_CHARS) {
+      return sendError(res, 413, 'BAD_REQUEST', 'Your message is too long—shorten it and resend.');
+    }
     const rate = this.rateLimiter.check(req.ip, req.get('User-Agent'));
     if (!rate.allowed) {
       this.logger.warn(TAG, 'llm stream rate limited', { sessionId, ip: req.ip, requestId: req.requestId });
@@ -207,7 +233,7 @@ class SessionController {
       sessionId,
       capability: parseResult.data.capability,
       messageId: parseResult.data.messageId,
-      payload: parseResult.data.payload,
+      payload: capabilityPayloadResult.data,
       metadata: {
         ...(parseResult.data.metadata || {}),
         source: parseResult.data.metadata?.source || 'mobile',

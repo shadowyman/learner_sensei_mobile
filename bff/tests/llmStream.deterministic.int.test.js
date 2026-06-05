@@ -71,10 +71,10 @@ const createSession = async (base) => {
   return body.sessionId;
 };
 
-const assertRejected = async (base, sessionId, body, expectedMessage) => {
+const assertRejected = async (base, sessionId, body, expectedMessage, expectedStatus = 400) => {
   const res = await postJson(base, `/sessions/${encodeURIComponent(sessionId)}/llm-stream`, body);
-  if (res.status !== 400) {
-    throw new Error(`Expected 400 for ${expectedMessage}, got HTTP ${res.status}`);
+  if (res.status !== expectedStatus) {
+    throw new Error(`Expected ${expectedStatus} for ${expectedMessage}, got HTTP ${res.status}`);
   }
   const errorBody = await res.json();
   if (errorBody.code !== 'BAD_REQUEST') {
@@ -132,6 +132,9 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       prompt,
       allowFallback
     });
+    if (context.messageId === 'msg-timeout-aligned') {
+      await sleep(50);
+    }
     yield { text: `deterministic:${context.capability}:${context.messageId}:` };
     yield { text: prompt.slice(0, 80) };
   };
@@ -196,6 +199,28 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       }
     }, 'malformed Socratic main response payload');
 
+    await assertRejected(BASE, sessionId, {
+      capability: 'moduleIntroduction',
+      messageId: 'msg-oversized-intro',
+      payload: {
+        selectedModuleTitle: 'Module',
+        firstConceptTitle: 'Concept',
+        phaseDisplayName: 'IntroIllustrate',
+        userInputText: 'x'.repeat(4001),
+        curriculumFocusInstruction: 'Focus'
+      }
+    }, 'oversized module introduction payload', 413);
+
+    await assertRejected(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-oversized-main',
+      payload: {
+        mode: 'standard',
+        curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+        currentUserInput: 'x'.repeat(4001)
+      }
+    }, 'oversized main response payload', 413);
+
     await assertAcceptedStream(BASE, sessionId, {
       capability: 'moduleIntroduction',
       messageId: 'msg-intro-deterministic',
@@ -217,7 +242,11 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
         curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
         pedagogicalGuidanceDirective: 'GUIDE: Stay concise.',
         currentUserInput: 'How do base cases stop recursion?',
-        navigationContext: 'The learner is in Module Alpha.'
+        navigationContext: 'The learner is in Module Alpha.',
+        conversationHistory: [
+          { role: 'user', content: 'I got lost in the previous example.' },
+          { role: 'sensei', content: 'We discussed that the base case stops recursion.' }
+        ]
       }
     }, 'deterministic:mainSenseiResponse:msg-standard-deterministic');
 
@@ -245,14 +274,41 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       }
     }, 'deterministic:mainSenseiResponse:msg-socratic-deterministic');
 
+    const timeoutSessionId = await createSession(BASE);
+    container.rateLimiter.entries.clear();
+    const originalStreamTimeoutForActiveStream = container.streamingService.config.hardStreamTimeoutMs;
+    const originalMainResponseTimeout = container.streamingService.config.MAIN_RESPONSE_CONFIG.timeoutMs;
+    container.streamingService.config.hardStreamTimeoutMs = 20;
+    container.streamingService.config.MAIN_RESPONSE_CONFIG.timeoutMs = 200;
+    await assertAcceptedStream(BASE, timeoutSessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-timeout-aligned',
+      payload: {
+        mode: 'standard',
+        curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+        currentUserInput: 'Please continue slowly.'
+      }
+    }, 'deterministic:mainSenseiResponse:msg-timeout-aligned');
+    container.streamingService.config.hardStreamTimeoutMs = originalStreamTimeoutForActiveStream;
+    container.streamingService.config.MAIN_RESPONSE_CONFIG.timeoutMs = originalMainResponseTimeout;
+
     const introPrompt = prompts.find((entry) => entry.messageId === 'msg-intro-deterministic')?.prompt || '';
     const standardPrompt = prompts.find((entry) => entry.messageId === 'msg-standard-deterministic')?.prompt || '';
     const socraticPrompt = prompts.find((entry) => entry.messageId === 'msg-socratic-deterministic')?.prompt || '';
     if (!introPrompt.includes("Let's begin Module Alpha.")) {
       throw new Error(`Module introduction prompt did not reach Core builder: ${introPrompt}`);
     }
+    if (!introPrompt.includes('[RecursiveSensei Base System Instruction]')) {
+      throw new Error(`Module introduction prompt did not include base persona envelope: ${introPrompt}`);
+    }
     if (!standardPrompt.includes('User: How do base cases stop recursion?')) {
       throw new Error(`Standard main prompt did not include user input: ${standardPrompt}`);
+    }
+    if (!standardPrompt.includes('[RecursiveSensei Base System Instruction]')) {
+      throw new Error(`Standard main prompt did not include base persona envelope: ${standardPrompt}`);
+    }
+    if (!standardPrompt.includes('I got lost in the previous example.') || !standardPrompt.includes('We discussed that the base case stops recursion.')) {
+      throw new Error(`Standard main prompt did not include bounded conversation history: ${standardPrompt}`);
     }
     if (!socraticPrompt.includes('SocraticContext') || !socraticPrompt.includes('User: I do not understand the base case.')) {
       throw new Error(`Socratic main prompt did not reach Socratic Core builder: ${socraticPrompt}`);

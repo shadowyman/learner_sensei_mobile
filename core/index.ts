@@ -6,4 +6,5 @@ export * from './teachingPlan';
 export * from './learnerAnalysis';
 export * from './moduleIntroduction';
 export * from './mainSenseiResponse';
+export * from './promptEnvelope';
 export * as prompts from './prompts';

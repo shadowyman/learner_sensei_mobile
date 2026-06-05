@@ -45,6 +45,8 @@
   "core/mermaidErrorRecovery.ts",
   "core/modelUsage.ts",
   "core/moduleIntroduction.ts",
+  "core/promptEnvelope.ts",
+  "core/prompts/baseSensei.ts",
   "core/prompts/index.ts",
   "core/prompts/learnerAnalysis.ts",
   "core/prompts/mainSenseiResponse.ts",
