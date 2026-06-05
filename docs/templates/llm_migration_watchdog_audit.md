@@ -1,8 +1,8 @@
 # LLM Migration Watchdog Audit
 
 Use this template after each worker packet. The watchdog must compare the
-worker claim, active ExecPlan, actual diff, and protocol gates before sending
-the next packet.
+worker claim, active ExecPlan, packet-owned changed files, and protocol gates
+before sending the next packet.
 
 ## Audit Header
 
@@ -19,8 +19,7 @@ the next packet.
 - Worker thread turns:
 - `docs/protocols/PLAN.md`:
 - ExecPlan sections:
-- `git status`:
-- `git diff` files:
+- Packet-owned changed files:
 - Relevant protocol sections:
 - Relevant master-plan row:
 - Test output:
@@ -29,15 +28,11 @@ the next packet.
 
 Summary of what the worker says it discovered or changed:
 
-## Actual Diff
+## Packet-Owned Diff
 
 | File | In Packet Scope? | Claimed In ExecPlan? | Watchdog Notes |
 |---|---|---|---|
 | | | | |
-
-Unrelated staged files:
-
-Unrelated unstaged files affecting audit:
 
 ## ExecPlan Consistency
 
@@ -54,6 +49,28 @@ Unrelated unstaged files affecting audit:
 | Test Gate Ledger | | | |
 | Validation and Acceptance | | | |
 | Artifacts and Notes | | | |
+
+## Final Boundary Contract Audit
+
+Required for final migration acceptance and for review-remediation packets that
+touch a runtime boundary. The watchdog must fill this from source, tests, and
+ExecPlan evidence rather than worker summaries.
+
+| Boundary | Source field/behavior | Destination field/behavior | Evidence Checked | PASS / FAIL / N/A | Notes |
+|---|---|---|---|---|---|
+| WebView UI/state -> React Native bridge | | | | | |
+| React Native bridge -> BffClient | | | | | |
+| BffClient -> BFF route/controller | | | | | |
+| BFF controller/service -> Core capability request | | | | | |
+| Core capability -> prompt/provider request | | | | | |
+| provider response -> Core parser/normalizer | | | | | |
+| Core/BFF response -> React Native/WebView UI state | | | | | |
+| Timeout budget parity | | | | | |
+| BFF route operational parity | | | | | |
+| State continuity paths | | | | | |
+
+A final audit cannot pass while any applicable row is unfilled, failed, or
+supported only by assertion.
 
 ## Protocol Verbatim Compliance Ledger
 
@@ -105,6 +122,9 @@ Compliance Ledger.
 | BFF rejects prompt-shaped payloads | | |
 | BFF validates prompt-control fields | | |
 | BFF caps prompt-rendered fields | | |
+| Boundary contract audit | | |
+| State continuity across lifecycle paths | | |
+| Timeout/rate-limit/config operational parity | | |
 | Sibling paths represented | | |
 | Reload/retry/cache represented | | |
 | Provider failure behavior | | |
@@ -121,11 +141,12 @@ The packet cannot pass unless every row is `PASS` or `N/A` with rationale.
 |---|---|---|
 | `docs/protocols/PLAN.md` live-document behavior is satisfied | | |
 | LLM migration protocol section ledger is complete | | |
-| ExecPlan claims match actual git diff | | |
+| ExecPlan claims match packet-owned changed files | | |
 | Master-plan scope matches backlog row | | |
 | Required positive and negative tests exist | | |
 | Validation evidence is recorded | | |
-| No unrelated files are staged | | |
+| Commit, push, staging, cleanup, or review handoff happened only if explicitly authorized | | |
+| Final boundary contract audit passes | | |
 
 ## Watchdog Decision
 

@@ -121,6 +121,21 @@ rg "GoogleGenAI|new GoogleGenAI|Chat\\b|chats\\.create|sendMessageStream|sendMes
 | Mobile WebView | yes | old prompt-string payload | BFF rejects | Core/provider | | |
 | Test/local | explicit fake | yes | deterministic fake provider | silent fallback unless test expects it | | |
 
+## Boundary Contract Audit
+
+| Boundary | Source field/behavior | Destination field/behavior | Required transformation | Forbidden drift | Evidence/Test | Status |
+|---|---|---|---|---|---|---|
+| WebView UI/state -> React Native bridge | | | | | | |
+| React Native bridge -> BffClient | | | | | | |
+| BffClient -> BFF route/controller | | | | | | |
+| BFF controller/service -> Core capability request | | | | | | |
+| Core capability -> prompt/provider request | | | | | | |
+| provider response -> Core parser/normalizer | | | | | | |
+| Core/BFF response -> React Native/WebView UI state | | | | | | |
+| Timeout budget parity | | | | unrelated shorter timeout | | |
+| BFF route operational parity | | | | missing rate limit/config/logging/failure behavior | | |
+| State continuity paths | | | | dropped transcript/history/original intent/retry state | | |
+
 ## Red-Test Gate
 
 | Red Test | Expected Old Failure | Added? | Status |
@@ -190,6 +205,17 @@ Boundary invariants:
 - BFF caps prompt fields:
 - provider failure behavior:
 - reload/retry/cache behavior:
+
+Boundary contract audit:
+- WebView -> RN:
+- RN -> BffClient:
+- BffClient -> BFF:
+- BFF -> Core:
+- Core -> provider:
+- provider -> Core parser:
+- Core/BFF -> UI:
+- timeout/rate-limit/config parity:
+- state-continuity paths:
 
 Validation:
 - core build:

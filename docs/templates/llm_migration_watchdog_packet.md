@@ -2,7 +2,7 @@
 
 Use this template when the watchdog sends one serial packet to the worker
 thread. The packet must be small enough that the watchdog can audit it against
-the ExecPlan and actual diff.
+the ExecPlan and packet-owned changed files.
 
 ## Packet Header
 
@@ -58,8 +58,12 @@ Before doing work, the worker must read:
 - `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md`
 - `docs/llm_entry_exit_traces.md`
 - active ExecPlan
-- current `git status --short`
 - files directly named in this packet
+
+Do not mechanically repeat the full authority-stack read in every packet after
+the watchdog run is active. The watchdog packet should name only the refreshes
+needed for the current work, unless drift, compaction, or final acceptance
+requires a broader refresh.
 
 ## Allowed Work
 
@@ -67,30 +71,29 @@ Files/modules the worker may inspect:
 
 Files/modules the worker may edit:
 
-## Forbidden Work
-
-The worker must not:
-
-- edit files outside the allowed edit set
-- commit or push unless explicitly authorized
-- mark gates green without tests or explicit evidence
-- proceed to the next subsystem after this packet
-- treat ExecPlan updates as proof without code/test evidence
-
 ## Required ExecPlan Updates
 
-Before code changes, update these sections:
+Keep established turn-ledger behavior without repeating standing boilerplate.
+For this packet, record only packet-specific discoveries, decisions, failed
+commands, validation, blockers, and next action.
+
+Before code changes, update these packet-relevant sections:
 
 - Progress:
 - Surprises & Discoveries:
 - Decision Log:
 - LLM Migration Compliance Block:
 - Protocol Coverage Ledger:
+- Boundary Contract Audit: identify applicable source/destination boundaries,
+  required fields/behaviors, and operational controls before implementation
+  crosses a runtime boundary.
 
 After code or validation, update these sections:
 
 - Progress:
 - Boundary Invariant Ledger:
+- Boundary Contract Audit: update each applicable row with source evidence,
+  destination evidence, tests, or explicit user-approved deferral.
 - Test Gate Ledger:
 - Validation and Acceptance:
 - Artifacts and Notes:
@@ -105,11 +108,12 @@ The worker must not call the packet complete unless all are true or explicitly
 |---|---|
 | `docs/protocols/PLAN.md` live-document behavior is satisfied | |
 | LLM migration protocol section ledger is complete | |
-| ExecPlan claims match actual git diff | |
+| ExecPlan claims match packet-owned changed files | |
 | Master-plan scope matches backlog row | |
 | Required positive and negative tests exist | |
 | Validation evidence is recorded | |
-| No unrelated files are staged | |
+| Commit, push, staging, cleanup, or review handoff happened only if explicitly authorized | |
+| Applicable boundary contract rows are filled and evidenced | |
 
 ## Required Implementation
 
@@ -129,15 +133,15 @@ Git hygiene cadence:
 
 - Run `git diff --check` only once at the end of this packet after all code,
   doc, and ExecPlan edits are complete.
-- Run `git diff --cached --name-status` only once at the end of this packet to
-  confirm staged state.
 - If any file edit occurs after final hygiene, rerun the affected final hygiene
   command once before returning.
 - Do not run diff hygiene after every small patch unless a suspected
-  out-of-scope edit, staging problem, or command failure requires a targeted
-  check.
+  out-of-scope edit or command failure requires a targeted check.
+- Run `git diff --cached --name-status` only when this packet authorizes or
+  prepares staging, commit, push, or review handoff, or when there is concrete
+  reason to suspect staging occurred.
 - At return, summarize packet-owned changed files. The watchdog will
-  independently audit actual diff alignment after the turn completes.
+  independently audit packet-owned diff alignment after the turn completes.
 
 ## Stop Conditions
 
@@ -148,6 +152,8 @@ Stop and report to watchdog if:
 - a required negative test cannot be written
 - validation fails after one repair attempt
 - the packet requires files outside the allowed edit set
+- staging, commit, push, cleanup, or review handoff is required but not
+  explicitly authorized
 - any hard stop in the watchdog or compliance skill applies
 
 ## Worker Return Format
