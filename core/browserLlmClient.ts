@@ -2,6 +2,7 @@ import {
   COMPREHENSIVE_ANALYSIS_CONFIG,
   MAIN_TEXT_CONFIG,
   MERMAID_ERROR_RECOVERY_CONFIG,
+  SELECTION_SENSEI_MODAL_CONFIG,
   TEACHING_PLAN_GENERATION_CONFIG,
   WRAP_UP_ASSESSMENT_GENERATION_CONFIG
 } from './modelUsage';
@@ -17,6 +18,8 @@ function getTaskConfig(task?: string) {
       return WRAP_UP_ASSESSMENT_GENERATION_CONFIG;
     case 'teaching_plan':
       return TEACHING_PLAN_GENERATION_CONFIG;
+    case 'selection_sensei_modal':
+      return SELECTION_SENSEI_MODAL_CONFIG;
     default:
       return MAIN_TEXT_CONFIG;
   }

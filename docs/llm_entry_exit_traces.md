@@ -16,9 +16,10 @@ As of 2026-06-05, the table includes completed Phase 1 scoped migrations, includ
 | Mermaid error repair | `core/prompts/mermaidRepair.ts` | `core/mermaidErrorRecovery.ts:attemptMermaidFix` and `runMermaidRecovery` | `mermaid:recover` / `mermaid:recoverResult` | `POST /mermaid/recover` -> `bff/src/services/mermaidService.js` -> Core | `src/mermaidErrorRecovery.ts` re-exports Core |
 | Module introduction stream | `core/prompts/moduleIntroduction.ts` | `core/moduleIntroduction.ts:buildModuleIntroductionPrompt` | `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"moduleIntroduction"` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...` -> `bff/src/services/streamingService.js` -> Core | `src/interactionHelpers.ts:streamModuleIntroduction` keeps the desktop direct stream branch; mobile uses structured Core request payloads and BFF WebSocket chunks |
 | Main Sensei response stream | `core/prompts/mainSenseiResponse.ts` | `core/mainSenseiResponse.ts:buildMainSenseiResponsePrompt` | `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"mainSenseiResponse"` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...` -> `bff/src/services/streamingService.js` -> Core | `src/interactionHelpers.ts:streamMainSenseiResponse` keeps the desktop direct stream branch; mobile routes standard and Socratic structured payloads through BFF/Core |
+| Selection Sensei modal flow (toolbar action + follow-up) | `core/prompts/selectionSensei.ts` | `core/selectionSensei.ts:runSelectionSenseiModalMessage` | `selectionSensei:modalMessageRequest` / `selectionSensei:modalMessageResult` | `POST /sessions/:sessionId/selection-sensei/modal-message` -> `bff/src/services/selectionSenseiService.js` -> Core | `src/selectionSensei.ts` keeps desktop-local compatibility; mobile toolbar/follow-up route through bridge/BFF/Core and fail closed when the native bridge is unavailable |
 | Legacy wrap-up wrapper | `core/prompts/wrapUpAssessment.ts` | `core/wrapUpAssessment.ts:generateWrapUpAssessment` | Same wrap-up route when mobile needs server execution | Same wrap-up route | Compatibility wrapper only; do not reintroduce prompt, tool schema, parser, or normalizer bodies into `src/geminiService.ts` |
 
-Prompt parity is covered by `__tests__/corePromptParity.test.ts`. Representative Core/parser/routing coverage is covered by the capability Core tests and mobile routing sentinel tests, including `__tests__/mermaidErrorRecovery.core.functional.test.ts`, `__tests__/mermaidRecovery.mobileRoutingGate.sentinel.test.ts`, `__tests__/interactionHelpers.test.ts`, `__tests__/BffClient.test.ts`, `__tests__/moduleSelectionHandler.test.ts`, and `bff/tests/llmStream.deterministic.int.test.js`.
+Prompt parity is covered by `__tests__/corePromptParity.test.ts` and Selection Sensei-specific prompt golden tests. Representative Core/parser/routing coverage is covered by the capability Core tests and mobile routing sentinel tests, including `__tests__/mermaidErrorRecovery.core.functional.test.ts`, `__tests__/mermaidRecovery.mobileRoutingGate.sentinel.test.ts`, `__tests__/interactionHelpers.test.ts`, `__tests__/BffClient.test.ts`, `__tests__/moduleSelectionHandler.test.ts`, `__tests__/selectionSensei.prompts.test.ts`, `__tests__/selectionSenseiResponseParser.test.ts`, `__tests__/selectionSenseiCoreModal.test.ts`, `__tests__/selectionSensei.mobileRoutingGate.red.test.ts`, `__tests__/webviewBridge.failClosed.test.ts`, `__tests__/selectionSensei.test.ts`, `bff/tests/selectionSenseiModal.validation.red.test.js`, `bff/tests/selectionSenseiModal.service.test.js`, and `bff/tests/llmStream.deterministic.int.test.js`.
 
 ## src/index.tsx
 
@@ -48,10 +49,14 @@ Prompt parity is covered by `__tests__/corePromptParity.test.ts`. Representative
 
 ## src/selectionSensei.ts
 
-1. *`dispatchFollowupToAI` → `formatFollowupAnswer` → `extractContentWithRegex` → `dispatchFollowupToAI`
-   - Handles the composer-driven follow-up message before handing formatted text to the modal.
-2. *`handleToolbarAction` → `extractContentWithRegex` → `handleToolbarAction`
-   - Selected-text actions invoke Gemini directly, then parse titles/explanations for the response modal.
+1. `dispatchFollowupToAI` (routing gate) -> `requestSelectionSenseiModalMessage` -> modal result formatting -> `dispatchFollowupToAI`
+   - Mobile WebView: builds structured explicit modal context, calls `requestSelectionSenseiModalMessageViaBridge`, sends `selectionSensei:modalMessageRequest`, receives `selectionSensei:modalMessageResult`, and appends the formatted follow-up bubble. BFF executes `POST /sessions/:sessionId/selection-sensei/modal-message` and calls Core `runSelectionSenseiModalMessage`.
+   - Desktop/web compatibility: uses the local Selection Sensei generator path with Core-owned prompt/parser facades.
+2. `handleToolbarAction` (routing gate) -> `requestSelectionSenseiModalMessage` -> modal title/content handling -> `handleToolbarAction`
+   - Mobile WebView: sends structured toolbar payloads for LLM actions, consumes `selectionSensei:modalMessageResult`, fails closed when the native bridge is unavailable, and suppresses duplicate rapid toolbar requests while one matching request is pending.
+   - Desktop/web compatibility: uses the local Selection Sensei generator path with Core-owned toolbar/ask prompt builders and parser facade.
+3. *`ensureSelectionChat`
+   - Desktop-local compatibility helper only. Final WDG-010 sweep and mobile routing tests classify this as not reachable by the mobile toolbar/follow-up modal route.
 
 ## src/enhancementManager.ts
 

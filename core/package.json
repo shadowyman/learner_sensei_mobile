@@ -14,6 +14,7 @@
     "./teachingPlan": "./dist/teachingPlan.js",
     "./moduleIntroduction": "./dist/moduleIntroduction.js",
     "./mainSenseiResponse": "./dist/mainSenseiResponse.js",
+    "./selectionSensei": "./dist/selectionSensei.js",
     "./prompts": "./dist/prompts/index.js",
     "./prompts/wrapUpAssessment": "./dist/prompts/wrapUpAssessment.js",
     "./prompts/teachingPlan": "./dist/prompts/teachingPlan.js",
@@ -21,11 +22,15 @@
     "./prompts/mermaidRepair": "./dist/prompts/mermaidRepair.js",
     "./prompts/moduleIntroduction": "./dist/prompts/moduleIntroduction.js",
     "./prompts/mainSenseiResponse": "./dist/prompts/mainSenseiResponse.js",
+    "./prompts/selectionSensei": "./dist/prompts/selectionSensei.js",
     "./prompts/baseSensei": "./dist/prompts/baseSensei.js"
   },
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "json5": "^2.2.3"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepare": "npm run build"

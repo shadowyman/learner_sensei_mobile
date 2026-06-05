@@ -31,6 +31,52 @@ export type ComprehensiveAnalysisResultType = CoreComprehensiveAnalysisResultTyp
 
 export type LearnerAnalysisRequest = CoreLearnerAnalysisRequest;
 
+export type SelectionSenseiToolbarActionType =
+  | 'explainSimpler'
+  | 'explainWithAnalogy'
+  | 'explainInMoreDepth'
+  | 'showAnExample'
+  | 'showExampleCodeSnippet'
+  | 'askQuestion';
+
+export interface SelectionSenseiInitialResponsePayload {
+  suggestedTitle?: string;
+  explanation?: string;
+  rawText?: string;
+}
+
+export interface SelectionSenseiModalTranscriptEntryPayload {
+  role: 'user' | 'sensei';
+  text: string;
+}
+
+export type SelectionSenseiModalMessagePayload =
+  | {
+      mode: 'toolbarAction';
+      actionType: SelectionSenseiToolbarActionType;
+      selectedText: string;
+      originalSenseiMessageText: string;
+      actionLabel: string;
+      userQuestion?: string;
+    }
+  | {
+      mode: 'followUp';
+      modalConversationId?: string;
+      selectedText: string;
+      originalSenseiMessageText: string;
+      initialActionType: SelectionSenseiToolbarActionType;
+      initialActionLabel: string;
+      initialResponse: SelectionSenseiInitialResponsePayload;
+      modalTranscript?: SelectionSenseiModalTranscriptEntryPayload[];
+      question: string;
+    };
+
+export interface SelectionSenseiModalMessageResult {
+  suggestedTitle?: string;
+  explanation?: string;
+  rawText?: string;
+}
+
 export type RNToWebMessage =
   | { type: 'app:init'; telemetryEnabled: boolean; theme: string }
   | { type: 'chat:startMessage'; messageId: string; sender: 'user' | 'sensei'; text?: string; reloadable?: boolean }
@@ -40,6 +86,8 @@ export type RNToWebMessage =
   | { type: 'ui:inputOffset'; height: number }
   | { type: 'meditation:show'; mode: 'brand' | 'status' }
   | { type: 'selectionSensei:invoke'; actionId: SelectionSenseiActionId; selectionId: string; actionLabel?: string; userQuestion?: string }
+  | { type: 'selectionSensei:modalMessageResult'; requestId: string; success: true; result: SelectionSenseiModalMessageResult }
+  | { type: 'selectionSensei:modalMessageResult'; requestId: string; success: false; error: string }
   | { type: 'saveload:export'; requestId: string }
   | { type: 'saveload:import'; requestId: string; json: string }
   | { type: 'wrapup:show'; moduleId: string; data: WrapUpAssessmentOverlayData }
@@ -61,6 +109,7 @@ export type WebToRNMessage =
   | { type: 'render:progress'; messageId: string; chars: number; elapsedMs: number }
   | { type: 'footer:update'; payload: FooterPayload }
   | { type: 'wrapup:requestShow'; moduleId: string; promptContext: WrapUpAssessmentPromptContext }
+  | { type: 'selectionSensei:modalMessageRequest'; requestId: string; payload: SelectionSenseiModalMessagePayload }
   | { type: 'analysis:request'; requestId: string; payload: LearnerAnalysisRequest }
   | {
       type: 'teachingPlan:request';

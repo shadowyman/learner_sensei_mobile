@@ -8,6 +8,7 @@ const telemetryRouterFactory = require('./routes/telemetry');
 const wrapUpRouterFactory = require('./routes/wrapUp');
 const teachingPlanRouterFactory = require('./routes/teachingPlan');
 const analysisRouterFactory = require('./routes/analysis');
+const selectionSenseiRouterFactory = require('./routes/selectionSensei');
 const initStreamServer = require('./stream/streamServer');
 const requestContext = require('./middleware/requestContext');
 
@@ -46,6 +47,11 @@ const startServer = (overrides = {}) => {
     sessionService: container.sessionService,
     logger: container.logger,
     analysisRateLimiter: container.analysisRateLimiter
+  }));
+  app.use(selectionSenseiRouterFactory({
+    selectionSenseiService: container.selectionSenseiService,
+    sessionService: container.sessionService,
+    logger: container.logger
   }));
   app.use(telemetryRouterFactory({ telemetryService: container.telemetryService, logger: container.logger }));
   const host = overrides.host ?? container.config.host;

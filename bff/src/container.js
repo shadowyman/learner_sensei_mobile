@@ -11,6 +11,7 @@ const StreamingService = require('./services/streamingService');
 const WrapUpService = require('./services/wrapUpService');
 const TeachingPlanService = require('./services/teachingPlanService');
 const AnalysisService = require('./services/analysisService');
+const SelectionSenseiService = require('./services/selectionSenseiService');
 const SenseiCoreAdapter = require('./integration/senseiCoreAdapter');
 const GeminiGateway = require('./integration/geminiGateway');
 
@@ -31,6 +32,7 @@ const createContainer = () => {
   const wrapUpService = new WrapUpService({ logger, geminiGateway });
   const teachingPlanService = new TeachingPlanService({ logger, geminiGateway, config });
   const analysisService = new AnalysisService({ logger, geminiGateway });
+  const selectionSenseiService = new SelectionSenseiService({ logger, geminiGateway });
   const senseiCoreAdapter = new SenseiCoreAdapter({ logger, config });
   const streamingService = new StreamingService({
     turnService,
@@ -57,6 +59,7 @@ const createContainer = () => {
     wrapUpService,
     teachingPlanService,
     analysisService,
+    selectionSenseiService,
     senseiCoreAdapter,
     streamingService
   };

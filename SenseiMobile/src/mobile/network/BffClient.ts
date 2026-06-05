@@ -15,7 +15,9 @@ import type {
     MermaidRecoveryPayload,
     MermaidRecoveryResult,
     WrapUpAssessmentPromptContext,
-    TeachingPlanRequestPayload
+    TeachingPlanRequestPayload,
+    SelectionSenseiModalMessagePayload,
+    SelectionSenseiModalMessageResult
 } from './types';
 import type { WrapUpAssessmentOverlayData, TeachingPoint } from '../bridge/contracts';
 import {
@@ -177,6 +179,10 @@ export class BffClient implements BffClientLike {
         return this.postLlmStreamWithRetry(requestBody, payload.capability, payload.messageId, false);
     }
 
+    async runSelectionSenseiModalMessage(payload: SelectionSenseiModalMessagePayload): Promise<SelectionSenseiModalMessageResult> {
+        return this.postSelectionSenseiModalMessageWithRetry(payload, false);
+    }
+
     private async postTurnWithRetry(body: Record<string, unknown>, hasRetried: boolean): Promise<TurnStreamHandle> {
         await this.ensureSession();
         const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/turns`, {
@@ -245,6 +251,34 @@ export class BffClient implements BffClientLike {
             capability,
             stream: this.createLlmStream(json.streamUrl, json.requestId, messageId, capability)
         };
+    }
+
+    private async postSelectionSenseiModalMessageWithRetry(
+        body: SelectionSenseiModalMessagePayload,
+        hasRetried: boolean
+    ): Promise<SelectionSenseiModalMessageResult> {
+        await this.ensureSession();
+        if (!this.sessionId) {
+            throw new Error('Session missing for Selection Sensei modal message');
+        }
+        const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/selection-sensei/modal-message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+            const errorBody = await this.safeParseJson(response);
+            if (response.status === 400 && !hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postSelectionSenseiModalMessageWithRetry(body, true);
+            }
+            throw new Error(this.formatHttpError('Selection Sensei modal submission failed', response.status, errorBody));
+        }
+        const json = await response.json();
+        if (!json || json.success !== true || !json.result || typeof json.result !== 'object') {
+            throw new Error('Selection Sensei modal response missing result');
+        }
+        return json.result as SelectionSenseiModalMessageResult;
     }
 
     private async safeParseJson(response: Response): Promise<any | null> {

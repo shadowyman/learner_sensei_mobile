@@ -125,6 +125,20 @@ Tests to add or update:
 
 Validation commands to run:
 
+Git hygiene cadence:
+
+- Run `git diff --check` only once at the end of this packet after all code,
+  doc, and ExecPlan edits are complete.
+- Run `git diff --cached --name-status` only once at the end of this packet to
+  confirm staged state.
+- If any file edit occurs after final hygiene, rerun the affected final hygiene
+  command once before returning.
+- Do not run diff hygiene after every small patch unless a suspected
+  out-of-scope edit, staging problem, or command failure requires a targeted
+  check.
+- At return, summarize packet-owned changed files. The watchdog will
+  independently audit actual diff alignment after the turn completes.
+
 ## Stop Conditions
 
 Stop and report to watchdog if:

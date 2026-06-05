@@ -10,7 +10,9 @@ function resolvePostMessage(): void {
     const channel = (window as any)?.ReactNativeWebView;
     if (channel && typeof channel.postMessage === 'function') {
         postMessageFn = (payload: string) => channel.postMessage(payload);
+        return;
     }
+    postMessageFn = null;
 }
 
 function handleIncoming(event: MessageEvent<string>): void {
@@ -32,17 +34,17 @@ export function initializeWebviewBridge(handler: NativeHandler): void {
     document.addEventListener('message', handleIncoming as any);
 }
 
-export function sendToNative(message: WebToRNMessage): void {
+export function sendToNative(message: WebToRNMessage): boolean {
+    resolvePostMessage();
     if (!postMessageFn) {
-        resolvePostMessage();
-    }
-    if (!postMessageFn) {
-        return;
+        return false;
     }
     try {
         postMessageFn(JSON.stringify(message));
         logger.info('[MOBILE_PORT] webview bridge', { direction: 'to-native', type: message.type });
+        return true;
     } catch (error) {
         logger.warn('[MOBILE_PORT] webview bridge send error', { error });
+        return false;
     }
 }

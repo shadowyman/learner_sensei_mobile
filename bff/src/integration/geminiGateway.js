@@ -4,6 +4,7 @@ const {
   WRAP_UP_ASSESSMENT_GENERATION_CONFIG,
   TEACHING_PLAN_GENERATION_CONFIG,
   COMPREHENSIVE_ANALYSIS_CONFIG,
+  SELECTION_SENSEI_MODAL_CONFIG,
   DEFAULT_SAFETY_SETTINGS
 } = require('../config/modelUsage');
 const { MERMAID_RECOVERY_TIMEOUT_MS } = require('@sensei/core/modelUsage');
@@ -83,6 +84,8 @@ class GeminiGateway {
         return WRAP_UP_ASSESSMENT_GENERATION_CONFIG;
       case 'teaching_plan':
         return TEACHING_PLAN_GENERATION_CONFIG;
+      case 'selection_sensei_modal':
+        return SELECTION_SENSEI_MODAL_CONFIG;
       default:
         return MAIN_RESPONSE_CONFIG;
     }
@@ -98,6 +101,8 @@ class GeminiGateway {
         return this.config.gemini.wrapUpModel || cfg.modelName;
       case 'teaching_plan':
         return this.config.gemini.teachingPlanModel || cfg.modelName;
+      case 'selection_sensei_modal':
+        return cfg.modelName;
       default:
         return this.modelName || cfg.modelName;
     }

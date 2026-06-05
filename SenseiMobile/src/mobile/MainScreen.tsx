@@ -635,6 +635,30 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     }
                 })();
             }
+            if (parsed.type === 'selectionSensei:modalMessageRequest') {
+                (async () => {
+                    try {
+                        const result = await bffClient.runSelectionSenseiModalMessage(parsed.payload);
+                        bridge.enqueue({
+                            type: 'selectionSensei:modalMessageResult',
+                            requestId: parsed.requestId,
+                            success: true,
+                            result
+                        } as RNToWebMessage);
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] selection sensei modal request via BFF failed', {
+                            requestId: parsed.requestId,
+                            errorName: error instanceof Error ? error.name : typeof error
+                        });
+                        bridge.enqueue({
+                            type: 'selectionSensei:modalMessageResult',
+                            requestId: parsed.requestId,
+                            success: false,
+                            error: 'Selection Sensei response unavailable'
+                        } as RNToWebMessage);
+                    }
+                })();
+            }
             if (parsed.type === 'teachingPlan:request') {
                 (async () => {
                     try {

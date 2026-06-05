@@ -5,9 +5,17 @@ import type {
     WrapUpAssessmentOverlayData,
     WrapUpAssessmentPromptContext,
     Phase,
-    TeachingPoint
+    TeachingPoint,
+    SelectionSenseiModalMessagePayload,
+    SelectionSenseiModalMessageResult
 } from '../bridge/contracts';
-export type { ComprehensiveAnalysisResultType, LearnerAnalysisRequest, WrapUpAssessmentPromptContext } from '../bridge/contracts';
+export type {
+    ComprehensiveAnalysisResultType,
+    LearnerAnalysisRequest,
+    WrapUpAssessmentPromptContext,
+    SelectionSenseiModalMessagePayload,
+    SelectionSenseiModalMessageResult
+} from '../bridge/contracts';
 
 export interface SelectionContext {
     actionId: string;
@@ -102,4 +110,5 @@ export interface BffClientLike {
     generateWrapUp(moduleId: string, promptContext: WrapUpAssessmentPromptContext): Promise<WrapUpAssessmentOverlayData | null>;
     generateTeachingPlan(payload: TeachingPlanRequestPayload): Promise<TeachingPoint[][]>;
     getLearnerAnalysis(payload: LearnerAnalysisRequest): Promise<ComprehensiveAnalysisResultType | null>;
+    runSelectionSenseiModalMessage(payload: SelectionSenseiModalMessagePayload): Promise<SelectionSenseiModalMessageResult>;
 }

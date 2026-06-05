@@ -59,7 +59,8 @@ Use templates:
 
 - `docs/templates/llm_migration_watchdog_kickoff.md`
 - `docs/templates/llm_migration_watchdog_packet.md`
-- `docs/templates/llm_migration_watchdog_audit.md`
+- `docs/templates/llm_migration_watchdog_audit.md` for escalated or major-gate
+  audits
 
 ## Operating Loop
 
@@ -74,6 +75,35 @@ Use templates:
 
 Do not let the worker proceed from one subsystem to the next if a required
 gate is stale, untested, or contradicted by the diff.
+
+## Watchdog Audit Record
+
+Keep a watchdog-owned compact audit log under `docs/mission_state/`. The worker
+owns implementation state in the ExecPlan; the watchdog owns compliance
+findings in the audit log.
+
+After every worker turn, append one compact audit entry before sending the next
+packet or correction. Include:
+
+- watchdog audit ID
+- packet ID
+- worker turn ID
+- decision: PASS, CORRECTION NEEDED, or BLOCKED
+- inputs checked
+- ExecPlan turn markers found or missing
+- diff match result
+- failing or blocking protocol sections
+- failing or blocking final acceptance gates
+- next packet or correction
+- one short note
+
+Use the full `docs/templates/llm_migration_watchdog_audit.md` only for major
+gates, final acceptance, commit or push readiness, serious contradictions, or
+when compact audit evidence is insufficient.
+
+Do not edit the worker ExecPlan to fix worker omissions. Send a correction
+packet when the ExecPlan lacks required live state, turn markers, decisions,
+validation evidence, or protocol ledger entries.
 
 ## Packet Rules
 
@@ -94,6 +124,27 @@ Packets must be serial, small, and auditable. Prefer these packet types:
 
 Each packet must specify allowed files/modules, forbidden work, required
 ExecPlan updates, required tests, stop conditions, and worker return format.
+
+## Worker Hygiene Cadence
+
+Do not ask the worker to run git hygiene after every small edit. The worker
+should keep the ExecPlan live as discoveries, decisions, failed commands, and
+validation results occur, but diff hygiene belongs at the end of the packet
+unless there is a suspected scope violation or staging problem.
+
+Packet validation should normally require `git diff --check` and
+`git diff --cached --name-status` once after all packet edits and ExecPlan
+updates are complete. If the worker edits files again after those checks, ask
+for one final rerun of the affected hygiene command before return.
+
+For doc-only correction packets, prefer `git diff --check` scoped to the edited
+document plus one staged-state check. Avoid repeated whole-tree hygiene loops
+for small plan or audit-note edits.
+
+Actual diff alignment is primarily the watchdog's audit responsibility. Worker
+packets may ask the worker to summarize packet-owned changed files at return,
+but the watchdog must independently compare the worker claim, ExecPlan, and
+actual git diff after the turn completes.
 
 ## Watchdog Audit Gates
 
