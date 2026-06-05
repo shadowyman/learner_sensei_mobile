@@ -6,7 +6,7 @@ Phase‑1 routing invariant: these traces list desktop/web LLM entry points. For
 
 ## Phase 1 Scoped Migration Status
 
-As of 2026-06-05, the table includes merged Phase 1 scoped migrations plus PR-stage evidence for the module-introduction and main-response stream migration. The master-plan status table in `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md` remains the release-status authority and should be updated for those two stream rows only after the PR passes review and merges.
+As of 2026-06-05, the table includes completed Phase 1 scoped migrations, including the module-introduction and main-response stream migration recorded in `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md`.
 
 | Capability | Canonical prompt file | Core capability | Mobile bridge message | BFF route/service | Desktop/web compatibility |
 | --- | --- | --- | --- | --- | --- |

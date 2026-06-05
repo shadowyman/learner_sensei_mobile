@@ -153,8 +153,8 @@ This list is sourced from `docs/llm_entry_exit_traces.md` and reconciled with th
 | Wrap-up assessment planner | `src/index.tsx:createLLMPlannerCallback` -> `generateWrapUpAssessment`; `src/geminiService.ts:generateWrapUpAssessment` legacy wrapper | Master-doc complete for Phase 1 scoped migration. Core owns prompt body, tool declaration, LLM execution, parsing, normalization, and validation; BFF/mobile route exists; desktop wrapper delegates to Core. | No remaining scoped prompt-normalization work. Keep legacy wrapper as compatibility only; do not reintroduce prompt or parser bodies outside Core. | `core/prompts/wrapUpAssessment.ts` | `core/wrapUpAssessment.ts:generateWrapUpAssessment` | Existing wrap-up BFF service/endpoint and mobile bridge route |
 | Teaching plan generation | `src/geminiService.ts:llmExtractAndPlanTeachingOrder`; mobile `requestTeachingPlan` bridge path | Master-doc complete for Phase 1 scoped migration. Core owns prompt bodies, LLM execution, teaching-plan parsing, and normalization; BFF route and RN/mobile bridge path exist; desktop wrapper delegates to Core. | No remaining scoped prompt-normalization work. Future changes must preserve `core/prompts/teachingPlan.ts` as the canonical prompt owner. | `core/prompts/teachingPlan.ts` | `core/teachingPlan.ts:extractAndPlanTeachingOrder` | Existing teaching-plan BFF service/endpoint and mobile bridge route |
 | Learner analysis | `src/geminiService.ts:getAnalysisFromGemini`; mobile `requestLearnerAnalysis` bridge path | Master-doc complete for Phase 1 scoped migration. Core owns prompt body, misconception/schema instruction text, LLM execution, JSON parsing, and output shape; BFF route and RN/mobile bridge path exist; desktop wrapper delegates to Core. | No remaining scoped prompt-normalization work. Future changes must preserve `core/prompts/learnerAnalysis.ts` as the canonical prompt owner. | `core/prompts/learnerAnalysis.ts` | `core/learnerAnalysis.ts:getComprehensiveAnalysis` | Existing analysis BFF service/endpoint and mobile bridge route |
-| Module introduction stream | `src/interactionHelpers.ts:streamModuleIntroduction` | Not implemented for the final migration. Current code still uses direct web `Chat.sendMessageStream` and WebView stream application. | Move prompt building to Core, add Core capability/stream request contract, add BFF streaming route, add RN bridge stream forwarding, and keep WebView chunk rendering/state application. | `core/prompts/moduleIntroduction.ts` | `core/moduleIntroduction.ts` | New module-introduction stream route |
-| Main Sensei response stream | `src/interactionHelpers.ts:streamMainSenseiResponse` | Not implemented for the final migration. Current code still uses direct web `Chat.sendMessageStream` and WebView stream application. | Move prompt building to Core, add Core capability/stream request contract, add BFF streaming route, add RN bridge stream forwarding, and keep WebView chunk rendering/teaching-state orchestration. | `core/prompts/mainSenseiResponse.ts` | `core/mainSenseiResponse.ts` | New main-response stream route |
+| Module introduction stream | `src/interactionHelpers.ts:streamModuleIntroduction` | Master-doc complete for Phase 1 scoped migration on PR branch `codex/llm-streaming-core-bff-migration`. Core owns prompt body, base instruction envelope, request type, prompt-option defaults, and capability prompt construction; BFF owns server prompt options, provider streaming, validation, and WebSocket events; RN/mobile bridge forwards stream chunks; WebView preserves chunk rendering, reload, and enhancer behavior. Key commits: `28fa4f9`, `790d9e7`, `9e0c9c8`, `f2b952a`, `ce6a3e8`. | No remaining scoped prompt-normalization or mobile-routing work. Keep desktop direct stream compatibility during Phase 1; keep mobile runtime on structured BFF/Core stream requests; keep live Gemini/manual smoke evidence as release validation, not deterministic correctness proof. | `core/prompts/moduleIntroduction.ts` | `core/moduleIntroduction.ts:buildModuleIntroductionPrompt` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...`; bridge events `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"moduleIntroduction"` |
+| Main Sensei response stream | `src/interactionHelpers.ts:streamMainSenseiResponse` | Master-doc complete for Phase 1 scoped migration on PR branch `codex/llm-streaming-core-bff-migration`. Core owns prompt body, base instruction envelope, standard and Socratic structured request types, prompt-option defaults, bounded history envelope, and capability prompt construction; BFF owns server prompt options, provider streaming, validation, single-claim request handling, and WebSocket events; RN/mobile bridge forwards stream chunks; WebView preserves chunk rendering, Socratic/reload behavior, chronological history capture, and teaching-state orchestration. Key commits: `28fa4f9`, `790d9e7`, `9e0c9c8`, `f2b952a`, `ce6a3e8`. | No remaining scoped prompt-normalization or mobile-routing work. Keep desktop direct stream compatibility during Phase 1; keep mobile standard and Socratic runtime on structured BFF/Core stream requests; keep live Gemini/manual smoke evidence as release validation, not deterministic correctness proof. | `core/prompts/mainSenseiResponse.ts` | `core/mainSenseiResponse.ts:buildMainSenseiResponsePrompt` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...`; bridge events `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"mainSenseiResponse"` |
 | Selection Sensei follow-up | `src/selectionSensei.ts:dispatchFollowupToAI` | Not implemented for the final migration. Current code still sends directly through Selection Sensei chat. Response parser already exists in `src/selectionSenseiResponseParser.ts`, but it is not yet Core-owned. | Move selection prompt builders and response parser to Core, add Core capability, add BFF follow-up route, add mobile bridge route, and keep modal transcript/rendering in WebView. | `core/prompts/selectionSensei.ts` | `core/selectionSensei.ts` | New selection follow-up route |
 | Selection Sensei toolbar action | `src/selectionSensei.ts:handleToolbarAction` | Not implemented for the final migration. Current code still builds the prompt in WebView and sends directly through Selection Sensei chat. | Move toolbar prompt builders and response parser to Core, add Core capability, add BFF toolbar-action route, add mobile bridge route, and keep selected-text UI/modal behavior in WebView. | `core/prompts/selectionSensei.ts` | `core/selectionSensei.ts` | New selection toolbar-action route |
 | Enhancement request | `src/enhancementManager.ts:toggleEnhancement` -> `src/geminiService.ts:requestSenseiEnhancement` | Not implemented for the final migration. Current code still calls the provider directly in the web wrapper; WebView applies returned enhancement payloads. | Move enhancement prompt builder, JSON fence stripping, and payload normalization to Core; add BFF route and mobile bridge route; keep `applyEnhancementSequence` and `applyEnhancements` in WebView. | `core/prompts/enhancement.ts` | `core/enhancement.ts` | New enhancement route |
@@ -327,7 +327,7 @@ Prompt files must be separated by capability, not by platform. There are no mobi
 
 ### Completed Scoped Migrations
 
-Teaching plan, learner analysis, wrap-up assessment, and Mermaid repair have been moved functionally toward Core/BFF and have completed prompt normalization under `core/prompts/`.
+Teaching plan, learner analysis, wrap-up assessment, Mermaid repair, module introduction streaming, and main Sensei response streaming have been moved functionally toward Core/BFF and have completed prompt normalization under `core/prompts/`.
 
 * Completed rows should refer to Section 14 for example commit structure, commit IDs, and file breakdowns. Future agents should inspect those commits before implementing another row.
 
@@ -516,30 +516,30 @@ A capability is not migrated until all of these are true:
 
 As of this document:
 
-1. Teaching plan, learner analysis, wrap-up assessment, and Mermaid repair are complete for the Phase 1 scoped migration standard in this document.
+1. Teaching plan, learner analysis, wrap-up assessment, Mermaid repair, module introduction streaming, and main Sensei response streaming are complete for the Phase 1 scoped migration standard in this document.
 2. Their canonical prompt bodies live under `core/prompts/<capability>.ts`.
-3. Main response streaming, module introduction streaming, Selection Sensei, enhancement, key takeaway enhancement, and pedagogical directive generation remain the primary migration backlog.
+3. Selection Sensei, enhancement, key takeaway enhancement, and pedagogical directive generation remain the primary migration backlog.
 4. Desktop web is allowed to keep direct provider execution during Phase 1, provided migrated capabilities use Core prompt and parser logic.
 5. Mobile must use BFF for each migrated capability.
 6. The older broad server-business-logic migration intent is historical context, not the active Phase 1 implementation target.
 
 ### Completed Commit Compliance Snapshot
 
-As of 2026-06-03, the completed commit split is compliant with this master plan for the already-started scoped migrations. It should not be treated as a finished migration for the not-yet-started backlog capabilities.
+As of 2026-06-05, the completed commit split is compliant with this master plan for the already-started scoped migrations and the completed module-introduction/main-response streaming migration. It should not be treated as a finished migration for the not-yet-started backlog capabilities.
 
 Compliant work in the completed commits:
 
-1. Teaching plan, learner analysis, wrap-up assessment, and Mermaid repair have Core capability implementations that are used by BFF/mobile paths.
+1. Teaching plan, learner analysis, wrap-up assessment, Mermaid repair, module introduction streaming, and main Sensei response streaming have Core capability implementations that are used by BFF/mobile paths.
 2. BFF services for those migrated capabilities call Core rather than owning prompt bodies or parser logic themselves.
-3. Desktop web compatibility wrappers delegate migrated teaching plan, learner analysis, and wrap-up behavior through Core-backed paths.
-4. Mobile bridge and BFF client routes exist for the migrated teaching plan, learner analysis, wrap-up, and Mermaid recovery capabilities.
-5. Canonical prompt files exist for `wrapUpAssessment`, `teachingPlan`, `learnerAnalysis`, and `mermaidRepair`.
-6. Prompt parity and representative parser/routing tests cover the completed scoped migrations.
+3. Desktop web compatibility wrappers delegate migrated teaching plan, learner analysis, and wrap-up behavior through Core-backed paths; streaming rows keep desktop direct-stream compatibility while mobile uses structured BFF/Core streaming.
+4. Mobile bridge and BFF client routes exist for the migrated teaching plan, learner analysis, wrap-up, Mermaid recovery, module-introduction stream, and main-response stream capabilities.
+5. Canonical prompt files exist for `wrapUpAssessment`, `teachingPlan`, `learnerAnalysis`, `mermaidRepair`, `moduleIntroduction`, `mainSenseiResponse`, and `baseSensei`.
+6. Prompt parity, deterministic stream integration, and representative parser/routing tests cover the completed scoped migrations.
 7. Direct provider calls that remain in not-yet-migrated capabilities are expected backlog for this plan, not proof that the current partial migration is architecturally contradictory.
 
 Current compliance gaps:
 
-1. The remaining direct-provider capabilities, including main response streaming, module introduction streaming, Selection Sensei, enhancement, key takeaway enhancement, and pedagogical directive generation, still require the full migration sequence in this plan.
+1. The remaining direct-provider capabilities, including Selection Sensei, enhancement, key takeaway enhancement, and pedagogical directive generation, still require the full migration sequence in this plan.
 2. Future backlog migrations must follow the same prompt ownership, Core capability, BFF route, mobile bridge, desktop compatibility, and parity-test sequence used by the completed scoped migrations.
 
 The next safest implementation step is to choose one not-yet-started backlog capability and apply this document's mandatory decision flow without changing the completed scoped migration surfaces.
@@ -605,6 +605,41 @@ Use these commits as the concrete implementation examples for the completed Phas
    - Purpose: prove the completed Mermaid mobile row sends structured recovery requests through the bridge and resolves native BFF results.
    - Tests: `__tests__/mermaidRecovery.mobileRoutingGate.sentinel.test.ts`.
    - Shared dependencies: uses prompt/Core normalization from `72b85e0`, bridge dispatch from `be1315c`, existing BFF Mermaid route/server registration, and shared foundation from `31e5e0a`.
+
+9. Shared module-introduction and main-response streaming foundation: `28fa4f9`
+
+   - Purpose: add the first complete BFF/Core/RN/WebView streaming path for migrated module-introduction and main-response capabilities.
+   - Core prompts/capabilities: `core/prompts/moduleIntroduction.ts`, `core/prompts/mainSenseiResponse.ts`, `core/moduleIntroduction.ts`, `core/mainSenseiResponse.ts`, `core/index.ts`, `core/package.json`.
+   - BFF: `bff/src/controllers/sessionController.js`, `bff/src/routes/sessions.js`, `bff/src/services/streamingService.js`, `bff/src/stream/streamServer.js`, `bff/src/integration/senseiCoreAdapter.js`, `bff/src/integration/geminiGateway.js`, `bff/package.json`.
+   - RN/WebView: `SenseiMobile/src/mobile/network/BffClient.ts`, `SenseiMobile/src/mobile/network/types.ts`, `SenseiMobile/src/mobile/bridge/contracts.ts`, `SenseiMobile/src/mobile/MainScreen.tsx`, `src/mobile/webviewMessageRouter.ts`, `src/interactionHelpers.ts`, `src/moduleSelectionHandler.ts`, `src/index.tsx`.
+   - Tests: `__tests__/corePromptParity.test.ts`, `__tests__/interactionHelpers.test.ts`, `__tests__/BffClient.test.ts`, `bff/tests/llmStream.int.test.js`.
+
+10. Streaming migration review hardening batch: `790d9e7`
+
+   - Purpose: preserve migrated stream behavior after initial review by fixing module-intro reload routing, main-response history, base persona envelope, BFF input length caps, and active stream timeout alignment.
+   - Core/BFF: `core/promptEnvelope.ts`, `bff/src/controllers/sessionController.js`, `bff/src/services/streamingService.js`, `bff/src/integration/senseiCoreAdapter.js`.
+   - WebView/tests: `src/index.tsx`, `src/moduleSelectionHandler.ts`, `src/interactionHelpers.ts`, `__tests__/corePromptParity.test.ts`, `__tests__/ModuleSelectionHandler.test.ts`, `__tests__/interactionHelpers.test.ts`, `bff/tests/llmStream.deterministic.int.test.js`.
+
+11. Structured prompt-ownership follow-up: `9e0c9c8`
+
+   - Purpose: remove WebView-built `curriculumFocusInstruction` prompt fragments from migrated mobile stream payloads and make Core own curriculum-focus prompt-language assembly.
+   - Core/WebView/BFF: `core/prompts/mainSenseiResponse.ts`, `src/prompts.ts`, `src/curriculum.ts`, `src/index.tsx`, `src/moduleSelectionHandler.ts`, `bff/src/controllers/sessionController.js`.
+   - Tests: `__tests__/corePromptParity.test.ts`, `bff/tests/llmStream.deterministic.int.test.js`.
+
+12. Streaming migration final review-remediation batch: `f2b952a`
+
+   - Purpose: harden the completed streaming rows by preserving the full Core-owned base prompt, supporting Socratic reloads with empty user input, passing module-intro reload enhancer controllers, enforcing single-claim stream requests, preserving chronological/bounded history, deriving reachable BFF hosts for device runs, and tightening prompt-control validation.
+   - Core: `core/prompts/baseSensei.ts`, `core/prompts/mainSenseiResponse.ts`, `core/promptEnvelope.ts`, `core/mainSenseiResponse.ts`, `core/moduleIntroduction.ts`.
+   - BFF/RN/WebView: `bff/src/controllers/sessionController.js`, `bff/src/services/streamingService.js`, `SenseiMobile/src/mobile/network/bffBaseUrl.ts`, `SenseiMobile/App.tsx`, `src/conversationHistory.ts`, `src/ui.ts`, `src/index.tsx`, `src/moduleSelectionHandler.ts`.
+   - Tests: `__tests__/corePromptParity.test.ts`, `__tests__/conversationHistory.test.ts`, `__tests__/reloadContext.test.ts`, `__tests__/moduleSelectionHandler.test.ts`, `SenseiMobile/__tests__/bffBaseUrl.test.ts`, `bff/tests/llmStream.deterministic.int.test.js`.
+
+13. Streaming migration final prompt-option and Socratic-history closure: `ce6a3e8`
+
+   - Purpose: close the final PR review gaps by preserving bounded chronological history for initial Socratic mobile streams and making main-response execution/guidance prompt controls server-owned.
+   - Core/BFF: `core/modelUsage.ts`, `bff/src/config/modelUsage.js`, `bff/src/config/index.js`, `bff/src/container.js`, `bff/src/integration/senseiCoreAdapter.js`.
+   - WebView: `src/model_usage.ts`, `src/interactionHelpers.ts`, `src/moduleSelectionHandler.ts`.
+   - Tests: `__tests__/moduleSelectionHandler.test.ts`, `__tests__/corePromptParity.test.ts`, `bff/tests/llmStream.deterministic.int.test.js`.
+   - Usage: this is the final completion commit for the module-introduction and main-response streaming rows on PR branch `codex/llm-streaming-core-bff-migration`.
 
 ## 15. Required First Step For Future Sessions
 
