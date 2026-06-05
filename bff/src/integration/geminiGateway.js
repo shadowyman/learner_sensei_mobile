@@ -240,7 +240,8 @@ class GeminiGateway {
         config: {
           temperature: cfg.config.temperature ?? this.temperature,
           safetySettings,
-          httpOptions: { timeout: baseTimeoutMs }
+          httpOptions: { timeout: baseTimeoutMs },
+          abortSignal: signal
         }
       });
 

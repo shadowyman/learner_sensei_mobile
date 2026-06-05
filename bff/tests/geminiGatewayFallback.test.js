@@ -8,7 +8,7 @@ const collectText = async (stream) => {
   return text;
 };
 
-const makeGateway = () => {
+const makeGateway = (generateContentStream) => {
   const gateway = Object.create(GeminiGateway.prototype);
   gateway.logger = {
     info() {},
@@ -20,11 +20,11 @@ const makeGateway = () => {
   gateway.timeoutMs = 1000;
   gateway.clientPromise = Promise.resolve({
     models: {
-      async generateContentStream() {
+      generateContentStream: generateContentStream || (async () => {
         const error = new Error('provider exhausted');
         error.code = 429;
         throw error;
-      }
+      })
     }
   });
   return gateway;
@@ -78,6 +78,26 @@ const makeGateway = () => {
   }));
   if (abortedText !== '') {
     throw new Error(`Expected aborted stream to produce no fallback text, got: ${abortedText}`);
+  }
+
+  const activeAbortController = new AbortController();
+  let observedAbortSignal = null;
+  const signalGateway = makeGateway(async (params) => {
+    observedAbortSignal = params?.config?.abortSignal;
+    return (async function* () {
+      yield { text: () => 'ok' };
+    })();
+  });
+  const signalText = await collectText(signalGateway.streamMainResponse(prompt, {
+    context,
+    allowFallback: false,
+    signal: activeAbortController.signal
+  }));
+  if (signalText !== 'ok') {
+    throw new Error(`Expected provider stream text, got: ${signalText}`);
+  }
+  if (observedAbortSignal !== activeAbortController.signal) {
+    throw new Error('Expected Gemini stream config to receive the request abort signal');
   }
 
   console.log('gemini gateway fallback behavior test passed');

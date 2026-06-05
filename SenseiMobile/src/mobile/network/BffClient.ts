@@ -206,6 +206,13 @@ export class BffClient implements BffClientLike {
         return body.code === 'BAD_REQUEST' && message.includes('unknown session');
     }
 
+    private formatHttpError(prefix: string, status: number, body: any): string {
+        const code = body && typeof body.code === 'string' ? body.code : '';
+        const message = body && typeof body.message === 'string' ? body.message : '';
+        const detail = [code, message].filter(Boolean).join(': ');
+        return detail ? `${prefix}: ${status} (${detail})` : `${prefix}: ${status}`;
+    }
+
     private async postLlmStreamWithRetry(
         body: Record<string, unknown>,
         capability: LlmStreamCapability,
@@ -218,16 +225,13 @@ export class BffClient implements BffClientLike {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
-        if (response.status === 400) {
+        if (!response.ok) {
             const errorBody = await this.safeParseJson(response);
-            if (!hasRetried && this.isUnknownSessionError(errorBody)) {
+            if (response.status === 400 && !hasRetried && this.isUnknownSessionError(errorBody)) {
                 this.sessionId = null;
                 return this.postLlmStreamWithRetry(body, capability, messageId, true);
             }
-            throw new Error(`LLM stream submission failed: ${response.status}`);
-        }
-        if (!response.ok) {
-            throw new Error(`LLM stream submission failed: ${response.status}`);
+            throw new Error(this.formatHttpError('LLM stream submission failed', response.status, errorBody));
         }
         const json = await response.json();
         if (!json || typeof json.requestId !== 'string' || typeof json.streamUrl !== 'string') {
