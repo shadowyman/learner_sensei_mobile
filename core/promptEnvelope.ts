@@ -13,14 +13,41 @@ export interface CapabilityPromptEnvelopeRequest {
   conversationHistory?: ConversationHistoryEntry[];
 }
 
+export const MAX_CONVERSATION_HISTORY_ENTRIES = 8;
+export const MAX_CONVERSATION_HISTORY_ENTRY_CHARS = 1000;
+export const MAX_CONVERSATION_HISTORY_TOTAL_CHARS = 4000;
+
 function cleanContent(value: string): string {
   return value.replace(/\s+\n/g, '\n').trim();
 }
 
+export function sanitizeConversationHistory(entries?: ConversationHistoryEntry[]): ConversationHistoryEntry[] {
+  const sanitized = (entries || [])
+    .filter((entry) => entry && (entry.role === 'user' || entry.role === 'sensei') && typeof entry.content === 'string')
+    .map((entry) => ({
+      role: entry.role,
+      content: cleanContent(entry.content).slice(0, MAX_CONVERSATION_HISTORY_ENTRY_CHARS)
+    }))
+    .filter((entry) => entry.content.length > 0)
+    .slice(-MAX_CONVERSATION_HISTORY_ENTRIES);
+  const bounded: ConversationHistoryEntry[] = [];
+  let remaining = MAX_CONVERSATION_HISTORY_TOTAL_CHARS;
+  for (let index = sanitized.length - 1; index >= 0 && remaining > 0; index--) {
+    const entry = sanitized[index];
+    const content = entry.content.slice(0, remaining);
+    if (content.length > 0) {
+      bounded.unshift({
+        role: entry.role,
+        content
+      });
+      remaining -= content.length;
+    }
+  }
+  return bounded;
+}
+
 export function buildCapabilityPromptEnvelope(request: CapabilityPromptEnvelopeRequest): string {
-  const history = (request.conversationHistory || [])
-    .filter((entry) => entry && typeof entry.content === 'string' && entry.content.trim().length > 0)
-    .slice(-8);
+  const history = sanitizeConversationHistory(request.conversationHistory);
   if (!request.includeBaseSystemInstruction && history.length === 0) {
     return request.taskPrompt;
   }

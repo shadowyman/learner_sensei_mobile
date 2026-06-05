@@ -236,9 +236,11 @@ describe('BffClient', () => {
             messageId: 'msg-main-standard',
             payload: {
                 mode: 'standard',
+                curriculumFocus: { status: 'general' },
                 currentUserInput: 'How do base cases stop recursion?'
             }
         });
+        expect(submittedBodies[0].payload).not.toHaveProperty('curriculumFocusInstruction');
         expect(submittedBodies[1]).toMatchObject({
             capability: 'mainSenseiResponse',
             messageId: 'msg-main-socratic',
@@ -247,6 +249,7 @@ describe('BffClient', () => {
                 currentUserInput: 'I am stuck.'
             }
         });
+        expect(submittedBodies[1].payload).not.toHaveProperty('curriculumFocusInstruction');
         expect(standard).toMatchObject({
             requestId: 'llmreq-1',
             messageId: 'msg-main-standard',

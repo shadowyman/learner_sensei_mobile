@@ -1,5 +1,13 @@
 export const PEDAGOGICAL_GUIDANCE_PLACEHOLDER = '__PEDAGOGICAL_GUIDANCE__';
 export const USER_LAST_INPUT_PLACEHOLDER = '[[USER_LAST_INPUT_HERE]]';
+export const ACTIVE_PRIMARY_ACTION_TYPES = [
+  'Revisit & Clarify (from current chunk)',
+  'Revisit & Clarify (general points for this phase)',
+  'Teach New Content (from current chunk)',
+  'Reinforce & Deepen (current chunk)',
+  'General Engagement'
+] as const;
+export type ActivePrimaryActionType = typeof ACTIVE_PRIMARY_ACTION_TYPES[number];
 
 export interface MainSenseiResponsePromptOptions {
   executionDirectiveEnabled?: boolean;

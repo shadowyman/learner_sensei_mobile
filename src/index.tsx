@@ -94,6 +94,8 @@ import { PedagogicalProfiler } from "./pedagogicalProfiler";
 import {
     Message,
     ReloadContext,
+    isMainResponseReloadContext,
+    hasReloadKeyTakeawayEnhancer,
     getPhaseDisplayName,
     initializeUI,
     updateCurriculumDisplay,
@@ -104,6 +106,7 @@ import {
     applyFooterPayload,
     setupFullscreenToggle,
     setupTextareaAutosize,
+    messageArea,
     streamingMessagesRawText,
     updateSenseiMeditationOverlay,
     renderEnhancedMarkdown,
@@ -112,6 +115,7 @@ import {
     updateMessageStream,
     showMeditationOverlayFromNative
 } from './ui';
+import { buildRecentConversationHistory as buildRecentConversationHistorySnapshot } from './conversationHistory';
 import { SaveLoadProgressManager } from './saveloadProgressManager';
 import { initializeWebviewBridge, sendToNative } from './mobile/webviewBridge';
 import { createWebviewMessageHandler, requestLearnerAnalysisViaBridge, requestTeachingPlanViaBridge } from './mobile/webviewMessageRouter';
@@ -628,25 +632,13 @@ function updateResponseHistory(
 }
 
 function buildRecentConversationHistory(currentUserInput: string): ConversationHistoryEntry[] {
-    const previousUserInputs = userInputHistory.slice(-4);
-    if (previousUserInputs.length > 0 && previousUserInputs[previousUserInputs.length - 1] === currentUserInput) {
-        previousUserInputs.pop();
-    }
-    const userEntries = previousUserInputs.slice(-3);
-    const senseiEntries = lastSenseiResponses.slice(0, 3).reverse();
-    const history: ConversationHistoryEntry[] = [];
-    const maxLength = Math.max(userEntries.length, senseiEntries.length);
-    for (let index = 0; index < maxLength; index++) {
-        const userContent = userEntries[index];
-        if (userContent && userContent.trim().length > 0) {
-            history.push({ role: 'user', content: userContent });
-        }
-        const senseiContent = senseiEntries[index];
-        if (senseiContent && senseiContent.trim().length > 0) {
-            history.push({ role: 'sensei', content: senseiContent });
-        }
-    }
-    return history.slice(-8);
+    return buildRecentConversationHistorySnapshot({
+        currentUserInput,
+        userInputHistory,
+        lastSenseiResponses,
+        messageArea,
+        streamingMessagesRawText
+    });
 }
 
 
@@ -1211,8 +1203,7 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
     let reloadEnhancerController: KeyTakeawayEnhancerController | undefined;
     if (
         ENABLE_KEY_TAKEAWAY_ENHANCER &&
-        context.type === 'mainResponse' &&
-        context.keyTakeawayEnhancer &&
+        hasReloadKeyTakeawayEnhancer(context) &&
         ai
     ) {
         const promptHash = context.keyTakeawayEnhancer.promptHash;
@@ -1233,7 +1224,7 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
         logger.info('[KEY_TAKE_AWAY_SENSEI] enhancer-armed', { messageId, promptHashChanged });
     }
     try {
-        if (context.type === 'mainResponse' && context.dynamicSystemInstruction && context.userInput) {
+        if (isMainResponseReloadContext(context)) {
             newSenseiText = await streamMainSenseiResponse(
                 mainSenseiChat!,
                 context.dynamicSystemInstruction,
@@ -1251,6 +1242,7 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
                 context.moduleTitleForPrompt,
                 messageId,
                 {
+                    enhancerController: reloadEnhancerController,
                     llmStreamRequest: context.llmStreamRequest as ModuleIntroductionPromptRequest | undefined
                 }
             );

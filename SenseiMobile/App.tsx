@@ -10,8 +10,9 @@ import { BffClient } from './src/mobile/network/BffClient';
 import { SaveLoadService } from './src/mobile/saveLoad/SaveLoadService';
 import { IOSFileAdapter } from './src/mobile/saveLoad/nativeFileAdapter';
 import { TelemetryManager } from './src/mobile/telemetry/TelemetryManager';
+import { resolveBffBaseUrl } from './src/mobile/network/bffBaseUrl';
 
-const BFF_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8787' : 'http://127.0.0.1:8787';
+const BFF_BASE_URL = resolveBffBaseUrl();
 
 const createMemoryStore = () => {
   const store = new Map<string, string>();

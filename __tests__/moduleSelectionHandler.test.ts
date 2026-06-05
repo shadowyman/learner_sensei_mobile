@@ -226,6 +226,7 @@ describe('ModuleSelectionHandler', () => {
         moduleTitleForPrompt: 'Adaptive Module'
       })
     }))
+    expect(streamCall[4].llmStreamRequest).not.toHaveProperty('curriculumFocusInstruction')
     expect(displayMessage).toHaveBeenCalledWith(expect.objectContaining({
       text: 'Intro text',
       isReloadable: true,
@@ -238,6 +239,10 @@ describe('ModuleSelectionHandler', () => {
         })
       })
     }))
+    const finalIntroCall = (displayMessage as unknown as jest.Mock).mock.calls.find(
+      ([payload]) => payload?.reloadContext?.type === 'moduleIntro' && !payload.isLoading
+    )
+    expect(finalIntroCall?.[0]?.reloadContext?.llmStreamRequest).not.toHaveProperty('curriculumFocusInstruction')
   })
 
   test('handleConceptSelection ignores requests when pending phase is not IntroIllustrate', async () => {
@@ -364,6 +369,7 @@ describe('ModuleSelectionHandler', () => {
       isReloadable: true,
       reloadContext: expect.objectContaining({
         type: 'mainResponse',
+        userInput: '',
         llmStreamRequest: expect.objectContaining({
           mode: 'socratic',
           isSystemInitialization: true

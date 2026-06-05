@@ -87,6 +87,20 @@ export interface ReloadContext {
         promptText: string;
     };
 }
+
+export function isMainResponseReloadContext(context: ReloadContext): context is ReloadContext & { type: 'mainResponse'; dynamicSystemInstruction: string; userInput: string } {
+    return context.type === 'mainResponse'
+        && typeof context.dynamicSystemInstruction === 'string'
+        && context.dynamicSystemInstruction.length > 0
+        && typeof context.userInput === 'string';
+}
+
+export function hasReloadKeyTakeawayEnhancer(context: ReloadContext): context is ReloadContext & { keyTakeawayEnhancer: { promptHash: string; promptText: string } } {
+    return typeof context.keyTakeawayEnhancer?.promptHash === 'string'
+        && context.keyTakeawayEnhancer.promptHash.length > 0
+        && typeof context.keyTakeawayEnhancer.promptText === 'string'
+        && context.keyTakeawayEnhancer.promptText.length > 0;
+}
 // --- END: Reload Functionality Types ---
 
 export interface Message {

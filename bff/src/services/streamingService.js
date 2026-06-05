@@ -174,6 +174,7 @@ class StreamingService {
       ws.close();
       return;
     }
+    this.llmStreamRequests.delete(requestId);
     if (request.unclaimedTimer) {
       clearTimeout(request.unclaimedTimer);
       request.unclaimedTimer = null;
@@ -225,7 +226,6 @@ class StreamingService {
         clearTimeout(request.unclaimedTimer);
         request.unclaimedTimer = null;
       }
-      this.llmStreamRequests.delete(requestId);
     };
 
     try {

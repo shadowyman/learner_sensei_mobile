@@ -1,4 +1,6 @@
 const { z } = require('zod');
+const { sanitizeConversationHistory } = require('@sensei/core/promptEnvelope');
+const { ACTIVE_PRIMARY_ACTION_TYPES } = require('@sensei/core/prompts/mainSenseiResponse');
 const { sendError } = require('../utils/apiError');
 
 const TAG = 'SESSION_CONTROLLER';
@@ -39,21 +41,53 @@ const LlmStreamSubmitSchema = z.object({
   }).optional()
 });
 
-const CurriculumFocusItemSchema = z.object({
-  moduleTitle: z.string().min(1),
-  moduleGoal: z.string(),
-  concept: z.object({
-    title: z.string().min(1),
-    text: z.string()
-  }).nullable(),
-  isModuleWidePhase: z.boolean()
+const CurriculumFocusConceptSchema = z.object({
+  title: z.string().min(1),
+  text: z.string()
 });
+
+const CurriculumFocusItemSchema = z.discriminatedUnion('isModuleWidePhase', [
+  z.object({
+    moduleTitle: z.string().min(1),
+    moduleGoal: z.string(),
+    concept: CurriculumFocusConceptSchema,
+    isModuleWidePhase: z.literal(false)
+  }),
+  z.object({
+    moduleTitle: z.string().min(1),
+    moduleGoal: z.string(),
+    concept: z.null(),
+    isModuleWidePhase: z.literal(true)
+  })
+]);
 
 const CurriculumFocusStateSchema = z.object({
   currentPhase: z.string().min(1),
   currentTeachingChunkIndex: z.number().int().nonnegative(),
   teachingPlanChunkCount: z.number().int().nonnegative()
 });
+
+const PrimaryActionTypeSchema = z.enum(ACTIVE_PRIMARY_ACTION_TYPES);
+
+const ConsolidationSnapshotSchema = z.discriminatedUnion('stage', [
+  z.object({
+    stage: z.literal('Diagnosing'),
+    allWeakPoints: z.array(z.string().min(1)).min(1)
+  }),
+  z.object({
+    stage: z.literal('Planning'),
+    allWeakPoints: z.array(z.string().min(1)).optional(),
+    userDiagnosisResponse: z.string().min(1)
+  }),
+  z.object({
+    stage: z.literal('Executing'),
+    allWeakPoints: z.array(z.string().min(1)).optional(),
+    userDiagnosisResponse: z.string().optional(),
+    currentPlanStep: z.number().int().nonnegative(),
+    currentChunkIndex: z.number().int().nonnegative(),
+    pointsToRemediate: z.array(z.string().min(1)).min(1)
+  })
+]);
 
 const CurriculumFocusSchema = z.discriminatedUnion('status', [
   z.object({
@@ -67,20 +101,13 @@ const CurriculumFocusSchema = z.discriminatedUnion('status', [
     item: CurriculumFocusItemSchema,
     state: CurriculumFocusStateSchema,
     focusPoints: z.array(z.string()),
-    primaryActionType: z.string().min(1),
+    primaryActionType: PrimaryActionTypeSchema,
     includeCheckUnderstanding: z.boolean()
   }),
   z.object({
     status: z.literal('consolidation'),
     item: CurriculumFocusItemSchema,
-    consolidation: z.object({
-      stage: z.enum(['Diagnosing', 'Planning', 'Executing']),
-      allWeakPoints: z.array(z.string()).optional(),
-      userDiagnosisResponse: z.string().optional(),
-      currentPlanStep: z.number().int().nonnegative().optional(),
-      currentChunkIndex: z.number().int().nonnegative().optional(),
-      pointsToRemediate: z.array(z.string()).optional()
-    })
+    consolidation: ConsolidationSnapshotSchema
   })
 ]);
 
@@ -158,6 +185,16 @@ const validateLlmStreamCapabilityPayload = (capability, payload) => {
     return StandardMainSenseiResponsePayloadSchema.safeParse(payload);
   }
   return { success: false, error: { errors: [{ message: 'Unsupported capability' }] } };
+};
+
+const boundLlmStreamPayload = (payload) => {
+  if (!Array.isArray(payload.conversationHistory)) {
+    return payload;
+  }
+  return {
+    ...payload,
+    conversationHistory: sanitizeConversationHistory(payload.conversationHistory)
+  };
 };
 
 const MAX_INPUT_CHARS = 4000;
@@ -267,7 +304,8 @@ class SessionController {
       });
       return sendError(res, 400, 'BAD_REQUEST', 'Invalid LLM stream capability payload');
     }
-    const learnerInputText = getLlmStreamLearnerInputText(parseResult.data.capability, capabilityPayloadResult.data);
+    const boundedCapabilityPayload = boundLlmStreamPayload(capabilityPayloadResult.data);
+    const learnerInputText = getLlmStreamLearnerInputText(parseResult.data.capability, boundedCapabilityPayload);
     if (learnerInputText.length > MAX_INPUT_CHARS) {
       return sendError(res, 413, 'BAD_REQUEST', 'Your message is too long—shorten it and resend.');
     }
@@ -281,7 +319,7 @@ class SessionController {
       sessionId,
       capability: parseResult.data.capability,
       messageId: parseResult.data.messageId,
-      payload: capabilityPayloadResult.data,
+      payload: boundedCapabilityPayload,
       metadata: {
         ...(parseResult.data.metadata || {}),
         source: parseResult.data.metadata?.source || 'mobile',

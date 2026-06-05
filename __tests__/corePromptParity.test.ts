@@ -26,6 +26,18 @@ import {
   buildMainSenseiDynamicSystemInstruction,
   buildMainSenseiResponsePrompt
 } from '@sensei/core/mainSenseiResponse';
+import {
+  SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS as CORE_BASE_SENSEI_PROMPT
+} from '@sensei/core/prompts/baseSensei';
+import {
+  MAX_CONVERSATION_HISTORY_ENTRIES,
+  MAX_CONVERSATION_HISTORY_ENTRY_CHARS,
+  MAX_CONVERSATION_HISTORY_TOTAL_CHARS,
+  sanitizeConversationHistory
+} from '@sensei/core/promptEnvelope';
+import {
+  SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS as WEBVIEW_BASE_SENSEI_PROMPT
+} from '../prompts';
 
 function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -101,6 +113,14 @@ describe('Core prompt parity fixtures', () => {
     expect(sha256(prompt)).toBe('233a04a6d6d81f3f1897abae509e9f0c70c55b62084ab40f3171292b46700d0e');
   });
 
+  test('Core owns the verbatim Recursive Sensei base prompt', () => {
+    expect(CORE_BASE_SENSEI_PROMPT).toBe(WEBVIEW_BASE_SENSEI_PROMPT);
+    expect(CORE_BASE_SENSEI_PROMPT.length).toBe(15097);
+    expect(sha256(CORE_BASE_SENSEI_PROMPT)).toBe('799b4a4ba61f4a0c22824ef668cc54b0566edb39c65531c75dbfed788b832aca');
+    expect(CORE_BASE_SENSEI_PROMPT).toContain('STRICT MERMAID TECHNICAL REQUIREMENTS');
+    expect(CORE_BASE_SENSEI_PROMPT).toContain('MANDATORY TEACHING EXECUTION FRAMEWORK');
+  });
+
   test('module introduction prompt builders assemble Core-owned curriculum focus output', () => {
     const request = {
       selectedModuleTitle: 'Module Alpha',
@@ -160,6 +180,28 @@ describe('Core prompt parity fixtures', () => {
     expect(prompt).toContain('User: I am confused about base cases.');
     expect(prompt).toContain('Sensei: A base case stops the recursive chain.');
     expect(prompt).toContain('User: Can you explain that example again?');
+  });
+
+  test('migrated prompt envelope bounds conversation history before prompt construction', () => {
+    const oversizedHistory = Array.from({ length: 12 }, (_, index) => ({
+      role: index % 2 === 0 ? 'user' as const : 'sensei' as const,
+      content: ` entry-${index} ${'x'.repeat(MAX_CONVERSATION_HISTORY_ENTRY_CHARS + 500)} `
+    }));
+    const bounded = sanitizeConversationHistory(oversizedHistory);
+
+    expect(bounded.length).toBeLessThanOrEqual(MAX_CONVERSATION_HISTORY_ENTRIES);
+    expect(bounded.every((entry) => entry.content.length <= MAX_CONVERSATION_HISTORY_ENTRY_CHARS)).toBe(true);
+    expect(bounded.reduce((total, entry) => total + entry.content.length, 0)).toBeLessThanOrEqual(MAX_CONVERSATION_HISTORY_TOTAL_CHARS);
+
+    const prompt = buildMainSenseiResponsePrompt({
+      curriculumFocus: activeCurriculumFocus,
+      currentUserInput: 'Continue.',
+      includeBaseSystemInstruction: true,
+      conversationHistory: oversizedHistory
+    });
+    expect(prompt).toContain('[Recent Conversation History]');
+    expect(prompt).not.toContain('entry-0');
+    expect(prompt).not.toContain('x'.repeat(MAX_CONVERSATION_HISTORY_ENTRY_CHARS + 1));
   });
 
   test('module introduction migrated prompt envelope preserves base persona when requested', () => {

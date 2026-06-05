@@ -20,7 +20,8 @@
     "./prompts/learnerAnalysis": "./dist/prompts/learnerAnalysis.js",
     "./prompts/mermaidRepair": "./dist/prompts/mermaidRepair.js",
     "./prompts/moduleIntroduction": "./dist/prompts/moduleIntroduction.js",
-    "./prompts/mainSenseiResponse": "./dist/prompts/mainSenseiResponse.js"
+    "./prompts/mainSenseiResponse": "./dist/prompts/mainSenseiResponse.js",
+    "./prompts/baseSensei": "./dist/prompts/baseSensei.js"
   },
   "files": [
     "dist"

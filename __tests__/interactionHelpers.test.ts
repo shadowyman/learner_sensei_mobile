@@ -121,6 +121,7 @@ describe('interactionHelpers streamMainSenseiResponse', () => {
       messageId: 'msg-socratic-native',
       capability: 'mainSenseiResponse'
     })
+    expect(nativePostedMessages[0].payload).not.toHaveProperty('curriculumFocusInstruction')
 
     const handler = createWebviewMessageHandler({
       logger: { info: jest.fn(), error: jest.fn() },
@@ -194,6 +195,17 @@ describe('interactionHelpers streamMainSenseiResponse', () => {
         }
       }
     )
+    expect(nativePostedMessages[0]).toMatchObject({
+      type: 'llmStream:request',
+      messageId: 'msg-async-native',
+      capability: 'mainSenseiResponse',
+      payload: {
+        mode: 'standard',
+        curriculumFocus: { status: 'general' },
+        currentUserInput: 'I need help'
+      }
+    })
+    expect(nativePostedMessages[0].payload).not.toHaveProperty('curriculumFocusInstruction')
     let resolved = false
     promise.then(() => {
       resolved = true
@@ -299,6 +311,7 @@ describe('interactionHelpers streamModuleIntroduction', () => {
       messageId: 'msg-native-1',
       capability: 'moduleIntroduction'
     })
+    expect(nativePostedMessages[0].payload).not.toHaveProperty('curriculumFocusInstruction')
 
     const handler = createWebviewMessageHandler({
       logger: { info: jest.fn(), error: jest.fn() },
