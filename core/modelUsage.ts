@@ -48,3 +48,8 @@ export const MAIN_TEXT_CONFIG = {
     temperature: 0.7
   }
 };
+
+export const MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS = {
+  executionDirectiveEnabled: true,
+  pedagogicalGuidanceEnabled: true
+};

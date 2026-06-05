@@ -23,22 +23,50 @@ export interface SubmitTurnPayload {
 export interface StreamChunk {
     type: 'chunk';
     text: string;
+    requestId?: string;
+    messageId?: string;
+    capability?: LlmStreamCapability;
 }
 
 export interface StreamStatus {
     type: 'status';
     phase: 'started' | 'keepalive' | 'completed';
     footer?: FooterPayload;
+    requestId?: string;
+    messageId?: string;
+    capability?: LlmStreamCapability;
 }
 
 export interface StreamError {
     type: 'error';
     code: string;
     message: string;
+    requestId?: string;
+    messageId?: string;
+    capability?: LlmStreamCapability;
 }
 
 export interface TurnStreamHandle {
     messageId: string;
+    stream: AsyncIterable<StreamChunk | StreamStatus | StreamError>;
+}
+
+export type LlmStreamCapability = 'moduleIntroduction' | 'mainSenseiResponse';
+
+export interface SubmitLlmStreamPayload {
+    capability: LlmStreamCapability;
+    messageId: string;
+    payload: Record<string, unknown>;
+    options?: {
+        allowFallback?: boolean;
+        requireRealProvider?: boolean;
+    };
+}
+
+export interface LlmStreamHandle {
+    requestId: string;
+    messageId: string;
+    capability: LlmStreamCapability;
     stream: AsyncIterable<StreamChunk | StreamStatus | StreamError>;
 }
 
@@ -68,6 +96,7 @@ export interface TeachingPlanRequestPayload {
 export interface BffClientLike {
     ensureSession(): Promise<void>;
     submitTurn(payload: SubmitTurnPayload): Promise<TurnStreamHandle>;
+    submitLlmStream(payload: SubmitLlmStreamPayload): Promise<LlmStreamHandle>;
     reconnectIfNeeded(): Promise<void>;
     recoverMermaid(payload: MermaidRecoveryPayload): Promise<MermaidRecoveryResult>;
     generateWrapUp(moduleId: string, promptContext: WrapUpAssessmentPromptContext): Promise<WrapUpAssessmentOverlayData | null>;

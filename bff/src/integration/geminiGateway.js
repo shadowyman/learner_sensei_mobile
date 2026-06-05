@@ -212,12 +212,17 @@ class GeminiGateway {
     }
   }
 
-  async *streamMainResponse(prompt, { context }) {
+  async *streamMainResponse(prompt, { context, allowFallback = true, signal }) {
     const turnId = context.turn?.id;
     const cfg = MAIN_RESPONSE_CONFIG;
     const baseTimeoutMs = typeof cfg.timeoutMs === 'number' ? cfg.timeoutMs : this.timeoutMs;
     const safetySettings = Array.isArray(cfg.safetySettings) ? cfg.safetySettings : DEFAULT_SAFETY_SETTINGS;
     const client = await this.clientPromise;
+
+    if (signal?.aborted) {
+      this.logger.info(TAG, 'stream aborted before start', { turnId });
+      return;
+    }
 
     this.logger.info(TAG, 'stream start', {
       turnId,
@@ -227,7 +232,6 @@ class GeminiGateway {
     });
 
     const startTime = Date.now();
-    let lastChunkTime = startTime;
 
     try {
       const stream = await client.models.generateContentStream({
@@ -236,32 +240,44 @@ class GeminiGateway {
         config: {
           temperature: cfg.config.temperature ?? this.temperature,
           safetySettings,
-          httpOptions: { timeout: baseTimeoutMs }
+          httpOptions: { timeout: baseTimeoutMs },
+          abortSignal: signal
         }
       });
 
       for await (const chunk of stream) {
+        if (signal?.aborted) {
+          this.logger.info(TAG, 'stream aborted', { turnId, elapsedMs: Date.now() - startTime });
+          return;
+        }
         const text = typeof chunk?.text === 'function' ? chunk.text() : (chunk?.text ?? '');
         if (!text) {
           continue;
         }
-        const now = Date.now();
-        this.logger.info(TAG, 'chunk', { turnId, bytes: text.length, sincePrevMs: now - lastChunkTime });
-        lastChunkTime = now;
         yield { text };
       }
 
       const elapsed = Date.now() - startTime;
       this.logger.info(TAG, 'stream end', { turnId, elapsedMs: elapsed });
     } catch (error) {
+      if (signal?.aborted || error?.name === 'AbortError') {
+        this.logger.info(TAG, 'stream aborted', { turnId, elapsedMs: Date.now() - startTime });
+        return;
+      }
       this.logger.error(TAG, 'stream error', {
         turnId,
         message: error?.message,
         code: error?.code
       });
-      // Fallback to deterministic stub
-      const base = context.turn?.input?.text ?? '';
-      const response = `Sensei (fallback) response to: ${base}`;
+      if (!allowFallback) {
+        throw error;
+      }
+      this.logger.warn('LLM_STREAM_MIGRATION', 'provider-fallback-used', {
+        requestId: turnId,
+        capability: context.capability,
+        messageId: context.messageId
+      });
+      const response = "Sensei services are currently degraded. We're working on this issue, and if this issue persists, please report it to us using the Feedback button in the header menu.";
       for (const part of split(response)) {
         yield { text: part };
       }

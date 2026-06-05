@@ -23,6 +23,7 @@ const startServer = (overrides = {}) => {
   app.use(sessionsRouterFactory({
     sessionService: container.sessionService,
     turnService: container.turnService,
+    streamingService: container.streamingService,
     rateLimiter: container.rateLimiter,
     logger: container.logger,
     config: container.config

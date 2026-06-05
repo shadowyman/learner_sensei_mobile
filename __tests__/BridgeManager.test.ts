@@ -10,6 +10,12 @@ describe('BridgeManager', () => {
                 return { type, messageId: 'msg-1', text: 'chunk', ...extra } as RNToWebMessage;
             case 'chat:completeMessage':
                 return { type, messageId: 'msg-1', ...extra } as RNToWebMessage;
+            case 'llmStream:chunk':
+                return { type, requestId: 'req-1', messageId: 'msg-1', capability: 'mainSenseiResponse', text: 'chunk', ...extra } as RNToWebMessage;
+            case 'llmStream:status':
+                return { type, requestId: 'req-1', messageId: 'msg-1', capability: 'mainSenseiResponse', phase: 'started', ...extra } as RNToWebMessage;
+            case 'llmStream:error':
+                return { type, requestId: 'req-1', messageId: 'msg-1', capability: 'mainSenseiResponse', code: 'BAD_REQUEST', message: 'Rejected', ...extra } as RNToWebMessage;
             default:
                 return { type, ...(extra as object) } as RNToWebMessage;
         }
@@ -58,6 +64,48 @@ describe('BridgeManager', () => {
         expect(dispatchOrder[2]).toMatchObject({ text: 'chunk-3' });
     });
 
+    it('throttles llmStream:chunk messages to the configured rate', () => {
+        let now = 0;
+        const dispatchOrder: RNToWebMessage[] = [];
+        const scheduledCallbacks: Array<{ cb: () => void; delay: number }> = [];
+
+        const manager = new BridgeManager({
+            sender: message => {
+                dispatchOrder.push(message);
+            },
+            maxChatUpdatesPerSecond: 10,
+            now: () => now,
+            schedule: (cb, delay) => {
+                scheduledCallbacks.push({ cb, delay });
+                return 0 as any;
+            },
+            clearTimeoutFn: () => undefined
+        });
+
+        manager.enqueue(makeMessage('llmStream:chunk', { text: 'native-1' }));
+        manager.enqueue(makeMessage('llmStream:chunk', { text: 'native-2' }));
+        manager.enqueue(makeMessage('llmStream:chunk', { text: 'native-3' }));
+
+        expect(dispatchOrder).toHaveLength(1);
+        expect(dispatchOrder[0]).toMatchObject({ type: 'llmStream:chunk', text: 'native-1' });
+
+        expect(scheduledCallbacks).toHaveLength(1);
+        const firstCallback = scheduledCallbacks[0];
+        now += firstCallback.delay;
+        firstCallback.cb();
+
+        expect(dispatchOrder).toHaveLength(2);
+        expect(dispatchOrder[1]).toMatchObject({ type: 'llmStream:chunk', text: 'native-2' });
+
+        expect(scheduledCallbacks).toHaveLength(2);
+        const secondCallback = scheduledCallbacks[1];
+        now += secondCallback.delay;
+        secondCallback.cb();
+
+        expect(dispatchOrder).toHaveLength(3);
+        expect(dispatchOrder[2]).toMatchObject({ type: 'llmStream:chunk', text: 'native-3' });
+    });
+
     it('flushes non chat:update messages immediately', () => {
         const dispatchOrder: RNToWebMessage[] = [];
         const manager = new BridgeManager({
@@ -66,7 +114,9 @@ describe('BridgeManager', () => {
 
         manager.enqueue(makeMessage('chat:startMessage'));
         manager.enqueue(makeMessage('chat:completeMessage'));
+        manager.enqueue(makeMessage('llmStream:status'));
+        manager.enqueue(makeMessage('llmStream:error'));
 
-        expect(dispatchOrder.map(message => message.type)).toEqual(['chat:startMessage', 'chat:completeMessage']);
+        expect(dispatchOrder.map(message => message.type)).toEqual(['chat:startMessage', 'chat:completeMessage', 'llmStream:status', 'llmStream:error']);
     });
 });

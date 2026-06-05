@@ -6,7 +6,7 @@ Phase‑1 routing invariant: these traces list desktop/web LLM entry points. For
 
 ## Phase 1 Scoped Migration Status
 
-As of 2026-06-03, the started LLM migrations below are complete against `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md`.
+As of 2026-06-05, the table includes completed Phase 1 scoped migrations, including the module-introduction and main-response stream migration recorded in `docs/functional_spec/mobile_llm_proxy_phase1_master_plan.md`.
 
 | Capability | Canonical prompt file | Core capability | Mobile bridge message | BFF route/service | Desktop/web compatibility |
 | --- | --- | --- | --- | --- | --- |
@@ -14,9 +14,11 @@ As of 2026-06-03, the started LLM migrations below are complete against `docs/fu
 | Teaching plan generation | `core/prompts/teachingPlan.ts` | `core/teachingPlan.ts:extractAndPlanTeachingOrder` | `teachingPlan:request` / `teachingPlan:result` | `POST /sessions/:sessionId/teaching-plan` -> `bff/src/services/teachingPlanService.js` -> Core | `src/geminiService.ts:llmExtractAndPlanTeachingOrder` delegates to Core |
 | Learner analysis | `core/prompts/learnerAnalysis.ts` | `core/learnerAnalysis.ts:getComprehensiveAnalysis` | `analysis:request` / `analysis:result` | `POST /sessions/:sessionId/analysis` -> `bff/src/services/analysisService.js` -> Core | `src/geminiService.ts:getAnalysisFromGemini` delegates to Core |
 | Mermaid error repair | `core/prompts/mermaidRepair.ts` | `core/mermaidErrorRecovery.ts:attemptMermaidFix` and `runMermaidRecovery` | `mermaid:recover` / `mermaid:recoverResult` | `POST /mermaid/recover` -> `bff/src/services/mermaidService.js` -> Core | `src/mermaidErrorRecovery.ts` re-exports Core |
+| Module introduction stream | `core/prompts/moduleIntroduction.ts` | `core/moduleIntroduction.ts:buildModuleIntroductionPrompt` | `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"moduleIntroduction"` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...` -> `bff/src/services/streamingService.js` -> Core | `src/interactionHelpers.ts:streamModuleIntroduction` keeps the desktop direct stream branch; mobile uses structured Core request payloads and BFF WebSocket chunks |
+| Main Sensei response stream | `core/prompts/mainSenseiResponse.ts` | `core/mainSenseiResponse.ts:buildMainSenseiResponsePrompt` | `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"mainSenseiResponse"` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...` -> `bff/src/services/streamingService.js` -> Core | `src/interactionHelpers.ts:streamMainSenseiResponse` keeps the desktop direct stream branch; mobile routes standard and Socratic structured payloads through BFF/Core |
 | Legacy wrap-up wrapper | `core/prompts/wrapUpAssessment.ts` | `core/wrapUpAssessment.ts:generateWrapUpAssessment` | Same wrap-up route when mobile needs server execution | Same wrap-up route | Compatibility wrapper only; do not reintroduce prompt, tool schema, parser, or normalizer bodies into `src/geminiService.ts` |
 
-Prompt parity is covered by `__tests__/corePromptParity.test.ts`. Representative Core/parser/routing coverage is covered by the capability Core tests and mobile routing sentinel tests, including `__tests__/mermaidErrorRecovery.core.functional.test.ts` and `__tests__/mermaidRecovery.mobileRoutingGate.sentinel.test.ts`.
+Prompt parity is covered by `__tests__/corePromptParity.test.ts`. Representative Core/parser/routing coverage is covered by the capability Core tests and mobile routing sentinel tests, including `__tests__/mermaidErrorRecovery.core.functional.test.ts`, `__tests__/mermaidRecovery.mobileRoutingGate.sentinel.test.ts`, `__tests__/interactionHelpers.test.ts`, `__tests__/BffClient.test.ts`, `__tests__/moduleSelectionHandler.test.ts`, and `bff/tests/llmStream.deterministic.int.test.js`.
 
 ## src/index.tsx
 
@@ -39,10 +41,10 @@ Prompt parity is covered by `__tests__/corePromptParity.test.ts`. Representative
 
 ## src/interactionHelpers.ts
 
-1. *`streamModuleIntroduction` → `KeyTakeawayEnhancerController.onChunk` (optional) → `KeyTakeawayEnhancerController.finalize/getLatestText` (optional) → `streamModuleIntroduction`
-   - Streams the intro chat; enhancer hooks may splice in Key Takeaways before the final text returns.
-2. *`streamMainSenseiResponse` → `KeyTakeawayEnhancerController.onChunk` (optional) → `KeyTakeawayEnhancerController.finalize/getLatestText` (optional) → `streamMainSenseiResponse`
-   - Main turn streaming follows the same structure, ending when the accumulated response is ready for consumers.
+1. `streamModuleIntroduction` (routing gate) → mobile native bridge `llmStream:request` when `window.__SENSEI_MOBILE_BUILD__` has a structured Core request → React Native `BffClient.submitLlmStream` → BFF `POST /sessions/:sessionId/llm-stream` → BFF WebSocket stream → Core `buildModuleIntroductionPrompt` → Gemini stream → WebView `llmStream:chunk` handling → `KeyTakeawayEnhancerController.onChunk` (optional) → `KeyTakeawayEnhancerController.finalize/getLatestText` (optional) → `streamModuleIntroduction`
+   - Mobile sends structured module, phase, curriculum-focus, guidance, and history payloads; Core owns prompt assembly. Desktop/web compatibility may still use the direct `Chat.sendMessageStream` branch.
+2. `streamMainSenseiResponse` (routing gate) → mobile native bridge `llmStream:request` when `window.__SENSEI_MOBILE_BUILD__` has a structured Core request → React Native `BffClient.submitLlmStream` → BFF `POST /sessions/:sessionId/llm-stream` → BFF WebSocket stream → Core `buildMainSenseiResponsePrompt` → Gemini stream → WebView `llmStream:chunk` handling → `KeyTakeawayEnhancerController.onChunk` (optional) → `KeyTakeawayEnhancerController.finalize/getLatestText` (optional) → `streamMainSenseiResponse`
+   - Mobile standard turns send structured `curriculumFocus`, bounded chronological `conversationHistory`, and `currentUserInput`; mobile Socratic turns send structured Socratic execution state under the same `mainSenseiResponse` capability. Desktop/web compatibility may still use the direct `Chat.sendMessageStream` branch.
 
 ## src/selectionSensei.ts
 

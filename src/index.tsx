@@ -80,7 +80,7 @@ import {
     jumpToPhase,
     getCurrentCurriculumItem,
     advanceCurriculumState,
-    getCurriculumFocusInstruction,
+    buildCurriculumFocusSnapshot,
     buildPrimaryActionBlockForKeyTakeaway,
     calculateFocusPoints,
     isCurriculumLoaded,
@@ -94,6 +94,8 @@ import { PedagogicalProfiler } from "./pedagogicalProfiler";
 import {
     Message,
     ReloadContext,
+    isMainResponseReloadContext,
+    hasReloadKeyTakeawayEnhancer,
     getPhaseDisplayName,
     initializeUI,
     updateCurriculumDisplay,
@@ -104,6 +106,7 @@ import {
     applyFooterPayload,
     setupFullscreenToggle,
     setupTextareaAutosize,
+    messageArea,
     streamingMessagesRawText,
     updateSenseiMeditationOverlay,
     renderEnhancedMarkdown,
@@ -112,6 +115,7 @@ import {
     updateMessageStream,
     showMeditationOverlayFromNative
 } from './ui';
+import { buildRecentConversationHistory as buildRecentConversationHistorySnapshot } from './conversationHistory';
 import { SaveLoadProgressManager } from './saveloadProgressManager';
 import { initializeWebviewBridge, sendToNative } from './mobile/webviewBridge';
 import { createWebviewMessageHandler, requestLearnerAnalysisViaBridge, requestTeachingPlanViaBridge } from './mobile/webviewMessageRouter';
@@ -125,6 +129,10 @@ import {
 import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
 import type { LearnerAnalysisPhase, LearnerAnalysisRequest } from '@sensei/core/learnerAnalysis';
+import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
+import type { ConversationHistoryEntry } from '@sensei/core/promptEnvelope';
+import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
+import { buildCurriculumFocusInstruction } from '@sensei/core/prompts/mainSenseiResponse';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import { requestLearnerAnalysis } from './learnerAnalysisRouting';
 import { requestTeachingPlan } from './teachingPlanRouting';
@@ -136,8 +144,6 @@ import {
     SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS,
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
     MODULE_INTRODUCTION_TASK_TEMPLATE,
-    CURRICULUM_COMPLETED_FOCUS_INSTRUCTION,
-    GENERAL_INTERACTION_FOCUS_INSTRUCTION,
     KEY_TAKEAWAY_PROMPT_PREFIX
 } from './prompts';
 import {
@@ -625,6 +631,16 @@ function updateResponseHistory(
     chronologicallyLastLLMSenseiMessageId = messageId;
 }
 
+function buildRecentConversationHistory(currentUserInput: string): ConversationHistoryEntry[] {
+    return buildRecentConversationHistorySnapshot({
+        currentUserInput,
+        userInputHistory,
+        lastSenseiResponses,
+        messageArea,
+        streamingMessagesRawText
+    });
+}
+
 
 async function generateNextSenseiResponse(inputText: string, skipPedagogicalIntervention: boolean = false) {
     // Update module selection handler state before processing
@@ -825,13 +841,20 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         });
     }
     
-    const curriculumFocusInstruction = (curriculum && curriculumState && newCurrentItem)
-        ? getCurriculumFocusInstruction(curriculum, newCurrentItem, curriculumState, isMustObey, focusPointsData || undefined)
-        : curriculumState?.isCompleted
-            ? CURRICULUM_COMPLETED_FOCUS_INSTRUCTION
-            : GENERAL_INTERACTION_FOCUS_INSTRUCTION;
+    const curriculumFocus = buildCurriculumFocusSnapshot(
+        newCurrentItem,
+        curriculumState,
+        isMustObey,
+        focusPointsData || undefined
+    );
+    const curriculumFocusInstruction = buildCurriculumFocusInstruction(curriculumFocus);
+
+    const effectiveUserInput = isNavigationTurn
+        ? "The user didn't provide any input to your last message."
+        : inputText;
 
     let dynamicContext: string;
+    let mainSenseiLlmStreamRequest: MainSenseiResponsePromptRequest | undefined;
 
     // Log diagnostic info for Socratic phase detection
     logSocraticTurnValidation('phase-check', {
@@ -856,6 +879,17 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             false,
             navigationContext || undefined
         );
+        mainSenseiLlmStreamRequest = {
+            mode: 'socratic',
+            teachingPlan: curriculumState.teachingPlanForPhase,
+            pedagogicalGuidance,
+            isSystemInitialization: false,
+            currentUserInput: effectiveUserInput,
+            conversationHistory: buildRecentConversationHistory(effectiveUserInput)
+        };
+        if (navigationContext) {
+            mainSenseiLlmStreamRequest.navigationContext = navigationContext;
+        }
     } else {
         logSocraticTurnValidation('execution-mode', {
             mode: 'standard',
@@ -866,15 +900,20 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             guidanceText,
             navigationContext || undefined
         );
+        mainSenseiLlmStreamRequest = {
+            curriculumFocus,
+            pedagogicalGuidanceDirective: guidanceText,
+            currentUserInput: effectiveUserInput,
+            conversationHistory: buildRecentConversationHistory(effectiveUserInput)
+        };
+        if (navigationContext) {
+            mainSenseiLlmStreamRequest.navigationContext = navigationContext;
+        }
     }
 
     currentMessageId++;
     const senseiMessageId = `msg-${currentMessageId}`;
     let senseiResponseText = "Sensei is generating response...";
-    
-    const effectiveUserInput = isNavigationTurn
-        ? "The user didn't provide any input to your last message."
-        : inputText;
 
     let keyTakeawayEnhancerController: KeyTakeawayEnhancerController | undefined;
     let keyTakeawayEnhancerPromptHash: string | null = null;
@@ -936,7 +975,8 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
     const reloadContext: ReloadContext = {
         type: 'mainResponse',
         dynamicSystemInstruction: dynamicContext,
-        userInput: effectiveUserInput
+        userInput: effectiveUserInput,
+        llmStreamRequest: mainSenseiLlmStreamRequest
     };
 
     if (keyTakeawayEnhancerPromptHash && keyTakeawayEnhancerPromptText) {
@@ -979,7 +1019,10 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             dynamicContext,
             effectiveUserInput,
             senseiMessageId,
-            { enhancerController: keyTakeawayEnhancerController }
+            {
+                enhancerController: keyTakeawayEnhancerController,
+                llmStreamRequest: mainSenseiLlmStreamRequest
+            }
         );
         
         // Check for Socratic completion
@@ -1160,8 +1203,7 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
     let reloadEnhancerController: KeyTakeawayEnhancerController | undefined;
     if (
         ENABLE_KEY_TAKEAWAY_ENHANCER &&
-        context.type === 'mainResponse' &&
-        context.keyTakeawayEnhancer &&
+        hasReloadKeyTakeawayEnhancer(context) &&
         ai
     ) {
         const promptHash = context.keyTakeawayEnhancer.promptHash;
@@ -1182,16 +1224,28 @@ async function handleReloadSenseiMessage(messageId: string, context: ReloadConte
         logger.info('[KEY_TAKE_AWAY_SENSEI] enhancer-armed', { messageId, promptHashChanged });
     }
     try {
-        if (context.type === 'mainResponse' && context.dynamicSystemInstruction && context.userInput) {
+        if (isMainResponseReloadContext(context)) {
             newSenseiText = await streamMainSenseiResponse(
                 mainSenseiChat!,
                 context.dynamicSystemInstruction,
                 context.userInput,
                 messageId,
-                { enhancerController: reloadEnhancerController }
+                {
+                    enhancerController: reloadEnhancerController,
+                    llmStreamRequest: context.llmStreamRequest as MainSenseiResponsePromptRequest | undefined
+                }
             );
         } else if (context.type === 'moduleIntro' && context.introSystemInstruction && context.moduleTitleForPrompt) {
-            newSenseiText = await streamModuleIntroduction(mainSenseiChat!, context.introSystemInstruction, context.moduleTitleForPrompt, messageId);
+            newSenseiText = await streamModuleIntroduction(
+                mainSenseiChat!,
+                context.introSystemInstruction,
+                context.moduleTitleForPrompt,
+                messageId,
+                {
+                    enhancerController: reloadEnhancerController,
+                    llmStreamRequest: context.llmStreamRequest as ModuleIntroductionPromptRequest | undefined
+                }
+            );
         } else {
             throw new Error("Invalid reload context type or missing data for reload.");
         }

@@ -8,7 +8,7 @@ import {
     TeachingPlanGenerationError,
     jumpToPhase,
     getCurrentCurriculumItem,
-    getCurriculumFocusInstruction,
+    buildCurriculumFocusSnapshot,
     calculateFocusPoints
 } from "./curriculum";
 import {
@@ -29,6 +29,9 @@ import {
 } from './geminiService';
 import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
+import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
+import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
+import { buildCurriculumFocusInstruction } from '@sensei/core/prompts/mainSenseiResponse';
 import { sendToNative } from './mobile/webviewBridge';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import { requestTeachingPlan } from './teachingPlanRouting';
@@ -48,6 +51,8 @@ import { ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_T
 import { Chat } from "@google/genai";
 import { notepad } from './notepad';
 import { WrapUpAssessmentOverlayData, presentWrapUpAssessmentOverlay } from './wrapUpAssessment';
+import { buildRecentConversationHistory as buildRecentConversationHistorySnapshot } from './conversationHistory';
+import type { ConversationHistoryEntry } from '@sensei/core/promptEnvelope';
 
 interface ModuleSelectionState {
     pendingModuleSelection: number | null;
@@ -504,7 +509,6 @@ Where would you like to begin your learning journey?`;
         if (this.state.curriculumState.currentPhase === 'Socratic') {
             this.state.curriculumState.socraticTurnCount = 0;
         }
-
         this.state.currentActiveConceptIndex = this.state.curriculumState.currentConceptIndex;
         logModuleSelectionValidation('active-concept-tracking-initialized', {
             activeConceptIndex: this.state.currentActiveConceptIndex
@@ -563,10 +567,12 @@ Where would you like to begin your learning journey?`;
             let introResponseText = "";
 
             if (this.state.curriculumState.currentPhase === 'Socratic') {
-                await this.sendSystemSocraticMessage();
+                const socraticInitializationConversationHistory = this.buildRecentConversationHistory('');
+                await this.sendSystemSocraticMessage(socraticInitializationConversationHistory);
             } else {
-                const curriculumFocusInstruction = getCurriculumFocusInstruction(this.state.curriculum, currentItem, this.state.curriculumState, false);
                 const focusPointsSnapshot = calculateFocusPoints(this.state.curriculumState);
+                const curriculumFocus = buildCurriculumFocusSnapshot(currentItem, this.state.curriculumState, false, focusPointsSnapshot);
+                const curriculumFocusInstruction = buildCurriculumFocusInstruction(curriculumFocus);
                 const coreInstruction = buildSenseiDynamicSystemInstruction(
                     curriculumFocusInstruction,
                     undefined
@@ -579,10 +585,22 @@ Where would you like to begin your learning journey?`;
 ${coreInstruction}
 `;
 
+                const moduleIntroConversationHistory = this.buildRecentConversationHistory('');
+                const moduleIntroLlmStreamRequest: ModuleIntroductionPromptRequest = {
+                    selectedModuleTitle: selectedModule.title,
+                    firstConceptTitle: conceptTitle,
+                    phaseDisplayName,
+                    userInputText: `Phase: ${phaseDisplayName}`,
+                    curriculumFocus,
+                    moduleTitleForPrompt: selectedModule.title,
+                    conversationHistory: moduleIntroConversationHistory
+                };
+
                 const reloadContext: ReloadContext = {
                     type: 'moduleIntro',
                     introSystemInstruction: introContext,
-                    moduleTitleForPrompt: selectedModule.title
+                    moduleTitleForPrompt: selectedModule.title,
+                    llmStreamRequest: moduleIntroLlmStreamRequest
                 };
 
                 let introEnhancerController: KeyTakeawayEnhancerController | undefined;
@@ -636,7 +654,10 @@ ${coreInstruction}
                         introContext,
                         selectedModule.title,
                         senseiIntroId,
-                        { enhancerController: introEnhancerController }
+                        {
+                            enhancerController: introEnhancerController,
+                            llmStreamRequest: moduleIntroLlmStreamRequest
+                        }
                     );
                     this.updateResponseHistory(introResponseText, senseiIntroId);
                 } catch (error) {
@@ -811,7 +832,7 @@ ${coreInstruction}
         logger.warn('[WRAP_UP_ASSESSMENT] overlay-missing', { moduleId, moduleTitle });
     }
 
-    private async sendSystemSocraticMessage(): Promise<void> {
+    private async sendSystemSocraticMessage(conversationHistory: ConversationHistoryEntry[] = []): Promise<void> {
         if (!this.state.curriculumState || !this.state.curriculumState.teachingPlanForPhase) {
             logger.error('[SOCRATIC_FIX] Cannot send system message: missing curriculum state or teaching plan');
             return;
@@ -824,6 +845,15 @@ ${coreInstruction}
             undefined,
             this.buildSocraticConceptReference()
         );
+        const llmStreamRequest: MainSenseiResponsePromptRequest = {
+            mode: 'socratic',
+            teachingPlan: this.state.curriculumState.teachingPlanForPhase,
+            pedagogicalGuidance: { directive: undefined },
+            isSystemInitialization: true,
+            conceptContext: this.buildSocraticConceptReference(),
+            currentUserInput: '',
+            conversationHistory
+        };
         
         this.state.currentMessageId++;
         const messageId = `msg-${this.state.currentMessageId}`;
@@ -842,12 +872,13 @@ ${coreInstruction}
         const reloadContext: ReloadContext = {
             type: 'mainResponse',
             dynamicSystemInstruction: systemInstruction,
-            userInput: ''
+            userInput: '',
+            llmStreamRequest
         };
         
         try {
             const { streamMainSenseiResponse } = await import('./interactionHelpers.js');
-            finalResponse = await streamMainSenseiResponse(this.state.mainSenseiChat!, systemInstruction, "", messageId);
+            finalResponse = await streamMainSenseiResponse(this.state.mainSenseiChat!, systemInstruction, "", messageId, { llmStreamRequest });
             this.updateResponseHistory(finalResponse, messageId);
         } catch (error) {
             logger.error('[SOCRATIC_FIX] Error in system message generation:', error);
@@ -882,6 +913,16 @@ ${coreInstruction}
         if (this.state.lastSenseiResponses.length > 3) {
             this.state.lastSenseiResponses.pop();
         }
+    }
+
+    private buildRecentConversationHistory(currentUserInput: string): ConversationHistoryEntry[] {
+        const messageArea = typeof document !== 'undefined' ? document.getElementById('message-area') ?? document.body : null;
+        return buildRecentConversationHistorySnapshot({
+            currentUserInput,
+            userInputHistory: this.state.userInputHistory,
+            lastSenseiResponses: this.state.lastSenseiResponses,
+            messageArea
+        });
     }
 
     private buildSocraticConceptReference(): string | undefined {

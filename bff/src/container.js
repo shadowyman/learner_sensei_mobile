@@ -31,7 +31,7 @@ const createContainer = () => {
   const wrapUpService = new WrapUpService({ logger, geminiGateway });
   const teachingPlanService = new TeachingPlanService({ logger, geminiGateway, config });
   const analysisService = new AnalysisService({ logger, geminiGateway });
-  const senseiCoreAdapter = new SenseiCoreAdapter({ logger });
+  const senseiCoreAdapter = new SenseiCoreAdapter({ logger, config });
   const streamingService = new StreamingService({
     turnService,
     logger,

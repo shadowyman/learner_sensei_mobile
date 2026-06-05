@@ -17,7 +17,7 @@ interface QueuedMessage {
     message: RNToWebMessage;
 }
 
-const CHAT_UPDATE_TYPE = 'chat:update';
+const THROTTLED_STREAMING_TYPES = new Set<RNToWebMessage['type']>(['chat:update', 'llmStream:chunk']);
 
 export class BridgeManager {
     private readonly sender: Sender;
@@ -68,7 +68,7 @@ export class BridgeManager {
         try {
             while (this.queue.length > 0) {
                 const peek = this.queue[0];
-                if (peek.message.type === CHAT_UPDATE_TYPE) {
+                if (THROTTLED_STREAMING_TYPES.has(peek.message.type)) {
                     const now = this.now();
                     const elapsed = now - this.lastChatUpdateDispatched;
                     if (elapsed < this.minChatUpdateInterval) {

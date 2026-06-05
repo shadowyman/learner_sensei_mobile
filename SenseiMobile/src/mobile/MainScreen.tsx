@@ -686,6 +686,55 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     }
                 })();
             }
+            if (parsed.type === 'llmStream:request') {
+                (async () => {
+                    try {
+                        const handle = await bffClient.submitLlmStream({
+                            capability: parsed.capability,
+                            messageId: parsed.messageId,
+                            payload: parsed.payload
+                        });
+                        for await (const streamEvent of handle.stream) {
+                            if (streamEvent.type === 'chunk') {
+                                bridge.enqueue({
+                                    type: 'llmStream:chunk',
+                                    requestId: parsed.requestId,
+                                    messageId: parsed.messageId,
+                                    capability: parsed.capability,
+                                    text: streamEvent.text
+                                } as RNToWebMessage);
+                            } else if (streamEvent.type === 'status') {
+                                bridge.enqueue({
+                                    type: 'llmStream:status',
+                                    requestId: parsed.requestId,
+                                    messageId: parsed.messageId,
+                                    capability: parsed.capability,
+                                    phase: streamEvent.phase
+                                } as RNToWebMessage);
+                            } else if (streamEvent.type === 'error') {
+                                bridge.enqueue({
+                                    type: 'llmStream:error',
+                                    requestId: parsed.requestId,
+                                    messageId: parsed.messageId,
+                                    capability: parsed.capability,
+                                    code: streamEvent.code,
+                                    message: streamEvent.message
+                                } as RNToWebMessage);
+                            }
+                        }
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] llm stream request via BFF failed', { error });
+                        bridge.enqueue({
+                            type: 'llmStream:error',
+                            requestId: parsed.requestId,
+                            messageId: parsed.messageId,
+                            capability: parsed.capability,
+                            code: 'DOWNSTREAM_UNAVAILABLE',
+                            message: error instanceof Error ? error.message : String(error)
+                        } as RNToWebMessage);
+                    }
+                })();
+            }
             if (parsed.type === 'header:status') {
                 if (Array.isArray(parsed.lines) && parsed.lines.length > 0) {
                     setHeaderStatus(parsed.lines.join('\n'));

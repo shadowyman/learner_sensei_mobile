@@ -1,8 +1,11 @@
 const TAG = 'CORE_ADAPTER';
+const { buildModuleIntroductionPrompt } = require('@sensei/core/moduleIntroduction');
+const { buildMainSenseiResponsePrompt } = require('@sensei/core/mainSenseiResponse');
 
 class SenseiCoreAdapter {
-  constructor({ logger }) {
+  constructor({ logger, config }) {
     this.logger = logger;
+    this.config = config;
   }
 
   async buildPrompt(context) {
@@ -10,6 +13,35 @@ class SenseiCoreAdapter {
     const prompt = `You are Recursive Sensei. Respond helpfully to: ${input}`;
     this.logger.info(TAG, 'prompt built', { turnId: context.turn.id, length: prompt.length });
     return prompt;
+  }
+
+  async buildCapabilityPrompt(request) {
+    const payload = {
+      ...request.payload,
+      includeBaseSystemInstruction: true,
+      promptOptions: this.config.mainSenseiPromptOptions
+    };
+    if (request.capability === 'moduleIntroduction') {
+      const prompt = buildModuleIntroductionPrompt(payload);
+      this.logger.info(TAG, 'capability prompt built', {
+        capability: request.capability,
+        requestId: request.requestId,
+        length: prompt.length
+      });
+      return prompt;
+    }
+    if (request.capability === 'mainSenseiResponse') {
+      const prompt = buildMainSenseiResponsePrompt(payload);
+      this.logger.info(TAG, 'capability prompt built', {
+        capability: request.capability,
+        requestId: request.requestId,
+        length: prompt.length
+      });
+      return prompt;
+    }
+    const error = new Error('Unsupported capability');
+    error.code = 'BAD_REQUEST';
+    throw error;
   }
 
   deriveFooter(context) {

@@ -13,6 +13,8 @@ import { openCodeEditorModal, isCodeEditorModalOpen, setCodeEditorContentAndOpen
 import { LearnerModel } from './adaptiveEngine';
 import { runMermaidRecovery } from '@sensei/core/mermaidErrorRecovery';
 import { createBrowserCoreLlmClient } from '@sensei/core';
+import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
+import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
 import { Curriculum, CurriculumState, CurriculumItem, Phase, getLoadedCurriculum } from "./curriculum";
 import { renderMermaidThumbnailWithTheme } from './mermaid-theme-integration.js';
 import { API_KEY } from './index';
@@ -77,12 +79,27 @@ export interface ReloadContext {
     type: ReloadableMessageType;
     dynamicSystemInstruction?: string; // For mainResponse
     userInput?: string;                // User input that triggered this Sensei response
+    llmStreamRequest?: MainSenseiResponsePromptRequest | ModuleIntroductionPromptRequest;
     introSystemInstruction?: string;   // For moduleIntro
     moduleTitleForPrompt?: string;     // For moduleIntro
     keyTakeawayEnhancer?: {
         promptHash: string;
         promptText: string;
     };
+}
+
+export function isMainResponseReloadContext(context: ReloadContext): context is ReloadContext & { type: 'mainResponse'; dynamicSystemInstruction: string; userInput: string } {
+    return context.type === 'mainResponse'
+        && typeof context.dynamicSystemInstruction === 'string'
+        && context.dynamicSystemInstruction.length > 0
+        && typeof context.userInput === 'string';
+}
+
+export function hasReloadKeyTakeawayEnhancer(context: ReloadContext): context is ReloadContext & { keyTakeawayEnhancer: { promptHash: string; promptText: string } } {
+    return typeof context.keyTakeawayEnhancer?.promptHash === 'string'
+        && context.keyTakeawayEnhancer.promptHash.length > 0
+        && typeof context.keyTakeawayEnhancer.promptText === 'string'
+        && context.keyTakeawayEnhancer.promptText.length > 0;
 }
 // --- END: Reload Functionality Types ---
 
