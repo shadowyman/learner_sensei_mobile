@@ -234,6 +234,7 @@ describe('ModuleSelectionHandler', () => {
     } as any)
 
     const handler = new ModuleSelectionHandler(state)
+    appendTranscript()
     await handler.handleConceptSelection('Module1', 0)
 
     const streamCall = (interactionHelpers.streamModuleIntroduction as jest.Mock).mock.calls[0]
@@ -244,7 +245,12 @@ describe('ModuleSelectionHandler', () => {
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'Phase: IntroIllustrate',
         curriculumFocus: { status: 'general' },
-        moduleTitleForPrompt: 'Adaptive Module'
+        moduleTitleForPrompt: 'Adaptive Module',
+        conversationHistory: [
+          { role: 'sensei', content: 'Intro text for recursion.' },
+          { role: 'user', content: 'Why do we need a base case?' },
+          { role: 'sensei', content: 'A base case stops recursive calls from continuing forever.' }
+        ]
       })
     }))
     expect(streamCall[4].llmStreamRequest).not.toHaveProperty('curriculumFocusInstruction')
@@ -256,7 +262,12 @@ describe('ModuleSelectionHandler', () => {
         llmStreamRequest: expect.objectContaining({
           selectedModuleTitle: 'Adaptive Module',
           firstConceptTitle: 'Concept 1',
-          curriculumFocus: { status: 'general' }
+          curriculumFocus: { status: 'general' },
+          conversationHistory: [
+            { role: 'sensei', content: 'Intro text for recursion.' },
+            { role: 'user', content: 'Why do we need a base case?' },
+            { role: 'sensei', content: 'A base case stops recursive calls from continuing forever.' }
+          ]
         })
       })
     }))

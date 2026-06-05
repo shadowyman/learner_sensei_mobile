@@ -588,13 +588,15 @@ Where would you like to begin your learning journey?`;
 ${coreInstruction}
 `;
 
+                const moduleIntroConversationHistory = this.buildRecentConversationHistory('');
                 const moduleIntroLlmStreamRequest: ModuleIntroductionPromptRequest = {
                     selectedModuleTitle: selectedModule.title,
                     firstConceptTitle: conceptTitle,
                     phaseDisplayName,
                     userInputText: `Phase: ${phaseDisplayName}`,
                     curriculumFocus,
-                    moduleTitleForPrompt: selectedModule.title
+                    moduleTitleForPrompt: selectedModule.title,
+                    conversationHistory: moduleIntroConversationHistory
                 };
 
                 const reloadContext: ReloadContext = {

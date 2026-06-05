@@ -100,6 +100,50 @@ const readStreamUntilTerminal = (streamUrl) => new Promise((resolve, reject) => 
   });
 });
 
+const readStreamAndCloseAfterFirstChunk = (streamUrl) => new Promise((resolve, reject) => {
+  const ws = new WebSocket(streamUrl);
+  const events = [];
+  let sawChunk = false;
+  const timeout = setTimeout(() => {
+    try {
+      ws.close();
+    } catch (_) {}
+    reject(new Error('Timed out waiting to close deterministic LLM stream after first chunk'));
+  }, 10_000);
+
+  ws.on('message', (raw) => {
+    let event;
+    try {
+      event = JSON.parse(String(raw));
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+      return;
+    }
+    events.push(event);
+    if (!sawChunk && event.type === 'chunk') {
+      sawChunk = true;
+      try {
+        ws.close();
+      } catch (_) {}
+    }
+  });
+
+  ws.on('error', (error) => {
+    clearTimeout(timeout);
+    reject(error);
+  });
+
+  ws.on('close', () => {
+    clearTimeout(timeout);
+    if (!sawChunk) {
+      reject(new Error(`Expected at least one chunk before client close: ${JSON.stringify(events)}`));
+      return;
+    }
+    resolve(events);
+  });
+});
+
 const postJson = (base, path, body) => fetch(`${base}${path}`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'User-Agent': 'llm-stream-deterministic-int-test' },
@@ -191,20 +235,41 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
   const port = typeof address === 'object' && address ? address.port : 8787;
   const BASE = `http://127.0.0.1:${port}`;
   const prompts = [];
+  const providerYieldCounts = new Map();
+  const providerFinalized = new Set();
   const shutdown = async () => new Promise((resolve) => server.close(() => resolve()));
 
-  container.geminiGateway.streamMainResponse = async function* streamMainResponse(prompt, { context, allowFallback }) {
+  container.geminiGateway.streamMainResponse = async function* streamMainResponse(prompt, { context, allowFallback, signal }) {
     prompts.push({
       capability: context.capability,
       messageId: context.messageId,
       prompt,
       allowFallback
     });
+    providerYieldCounts.set(context.messageId, 0);
+    if (context.messageId === 'msg-disconnect-cancel') {
+      try {
+        for (const text of ['first', 'second', 'third']) {
+          if (signal?.aborted) {
+            return;
+          }
+          providerYieldCounts.set(context.messageId, (providerYieldCounts.get(context.messageId) || 0) + 1);
+          yield { text: `disconnect:${text}` };
+          await sleep(40);
+        }
+      } finally {
+        providerFinalized.add(context.messageId);
+      }
+      return;
+    }
     if (context.messageId === 'msg-timeout-aligned') {
       await sleep(50);
     }
+    providerYieldCounts.set(context.messageId, 1);
     yield { text: `deterministic:${context.capability}:${context.messageId}:` };
+    providerYieldCounts.set(context.messageId, 2);
     yield { text: prompt.slice(0, 80) };
+    providerFinalized.add(context.messageId);
   };
 
   try {
@@ -390,6 +455,90 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       }
     }, 'oversized main response payload', 413);
 
+    await assertRejected(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-oversized-concept-text',
+      payload: {
+        mode: 'standard',
+        curriculumFocus: {
+          ...activeCurriculumFocus(),
+          item: {
+            ...activeCurriculumFocus().item,
+            concept: {
+              title: 'Base Case',
+              text: 'x'.repeat(4001)
+            }
+          }
+        },
+        currentUserInput: 'Explain this concept.'
+      }
+    }, 'oversized concept text');
+
+    await assertRejected(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-oversized-focus-point',
+      payload: {
+        mode: 'standard',
+        curriculumFocus: {
+          ...activeCurriculumFocus(),
+          focusPoints: ['x'.repeat(1001)]
+        },
+        currentUserInput: 'Explain this focus point.'
+      }
+    }, 'oversized focus point');
+
+    await assertRejected(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-oversized-navigation',
+      payload: {
+        mode: 'standard',
+        curriculumFocus: activeCurriculumFocus(),
+        currentUserInput: 'Explain with navigation context.',
+        navigationContext: 'x'.repeat(2001)
+      }
+    }, 'oversized navigation context');
+
+    await assertRejected(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-oversized-socratic-teaching-text',
+      payload: {
+        mode: 'socratic',
+        teachingPlan: [[{
+          text: 'x'.repeat(4001),
+          interactionGuidance: {
+            expectedTurns: 2,
+            completionTriggers: ['learner explains base case'],
+            turnManagement: 'Ask one question at a time.'
+          }
+        }]],
+        currentUserInput: 'I am stuck.'
+      }
+    }, 'oversized Socratic teaching text');
+
+    await assertRejected(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-aggregate-structured-budget',
+      payload: {
+        mode: 'standard',
+        curriculumFocus: {
+          ...activeCurriculumFocus(),
+          item: {
+            ...activeCurriculumFocus().item,
+            moduleGoal: 'g'.repeat(2000),
+            concept: {
+              title: 'Base Case',
+              text: 'c'.repeat(4000)
+            }
+          },
+          focusPoints: Array.from({ length: 12 }, (_, index) => `focus-${index}-${'f'.repeat(990)}`)
+        },
+        pedagogicalGuidanceDirective: 'd'.repeat(4000),
+        cleanPedagogicalGuidance: 'e'.repeat(4000),
+        navigationContext: 'n'.repeat(2000),
+        currentUserInput: 'Explain this bounded but oversized structured payload.'
+      }
+    }, 'aggregate structured prompt budget', 413);
+
     await assertAcceptedStream(BASE, sessionId, {
       capability: 'moduleIntroduction',
       messageId: 'msg-intro-deterministic',
@@ -399,7 +548,11 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'Phase: IntroIllustrate',
         curriculumFocus: activeCurriculumFocus(),
-        moduleTitleForPrompt: 'Module Alpha'
+        moduleTitleForPrompt: 'Module Alpha',
+        conversationHistory: [
+          { role: 'sensei', content: 'Earlier we connected base cases to stopping conditions.' },
+          { role: 'user', content: 'I still confuse the recursive call with the base case.' }
+        ]
       }
     }, 'deterministic:moduleIntroduction:msg-intro-deterministic');
 
@@ -470,6 +623,30 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
     }
 
     container.rateLimiter.entries.clear();
+    const disconnectResponse = await postJson(BASE, `/sessions/${encodeURIComponent(sessionId)}/llm-stream`, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-disconnect-cancel',
+      payload: {
+        mode: 'standard',
+        curriculumFocus: activeCurriculumFocus(),
+        currentUserInput: 'Close this stream early.'
+      }
+    });
+    if (!disconnectResponse.ok) {
+      throw new Error(`Expected 200 for disconnect cancellation setup, got HTTP ${disconnectResponse.status}`);
+    }
+    const disconnectAccepted = await disconnectResponse.json();
+    await readStreamAndCloseAfterFirstChunk(disconnectAccepted.streamUrl);
+    await sleep(120);
+    const disconnectYieldCount = providerYieldCounts.get('msg-disconnect-cancel') || 0;
+    if (disconnectYieldCount >= 3) {
+      throw new Error(`Expected disconnect to stop provider consumption early, got ${disconnectYieldCount} yielded chunks`);
+    }
+    if (!providerFinalized.has('msg-disconnect-cancel')) {
+      throw new Error('Expected disconnect provider generator to be closed');
+    }
+
+    container.rateLimiter.entries.clear();
     await assertAcceptedStream(BASE, sessionId, {
       capability: 'mainSenseiResponse',
       messageId: 'msg-history-bounded',
@@ -536,6 +713,9 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
     }
     if (!introPrompt.includes('[RecursiveSensei Base System Instruction]')) {
       throw new Error(`Module introduction prompt did not include base persona envelope: ${introPrompt}`);
+    }
+    if (!introPrompt.includes('Earlier we connected base cases to stopping conditions.') || !introPrompt.includes('I still confuse the recursive call with the base case.')) {
+      throw new Error(`Module introduction prompt did not include bounded conversation history: ${introPrompt}`);
     }
     if (!standardPrompt.includes('User: How do base cases stop recursion?')) {
       throw new Error(`Standard main prompt did not include user input: ${standardPrompt}`);

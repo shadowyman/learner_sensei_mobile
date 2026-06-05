@@ -69,5 +69,16 @@ const makeGateway = () => {
     throw new Error('Expected strict provider mode to throw the provider error');
   }
 
+  const abortController = new AbortController();
+  abortController.abort();
+  const abortedText = await collectText(makeGateway().streamMainResponse(prompt, {
+    context,
+    allowFallback: true,
+    signal: abortController.signal
+  }));
+  if (abortedText !== '') {
+    throw new Error(`Expected aborted stream to produce no fallback text, got: ${abortedText}`);
+  }
+
   console.log('gemini gateway fallback behavior test passed');
 })();

@@ -27,6 +27,7 @@ describe('interactionHelpers streamMainSenseiResponse', () => {
     mockedUpdate.mockReset()
     nativePostedMessages = []
     delete (window as any).ReactNativeWebView
+    delete (window as any).__SENSEI_MOBILE_BUILD__
   })
 
   test('streams incremental updates into the UI helper', async () => {
@@ -162,6 +163,28 @@ describe('interactionHelpers streamMainSenseiResponse', () => {
     expect(mockedUpdate).toHaveBeenCalledWith('msg-socratic-native', 'Socratic native chunk')
   })
 
+  test('fails closed for mobile structured main responses when the native bridge is unavailable', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const chat = {
+      sendMessageStream: jest.fn()
+    }
+
+    await expect(streamMainSenseiResponse(
+      chat as any,
+      'legacy context',
+      'I need help',
+      'msg-mobile-no-bridge',
+      {
+        llmStreamRequest: {
+          mode: 'standard',
+          curriculumFocus: { status: 'general' },
+          currentUserInput: 'I need help'
+        }
+      }
+    )).rejects.toThrow('Native LLM stream bridge unavailable in mobile build.')
+    expect(chat.sendMessageStream).not.toHaveBeenCalled()
+  })
+
   test('waits for async native chunk rendering before completing the mobile stream', async () => {
     ;(window as any).ReactNativeWebView = nativeChannel
     const chat = {
@@ -264,6 +287,7 @@ describe('interactionHelpers streamModuleIntroduction', () => {
     mockedUpdate.mockReset()
     nativePostedMessages = []
     delete (window as any).ReactNativeWebView
+    delete (window as any).__SENSEI_MOBILE_BUILD__
   })
 
   test('invokes enhancer controller hooks when provided', async () => {
@@ -350,5 +374,30 @@ describe('interactionHelpers streamModuleIntroduction', () => {
     await expect(promise).resolves.toBe('Native intro chunk')
     expect(chat.sendMessageStream).not.toHaveBeenCalled()
     expect(mockedUpdate).toHaveBeenCalledWith('msg-native-1', 'Native intro chunk')
+  })
+
+  test('fails closed for mobile structured module introductions when the native bridge is unavailable', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const chat = {
+      sendMessageStream: jest.fn()
+    }
+
+    await expect(streamModuleIntroduction(
+      chat as any,
+      'legacy context',
+      'Module',
+      'msg-intro-no-bridge',
+      {
+        llmStreamRequest: {
+          selectedModuleTitle: 'Module',
+          firstConceptTitle: 'Concept',
+          phaseDisplayName: 'IntroIllustrate',
+          userInputText: 'Phase: IntroIllustrate',
+          curriculumFocus: { status: 'general' },
+          moduleTitleForPrompt: 'Module'
+        }
+      }
+    )).rejects.toThrow('Native LLM stream bridge unavailable in mobile build.')
+    expect(chat.sendMessageStream).not.toHaveBeenCalled()
   })
 })

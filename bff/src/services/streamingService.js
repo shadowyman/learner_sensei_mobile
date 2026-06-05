@@ -181,6 +181,26 @@ class StreamingService {
     }
 
     let open = true;
+    let clientClosed = false;
+    const abortController = new AbortController();
+    const markClientClosed = (event) => {
+      if (clientClosed) {
+        return;
+      }
+      clientClosed = true;
+      open = false;
+      abortController.abort();
+      this.logger.info('LLM_STREAM_MIGRATION', 'stream-client-disconnected', {
+        requestId,
+        capability: request.capability,
+        messageId: request.messageId,
+        event
+      });
+    };
+    const onClientClose = () => markClientClosed('close');
+    const onClientError = () => markClientClosed('error');
+    ws.once('close', onClientClose);
+    ws.once('error', onClientError);
     const context = {
       sessionId,
       requestId,
@@ -232,7 +252,8 @@ class StreamingService {
       const prompt = await this.senseiCoreAdapter.buildCapabilityPrompt(request);
       const stream = await this.geminiGateway.streamMainResponse(prompt, {
         context,
-        allowFallback: request.allowFallback
+        allowFallback: request.allowFallback,
+        signal: abortController.signal
       });
       this.logger.info('LLM_STREAM_MIGRATION', 'provider-stream', {
         requestId,
@@ -242,11 +263,24 @@ class StreamingService {
       });
       let chunkCount = 0;
       for await (const chunk of stream) {
+        if (clientClosed || abortController.signal.aborted || ws.readyState !== WebSocket.OPEN) {
+          clientClosed = true;
+          break;
+        }
         if (!chunk || typeof chunk.text !== 'string') {
           continue;
         }
         chunkCount++;
         this.#sendLlmChunk(ws, request, chunk.text);
+      }
+      if (clientClosed || abortController.signal.aborted || ws.readyState !== WebSocket.OPEN) {
+        this.logger.info('LLM_STREAM_MIGRATION', 'stream-abandoned', {
+          requestId,
+          capability: request.capability,
+          messageId: request.messageId,
+          chunks: chunkCount
+        });
+        return;
       }
       this.#sendLlmStatus(ws, request, 'completed');
       this.logger.info('LLM_STREAM_MIGRATION', 'stream-completed', {
@@ -256,10 +290,20 @@ class StreamingService {
         chunks: chunkCount
       });
     } catch (error) {
+      if (clientClosed || abortController.signal.aborted || error?.name === 'AbortError') {
+        this.logger.info('LLM_STREAM_MIGRATION', 'stream-aborted', {
+          requestId,
+          capability: request.capability,
+          messageId: request.messageId
+        });
+        return;
+      }
       this.logger.error(TAG, 'llm stream failure', { error: error.message, requestId });
       this.#sendLlmError(ws, { code: error.code || 'BAD_REQUEST', message: error.message }, request);
     } finally {
       cleanup();
+      ws.removeListener('close', onClientClose);
+      ws.removeListener('error', onClientError);
       try {
         ws.close();
       } catch (_) {}

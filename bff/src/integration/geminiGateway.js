@@ -212,12 +212,17 @@ class GeminiGateway {
     }
   }
 
-  async *streamMainResponse(prompt, { context, allowFallback = true }) {
+  async *streamMainResponse(prompt, { context, allowFallback = true, signal }) {
     const turnId = context.turn?.id;
     const cfg = MAIN_RESPONSE_CONFIG;
     const baseTimeoutMs = typeof cfg.timeoutMs === 'number' ? cfg.timeoutMs : this.timeoutMs;
     const safetySettings = Array.isArray(cfg.safetySettings) ? cfg.safetySettings : DEFAULT_SAFETY_SETTINGS;
     const client = await this.clientPromise;
+
+    if (signal?.aborted) {
+      this.logger.info(TAG, 'stream aborted before start', { turnId });
+      return;
+    }
 
     this.logger.info(TAG, 'stream start', {
       turnId,
@@ -240,6 +245,10 @@ class GeminiGateway {
       });
 
       for await (const chunk of stream) {
+        if (signal?.aborted) {
+          this.logger.info(TAG, 'stream aborted', { turnId, elapsedMs: Date.now() - startTime });
+          return;
+        }
         const text = typeof chunk?.text === 'function' ? chunk.text() : (chunk?.text ?? '');
         if (!text) {
           continue;
@@ -250,6 +259,10 @@ class GeminiGateway {
       const elapsed = Date.now() - startTime;
       this.logger.info(TAG, 'stream end', { turnId, elapsedMs: elapsed });
     } catch (error) {
+      if (signal?.aborted || error?.name === 'AbortError') {
+        this.logger.info(TAG, 'stream aborted', { turnId, elapsedMs: Date.now() - startTime });
+        return;
+      }
       this.logger.error(TAG, 'stream error', {
         turnId,
         message: error?.message,

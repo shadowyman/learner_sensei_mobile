@@ -36,6 +36,21 @@ function canUseNativeLlmStream(): boolean {
     return Boolean(channel && typeof channel.postMessage === 'function');
 }
 
+function isMobileBuild(): boolean {
+    return typeof window !== 'undefined' && Boolean((window as any).__SENSEI_MOBILE_BUILD__);
+}
+
+function assertMobileNativeLlmStreamAvailable(capability: string, messageId: string): void {
+    if (!isMobileBuild() || canUseNativeLlmStream()) {
+        return;
+    }
+    logger.error('[LLM_STREAM_MIGRATION] mobile-native-bridge-unavailable', {
+        capability,
+        messageId
+    });
+    throw new Error('Native LLM stream bridge unavailable in mobile build.');
+}
+
 /**
  * Streams the introductory module message from Sensei.
  * @param chat - The persistent Chat instance.
@@ -54,6 +69,10 @@ export async function streamModuleIntroduction(
 ): Promise<string> {
     let fullResponseText = "";
     const enhancerController = options?.enhancerController;
+
+    if (options?.llmStreamRequest) {
+        assertMobileNativeLlmStreamAvailable('moduleIntroduction', senseiMessageId);
+    }
 
     if (options?.llmStreamRequest && canUseNativeLlmStream()) {
         let nativeRequestId = '';
@@ -244,6 +263,10 @@ export async function streamMainSenseiResponse(
 ): Promise<string> {
     let fullResponseText = "";
     const enhancerController = options?.enhancerController;
+
+    if (options?.llmStreamRequest) {
+        assertMobileNativeLlmStreamAvailable('mainSenseiResponse', senseiMessageId);
+    }
 
     if (options?.llmStreamRequest && canUseNativeLlmStream()) {
         let nativeRequestId = '';

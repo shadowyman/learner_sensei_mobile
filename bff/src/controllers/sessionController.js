@@ -4,6 +4,33 @@ const { ACTIVE_PRIMARY_ACTION_TYPES } = require('@sensei/core/prompts/mainSensei
 const { sendError } = require('../utils/apiError');
 
 const TAG = 'SESSION_CONTROLLER';
+const MAX_INPUT_CHARS = 4000;
+const MAX_TITLE_CHARS = 240;
+const MAX_PHASE_CHARS = 120;
+const MAX_MODULE_GOAL_CHARS = 2000;
+const MAX_CONCEPT_TEXT_CHARS = 4000;
+const MAX_FOCUS_POINTS = 12;
+const MAX_FOCUS_POINT_CHARS = 1000;
+const MAX_GUIDANCE_CHARS = 4000;
+const MAX_NAVIGATION_CONTEXT_CHARS = 2000;
+const MAX_CONSOLIDATION_POINTS = 12;
+const MAX_CONSOLIDATION_POINT_CHARS = 1000;
+const MAX_SOCRATIC_PLAN_ROWS = 8;
+const MAX_SOCRATIC_PLAN_POINTS_PER_ROW = 8;
+const MAX_SOCRATIC_TEXT_CHARS = 4000;
+const MAX_SOCRATIC_TRIGGERS = 12;
+const MAX_SOCRATIC_TRIGGER_CHARS = 500;
+const MAX_SOCRATIC_TURN_MANAGEMENT_CHARS = 2000;
+const MAX_METADATA_TEXT_CHARS = 240;
+const MAX_RAW_HISTORY_ENTRY_CHARS = 4000;
+const MAX_STRUCTURED_PROMPT_INPUT_CHARS = 24000;
+
+const BoundedString = (max) => z.string().max(max);
+const RequiredBoundedString = (max) => z.string().min(1).max(max);
+const ConversationHistorySchema = z.array(z.object({
+  role: z.enum(['user', 'sensei']),
+  content: z.string().min(1).max(MAX_RAW_HISTORY_ENTRY_CHARS)
+})).max(8);
 
 const SessionCreateSchema = z.object({
   topicId: z.string().min(1),
@@ -42,27 +69,27 @@ const LlmStreamSubmitSchema = z.object({
 });
 
 const CurriculumFocusConceptSchema = z.object({
-  title: z.string().min(1),
-  text: z.string()
+  title: RequiredBoundedString(MAX_TITLE_CHARS),
+  text: BoundedString(MAX_CONCEPT_TEXT_CHARS)
 });
 
 const CurriculumFocusItemSchema = z.discriminatedUnion('isModuleWidePhase', [
   z.object({
-    moduleTitle: z.string().min(1),
-    moduleGoal: z.string(),
+    moduleTitle: RequiredBoundedString(MAX_TITLE_CHARS),
+    moduleGoal: BoundedString(MAX_MODULE_GOAL_CHARS),
     concept: CurriculumFocusConceptSchema,
     isModuleWidePhase: z.literal(false)
   }),
   z.object({
-    moduleTitle: z.string().min(1),
-    moduleGoal: z.string(),
+    moduleTitle: RequiredBoundedString(MAX_TITLE_CHARS),
+    moduleGoal: BoundedString(MAX_MODULE_GOAL_CHARS),
     concept: z.null(),
     isModuleWidePhase: z.literal(true)
   })
 ]);
 
 const CurriculumFocusStateSchema = z.object({
-  currentPhase: z.string().min(1),
+  currentPhase: RequiredBoundedString(MAX_PHASE_CHARS),
   currentTeachingChunkIndex: z.number().int().nonnegative(),
   teachingPlanChunkCount: z.number().int().nonnegative()
 });
@@ -72,20 +99,20 @@ const PrimaryActionTypeSchema = z.enum(ACTIVE_PRIMARY_ACTION_TYPES);
 const ConsolidationSnapshotSchema = z.discriminatedUnion('stage', [
   z.object({
     stage: z.literal('Diagnosing'),
-    allWeakPoints: z.array(z.string().min(1)).min(1)
+    allWeakPoints: z.array(RequiredBoundedString(MAX_CONSOLIDATION_POINT_CHARS)).min(1).max(MAX_CONSOLIDATION_POINTS)
   }),
   z.object({
     stage: z.literal('Planning'),
-    allWeakPoints: z.array(z.string().min(1)).optional(),
-    userDiagnosisResponse: z.string().min(1)
+    allWeakPoints: z.array(RequiredBoundedString(MAX_CONSOLIDATION_POINT_CHARS)).max(MAX_CONSOLIDATION_POINTS).optional(),
+    userDiagnosisResponse: RequiredBoundedString(MAX_GUIDANCE_CHARS)
   }),
   z.object({
     stage: z.literal('Executing'),
-    allWeakPoints: z.array(z.string().min(1)).optional(),
-    userDiagnosisResponse: z.string().optional(),
+    allWeakPoints: z.array(RequiredBoundedString(MAX_CONSOLIDATION_POINT_CHARS)).max(MAX_CONSOLIDATION_POINTS).optional(),
+    userDiagnosisResponse: BoundedString(MAX_GUIDANCE_CHARS).optional(),
     currentPlanStep: z.number().int().nonnegative(),
     currentChunkIndex: z.number().int().nonnegative(),
-    pointsToRemediate: z.array(z.string().min(1)).min(1)
+    pointsToRemediate: z.array(RequiredBoundedString(MAX_CONSOLIDATION_POINT_CHARS)).min(1).max(MAX_CONSOLIDATION_POINTS)
   })
 ]);
 
@@ -100,7 +127,7 @@ const CurriculumFocusSchema = z.discriminatedUnion('status', [
     status: z.literal('active'),
     item: CurriculumFocusItemSchema,
     state: CurriculumFocusStateSchema,
-    focusPoints: z.array(z.string()),
+    focusPoints: z.array(BoundedString(MAX_FOCUS_POINT_CHARS)).max(MAX_FOCUS_POINTS),
     primaryActionType: PrimaryActionTypeSchema,
     includeCheckUnderstanding: z.boolean()
   }),
@@ -112,33 +139,27 @@ const CurriculumFocusSchema = z.discriminatedUnion('status', [
 ]);
 
 const ModuleIntroductionPayloadSchema = z.object({
-  selectedModuleTitle: z.string().min(1),
-  firstConceptTitle: z.string().min(1),
-  phaseDisplayName: z.string().min(1),
+  selectedModuleTitle: RequiredBoundedString(MAX_TITLE_CHARS),
+  firstConceptTitle: RequiredBoundedString(MAX_TITLE_CHARS),
+  phaseDisplayName: RequiredBoundedString(MAX_PHASE_CHARS),
   userInputText: z.string(),
   curriculumFocus: CurriculumFocusSchema,
-  pedagogicalGuidanceDirective: z.string().optional(),
-  cleanPedagogicalGuidance: z.string().optional(),
+  pedagogicalGuidanceDirective: BoundedString(MAX_GUIDANCE_CHARS).optional(),
+  cleanPedagogicalGuidance: BoundedString(MAX_GUIDANCE_CHARS).optional(),
   isMustObey: z.boolean().optional(),
-  moduleTitleForPrompt: z.string().optional(),
-  conversationHistory: z.array(z.object({
-    role: z.enum(['user', 'sensei']),
-    content: z.string().min(1)
-  })).max(8).optional()
+  moduleTitleForPrompt: BoundedString(MAX_TITLE_CHARS).optional(),
+  conversationHistory: ConversationHistorySchema.optional()
 });
 
 const StandardMainSenseiResponsePayloadSchema = z.object({
   mode: z.enum(['standard']).optional(),
   curriculumFocus: CurriculumFocusSchema,
-  pedagogicalGuidanceDirective: z.string().optional(),
-  cleanPedagogicalGuidance: z.string().optional(),
+  pedagogicalGuidanceDirective: BoundedString(MAX_GUIDANCE_CHARS).optional(),
+  cleanPedagogicalGuidance: BoundedString(MAX_GUIDANCE_CHARS).optional(),
   isMustObey: z.boolean().optional(),
   currentUserInput: z.string(),
-  navigationContext: z.string().optional(),
-  conversationHistory: z.array(z.object({
-    role: z.enum(['user', 'sensei']),
-    content: z.string().min(1)
-  })).max(8).optional(),
+  navigationContext: BoundedString(MAX_NAVIGATION_CONTEXT_CHARS).optional(),
+  conversationHistory: ConversationHistorySchema.optional(),
   promptOptions: z.object({
     executionDirectiveEnabled: z.boolean().optional(),
     pedagogicalGuidanceEnabled: z.boolean().optional()
@@ -146,32 +167,29 @@ const StandardMainSenseiResponsePayloadSchema = z.object({
 });
 
 const SocraticTeachingPointSchema = z.object({
-  text: z.string().min(1),
+  text: RequiredBoundedString(MAX_SOCRATIC_TEXT_CHARS),
   interactionGuidance: z.object({
     expectedTurns: z.number(),
-    completionTriggers: z.array(z.string()).min(1),
-    turnManagement: z.string().min(1)
+    completionTriggers: z.array(RequiredBoundedString(MAX_SOCRATIC_TRIGGER_CHARS)).min(1).max(MAX_SOCRATIC_TRIGGERS),
+    turnManagement: RequiredBoundedString(MAX_SOCRATIC_TURN_MANAGEMENT_CHARS)
   }),
   socraticMetadata: z.object({
-    detectedCategory: z.string().optional()
+    detectedCategory: BoundedString(MAX_METADATA_TEXT_CHARS).optional()
   }).optional()
 });
 
 const SocraticMainSenseiResponsePayloadSchema = z.object({
   mode: z.literal('socratic'),
-  teachingPlan: z.array(z.array(SocraticTeachingPointSchema).min(1)).min(1),
+  teachingPlan: z.array(z.array(SocraticTeachingPointSchema).min(1).max(MAX_SOCRATIC_PLAN_POINTS_PER_ROW)).min(1).max(MAX_SOCRATIC_PLAN_ROWS),
   pedagogicalGuidance: z.object({
-    metaPrompt: z.string().optional(),
-    directive: z.string().optional()
+    metaPrompt: BoundedString(MAX_GUIDANCE_CHARS).optional(),
+    directive: BoundedString(MAX_GUIDANCE_CHARS).optional()
   }).optional(),
   isSystemInitialization: z.boolean().optional(),
-  navigationContext: z.string().optional(),
-  conceptContext: z.string().optional(),
+  navigationContext: BoundedString(MAX_NAVIGATION_CONTEXT_CHARS).optional(),
+  conceptContext: BoundedString(MAX_CONCEPT_TEXT_CHARS).optional(),
   currentUserInput: z.string(),
-  conversationHistory: z.array(z.object({
-    role: z.enum(['user', 'sensei']),
-    content: z.string().min(1)
-  })).max(8).optional()
+  conversationHistory: ConversationHistorySchema.optional()
 });
 
 const validateLlmStreamCapabilityPayload = (capability, payload) => {
@@ -197,7 +215,18 @@ const boundLlmStreamPayload = (payload) => {
   };
 };
 
-const MAX_INPUT_CHARS = 4000;
+const countPromptInputChars = (value) => {
+  if (typeof value === 'string') {
+    return value.length;
+  }
+  if (Array.isArray(value)) {
+    return value.reduce((total, item) => total + countPromptInputChars(item), 0);
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).reduce((total, item) => total + countPromptInputChars(item), 0);
+  }
+  return 0;
+};
 
 const getLlmStreamLearnerInputText = (capability, payload) => {
   if (capability === 'moduleIntroduction') {
@@ -308,6 +337,9 @@ class SessionController {
     const learnerInputText = getLlmStreamLearnerInputText(parseResult.data.capability, boundedCapabilityPayload);
     if (learnerInputText.length > MAX_INPUT_CHARS) {
       return sendError(res, 413, 'BAD_REQUEST', 'Your message is too long—shorten it and resend.');
+    }
+    if (countPromptInputChars(boundedCapabilityPayload) > MAX_STRUCTURED_PROMPT_INPUT_CHARS) {
+      return sendError(res, 413, 'BAD_REQUEST', 'Your request includes too much context—shorten it and resend.');
     }
     const rate = this.rateLimiter.check(req.ip, req.get('User-Agent'));
     if (!rate.allowed) {
