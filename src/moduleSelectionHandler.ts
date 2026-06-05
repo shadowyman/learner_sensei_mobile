@@ -51,6 +51,8 @@ import { ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, KEY_T
 import { Chat } from "@google/genai";
 import { notepad } from './notepad';
 import { WrapUpAssessmentOverlayData, presentWrapUpAssessmentOverlay } from './wrapUpAssessment';
+import { buildRecentConversationHistory as buildRecentConversationHistorySnapshot } from './conversationHistory';
+import type { ConversationHistoryEntry } from '@sensei/core/promptEnvelope';
 
 interface ModuleSelectionState {
     pendingModuleSelection: number | null;
@@ -507,6 +509,9 @@ Where would you like to begin your learning journey?`;
         if (this.state.curriculumState.currentPhase === 'Socratic') {
             this.state.curriculumState.socraticTurnCount = 0;
         }
+        const socraticInitializationConversationHistory = this.state.curriculumState.currentPhase === 'Socratic'
+            ? this.buildRecentConversationHistory('')
+            : undefined;
 
         this.state.currentActiveConceptIndex = this.state.curriculumState.currentConceptIndex;
         logModuleSelectionValidation('active-concept-tracking-initialized', {
@@ -566,7 +571,7 @@ Where would you like to begin your learning journey?`;
             let introResponseText = "";
 
             if (this.state.curriculumState.currentPhase === 'Socratic') {
-                await this.sendSystemSocraticMessage();
+                await this.sendSystemSocraticMessage(socraticInitializationConversationHistory);
             } else {
                 const focusPointsSnapshot = calculateFocusPoints(this.state.curriculumState);
                 const curriculumFocus = buildCurriculumFocusSnapshot(currentItem, this.state.curriculumState, false, focusPointsSnapshot);
@@ -828,7 +833,7 @@ ${coreInstruction}
         logger.warn('[WRAP_UP_ASSESSMENT] overlay-missing', { moduleId, moduleTitle });
     }
 
-    private async sendSystemSocraticMessage(): Promise<void> {
+    private async sendSystemSocraticMessage(conversationHistory: ConversationHistoryEntry[] = []): Promise<void> {
         if (!this.state.curriculumState || !this.state.curriculumState.teachingPlanForPhase) {
             logger.error('[SOCRATIC_FIX] Cannot send system message: missing curriculum state or teaching plan');
             return;
@@ -847,7 +852,8 @@ ${coreInstruction}
             pedagogicalGuidance: { directive: undefined },
             isSystemInitialization: true,
             conceptContext: this.buildSocraticConceptReference(),
-            currentUserInput: ''
+            currentUserInput: '',
+            conversationHistory
         };
         
         this.state.currentMessageId++;
@@ -908,6 +914,16 @@ ${coreInstruction}
         if (this.state.lastSenseiResponses.length > 3) {
             this.state.lastSenseiResponses.pop();
         }
+    }
+
+    private buildRecentConversationHistory(currentUserInput: string): ConversationHistoryEntry[] {
+        const messageArea = typeof document !== 'undefined' ? document.getElementById('message-area') ?? document.body : null;
+        return buildRecentConversationHistorySnapshot({
+            currentUserInput,
+            userInputHistory: this.state.userInputHistory,
+            lastSenseiResponses: this.state.lastSenseiResponses,
+            messageArea
+        });
     }
 
     private buildSocraticConceptReference(): string | undefined {

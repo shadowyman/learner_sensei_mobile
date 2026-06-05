@@ -419,6 +419,29 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       }
     }, 'deterministic:mainSenseiResponse:msg-standard-deterministic');
 
+    const originalMainSenseiPromptOptions = container.config.mainSenseiPromptOptions;
+    container.config.mainSenseiPromptOptions = {
+      executionDirectiveEnabled: false,
+      pedagogicalGuidanceEnabled: false
+    };
+    container.rateLimiter.entries.clear();
+    await assertAcceptedStream(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
+      messageId: 'msg-server-disabled-prompt-options',
+      payload: {
+        mode: 'standard',
+        curriculumFocus: activeCurriculumFocus(),
+        pedagogicalGuidanceDirective: 'GUIDE: This client guidance must be disabled by server config.',
+        currentUserInput: 'Explain without optional prompt controls.',
+        promptOptions: {
+          executionDirectiveEnabled: true,
+          pedagogicalGuidanceEnabled: true
+        }
+      }
+    }, 'deterministic:mainSenseiResponse:msg-server-disabled-prompt-options');
+    container.config.mainSenseiPromptOptions = originalMainSenseiPromptOptions;
+    container.rateLimiter.entries.clear();
+
     const duplicateClaimResponse = await postJson(BASE, `/sessions/${encodeURIComponent(sessionId)}/llm-stream`, {
       capability: 'mainSenseiResponse',
       messageId: 'msg-duplicate-claim',
@@ -505,6 +528,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
 
     const introPrompt = prompts.find((entry) => entry.messageId === 'msg-intro-deterministic')?.prompt || '';
     const standardPrompt = prompts.find((entry) => entry.messageId === 'msg-standard-deterministic')?.prompt || '';
+    const disabledOptionsPrompt = prompts.find((entry) => entry.messageId === 'msg-server-disabled-prompt-options')?.prompt || '';
     const socraticPrompt = prompts.find((entry) => entry.messageId === 'msg-socratic-deterministic')?.prompt || '';
     const boundedHistoryPrompt = prompts.find((entry) => entry.messageId === 'msg-history-bounded')?.prompt || '';
     if (!introPrompt.includes("Let's begin Module Alpha.")) {
@@ -521,6 +545,12 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
     }
     if (!standardPrompt.includes('I got lost in the previous example.') || !standardPrompt.includes('We discussed that the base case stops recursion.')) {
       throw new Error(`Standard main prompt did not include bounded conversation history: ${standardPrompt}`);
+    }
+    if (disabledOptionsPrompt.includes('EXECUTION DIRECTIVE') || disabledOptionsPrompt.includes('This client guidance must be disabled by server config.')) {
+      throw new Error(`Server-owned prompt options did not disable execution/guidance controls: ${disabledOptionsPrompt}`);
+    }
+    if (!disabledOptionsPrompt.includes('No specific guidance')) {
+      throw new Error(`Disabled guidance prompt did not preserve legacy fallback guidance text: ${disabledOptionsPrompt}`);
     }
     if (!socraticPrompt.includes('SocraticContext') || !socraticPrompt.includes('User: I do not understand the base case.')) {
       throw new Error(`Socratic main prompt did not reach Socratic Core builder: ${socraticPrompt}`);

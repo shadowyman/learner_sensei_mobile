@@ -24,7 +24,8 @@ function logSenseiPromptValidation(event: string, payload: Record<string, unknow
 }
 import { 
     MODULE_INTRODUCTION_CHAT_MODEL_CONFIG,
-    MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG
+    MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG,
+    MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS
 } from './model_usage';
 
 function canUseNativeLlmStream(): boolean {
@@ -161,7 +162,8 @@ export function buildSenseiDynamicSystemInstruction(
     const coreInstruction = MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
         curriculumFocusInstruction,
         proseDirective,
-        isMustObey
+        isMustObey,
+        MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS
     );
 
     if (!navigationContext) {

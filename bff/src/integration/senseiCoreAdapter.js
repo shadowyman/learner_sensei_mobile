@@ -3,8 +3,9 @@ const { buildModuleIntroductionPrompt } = require('@sensei/core/moduleIntroducti
 const { buildMainSenseiResponsePrompt } = require('@sensei/core/mainSenseiResponse');
 
 class SenseiCoreAdapter {
-  constructor({ logger }) {
+  constructor({ logger, config }) {
     this.logger = logger;
+    this.config = config;
   }
 
   async buildPrompt(context) {
@@ -17,7 +18,8 @@ class SenseiCoreAdapter {
   async buildCapabilityPrompt(request) {
     const payload = {
       ...request.payload,
-      includeBaseSystemInstruction: true
+      includeBaseSystemInstruction: true,
+      promptOptions: this.config.mainSenseiPromptOptions
     };
     if (request.capability === 'moduleIntroduction') {
       const prompt = buildModuleIntroductionPrompt(payload);

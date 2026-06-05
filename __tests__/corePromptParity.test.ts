@@ -29,6 +29,7 @@ import {
 import {
   SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS as CORE_BASE_SENSEI_PROMPT
 } from '@sensei/core/prompts/baseSensei';
+import { MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS } from '@sensei/core/modelUsage';
 import {
   MAX_CONVERSATION_HISTORY_ENTRIES,
   MAX_CONVERSATION_HISTORY_ENTRY_CHARS,
@@ -161,6 +162,27 @@ describe('Core prompt parity fixtures', () => {
       'Focus only on reassurance.',
       true
     ))).toBe('2fffa08fac2993736f91876284dc34366780431b6a5e9f0192646c171ef2f7da');
+  });
+
+  test('main Sensei prompt options preserve execution and guidance controls', () => {
+    expect(MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS).toEqual({
+      executionDirectiveEnabled: true,
+      pedagogicalGuidanceEnabled: true
+    });
+
+    const prompt = MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
+      '## Primary Action\nTeach recursion.\n__PEDAGOGICAL_GUIDANCE__',
+      'Use the learner-specific intervention.',
+      false,
+      {
+        executionDirectiveEnabled: false,
+        pedagogicalGuidanceEnabled: false
+      }
+    );
+
+    expect(prompt).not.toContain('## 🎯 EXECUTION DIRECTIVE');
+    expect(prompt).not.toContain('Use the learner-specific intervention.');
+    expect(prompt).toContain('No specific guidance');
   });
 
   test('main Sensei migrated prompt envelope preserves base persona and recent history when requested', () => {

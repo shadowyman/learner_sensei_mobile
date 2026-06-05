@@ -111,9 +111,30 @@ const createMockAI = () => ({
   }
 })
 
+const appendTranscript = () => {
+  const messageArea = document.createElement('div')
+  messageArea.id = 'message-area'
+  const appendBubble = (id: string, sender: 'sensei' | 'user', text: string) => {
+    const bubble = document.createElement('div')
+    bubble.id = id
+    bubble.classList.add('message-bubble')
+    bubble.setAttribute('data-sender', sender)
+    const textEl = document.createElement('div')
+    textEl.classList.add('message-text')
+    textEl.textContent = text
+    bubble.appendChild(textEl)
+    messageArea.appendChild(bubble)
+  }
+  appendBubble('msg-intro', 'sensei', 'Intro text for recursion.')
+  appendBubble('msg-question', 'user', 'Why do we need a base case?')
+  appendBubble('msg-answer', 'sensei', 'A base case stops recursive calls from continuing forever.')
+  document.body.appendChild(messageArea)
+}
+
 describe('ModuleSelectionHandler', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    document.body.innerHTML = ''
   })
 
   test('handleInitialModuleSelectionInternal selects module from text', async () => {
@@ -346,6 +367,12 @@ describe('ModuleSelectionHandler', () => {
     } as any)
 
     const handler = new ModuleSelectionHandler(state)
+    appendTranscript()
+    expect((handler as any).buildRecentConversationHistory('')).toEqual([
+      { role: 'sensei', content: 'Intro text for recursion.' },
+      { role: 'user', content: 'Why do we need a base case?' },
+      { role: 'sensei', content: 'A base case stops recursive calls from continuing forever.' }
+    ])
     await handler.handlePhaseSelection('Socratic')
 
     expect(interactionHelpers.streamMainSenseiResponse).toHaveBeenCalledWith(
@@ -360,7 +387,12 @@ describe('ModuleSelectionHandler', () => {
           pedagogicalGuidance: { directive: undefined },
           isSystemInitialization: true,
           conceptContext: expect.stringContaining('Concept 1'),
-          currentUserInput: ''
+          currentUserInput: '',
+          conversationHistory: [
+            { role: 'sensei', content: 'Intro text for recursion.' },
+            { role: 'user', content: 'Why do we need a base case?' },
+            { role: 'sensei', content: 'A base case stops recursive calls from continuing forever.' }
+          ]
         }
       }
     )

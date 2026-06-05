@@ -4,7 +4,8 @@ const {
   MERMAID_ERROR_RECOVERY_CONFIG,
   WRAP_UP_ASSESSMENT_GENERATION_CONFIG,
   TEACHING_PLAN_GENERATION_CONFIG,
-  COMPREHENSIVE_ANALYSIS_CONFIG
+  COMPREHENSIVE_ANALYSIS_CONFIG,
+  MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS
 } = require('./modelUsage');
 
 dotenv.config();
@@ -68,6 +69,16 @@ const teachingPlanItemBasedPromptEnabled = parseBooleanEnv(
   process.env.BFF_TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED ?? process.env.TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED,
   false
 );
+const mainSenseiPromptOptions = {
+  executionDirectiveEnabled: parseBooleanEnv(
+    process.env.BFF_MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED ?? process.env.MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED,
+    MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS.executionDirectiveEnabled
+  ),
+  pedagogicalGuidanceEnabled: parseBooleanEnv(
+    process.env.BFF_MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED ?? process.env.MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED,
+    MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS.pedagogicalGuidanceEnabled
+  )
+};
 
 const gemini = {
   apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY || 'AIzaSyD_Z16_FKAwMArnKLpXu1i2KQfRYsRa3iM',
@@ -98,6 +109,7 @@ module.exports = {
   keepaliveIntervalMs,
   stallToBufferedMs,
   teachingPlanItemBasedPromptEnabled,
+  mainSenseiPromptOptions,
   gemini,
   MAIN_RESPONSE_CONFIG,
   MERMAID_ERROR_RECOVERY_CONFIG,

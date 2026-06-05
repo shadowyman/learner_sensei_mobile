@@ -13,6 +13,7 @@ const GEMINI_FLASH = 'gemini-flash-latest'; // Faster, for analysis/structured o
  * Switched to Flash model as it's a structured JSON generation task that might benefit from speed.
  */
 export { TEACHING_PLAN_GENERATION_CONFIG } from '@sensei/core/modelUsage';
+import { MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS as CORE_MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS } from '@sensei/core/modelUsage';
 
 export { WRAP_UP_ASSESSMENT_GENERATION_CONFIG } from '@sensei/core/modelUsage';
 export { WRAP_UP_ASSESSMENT_TOOLS } from '@sensei/core/wrapUpAssessment';
@@ -59,8 +60,9 @@ export const KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG = {
   },
 };
 
-export const MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED = true;
-export const MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED = true;
+export const MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS = CORE_MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS;
+export const MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED = CORE_MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS.executionDirectiveEnabled;
+export const MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED = CORE_MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS.pedagogicalGuidanceEnabled;
 
 export const ENABLE_KEY_TAKEAWAY_ENHANCER = true;
 export const KEY_TAKEAWAY_PLACEHOLDER = 'key_takeaway_placeholder';
