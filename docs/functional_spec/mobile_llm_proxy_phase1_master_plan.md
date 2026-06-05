@@ -155,6 +155,7 @@ This list is sourced from `docs/llm_entry_exit_traces.md` and reconciled with th
 | Learner analysis | `src/geminiService.ts:getAnalysisFromGemini`; mobile `requestLearnerAnalysis` bridge path | Master-doc complete for Phase 1 scoped migration. Core owns prompt body, misconception/schema instruction text, LLM execution, JSON parsing, and output shape; BFF route and RN/mobile bridge path exist; desktop wrapper delegates to Core. | No remaining scoped prompt-normalization work. Future changes must preserve `core/prompts/learnerAnalysis.ts` as the canonical prompt owner. | `core/prompts/learnerAnalysis.ts` | `core/learnerAnalysis.ts:getComprehensiveAnalysis` | Existing analysis BFF service/endpoint and mobile bridge route |
 | Module introduction stream | `src/interactionHelpers.ts:streamModuleIntroduction` | Master-doc complete for Phase 1 scoped migration on PR branch `codex/llm-streaming-core-bff-migration`. Core owns prompt body, base instruction envelope, request type, prompt-option defaults, and capability prompt construction; BFF owns server prompt options, provider streaming, validation, and WebSocket events; RN/mobile bridge forwards stream chunks; WebView preserves chunk rendering, reload, and enhancer behavior. Key commits: `28fa4f9`, `790d9e7`, `9e0c9c8`, `f2b952a`, `ce6a3e8`. | No remaining scoped prompt-normalization or mobile-routing work. Keep desktop direct stream compatibility during Phase 1; keep mobile runtime on structured BFF/Core stream requests; keep live Gemini/manual smoke evidence as release validation, not deterministic correctness proof. | `core/prompts/moduleIntroduction.ts` | `core/moduleIntroduction.ts:buildModuleIntroductionPrompt` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...`; bridge events `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"moduleIntroduction"` |
 | Main Sensei response stream | `src/interactionHelpers.ts:streamMainSenseiResponse` | Master-doc complete for Phase 1 scoped migration on PR branch `codex/llm-streaming-core-bff-migration`. Core owns prompt body, base instruction envelope, standard and Socratic structured request types, prompt-option defaults, bounded history envelope, and capability prompt construction; BFF owns server prompt options, provider streaming, validation, single-claim request handling, and WebSocket events; RN/mobile bridge forwards stream chunks; WebView preserves chunk rendering, Socratic/reload behavior, chronological history capture, and teaching-state orchestration. Key commits: `28fa4f9`, `790d9e7`, `9e0c9c8`, `f2b952a`, `ce6a3e8`. | No remaining scoped prompt-normalization or mobile-routing work. Keep desktop direct stream compatibility during Phase 1; keep mobile standard and Socratic runtime on structured BFF/Core stream requests; keep live Gemini/manual smoke evidence as release validation, not deterministic correctness proof. | `core/prompts/mainSenseiResponse.ts` | `core/mainSenseiResponse.ts:buildMainSenseiResponsePrompt` | `POST /sessions/:sessionId/llm-stream` plus `WS /sessions/:sessionId/llm-stream?requestId=...`; bridge events `llmStream:request` / `llmStream:status` / `llmStream:chunk` / `llmStream:error` with `capability:"mainSenseiResponse"` |
+| Legacy generic BFF turn stream | `bff/src/controllers/sessionController.js:submitTurn` -> `bff/src/services/streamingService.js:handleConnection` -> `bff/src/integration/senseiCoreAdapter.js:buildPrompt` | Not migrated and not part of the completed structured `llm-stream` capability path. This legacy route still builds an inline BFF prompt for `/sessions/:sessionId/turns` plus `/sessions/:sessionId/stream?turnId=...`. | Retire this legacy generic turn/stream path as a backlog item. It must not remain a prompt-owning BFF fallback for mobile LLM execution. Existing clients should move to capability-specific structured routes such as `/llm-stream`; tests should either remove the legacy route or prove it is unreachable/disabled before release. | Not applicable; retire instead of migrating as a generic prompt | Not applicable | Remove or disable legacy `/turns` plus `/stream`; do not add a generic prompt route replacement |
 | Selection Sensei follow-up | `src/selectionSensei.ts:dispatchFollowupToAI` | Not implemented for the final migration. Current code still sends directly through Selection Sensei chat. Response parser already exists in `src/selectionSenseiResponseParser.ts`, but it is not yet Core-owned. | Move selection prompt builders and response parser to Core, add Core capability, add BFF follow-up route, add mobile bridge route, and keep modal transcript/rendering in WebView. | `core/prompts/selectionSensei.ts` | `core/selectionSensei.ts` | New selection follow-up route |
 | Selection Sensei toolbar action | `src/selectionSensei.ts:handleToolbarAction` | Not implemented for the final migration. Current code still builds the prompt in WebView and sends directly through Selection Sensei chat. | Move toolbar prompt builders and response parser to Core, add Core capability, add BFF toolbar-action route, add mobile bridge route, and keep selected-text UI/modal behavior in WebView. | `core/prompts/selectionSensei.ts` | `core/selectionSensei.ts` | New selection toolbar-action route |
 | Enhancement request | `src/enhancementManager.ts:toggleEnhancement` -> `src/geminiService.ts:requestSenseiEnhancement` | Not implemented for the final migration. Current code still calls the provider directly in the web wrapper; WebView applies returned enhancement payloads. | Move enhancement prompt builder, JSON fence stripping, and payload normalization to Core; add BFF route and mobile bridge route; keep `applyEnhancementSequence` and `applyEnhancements` in WebView. | `core/prompts/enhancement.ts` | `core/enhancement.ts` | New enhancement route |
@@ -414,6 +415,13 @@ When migrating these rows:
 
 `SelectionSensei.dispatchFollowupToAI` currently manages modal transcript state, loading messages, a provider chat, response formatting, and transcript insertion. The LLM-facing pieces are the selection prompt/system instruction, provider execution, and any pure response extraction or normalization. Modal rendering and transcript updates stay in WebView.
 
+Important source dependencies from the manual audit:
+
+1. `ensureSelectionChat` creates the shared Selection Sensei provider chat and injects `SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION`.
+2. `dispatchFollowupToAI` sends composer follow-up questions through `chat.sendMessage`.
+3. `handleToolbarAction` builds toolbar prompts with `SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION` or `SENSEI_ASK_QUESTION_USER_PROMPT_TEMPLATE_FUNCTION`, then sends through `chat.sendMessage`.
+4. `formatFollowupAnswer`, `extractContentWithRegex`, and `src/selectionSenseiResponseParser.ts:parseSelectionSenseiResponsePayload` are the response-formatting/parsing functions to classify carefully. Pure parsing belongs with the Core capability; modal display formatting remains WebView-owned.
+
 When migrating Selection Sensei:
 
 1. Move selection prompt builders and pure response parsing/normalization into `core/prompts/selectionSensei.ts` and `core/selectionSensei.ts`.
@@ -425,6 +433,12 @@ When migrating Selection Sensei:
 
 `requestSenseiEnhancement` currently builds an enhancement prompt, calls the provider, strips JSON fences, parses JSON, and normalizes entries. Those pieces are LLM-facing and belong in Core. The UI state and insertion behavior do not.
 
+Important source dependencies from the manual audit:
+
+1. `src/enhancementManager.ts:toggleEnhancement` strips Mermaid blocks, computes word counts, and calls `requestSenseiEnhancement`.
+2. `src/geminiService.ts:requestSenseiEnhancement` builds the prompt with `buildSenseiEnhancementPrompt`, calls the provider, runs `stripJsonFence`, parses JSON, and calls `normalizeEnhancementEntries`.
+3. `ENHANCEMENT_REQUEST_CONFIG` controls the active model/config for this capability.
+
 When migrating enhancement:
 
 1. Move `buildSenseiEnhancementPrompt`, JSON fence handling, and `normalizeEnhancementEntries` into `core/prompts/enhancement.ts` and `core/enhancement.ts`.
@@ -434,6 +448,13 @@ When migrating enhancement:
 ### Key Takeaway Enhancement Backlog Notes
 
 `KeyTakeawayEnhancerController.start` currently creates a provider chat, sends the key-takeaway prompt, caches results by prompt hash, and later integrates generated text into streaming output through `onChunk`, `finalize`, `handleEnhancerReady`, placeholder detection, and `updateMessageStream`.
+
+Important source dependencies from the manual audit:
+
+1. `src/index.tsx:generateNextSenseiResponse` and `src/moduleSelectionHandler.ts:executePhaseSelection` both construct key-takeaway enhancer prompts from `KEY_TAKEAWAY_PROMPT_PREFIX` plus `buildPrimaryActionBlockForKeyTakeaway`.
+2. `computeKeyTakeawayEnhancerPromptHash` and `hasKeyTakeawayEnhancerCacheEntry` gate cache behavior before the controller starts.
+3. `KeyTakeawayEnhancerController.start` owns provider chat creation and `sendMessage` execution.
+4. `ENABLE_KEY_TAKEAWAY_ENHANCER`, `KEY_TAKEAWAY_ENHANCER_CONFIG`, the placeholder token, and the post-stream grace window are prompt/execution controls that must be preserved.
 
 When migrating key takeaway enhancement:
 
@@ -445,11 +466,41 @@ When migrating key takeaway enhancement:
 
 `PedagogicalProfiler.getDirective` currently computes learner-context inputs such as active flags and recent conversation context, then calls `generateDirectiveFromMetaPrompt` for provider execution. The LLM-facing prompt/template text and provider call must move; learner-state inspection can remain with the profiler.
 
+Important source dependencies from the manual audit:
+
+1. `ITEM_SPECIFIC_PEDAGOGICAL_META_PROMPT_TEMPLATE` is the active directive prompt template.
+2. `PedagogicalProfiler.getDirective` assembles the active item-specific meta-prompt and calls `generateDirectiveFromMetaPrompt`.
+3. `_identifyActiveFlags` contributes prompt-control context from the learner model.
+4. `src/geminiService.ts:generateDirectiveFromMetaPrompt` owns the direct provider execution and fallback directive.
+5. `PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG` controls the active model/config for this capability.
+6. `UNIFIED_PEDAGOGICAL_META_PROMPT_TEMPLATE` appears dormant/unreferenced in the current source; do not treat it as an active runtime migration path unless a call site is revived.
+
 When migrating pedagogical directives:
 
 1. Move directive prompt/template construction and provider execution into `core/prompts/pedagogicalDirective.ts` and `core/pedagogicalDirective.ts`.
 2. Keep learner-model inspection, active-flag selection, recent-conversation selection, and orchestration inside `PedagogicalProfiler`.
 3. Preserve the existing safe fallback behavior for empty or failed directive responses.
+
+### Dormant Prompt Text And Cleanup Candidates
+
+The manual audit found prompt-like source text that appears dormant or unreferenced. These items are not active runtime Phase 1 backlog unless a current call site is found or intentionally revived:
+
+1. `src/prompts.ts:TARGETED_CONSOLIDATION_PROMPT_TEMPLATE`.
+2. `src/consolidationManager.ts:getConsolidationFocusInstruction`.
+3. `src/pedagogicalProfiler.ts:UNIFIED_PEDAGOGICAL_META_PROMPT_TEMPLATE`.
+
+Future cleanup may remove these, or a future capability migration may explicitly revive and migrate them. Do not silently migrate or rewrite them as part of an unrelated backlog row.
+
+### Legacy Generic BFF Turn Stream Retirement
+
+The manual audit found a legacy generic BFF path separate from the completed structured `llm-stream` capability route:
+
+1. `bff/src/controllers/sessionController.js:submitTurn` creates turns and returns a legacy stream URL.
+2. `bff/src/services/streamingService.js:handleConnection` handles `/sessions/:sessionId/stream?turnId=...`.
+3. `bff/src/integration/senseiCoreAdapter.js:buildPrompt` builds an inline BFF prompt body for that legacy route.
+4. `bff/src/integration/geminiGateway.js:streamMainResponse` still streams that prompt if the route is used.
+
+This path must be retired as backlog work, not expanded. Mobile LLM execution should use capability-specific structured BFF routes, and BFF must not retain a generic inline prompt route as a fallback path.
 
 ## 11. Ambiguities And Mandatory Resolutions
 
