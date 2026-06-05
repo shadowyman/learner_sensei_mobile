@@ -52,6 +52,13 @@ const teachingPlanRateLimit = {
   blockMs: 5 * 60_000
 };
 
+const selectionSenseiRateLimit = {
+  minIntervalMs: 20_000,
+  burstWindowMs: 2 * 60_000,
+  burstLimit: 3,
+  blockMs: 5 * 60_000
+};
+
 const analysisRateLimit = {
   minIntervalMs: 2_000,
   burstWindowMs: 2 * 60_000,
@@ -101,6 +108,7 @@ module.exports = {
   rateLimit,
   wrapUpRateLimit,
   teachingPlanRateLimit,
+  selectionSenseiRateLimit,
   analysisRateLimit,
   sessionTtlMs,
   idempotencyTtlMs,

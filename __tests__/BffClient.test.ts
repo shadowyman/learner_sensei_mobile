@@ -425,8 +425,9 @@ describe('BffClient', () => {
             modalConversationId: 'modal-1',
             selectedText: 'base case stops recursion',
             originalSenseiMessageText: 'Original explanation about recursion and base cases.',
-            initialActionType: 'explainSimpler',
-            initialActionLabel: 'Simpler',
+            initialActionType: 'askQuestion',
+            initialActionLabel: 'Ask',
+            initialActionUserQuestion: 'Why does this stop recursion?',
             initialResponse: { suggestedTitle: 'Base Case', explanation: 'A base case stops recursion.' },
             modalTranscript: [
                 { role: 'user', text: 'Can you explain this simply?' },
@@ -451,6 +452,8 @@ describe('BffClient', () => {
         expect(submittedBodies[1]).toMatchObject({
             mode: 'followUp',
             modalConversationId: 'modal-1',
+            initialActionType: 'askQuestion',
+            initialActionUserQuestion: 'Why does this stop recursion?',
             question: 'How does that prevent an infinite loop?'
         });
         for (const body of submittedBodies) {

@@ -66,6 +66,7 @@ export type SelectionSenseiModalMessagePayload =
       originalSenseiMessageText: string;
       initialActionType: SelectionSenseiToolbarActionType;
       initialActionLabel: string;
+      initialActionUserQuestion?: string;
       initialResponse: SelectionSenseiInitialResponsePayload;
       modalTranscript?: SelectionSenseiModalTranscriptEntryPayload[];
       question: string;

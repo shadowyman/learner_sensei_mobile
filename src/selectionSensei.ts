@@ -46,6 +46,7 @@ type ModalInitialContext = {
     originalSenseiMessageText: string;
     initialActionType: SelectionSenseiToolbarActionType;
     initialActionLabel: string;
+    initialActionUserQuestion?: string;
     initialResponse: {
         suggestedTitle?: string;
         explanation?: string;
@@ -1088,6 +1089,7 @@ class SelectionSensei {
             originalSenseiMessageText: this.modalInitialContext.originalSenseiMessageText,
             initialActionType: this.modalInitialContext.initialActionType,
             initialActionLabel: this.modalInitialContext.initialActionLabel,
+            initialActionUserQuestion: this.modalInitialContext.initialActionUserQuestion,
             initialResponse: this.modalInitialContext.initialResponse,
             modalTranscript: this.modalTranscriptContext.slice(-24),
             question
@@ -1847,6 +1849,7 @@ class SelectionSensei {
                 originalSenseiMessageText,
                 initialActionType: actionType,
                 initialActionLabel: actionLabel,
+                initialActionUserQuestion: actionType === 'askQuestion' ? userQuestion : undefined,
                 initialResponse: {
                     suggestedTitle: parsedResponse.suggestedTitle,
                     explanation: parsedResponse.explanation,

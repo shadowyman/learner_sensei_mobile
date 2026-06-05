@@ -78,6 +78,7 @@ const FollowUpSchema = z.object({
   originalSenseiMessageText: nonEmptyBoundedString(LIMITS.originalSenseiMessageText),
   initialActionType: z.enum(LLM_ACTIONS),
   initialActionLabel: nonEmptyBoundedString(LIMITS.actionLabel),
+  initialActionUserQuestion: z.string().trim().min(1).max(LIMITS.userQuestion).optional(),
   initialResponse: InitialResponseSchema,
   modalTranscript: z.array(TranscriptEntrySchema).max(LIMITS.transcriptEntries).optional(),
   question: nonEmptyBoundedString(LIMITS.question)
@@ -91,6 +92,13 @@ const FollowUpSchema = z.object({
       inclusive: true,
       path: ['modalTranscript'],
       message: 'Modal transcript aggregate is too large.'
+    });
+  }
+  if (value.initialActionType !== 'askQuestion' && value.initialActionUserQuestion !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['initialActionUserQuestion'],
+      message: 'initialActionUserQuestion is only accepted when the initial action was askQuestion.'
     });
   }
 });
@@ -124,6 +132,7 @@ const measureStructuredInput = (value) => {
   add(value.actionLabel);
   add(value.userQuestion);
   add(value.initialActionLabel);
+  add(value.initialActionUserQuestion);
   add(value.question);
   if (value.initialResponse) {
     add(value.initialResponse.suggestedTitle);
@@ -159,22 +168,24 @@ const toCoreRequest = (payload) => {
     originalSenseiMessageText: payload.originalSenseiMessageText,
     initialAction: {
       actionType: payload.initialActionType,
-      actionLabel: payload.initialActionLabel
+      actionLabel: payload.initialActionLabel,
+      userQuestion: payload.initialActionUserQuestion
     },
     initialResponse: payload.initialResponse,
     transcript: (payload.modalTranscript || []).map((entry) => ({
       role: entry.role === 'sensei' ? 'assistant' : 'user',
-      text: entry.text
+      content: entry.text
     })),
     question: payload.question
   };
 };
 
 class SelectionSenseiController {
-  constructor({ selectionSenseiService, sessionService, logger }) {
+  constructor({ selectionSenseiService, sessionService, logger, selectionSenseiRateLimiter }) {
     this.selectionSenseiService = selectionSenseiService;
     this.sessionService = sessionService;
     this.logger = logger;
+    this.selectionSenseiRateLimiter = selectionSenseiRateLimiter;
   }
 
   async postModalMessage(req, res) {
@@ -197,6 +208,16 @@ class SelectionSenseiController {
         }))
       });
       return sendError(res, status, code, 'Invalid Selection Sensei modal payload');
+    }
+
+    if (this.selectionSenseiRateLimiter) {
+      const key = `${sessionId || 'unknown'}::${req.ip || 'unknown'}::${req.get?.('User-Agent') || 'unknown'}`;
+      const rate = this.selectionSenseiRateLimiter.check(key);
+      if (!rate.allowed) {
+        this.logger.warn(TAG, 'rate limited', { sessionId, ip: req.ip, requestId: req.requestId });
+        res.set('Retry-After', String(rate.retryAfterSeconds || 60));
+        return sendError(res, 429, 'RATE_LIMITED', 'Too many Selection Sensei requests—wait a bit before trying again.');
+      }
     }
 
     try {

@@ -51,7 +51,8 @@ const startServer = (overrides = {}) => {
   app.use(selectionSenseiRouterFactory({
     selectionSenseiService: container.selectionSenseiService,
     sessionService: container.sessionService,
-    logger: container.logger
+    logger: container.logger,
+    selectionSenseiRateLimiter: container.selectionSenseiRateLimiter
   }));
   app.use(telemetryRouterFactory({ telemetryService: container.telemetryService, logger: container.logger }));
   const host = overrides.host ?? container.config.host;

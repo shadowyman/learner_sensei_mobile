@@ -449,6 +449,42 @@ describe('selectionSensei initializeSelectionSensei', () => {
     restoreSelection()
   })
 
+  test('mobile askQuestion follow-up carries the original ask question through structured payload', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const bridge = installNativeBridge()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const restoreSelection = installSelection(messageText)
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+    invokeSelectionSenseiBridgeAction('askQuestion', { userQuestion: 'Why does this stop recursion?' })
+    await flushPromises()
+    bridge.resolveLatestModalRequest({ suggestedTitle: 'Base Case', explanation: 'A base case stops recursion.' })
+    await flushPromises()
+
+    const input = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement
+    const sendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement
+    input.value = 'How does that prevent an infinite loop?'
+    sendButton.click()
+    await flushPromises()
+    const request = bridge.resolveLatestModalRequest({ explanation: 'The stop condition prevents endless calls.' })
+    await flushPromises()
+
+    expect(bridge.modalRequests()).toHaveLength(2)
+    expect(request.payload).toMatchObject({
+      mode: 'followUp',
+      initialActionType: 'askQuestion',
+      initialActionLabel: 'Ask',
+      initialActionUserQuestion: 'Why does this stop recursion?',
+      question: 'How does that prevent an infinite loop?'
+    })
+    expectNoPromptControls(request.payload)
+    expect(mockChatsCreate).not.toHaveBeenCalled()
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    restoreSelection()
+  })
+
   test('duplicate rapid mobile toolbar actions do not duplicate local provider work while pending', async () => {
     ;(window as any).__SENSEI_MOBILE_BUILD__ = true
     const bridge = installNativeBridge()

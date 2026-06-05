@@ -14,7 +14,7 @@ type MermaidResolver = { resolve: (v: { fixed: boolean; fixedCode?: string }) =>
 
 const mermaidResolvers = new Map<string, MermaidResolver>();
 const MERMAID_BRIDGE_TIMEOUT_MS = MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS;
-const SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS = 90_000;
+const SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS = 180_000;
 
 export function requestMermaidRecoveryViaBridge(payload: {
   messageId: string;

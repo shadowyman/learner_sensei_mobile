@@ -140,6 +140,11 @@ const expectRejected = async (res, allowedStatuses, label) => {
       question: ''
     }), [400], 'follow-up empty question');
 
+    await expectRejected(await postJson(route, {
+      ...createBaseFollowUpPayload(),
+      initialActionUserQuestion: 'This question belongs only to initial ask actions.'
+    }), [400], 'non-ask follow-up with stray initialActionUserQuestion');
+
     await expectRejected(await postJson(route, omitKeys(createBaseFollowUpPayload(), [
       'selectedText',
       'originalSenseiMessageText',
@@ -153,6 +158,13 @@ const expectRejected = async (res, allowedStatuses, label) => {
       actionType: 'askQuestion',
       userQuestion: 'x'.repeat(8001)
     }), [400, 413], 'oversized userQuestion');
+
+    await expectRejected(await postJson(route, {
+      ...createBaseFollowUpPayload(),
+      initialActionType: 'askQuestion',
+      initialActionLabel: 'Ask',
+      initialActionUserQuestion: 'x'.repeat(8001)
+    }), [400, 413], 'oversized initialActionUserQuestion');
 
     await expectRejected(await postJson(route, {
       ...createBaseToolbarPayload(),
