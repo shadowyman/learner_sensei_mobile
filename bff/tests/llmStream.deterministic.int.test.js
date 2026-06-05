@@ -71,6 +71,27 @@ const createSession = async (base) => {
   return body.sessionId;
 };
 
+const activeCurriculumFocus = () => ({
+  status: 'active',
+  item: {
+    moduleTitle: 'Module Alpha',
+    moduleGoal: 'Master recursive decomposition',
+    concept: {
+      title: 'Base Case',
+      text: 'A base case stops recursion before recursive calls continue forever.'
+    },
+    isModuleWidePhase: false
+  },
+  state: {
+    currentPhase: 'IntroIllustrate',
+    currentTeachingChunkIndex: 0,
+    teachingPlanChunkCount: 2
+  },
+  focusPoints: ['Identify the condition that should stop recursion'],
+  primaryActionType: 'Teach New Content (from current chunk)',
+  includeCheckUnderstanding: true
+});
+
 const assertRejected = async (base, sessionId, body, expectedMessage, expectedStatus = 400) => {
   const res = await postJson(base, `/sessions/${encodeURIComponent(sessionId)}/llm-stream`, body);
   if (res.status !== expectedStatus) {
@@ -152,7 +173,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
         firstConceptTitle: 'Base Case',
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'Phase: IntroIllustrate',
-        curriculumFocusInstruction: 'Focus on base cases.'
+        curriculumFocus: activeCurriculumFocus()
       },
       metadata: { source: 'bff-deterministic-int-test' },
       options: {}
@@ -170,7 +191,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
         firstConceptTitle: 'Concept',
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'Phase',
-        curriculumFocusInstruction: 'Focus'
+        curriculumFocus: activeCurriculumFocus()
       }
     }, 'missing messageId');
 
@@ -192,6 +213,28 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
 
     await assertRejected(BASE, sessionId, {
       capability: 'mainSenseiResponse',
+      messageId: 'msg-old-standard-prompt-fragment',
+      payload: {
+        mode: 'standard',
+        curriculumFocusInstruction: '## Primary Action\nThis old prompt-string field must not be accepted.',
+        currentUserInput: 'What is recursion?'
+      }
+    }, 'old standard prompt-string payload');
+
+    await assertRejected(BASE, sessionId, {
+      capability: 'moduleIntroduction',
+      messageId: 'msg-old-intro-prompt-fragment',
+      payload: {
+        selectedModuleTitle: 'Module',
+        firstConceptTitle: 'Concept',
+        phaseDisplayName: 'IntroIllustrate',
+        userInputText: 'Phase',
+        curriculumFocusInstruction: 'This old prompt-string field must not be accepted.'
+      }
+    }, 'old module introduction prompt-string payload');
+
+    await assertRejected(BASE, sessionId, {
+      capability: 'mainSenseiResponse',
       messageId: 'msg-bad-socratic',
       payload: {
         mode: 'socratic',
@@ -207,7 +250,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
         firstConceptTitle: 'Concept',
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'x'.repeat(4001),
-        curriculumFocusInstruction: 'Focus'
+        curriculumFocus: activeCurriculumFocus()
       }
     }, 'oversized module introduction payload', 413);
 
@@ -216,7 +259,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       messageId: 'msg-oversized-main',
       payload: {
         mode: 'standard',
-        curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+        curriculumFocus: activeCurriculumFocus(),
         currentUserInput: 'x'.repeat(4001)
       }
     }, 'oversized main response payload', 413);
@@ -229,7 +272,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
         firstConceptTitle: 'Base Case',
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'Phase: IntroIllustrate',
-        curriculumFocusInstruction: 'Focus on base cases.',
+        curriculumFocus: activeCurriculumFocus(),
         moduleTitleForPrompt: 'Module Alpha'
       }
     }, 'deterministic:moduleIntroduction:msg-intro-deterministic');
@@ -239,7 +282,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       messageId: 'msg-standard-deterministic',
       payload: {
         mode: 'standard',
-        curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+        curriculumFocus: activeCurriculumFocus(),
         pedagogicalGuidanceDirective: 'GUIDE: Stay concise.',
         currentUserInput: 'How do base cases stop recursion?',
         navigationContext: 'The learner is in Module Alpha.',
@@ -285,7 +328,7 @@ const assertAcceptedStream = async (base, sessionId, body, expectedText) => {
       messageId: 'msg-timeout-aligned',
       payload: {
         mode: 'standard',
-        curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+        curriculumFocus: activeCurriculumFocus(),
         currentUserInput: 'Please continue slowly.'
       }
     }, 'deterministic:mainSenseiResponse:msg-timeout-aligned');

@@ -39,12 +39,60 @@ const LlmStreamSubmitSchema = z.object({
   }).optional()
 });
 
+const CurriculumFocusItemSchema = z.object({
+  moduleTitle: z.string().min(1),
+  moduleGoal: z.string(),
+  concept: z.object({
+    title: z.string().min(1),
+    text: z.string()
+  }).nullable(),
+  isModuleWidePhase: z.boolean()
+});
+
+const CurriculumFocusStateSchema = z.object({
+  currentPhase: z.string().min(1),
+  currentTeachingChunkIndex: z.number().int().nonnegative(),
+  teachingPlanChunkCount: z.number().int().nonnegative()
+});
+
+const CurriculumFocusSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('completed')
+  }),
+  z.object({
+    status: z.literal('general')
+  }),
+  z.object({
+    status: z.literal('active'),
+    item: CurriculumFocusItemSchema,
+    state: CurriculumFocusStateSchema,
+    focusPoints: z.array(z.string()),
+    primaryActionType: z.string().min(1),
+    includeCheckUnderstanding: z.boolean()
+  }),
+  z.object({
+    status: z.literal('consolidation'),
+    item: CurriculumFocusItemSchema,
+    consolidation: z.object({
+      stage: z.enum(['Diagnosing', 'Planning', 'Executing']),
+      allWeakPoints: z.array(z.string()).optional(),
+      userDiagnosisResponse: z.string().optional(),
+      currentPlanStep: z.number().int().nonnegative().optional(),
+      currentChunkIndex: z.number().int().nonnegative().optional(),
+      pointsToRemediate: z.array(z.string()).optional()
+    })
+  })
+]);
+
 const ModuleIntroductionPayloadSchema = z.object({
   selectedModuleTitle: z.string().min(1),
   firstConceptTitle: z.string().min(1),
   phaseDisplayName: z.string().min(1),
   userInputText: z.string(),
-  curriculumFocusInstruction: z.string().min(1),
+  curriculumFocus: CurriculumFocusSchema,
+  pedagogicalGuidanceDirective: z.string().optional(),
+  cleanPedagogicalGuidance: z.string().optional(),
+  isMustObey: z.boolean().optional(),
   moduleTitleForPrompt: z.string().optional(),
   conversationHistory: z.array(z.object({
     role: z.enum(['user', 'sensei']),
@@ -54,7 +102,7 @@ const ModuleIntroductionPayloadSchema = z.object({
 
 const StandardMainSenseiResponsePayloadSchema = z.object({
   mode: z.enum(['standard']).optional(),
-  curriculumFocusInstruction: z.string().min(1),
+  curriculumFocus: CurriculumFocusSchema,
   pedagogicalGuidanceDirective: z.string().optional(),
   cleanPedagogicalGuidance: z.string().optional(),
   isMustObey: z.boolean().optional(),

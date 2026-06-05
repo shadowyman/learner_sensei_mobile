@@ -8,7 +8,7 @@ import {
     TeachingPlanGenerationError,
     jumpToPhase,
     getCurrentCurriculumItem,
-    getCurriculumFocusInstruction,
+    buildCurriculumFocusSnapshot,
     calculateFocusPoints
 } from "./curriculum";
 import {
@@ -31,6 +31,7 @@ import { createBrowserCoreLlmClient } from '@sensei/core';
 import { generateWrapUpAssessment, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
 import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
 import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
+import { buildCurriculumFocusInstruction } from '@sensei/core/prompts/mainSenseiResponse';
 import { sendToNative } from './mobile/webviewBridge';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import { requestTeachingPlan } from './teachingPlanRouting';
@@ -567,8 +568,9 @@ Where would you like to begin your learning journey?`;
             if (this.state.curriculumState.currentPhase === 'Socratic') {
                 await this.sendSystemSocraticMessage();
             } else {
-                const curriculumFocusInstruction = getCurriculumFocusInstruction(this.state.curriculum, currentItem, this.state.curriculumState, false);
                 const focusPointsSnapshot = calculateFocusPoints(this.state.curriculumState);
+                const curriculumFocus = buildCurriculumFocusSnapshot(currentItem, this.state.curriculumState, false, focusPointsSnapshot);
+                const curriculumFocusInstruction = buildCurriculumFocusInstruction(curriculumFocus);
                 const coreInstruction = buildSenseiDynamicSystemInstruction(
                     curriculumFocusInstruction,
                     undefined
@@ -586,7 +588,7 @@ ${coreInstruction}
                     firstConceptTitle: conceptTitle,
                     phaseDisplayName,
                     userInputText: `Phase: ${phaseDisplayName}`,
-                    curriculumFocusInstruction: coreInstruction,
+                    curriculumFocus,
                     moduleTitleForPrompt: selectedModule.title
                 };
 

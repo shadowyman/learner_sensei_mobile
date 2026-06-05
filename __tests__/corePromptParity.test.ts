@@ -18,6 +18,7 @@ import { MODULE_INTRODUCTION_TASK_TEMPLATE } from '@sensei/core/prompts/moduleIn
 import { buildModuleIntroductionPrompt } from '@sensei/core/moduleIntroduction';
 import {
   MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION,
+  buildCurriculumFocusInstruction,
   buildSocraticExecutionInstruction,
   buildSocraticInitialInstruction
 } from '@sensei/core/prompts/mainSenseiResponse';
@@ -29,6 +30,27 @@ import {
 function sha256(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
+
+const activeCurriculumFocus = {
+  status: 'active' as const,
+  item: {
+    moduleTitle: 'Module Alpha',
+    moduleGoal: 'Master recursive decomposition',
+    concept: {
+      title: 'Base Case',
+      text: 'A base case stops recursion before the calls continue forever.'
+    },
+    isModuleWidePhase: false
+  },
+  state: {
+    currentPhase: 'IntroIllustrate',
+    currentTeachingChunkIndex: 0,
+    teachingPlanChunkCount: 2
+  },
+  focusPoints: ['Identify the condition that should stop recursion'],
+  primaryActionType: 'Teach New Content (from current chunk)',
+  includeCheckUnderstanding: true
+};
 
 describe('Core prompt parity fixtures', () => {
   test('wrap-up assessment prompt and tool schema match pre-normalization output', () => {
@@ -79,13 +101,13 @@ describe('Core prompt parity fixtures', () => {
     expect(sha256(prompt)).toBe('233a04a6d6d81f3f1897abae509e9f0c70c55b62084ab40f3171292b46700d0e');
   });
 
-  test('module introduction prompt builders match pre-normalization output', () => {
+  test('module introduction prompt builders assemble Core-owned curriculum focus output', () => {
     const request = {
       selectedModuleTitle: 'Module Alpha',
       firstConceptTitle: 'Base Case',
       phaseDisplayName: 'Intro & Illustrate',
       userInputText: 'Phase: Intro & Illustrate',
-      curriculumFocusInstruction: '## Curriculum Focus\nCurrent Module: Module Alpha\n__PEDAGOGICAL_GUIDANCE__',
+      curriculumFocus: activeCurriculumFocus,
       moduleTitleForPrompt: 'Module Alpha'
     };
 
@@ -95,13 +117,13 @@ describe('Core prompt parity fixtures', () => {
       request.phaseDisplayName,
       request.userInputText
     ))).toBe('f01a504ec3537c4b0b4122cfccd95b9f72c6fe1800c73a37bda11c8a4238def2');
-    expect(sha256(buildModuleIntroductionPrompt(request))).toBe('a8580064a20598c1b90a8a2bb3b5e7055a6b9950084588b36c186f30daeec08d');
+    expect(sha256(buildModuleIntroductionPrompt(request))).toBe('c59166b2f56d1c4aac30c072ac5a4e5779f7824b9995783cff91acc4ee30684c');
   });
 
-  test('main Sensei response prompt builders match pre-normalization output', () => {
+  test('main Sensei response prompt builders assemble Core-owned curriculum focus output', () => {
     const curriculumFocusInstruction = '## Primary Action\nTeach recursion base cases.\n__PEDAGOGICAL_GUIDANCE__';
     const request = {
-      curriculumFocusInstruction,
+      curriculumFocus: activeCurriculumFocus,
       pedagogicalGuidanceDirective: 'GUIDE: Encourage concrete analogies for recursion.',
       currentUserInput: 'How do I know when to stop recursion?',
       navigationContext: 'The learner opened the recursion module.'
@@ -112,8 +134,8 @@ describe('Core prompt parity fixtures', () => {
       'Encourage concrete analogies for recursion.',
       false
     ))).toBe('5a08eef5316d2345ac1d985b25bf07502ec0212b5ac70efb00cd637d141bb1f5');
-    expect(sha256(buildMainSenseiDynamicSystemInstruction(request))).toBe('382c0b304a25e40452a68919c60e8f09d40c25eddbe5c155630cad997b2d02c4');
-    expect(sha256(buildMainSenseiResponsePrompt(request))).toBe('635bbe9f09af5973374b028dc51dc1ff31cc526e96fc0ed69f48dd0e826d5868');
+    expect(sha256(buildMainSenseiDynamicSystemInstruction(request))).toBe('de711742875522581a38c0d854a7cf2aceb3f5598043de175684f232530e1153');
+    expect(sha256(buildMainSenseiResponsePrompt(request))).toBe('260172f60354822559ec480abf5d92d01246a39a612cd24a20e0540631923404');
     expect(sha256(MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
       curriculumFocusInstruction,
       'Focus only on reassurance.',
@@ -123,7 +145,7 @@ describe('Core prompt parity fixtures', () => {
 
   test('main Sensei migrated prompt envelope preserves base persona and recent history when requested', () => {
     const prompt = buildMainSenseiResponsePrompt({
-      curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+      curriculumFocus: activeCurriculumFocus,
       currentUserInput: 'Can you explain that example again?',
       includeBaseSystemInstruction: true,
       conversationHistory: [
@@ -146,13 +168,24 @@ describe('Core prompt parity fixtures', () => {
       firstConceptTitle: 'Base Case',
       phaseDisplayName: 'IntroIllustrate',
       userInputText: 'Phase: IntroIllustrate',
-      curriculumFocusInstruction: 'Focus on base cases.',
+      curriculumFocus: activeCurriculumFocus,
       includeBaseSystemInstruction: true
     });
 
     expect(prompt).toContain('[RecursiveSensei Base System Instruction]');
     expect(prompt).toContain('You ARE the Recursive Sensei');
     expect(prompt).toContain("Let's begin Module Alpha.");
+  });
+
+  test('Core owns migrated curriculum focus prompt construction from structured snapshots', () => {
+    const prompt = buildCurriculumFocusInstruction(activeCurriculumFocus);
+
+    expect(prompt).toContain('## ⭐ PRIMARY ACTION FOR THIS TURN: Teach New Content (from current chunk) ⭐');
+    expect(prompt).toContain('Teaching Points:');
+    expect(prompt).toContain('"Identify the condition that should stop recursion"');
+    expect(prompt).toContain('## Curriculum Focus');
+    expect(prompt).toContain('Current Module: Module Alpha');
+    expect(prompt).toContain('## 🧠 Let\'s Check Your Understanding');
   });
 
   test('Socratic main Sensei prompt builders match migrated output', () => {

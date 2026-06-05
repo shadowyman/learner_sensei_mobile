@@ -19,6 +19,296 @@ export interface SocraticExecutionInstructionRequest {
   conceptContext?: string;
 }
 
+export interface CurriculumFocusConceptSnapshot {
+  title: string;
+  text: string;
+}
+
+export interface CurriculumFocusItemSnapshot {
+  moduleTitle: string;
+  moduleGoal: string;
+  concept: CurriculumFocusConceptSnapshot | null;
+  isModuleWidePhase: boolean;
+}
+
+export interface CurriculumFocusStateSnapshot {
+  currentPhase: string;
+  currentTeachingChunkIndex: number;
+  teachingPlanChunkCount: number;
+}
+
+export interface CurriculumFocusConsolidationSnapshot {
+  stage: 'Diagnosing' | 'Planning' | 'Executing';
+  allWeakPoints?: string[];
+  userDiagnosisResponse?: string;
+  currentPlanStep?: number;
+  currentChunkIndex?: number;
+  pointsToRemediate?: string[];
+}
+
+export type CurriculumFocusPromptSnapshot =
+  | { status: 'completed' }
+  | { status: 'general' }
+  | {
+      status: 'active';
+      item: CurriculumFocusItemSnapshot;
+      state: CurriculumFocusStateSnapshot;
+      focusPoints: string[];
+      primaryActionType: string;
+      includeCheckUnderstanding: boolean;
+    }
+  | {
+      status: 'consolidation';
+      item: CurriculumFocusItemSnapshot;
+      consolidation: CurriculumFocusConsolidationSnapshot;
+    };
+
+export const CURRICULUM_COMPLETED_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: Curriculum Completed! User may ask recap questions or general CS topics. Be supportive and congratulate them.]`;
+export const GENERAL_INTERACTION_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: General Interaction - Awaiting curriculum selection or processing general query.]`;
+
+export const REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[]): string => {
+  const prompt = `WARNING: Either you have missed delivering an instruction for the following teaching points or the learner is having difficulty understanding these teaching points. Assess the situation and then for each of the following specific teaching point(s) from the current chunk, you MUST provide a detailed and comprehensive explanation to address the learner's confusion or cover the points you may have missed. This includes:
+      - Clearly defining the core idea of the point.
+      - Providing at least one illustrative example or analogy, or walking through a relevant scenario.
+      - Anticipating potential common points of confusion for a learner regarding this point and proactively addressing them.
+      - Emphasizing the most important takeaway or 'why this matters' for the point.
+      - If the teaching point itself suggests a specific example or analogy, elaborate on it fully.
+    Teaching Points:
+    ${focusPointsStrings.map(s => `  - "${s}"`).join("\n")}`;
+
+  return prompt;
+};
+
+export const REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE = (allRevisitPoints: string[]): string => {
+  const prompt = `You MUST address learner confusion regarding the following teaching point(s) for this phase with immense depth and clarity. For each point:
+      - Clearly define its core idea.
+      - Provide illustrative examples or analogies.
+      - Proactively address common confusions.
+      - Emphasize its significance.
+    Teaching Points:
+    ${allRevisitPoints.map(s => `  - "${s}"`).join("\n")}`;
+
+  return prompt;
+};
+
+export const TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[]): string => {
+  let prompt = `For each of the following specific teaching point(s), you MUST explain and/or illustrate them with immense depth and comprehensiveness. These points may already contain specific examples or analogies to use. Your explanation must include:
+      - Clearly defining the core idea of each point.
+      - Providing at least one illustrative example or analogy for each, or walking through a relevant scenario.
+      - Anticipating potential common points of confusion for a learner regarding each point and proactively addressing them.
+      - Emphasizing the most important takeaway or 'why this matters' for each point.
+      - If a teaching point itself suggests a specific example or analogy, elaborate on it fully.
+    Teaching Points:
+    ${focusPointsStrings.map(s => `  - "${s}"`).join("\n")}`;
+
+  return prompt;
+};
+
+export const REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE = (item: CurriculumFocusItemSnapshot, currentChunkItemTexts: string[]): string => `All key aspects of the current chunk for '${item.concept?.title || item.moduleTitle}' have been introduced. You MUST now provide a consolidating example OR ask a thought-provoking question that requires deeper understanding of these specific items.
+  - If providing an example, ensure it clearly illustrates the interplay or application of the items with sufficient detail.
+  - If asking a question, ensure it prompts critical thinking and detailed explanation about them.
+Focus on these items:
+${currentChunkItemTexts.map(s => `  - "${s}"`).join("\n")}`;
+
+export const GENERAL_ENGAGEMENT_PROMPT_TEMPLATE = (item: CurriculumFocusItemSnapshot, state: Pick<CurriculumFocusStateSnapshot, 'currentPhase'>): string => {
+  const focusTarget = item.isModuleWidePhase ? `'${item.moduleTitle}' (module-wide)` : `'${item.concept?.title}'`;
+  return `You MUST engage the learner on ${focusTarget} within the '${state.currentPhase}' phase. The teaching plan for this chunk is empty; rely on your general pedagogical knowledge for this phase type (e.g., introducing, illustrating, asking socratic questions, or summarizing), ensuring your explanations are detailed and thorough.`;
+};
+
+function buildPrimaryActionInstruction(
+  primaryActionType: string,
+  focusPointsStrings: string[],
+  item: CurriculumFocusItemSnapshot,
+  state: CurriculumFocusStateSnapshot,
+  includeCheckUnderstanding: boolean
+): { instruction: string; includeCheck: boolean } {
+  switch (primaryActionType) {
+    case "Revisit & Clarify (from current chunk)":
+      return {
+        instruction: REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE(focusPointsStrings),
+        includeCheck: includeCheckUnderstanding
+      };
+    case "Revisit & Clarify (general points for this phase)":
+      return {
+        instruction: REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE(focusPointsStrings),
+        includeCheck: includeCheckUnderstanding
+      };
+    case "Teach New Content (from current chunk)":
+      return {
+        instruction: TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE(focusPointsStrings),
+        includeCheck: includeCheckUnderstanding
+      };
+    case "Reinforce & Deepen (current chunk)":
+      return {
+        instruction: REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE(item, focusPointsStrings),
+        includeCheck: includeCheckUnderstanding
+      };
+    case "General Engagement":
+      return {
+        instruction: GENERAL_ENGAGEMENT_PROMPT_TEMPLATE(item, state),
+        includeCheck: includeCheckUnderstanding
+      };
+    default:
+      return {
+        instruction: "",
+        includeCheck: includeCheckUnderstanding
+      };
+  }
+}
+
+function buildSupportingContextBlock(
+  item: CurriculumFocusItemSnapshot,
+  state: CurriculumFocusStateSnapshot
+): string {
+  const lines: string[] = [];
+  lines.push(`- Current Module Goal (Overall context for this module):`);
+  lines.push(`  "${item.moduleGoal}"`);
+
+  if (item.concept && !item.isModuleWidePhase) {
+    lines.push(`- Current Concept (Background for the primary action):`);
+    lines.push(`  - Title: "${item.concept.title}"`);
+    lines.push(`  - Core Explanation: "${item.concept.text}"`);
+  } else if (item.isModuleWidePhase) {
+    lines.push(`- Current Focus: This is a module-wide phase. Focus on the overall module goal and the nature of the current phase ('${state.currentPhase}').`);
+  }
+
+  lines.push(`- Current Phase Signal: You are in the "${state.currentPhase}". This signals the general style of interaction expected (e.g., 'IntroIllustrate' implies explanation and examples; 'Socratic' implies questioning and discussion; 'Solidify' implies review and connection).`);
+
+  return lines.join('\n');
+}
+
+function buildContextualInstruction(
+  item: CurriculumFocusItemSnapshot,
+  state: CurriculumFocusStateSnapshot,
+  primaryActionType: string,
+  primaryActionResult: { instruction: string; includeCheck: boolean }
+): string {
+  const sections: string[] = [];
+  const chunkProgress = `Chunk ${state.currentTeachingChunkIndex + 1} of ${state.teachingPlanChunkCount || 1}`;
+  const phaseLineParts: string[] = [`Current Pedagogical Phase: ${state.currentPhase}`];
+
+  if (!item.isModuleWidePhase && item.concept) {
+    phaseLineParts.push(`(for Concept: ${item.concept.title})`);
+  } else if (item.isModuleWidePhase) {
+    phaseLineParts.push('(Module-Wide)');
+  }
+
+  phaseLineParts.push(`(${chunkProgress})`);
+
+  sections.push([
+    `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
+    primaryActionResult.instruction,
+    USER_LAST_INPUT_PLACEHOLDER
+  ].join('\n'));
+
+  sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
+
+  sections.push([
+    '## Curriculum Focus',
+    `Current Module: ${item.moduleTitle}`,
+    phaseLineParts.join(' ')
+  ].join('\n'));
+
+  if (primaryActionResult.includeCheck) {
+    sections.push([
+      '## 🧠 Let\'s Check Your Understanding',
+      '(Here, you will ask 1-2 open-ended, Socratic questions that test the application of all concepts you just explained. The questions should require synthesis, not just recall. They must collectively cover the key topics from your main explanation.)'
+    ].join('\n'));
+  }
+
+  sections.push([
+    '## SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE',
+    buildSupportingContextBlock(item, state)
+  ].join('\n'));
+
+  const assembled = sections.join('\n\n======\n\n');
+  return `${assembled}\n\n======`;
+}
+
+function buildConsolidationFocusInstruction(
+  item: CurriculumFocusItemSnapshot,
+  consolidation: CurriculumFocusConsolidationSnapshot
+): string {
+  let primaryActionType = "";
+  let primaryActionInstruction = "";
+
+  switch (consolidation.stage) {
+    case 'Diagnosing':
+      primaryActionType = "Consolidation: Diagnose Weaknesses";
+      primaryActionInstruction = `You are in a consolidation loop because the learner's overall mastery is not yet sufficient.
+1.  **Present a Consolidation Report:** Start by transparently explaining that you want to review a few key concepts to solidify understanding.
+2.  **List the Weak Points:** Clearly list the following teaching points that need review:
+${(consolidation.allWeakPoints || []).map(p => `    - "${p}"`).join('\n')}
+3.  **Ask Diagnostic Questions:** For EACH of the points listed above, ask 1-2 targeted, open-ended questions to pinpoint the exact source of confusion. Do not provide explanations yet. Your goal is to gather information.`;
+      break;
+
+    case 'Planning':
+      primaryActionType = "Consolidation: Analyze & Plan Reteaching";
+      primaryActionInstruction = `The user has responded to your diagnostic questions.
+1.  **Analyze the User's Response:** In your response, first analyze their answers (provided in the chat history: "${consolidation.userDiagnosisResponse}"). Explicitly state what you believe the "laser-focused" weakness is for each topic. For example: "Thanks for explaining. For the 'base case' concept, it seems the core issue is about when it should return 0 vs. 1. For the 'recursive step', the confusion appears to be around how the return values are combined."
+2.  **Announce the Reteaching Plan:** After the analysis, present a clear, step-by-step plan for how you will address these points in the upcoming turns.`;
+      break;
+
+    case 'Executing':
+      if (consolidation.currentChunkIndex === undefined || !consolidation.pointsToRemediate) {
+        return `## Curriculum Focus\nInformation unavailable for consolidation stage.\n\n======`;
+      }
+      primaryActionType = `Consolidation: Execute Reteaching (Chunk ${consolidation.currentChunkIndex + 1})`;
+      primaryActionInstruction = `You are executing step ${(consolidation.currentPlanStep || 0) + 1} of the reteaching plan you previously announced.
+1.  **State Your Focus:** Begin by saying you are now focusing on the points from Chunk ${consolidation.currentChunkIndex + 1}.
+2.  **Provide Focused Remediation:** Provide a new, detailed, and "laser-focused" explanation for the following specific weak points. Your explanation MUST directly address the weaknesses you diagnosed in the 'Planning' stage. Use new analogies or examples.
+${consolidation.pointsToRemediate.map(p => `    - "${p}"`).join('\n')}`;
+      break;
+  }
+
+  const sections: string[] = [];
+  sections.push([
+    `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
+    primaryActionInstruction,
+    USER_LAST_INPUT_PLACEHOLDER
+  ].join('\n'));
+
+  sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
+
+  sections.push([
+    '## Curriculum Focus',
+    `Current Module: ${item.moduleTitle}`,
+    `Current Pedagogical Phase: ${item.isModuleWidePhase ? 'Module-Wide Consolidation' : 'Concept Consolidation'}`
+  ].join('\n'));
+
+  const supportingLines: string[] = [`- Module Goal: "${item.moduleGoal}"`];
+  if (item.concept) {
+    supportingLines.push(`- Concept: "${item.concept.title}"`);
+  }
+
+  sections.push([
+    '## SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE',
+    supportingLines.join('\n')
+  ].join('\n'));
+
+  return `${sections.join('\n\n======\n\n')}\n\n======`;
+}
+
+export function buildCurriculumFocusInstruction(snapshot: CurriculumFocusPromptSnapshot): string {
+  if (snapshot.status === 'completed') {
+    return CURRICULUM_COMPLETED_FOCUS_INSTRUCTION;
+  }
+  if (snapshot.status === 'general') {
+    return GENERAL_INTERACTION_FOCUS_INSTRUCTION;
+  }
+  if (snapshot.status === 'consolidation') {
+    return buildConsolidationFocusInstruction(snapshot.item, snapshot.consolidation);
+  }
+  const primaryActionInstruction = buildPrimaryActionInstruction(
+    snapshot.primaryActionType,
+    snapshot.focusPoints,
+    snapshot.item,
+    snapshot.state,
+    snapshot.includeCheckUnderstanding
+  );
+  return buildContextualInstruction(snapshot.item, snapshot.state, snapshot.primaryActionType, primaryActionInstruction);
+}
+
 export const MANDATORY_TEACHING_STRUCTURE = `## MANDATORY TEACHING STRUCTURE
 
 Your Core Directive: Your primary function is to act as an expert educator. Your response must follow the rigorous teaching structure detailed below. Any deviation from this structure, its labels, or its depth requirements constitutes a critical failure. Your goal is to produce a comprehensive, detailed, and supportive teaching module, structured exactly as specified.

@@ -13,16 +13,30 @@ import {
 } from '@sensei/core/teachingPlan';
 import { MODULE_INTRODUCTION_TASK_TEMPLATE } from '@sensei/core/prompts/moduleIntroduction';
 import {
+    CURRICULUM_COMPLETED_FOCUS_INSTRUCTION,
+    GENERAL_ENGAGEMENT_PROMPT_TEMPLATE,
+    GENERAL_INTERACTION_FOCUS_INSTRUCTION,
     MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION,
     PEDAGOGICAL_GUIDANCE_PLACEHOLDER,
+    REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE,
+    REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE,
+    REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE,
+    TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE,
     USER_LAST_INPUT_PLACEHOLDER,
     buildSocraticInitialInstruction
 } from '@sensei/core/prompts/mainSenseiResponse';
 
 export {
     MODULE_INTRODUCTION_TASK_TEMPLATE,
+    CURRICULUM_COMPLETED_FOCUS_INSTRUCTION,
+    GENERAL_ENGAGEMENT_PROMPT_TEMPLATE,
+    GENERAL_INTERACTION_FOCUS_INSTRUCTION,
     MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION,
     PEDAGOGICAL_GUIDANCE_PLACEHOLDER,
+    REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE,
+    REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE,
+    REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE,
+    TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE,
     USER_LAST_INPUT_PLACEHOLDER,
     buildSocraticInitialInstruction
 };
@@ -476,9 +490,6 @@ Produce only the body content for insertion (no heading like "Key Takeaways", no
 
 Teaching Points:`;
 
-export const CURRICULUM_COMPLETED_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: Curriculum Completed! User may ask recap questions or general CS topics. Be supportive and congratulate them.]`;
-export const GENERAL_INTERACTION_FOCUS_INSTRUCTION = `[RecursiveSensei Curriculum Focus for this turn: General Interaction - Awaiting curriculum selection or processing general query.]`;
-
 export function buildSenseiEnhancementPrompt(originalMarkdown: string): string {
     return [
         'You expand Recursive Sensei teaching messages by adding clarifying details. MINIMUM 20 KEY,VALUE ENHANCEMENTS REQUIRED.',
@@ -509,53 +520,4 @@ export const TARGETED_CONSOLIDATION_PROMPT_TEMPLATE = (item: CurriculumItem, sta
   1. Ask the learner to summarize the main takeaways of ${focusContext} in their own words.
   2. Present a new, slightly more complex example or scenario that requires integrating multiple ideas from the different chunks of this phase. Ensure this example/scenario is rich enough to encourage detailed thought.
   3. Pose synthesizing questions that encourage the learner to explain connections between concepts covered throughout this phase. Your follow-up probing should also aim for depth.`;
-};
-
-export const REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[]): string => {
-    const prompt = `WARNING: Either you have missed delivering an instruction for the following teaching points or the learner is having difficulty understanding these teaching points. Assess the situation and then for each of the following specific teaching point(s) from the current chunk, you MUST provide a detailed and comprehensive explanation to address the learner's confusion or cover the points you may have missed. This includes:
-      - Clearly defining the core idea of the point.
-      - Providing at least one illustrative example or analogy, or walking through a relevant scenario.
-      - Anticipating potential common points of confusion for a learner regarding this point and proactively addressing them.
-      - Emphasizing the most important takeaway or 'why this matters' for the point.
-      - If the teaching point itself suggests a specific example or analogy, elaborate on it fully.
-    Teaching Points:
-    ${focusPointsStrings.map(s => `  - "${s}"`).join("\n")}`;
-
-    return prompt;
-};
-
-export const REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE = (allRevisitPoints: string[]): string => {
-    const prompt = `You MUST address learner confusion regarding the following teaching point(s) for this phase with immense depth and clarity. For each point:
-      - Clearly define its core idea.
-      - Provide illustrative examples or analogies.
-      - Proactively address common confusions.
-      - Emphasize its significance.
-    Teaching Points:
-    ${allRevisitPoints.map(s => `  - "${s}"`).join("\n")}`;
-
-    return prompt;
-};
-
-export const TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE = (focusPointsStrings: string[]): string => {
-    let prompt = `For each of the following specific teaching point(s), you MUST explain and/or illustrate them with immense depth and comprehensiveness. These points may already contain specific examples or analogies to use. Your explanation must include:
-      - Clearly defining the core idea of each point.
-      - Providing at least one illustrative example or analogy for each, or walking through a relevant scenario.
-      - Anticipating potential common points of confusion for a learner regarding each point and proactively addressing them.
-      - Emphasizing the most important takeaway or 'why this matters' for each point.
-      - If a teaching point itself suggests a specific example or analogy, elaborate on it fully.
-    Teaching Points:
-    ${focusPointsStrings.map(s => `  - "${s}"`).join("\n")}`;
-
-    return prompt;
-};
-
-export const REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE = (item: CurriculumItem, currentChunkItemTexts: string[]): string => `All key aspects of the current chunk for '${item.concept?.title || item.moduleTitle}' have been introduced. You MUST now provide a consolidating example OR ask a thought-provoking question that requires deeper understanding of these specific items.
-  - If providing an example, ensure it clearly illustrates the interplay or application of the items with sufficient detail.
-  - If asking a question, ensure it prompts critical thinking and detailed explanation about them.
-Focus on these items:
-${currentChunkItemTexts.map(s => `  - "${s}"`).join("\n")}`;
-
-export const GENERAL_ENGAGEMENT_PROMPT_TEMPLATE = (item: CurriculumItem, state: CurriculumState): string => {
-    const focusTarget = item.isModuleWidePhase ? `'${item.moduleTitle}' (module-wide)` : `'${item.concept?.title}'`;
-    return `You MUST engage the learner on ${focusTarget} within the '${state.currentPhase}' phase. The teaching plan for this chunk is empty; rely on your general pedagogical knowledge for this phase type (e.g., introducing, illustrating, asking socratic questions, or summarizing), ensuring your explanations are detailed and thorough.`;
 };

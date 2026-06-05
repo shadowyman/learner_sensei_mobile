@@ -80,7 +80,7 @@ import {
     jumpToPhase,
     getCurrentCurriculumItem,
     advanceCurriculumState,
-    getCurriculumFocusInstruction,
+    buildCurriculumFocusSnapshot,
     buildPrimaryActionBlockForKeyTakeaway,
     calculateFocusPoints,
     isCurriculumLoaded,
@@ -128,6 +128,7 @@ import type { LearnerAnalysisPhase, LearnerAnalysisRequest } from '@sensei/core/
 import type { MainSenseiResponsePromptRequest } from '@sensei/core/mainSenseiResponse';
 import type { ConversationHistoryEntry } from '@sensei/core/promptEnvelope';
 import type { ModuleIntroductionPromptRequest } from '@sensei/core/moduleIntroduction';
+import { buildCurriculumFocusInstruction } from '@sensei/core/prompts/mainSenseiResponse';
 import { requestWrapUpAssessment } from './wrapUpAssessmentRouting';
 import { requestLearnerAnalysis } from './learnerAnalysisRouting';
 import { requestTeachingPlan } from './teachingPlanRouting';
@@ -139,8 +140,6 @@ import {
     SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS,
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
     MODULE_INTRODUCTION_TASK_TEMPLATE,
-    CURRICULUM_COMPLETED_FOCUS_INSTRUCTION,
-    GENERAL_INTERACTION_FOCUS_INSTRUCTION,
     KEY_TAKEAWAY_PROMPT_PREFIX
 } from './prompts';
 import {
@@ -850,11 +849,13 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
         });
     }
     
-    const curriculumFocusInstruction = (curriculum && curriculumState && newCurrentItem)
-        ? getCurriculumFocusInstruction(curriculum, newCurrentItem, curriculumState, isMustObey, focusPointsData || undefined)
-        : curriculumState?.isCompleted
-            ? CURRICULUM_COMPLETED_FOCUS_INSTRUCTION
-            : GENERAL_INTERACTION_FOCUS_INSTRUCTION;
+    const curriculumFocus = buildCurriculumFocusSnapshot(
+        newCurrentItem,
+        curriculumState,
+        isMustObey,
+        focusPointsData || undefined
+    );
+    const curriculumFocusInstruction = buildCurriculumFocusInstruction(curriculumFocus);
 
     const effectiveUserInput = isNavigationTurn
         ? "The user didn't provide any input to your last message."
@@ -908,7 +909,7 @@ async function generateNextSenseiResponse(inputText: string, skipPedagogicalInte
             navigationContext || undefined
         );
         mainSenseiLlmStreamRequest = {
-            curriculumFocusInstruction,
+            curriculumFocus,
             pedagogicalGuidanceDirective: guidanceText,
             currentUserInput: effectiveUserInput,
             conversationHistory: buildRecentConversationHistory(effectiveUserInput)

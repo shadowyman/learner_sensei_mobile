@@ -98,7 +98,26 @@ const readStreamEvents = (streamUrl) => new Promise((resolve, reject) => {
         firstConceptTitle: 'Base Case',
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'Phase: IntroIllustrate',
-        curriculumFocusInstruction: 'For this integration smoke test, respond in one short sentence that includes the words Recursive Sensei stream smoke.',
+        curriculumFocus: {
+          status: 'active',
+          item: {
+            moduleTitle: 'Recursive Smoke Module',
+            moduleGoal: 'Confirm the migrated LLM stream reaches Gemini.',
+            concept: {
+              title: 'Base Case',
+              text: 'This smoke concept asks the model to mention Recursive Sensei stream smoke.'
+            },
+            isModuleWidePhase: false
+          },
+          state: {
+            currentPhase: 'IntroIllustrate',
+            currentTeachingChunkIndex: 0,
+            teachingPlanChunkCount: 1
+          },
+          focusPoints: ['Mention the words Recursive Sensei stream smoke.'],
+          primaryActionType: 'Teach New Content (from current chunk)',
+          includeCheckUnderstanding: false
+        },
         moduleTitleForPrompt: 'Recursive Smoke Module'
       },
       metadata: {

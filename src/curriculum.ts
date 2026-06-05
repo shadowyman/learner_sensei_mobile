@@ -9,22 +9,18 @@ import { getCachedTeachingPlan, setCachedTeachingPlan, removeCachedTeachingPlan 
 import { 
     initiateConsolidation,
     advanceConsolidationStage,
-    getConsolidationFocusInstruction as getConsolidationInstruction,
     ConsolidationState
 } from "./consolidationManager";
 import {
-    CURRICULUM_COMPLETED_FOCUS_INSTRUCTION,
-    GENERAL_INTERACTION_FOCUS_INSTRUCTION,
     REVISIT_CLARIFY_CHUNK_PROMPT_TEMPLATE,
     REVISIT_CLARIFY_GENERAL_PROMPT_TEMPLATE,
     TEACH_NEW_CONTENT_CHUNK_PROMPT_TEMPLATE,
     REINFORCE_DEEPEN_CHUNK_PROMPT_TEMPLATE,
-    GENERAL_ENGAGEMENT_PROMPT_TEMPLATE,
-    PEDAGOGICAL_GUIDANCE_PLACEHOLDER,
-    USER_LAST_INPUT_PLACEHOLDER
+    GENERAL_ENGAGEMENT_PROMPT_TEMPLATE
 } from "./prompts";
 import { TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED } from './model_usage';
 import type { Phase, TeachingPoint } from '@sensei/core/teachingPlan';
+import { buildCurriculumFocusInstruction, type CurriculumFocusPromptSnapshot } from '@sensei/core/prompts/mainSenseiResponse';
 
 export type { Phase, TeachingPoint };
 
@@ -1417,24 +1413,6 @@ export async function advanceCurriculumState(
 }
 
 
-// Main implementation of curriculum focus instruction generation
-function buildEarlyReturnInstruction(
-    state: CurriculumState,
-    item: CurriculumItem | null
-): string | null {
-    
-    if (state.isCompleted) {
-        return CURRICULUM_COMPLETED_FOCUS_INSTRUCTION;
-    }
-    if (!item) {
-        return GENERAL_INTERACTION_FOCUS_INSTRUCTION;
-    }
-    if (state.activeConsolidationState) {
-        return getConsolidationInstruction(item, state.activeConsolidationState);
-    }
-    return null;
-}
-
 function resolveFocusPoints(
     state: CurriculumState,
     preCalculatedFocusPoints?: { focusPoints: string[], primaryActionType: string }
@@ -1496,101 +1474,66 @@ function buildPrimaryActionInstruction(
     }
 }
 
-function buildSupportingContextBlock(
-    item: CurriculumItem,
-    state: CurriculumState
-): string {
-    const lines: string[] = [];
-    lines.push(`- Current Module Goal (Overall context for this module):`);
-    lines.push(`  "${item.moduleGoal}"`);
-
-    if (item.concept && !item.isModuleWidePhase) {
-        lines.push(`- Current Concept (Background for the primary action):`);
-        lines.push(`  - Title: "${item.concept.title}"`);
-        lines.push(`  - Core Explanation: "${item.concept.text}"`);
-    } else if (item.isModuleWidePhase) {
-        lines.push(`- Current Focus: This is a module-wide phase. Focus on the overall module goal and the nature of the current phase ('${state.currentPhase}').`);
-    }
-
-    lines.push(`- Current Phase Signal: You are in the "${state.currentPhase}". This signals the general style of interaction expected (e.g., 'IntroIllustrate' implies explanation and examples; 'Socratic' implies questioning and discussion; 'Solidify' implies review and connection).`);
-
-    return lines.join('\n');
+function buildItemSnapshot(item: CurriculumItem) {
+    return {
+        moduleTitle: item.moduleTitle,
+        moduleGoal: item.moduleGoal,
+        concept: item.concept ? {
+            title: item.concept.title,
+            text: item.concept.text
+        } : null,
+        isModuleWidePhase: item.isModuleWidePhase
+    };
 }
 
-function buildContextualInstruction(
-    item: CurriculumItem,
-    state: CurriculumState,
-    primaryActionType: string,
-    primaryActionResult: { instruction: string; includeCheck: boolean }
-): string {
-    const sections: string[] = [];
-    const chunkProgress = `Chunk ${state.currentTeachingChunkIndex + 1} of ${state.teachingPlanForPhase.length || 1}`;
-    const phaseLineParts: string[] = [`Current Pedagogical Phase: ${state.currentPhase}`];
-
-    if (!item.isModuleWidePhase && item.concept) {
-        phaseLineParts.push(`(for Concept: ${item.concept.title})`);
-    } else if (item.isModuleWidePhase) {
-        phaseLineParts.push('(Module-Wide)');
-    }
-
-    phaseLineParts.push(`(${chunkProgress})`);
-
-    sections.push([
-        `## ⭐ PRIMARY ACTION FOR THIS TURN: ${primaryActionType} ⭐`,
-        primaryActionResult.instruction,
-        USER_LAST_INPUT_PLACEHOLDER
-    ].join('\n'));
-
-    sections.push(PEDAGOGICAL_GUIDANCE_PLACEHOLDER);
-
-    sections.push([
-        '## Curriculum Focus',
-        `Current Module: ${item.moduleTitle}`,
-        phaseLineParts.join(' ')
-    ].join('\n'));
-
-    if (primaryActionResult.includeCheck) {
-        sections.push([
-            '## 🧠 Let\'s Check Your Understanding',
-            '(Here, you will ask 1-2 open-ended, Socratic questions that test the application of all concepts you just explained. The questions should require synthesis, not just recall. They must collectively cover the key topics from your main explanation.)'
-        ].join('\n'));
-    }
-
-    sections.push([
-        '## SUPPORTING CONTEXT & GUIDANCE FOR YOUR REFERENCE',
-        buildSupportingContextBlock(item, state)
-    ].join('\n'));
-
-    const assembled = sections.join('\n\n======\n\n');
-    return `${assembled}\n\n======`;
+function buildConsolidationSnapshot(state: ConsolidationState) {
+    const currentChunkIndex = state.planOrder[state.currentPlanStep];
+    const pointsToRemediate = currentChunkIndex === undefined
+        ? undefined
+        : state.plan.get(currentChunkIndex)?.map(point => point.text);
+    return {
+        stage: state.stage,
+        allWeakPoints: Array.from(state.plan.values()).flat().map(point => point.text),
+        userDiagnosisResponse: state.userDiagnosisResponse,
+        currentPlanStep: state.currentPlanStep,
+        currentChunkIndex,
+        pointsToRemediate
+    };
 }
 
-function getCurriculumFocusInstructionImpl(
-    curriculum: Curriculum, 
-    item: CurriculumItem,
-    state: CurriculumState,
+export function buildCurriculumFocusSnapshot(
+    item: CurriculumItem | null,
+    state: CurriculumState | null | undefined,
     isMustObeyTurn: boolean,
     preCalculatedFocusPoints?: { focusPoints: string[], primaryActionType: string }
-): string {
-    
-    // Handle early returns
-    const earlyReturn = buildEarlyReturnInstruction(state, item);
-    if (earlyReturn) return earlyReturn;
-    
-    // Resolve focus points
+): CurriculumFocusPromptSnapshot {
+    if (state?.isCompleted) {
+        return { status: 'completed' };
+    }
+    if (!state || !item) {
+        return { status: 'general' };
+    }
+    const itemSnapshot = buildItemSnapshot(item);
+    if (state.activeConsolidationState) {
+        return {
+            status: 'consolidation',
+            item: itemSnapshot,
+            consolidation: buildConsolidationSnapshot(state.activeConsolidationState)
+        };
+    }
     const { focusPoints, primaryActionType } = resolveFocusPoints(state, preCalculatedFocusPoints);
-    
-    const includeCheckUnderstanding = !isMustObeyTurn;
-    const primaryActionInstruction = buildPrimaryActionInstruction(
-        primaryActionType,
+    return {
+        status: 'active',
+        item: itemSnapshot,
+        state: {
+            currentPhase: state.currentPhase,
+            currentTeachingChunkIndex: state.currentTeachingChunkIndex,
+            teachingPlanChunkCount: state.teachingPlanForPhase.length
+        },
         focusPoints,
-        item,
-        state,
-        includeCheckUnderstanding
-    );
-
-    // Build complete contextual instruction
-    return buildContextualInstruction(item, state, primaryActionType, primaryActionInstruction);
+        primaryActionType,
+        includeCheckUnderstanding: !isMustObeyTurn
+    };
 }
 
 
@@ -1653,7 +1596,7 @@ export function getCurriculumFocusInstruction(
     isMustObeyTurn: boolean,
     preCalculatedFocusPoints?: { focusPoints: string[], primaryActionType: string }
 ): string {
-    return getCurriculumFocusInstructionImpl(curriculum, item, state, isMustObeyTurn, preCalculatedFocusPoints);
+    return buildCurriculumFocusInstruction(buildCurriculumFocusSnapshot(item, state, isMustObeyTurn, preCalculatedFocusPoints));
 }
 
 export function buildPrimaryActionBlockForKeyTakeaway(

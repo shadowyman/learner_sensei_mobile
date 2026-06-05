@@ -189,7 +189,7 @@ describe('interactionHelpers streamMainSenseiResponse', () => {
         enhancerController: enhancerController as any,
         llmStreamRequest: {
           mode: 'standard',
-          curriculumFocusInstruction: '## Primary Action\nExplain recursion.\n__PEDAGOGICAL_GUIDANCE__',
+          curriculumFocus: { status: 'general' },
           currentUserInput: 'I need help'
         }
       }
@@ -289,7 +289,7 @@ describe('interactionHelpers streamModuleIntroduction', () => {
           firstConceptTitle: 'Concept',
           phaseDisplayName: 'IntroIllustrate',
           userInputText: 'Phase: IntroIllustrate',
-          curriculumFocusInstruction: 'Focus',
+          curriculumFocus: { status: 'general' },
           moduleTitleForPrompt: 'Module'
         }
       }

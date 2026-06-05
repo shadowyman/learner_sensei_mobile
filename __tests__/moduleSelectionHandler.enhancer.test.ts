@@ -14,6 +14,7 @@ jest.mock('../src/curriculum', () => ({
   })),
   getCurrentCurriculumItem: jest.fn().mockReturnValue({ concept: { title: 'Concept' } }),
   getCurriculumFocusInstruction: jest.fn().mockReturnValue('focus'),
+  buildCurriculumFocusSnapshot: jest.fn().mockReturnValue({ status: 'general' }),
   calculateFocusPoints: jest.fn().mockReturnValue({ focusPoints: ['Point'], primaryActionType: 'Teach New Content (from current chunk)' }),
   buildPrimaryActionBlockForKeyTakeaway: jest.fn().mockReturnValue('## ⭐ PRIMARY ACTION FOR THIS TURN: Teach New Content (from current chunk) ⭐\nInstruction'),
   Curriculum: class {},

@@ -102,7 +102,7 @@ describe('BffClient', () => {
                 firstConceptTitle: 'Concept',
                 phaseDisplayName: 'IntroIllustrate',
                 userInputText: 'Phase: IntroIllustrate',
-                curriculumFocusInstruction: 'Focus'
+                curriculumFocus: { status: 'general' }
             }
         });
         expect(handle.requestId).toBe('llmreq-1');
@@ -142,7 +142,7 @@ describe('BffClient', () => {
                 firstConceptTitle: 'Concept',
                 phaseDisplayName: 'IntroIllustrate',
                 userInputText: 'Phase: IntroIllustrate',
-                curriculumFocusInstruction: 'Focus'
+                curriculumFocus: { status: 'general' }
             }
         });
         const iterator = handle.stream[Symbol.asyncIterator]();
@@ -202,7 +202,7 @@ describe('BffClient', () => {
             messageId: 'msg-main-standard',
             payload: {
                 mode: 'standard',
-                curriculumFocusInstruction: '## Primary Action\nExplain base cases.\n__PEDAGOGICAL_GUIDANCE__',
+                curriculumFocus: { status: 'general' },
                 currentUserInput: 'How do base cases stop recursion?'
             }
         });

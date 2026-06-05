@@ -40,9 +40,10 @@ jest.mock('../curriculum', () => {
     jumpToPhase: jest.fn(() => Promise.resolve(null)),
     getCurrentCurriculumItem: jest.fn(() => null),
     getCurriculumFocusInstruction: jest.fn(() => ''),
+    buildCurriculumFocusSnapshot: jest.fn(() => ({ status: 'general' })),
     calculateFocusPoints: jest.fn(() => ({
-      currentChunkItemTexts: [],
-      revisitPointTexts: []
+      focusPoints: [],
+      primaryActionType: 'General Engagement'
     })),
     buildPrimaryActionBlockForKeyTakeaway: jest.fn(() => '')
   }
@@ -221,6 +222,7 @@ describe('ModuleSelectionHandler', () => {
         firstConceptTitle: 'Concept 1',
         phaseDisplayName: 'IntroIllustrate',
         userInputText: 'Phase: IntroIllustrate',
+        curriculumFocus: { status: 'general' },
         moduleTitleForPrompt: 'Adaptive Module'
       })
     }))
@@ -231,7 +233,8 @@ describe('ModuleSelectionHandler', () => {
         type: 'moduleIntro',
         llmStreamRequest: expect.objectContaining({
           selectedModuleTitle: 'Adaptive Module',
-          firstConceptTitle: 'Concept 1'
+          firstConceptTitle: 'Concept 1',
+          curriculumFocus: { status: 'general' }
         })
       })
     }))

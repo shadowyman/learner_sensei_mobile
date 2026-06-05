@@ -1,7 +1,9 @@
 import {
   MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION,
   USER_LAST_INPUT_PLACEHOLDER,
+  buildCurriculumFocusInstruction,
   buildSocraticExecutionInstruction,
+  type CurriculumFocusPromptSnapshot,
   type MainSenseiResponsePromptOptions,
   type SocraticExecutionInstructionRequest
 } from './prompts/mainSenseiResponse';
@@ -17,7 +19,7 @@ export interface MainSenseiGuidanceContext {
 
 export interface StandardMainSenseiResponsePromptRequest extends MainSenseiGuidanceContext {
   mode?: 'standard';
-  curriculumFocusInstruction: string;
+  curriculumFocus: CurriculumFocusPromptSnapshot;
   currentUserInput: string;
   navigationContext?: string;
   promptOptions?: MainSenseiResponsePromptOptions;
@@ -81,8 +83,9 @@ export function buildMainSenseiDynamicSystemInstruction(
   request: Omit<StandardMainSenseiResponsePromptRequest, 'currentUserInput'>
 ): string {
   const parsed = parsePedagogicalGuidanceDirective(request);
+  const curriculumFocusInstruction = buildCurriculumFocusInstruction(request.curriculumFocus);
   const coreInstruction = MAIN_SENSEI_RESPONSE_SYSTEM_INSTRUCTION_TEMPLATE_FUNCTION(
-    request.curriculumFocusInstruction,
+    curriculumFocusInstruction,
     parsed.cleanPedagogicalGuidance,
     parsed.isMustObey,
     request.promptOptions
