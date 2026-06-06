@@ -1,6 +1,7 @@
 const TAG = 'CORE_ADAPTER';
 const { buildModuleIntroductionPrompt } = require('@sensei/core/moduleIntroduction');
 const { buildMainSenseiResponsePrompt } = require('@sensei/core/mainSenseiResponse');
+const { SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS } = require('@sensei/core/prompts/baseSensei');
 
 class SenseiCoreAdapter {
   constructor({ logger, config }) {
@@ -18,7 +19,8 @@ class SenseiCoreAdapter {
   async buildCapabilityPrompt(request) {
     const payload = {
       ...request.payload,
-      includeBaseSystemInstruction: true,
+      includeBaseSystemInstruction: false,
+      historyLimits: this.#mainHistoryLimits(),
       promptOptions: this.config.mainSenseiPromptOptions
     };
     if (request.capability === 'moduleIntroduction') {
@@ -28,7 +30,10 @@ class SenseiCoreAdapter {
         requestId: request.requestId,
         length: prompt.length
       });
-      return prompt;
+      return {
+        prompt,
+        systemInstruction: SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS
+      };
     }
     if (request.capability === 'mainSenseiResponse') {
       const prompt = buildMainSenseiResponsePrompt(payload);
@@ -37,7 +42,10 @@ class SenseiCoreAdapter {
         requestId: request.requestId,
         length: prompt.length
       });
-      return prompt;
+      return {
+        prompt,
+        systemInstruction: SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS
+      };
     }
     const error = new Error('Unsupported capability');
     error.code = 'BAD_REQUEST';
@@ -49,6 +57,19 @@ class SenseiCoreAdapter {
       confidence: 'Medium',
       confusion: 'Low',
       intent: 'Other'
+    };
+  }
+
+  #mainHistoryLimits() {
+    const policy = this.config?.llmCapPolicy?.capabilities?.mainSensei || this.config?.llmCapPolicy?.mainSensei;
+    if (!policy) {
+      return undefined;
+    }
+    return {
+      maxEntries: policy.historyMaxEntries,
+      userEntryChars: policy.userMessageMaxChars,
+      senseiEntryChars: policy.senseiEntryMaxChars,
+      totalChars: policy.aggregateMaxChars
     };
   }
 }

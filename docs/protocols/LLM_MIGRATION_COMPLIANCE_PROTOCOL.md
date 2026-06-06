@@ -75,8 +75,9 @@ Required block sections:
 8. Runtime Routing Plan
 9. Red-Test Gate
 10. Test Gate Ledger
-11. Review Remediation Ledger
-12. Final Migration Evidence Block
+11. Boundary Contract Audit
+12. Review Remediation Ledger
+13. Final Migration Evidence Block
 
 Allowed row statuses:
 
@@ -240,6 +241,40 @@ Required invariants for every migration:
 28. Malformed provider output returns normalized Core error/fallback shape.
 
 Stop if any invariant lacks a negative test or an approved deferral.
+
+### Boundary Contract Audit
+
+Before final migration acceptance, trace every migrated capability through the
+actual source boundaries. Do not rely on route existence, type names, or worker
+summaries.
+
+| Boundary | Source field/behavior | Destination field/behavior | Required transformation | Forbidden drift | Evidence/Test | Status |
+|---|---|---|---|---|---|---|
+| WebView UI/state -> React Native bridge | | | | | | |
+| React Native bridge -> BffClient | | | | | | |
+| BffClient -> BFF route/controller | | | | | | |
+| BFF controller/service -> Core capability request | | | | | | |
+| Core capability -> prompt/provider request | | | | | | |
+| provider response -> Core parser/normalizer | | | | | | |
+| Core/BFF response -> React Native/WebView UI state | | | | | | |
+
+Required checks:
+
+- field names and shapes match across each boundary
+- required, optional, and defaulted fields preserve old runtime behavior
+- action/mode discriminants cannot silently collapse to a generic path
+- transcript, history, original user intent, selected context, retry/cache, and
+  provider-context fields are preserved where applicable
+- timeout budgets align across client, BFF, Core, and provider layers
+- provider-backed BFF routes preserve required sibling-route operational
+  controls, including rate limiting, validation, config, telemetry/logging, and
+  structured failure behavior
+- provider failure, malformed output, bridge-missing, duplicate/in-flight,
+  reload, retry, and follow-up paths preserve required state or have
+  user-approved deferral
+
+Stop if any migrated boundary drops, renames, or reshapes a required field or
+runtime behavior without a test or explicit user-approved deferral.
 
 ## Phase 7: Trust-Boundary Schema Plan
 
@@ -565,6 +600,17 @@ Boundary invariants:
 - BFF caps prompt fields:
 - provider failure behavior:
 - reload/retry/cache behavior:
+
+Boundary contract audit:
+- WebView -> RN:
+- RN -> BffClient:
+- BffClient -> BFF:
+- BFF -> Core:
+- Core -> provider:
+- provider -> Core parser:
+- Core/BFF -> UI:
+- timeout/rate-limit/config parity:
+- state-continuity paths:
 
 Validation:
 - core build:

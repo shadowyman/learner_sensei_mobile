@@ -1,5 +1,6 @@
 import { BffClient } from '../src/mobile/network/BffClient';
 import type { BridgeManager } from '../src/mobile/bridge/BridgeManager';
+import { SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS } from '@sensei/protocol/timeouts';
 
 const createFetchStub = () => {
     let callCount = 0;
@@ -380,5 +381,208 @@ describe('BffClient', () => {
             messageId: 'msg-main-socratic',
             capability: 'mainSenseiResponse'
         });
+    });
+
+    it('posts Selection Sensei toolbar and follow-up modal messages as structured route payloads', async () => {
+        const submittedUrls: string[] = [];
+        const submittedBodies: any[] = [];
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            submittedUrls.push(url);
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId: 'session-1' })
+                } as Response;
+            }
+            if (/\/sessions\/session-1\/selection-sensei\/modal-message$/.test(url)) {
+                submittedBodies.push(JSON.parse(String(init?.body)));
+                return {
+                    ok: true,
+                    json: async () => ({
+                        success: true,
+                        result: { suggestedTitle: 'Bridge', explanation: 'Bridge response' }
+                    })
+                } as Response;
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        await client.runSelectionSenseiModalMessage({
+            mode: 'toolbarAction',
+            actionType: 'explainSimpler',
+            selectedText: 'base case stops recursion',
+            originalSenseiMessageText: 'Original explanation about recursion and base cases.',
+            actionLabel: 'Simpler'
+        });
+        await client.runSelectionSenseiModalMessage({
+            mode: 'followUp',
+            modalConversationId: 'modal-1',
+            selectedText: 'base case stops recursion',
+            originalSenseiMessageText: 'Original explanation about recursion and base cases.',
+            initialActionType: 'askQuestion',
+            initialActionLabel: 'Ask',
+            initialActionUserQuestion: 'Why does this stop recursion?',
+            initialResponse: { suggestedTitle: 'Base Case', explanation: 'A base case stops recursion.' },
+            modalTranscript: [
+                { role: 'user', text: 'Can you explain this simply?' },
+                { role: 'sensei', text: 'A base case gives recursion a stopping point.' }
+            ],
+            question: 'How does that prevent an infinite loop?'
+        });
+
+        expect(submittedUrls).toEqual([
+            'https://api.example.test/sessions',
+            'https://api.example.test/sessions/session-1/selection-sensei/modal-message',
+            'https://api.example.test/sessions/session-1/selection-sensei/modal-message'
+        ]);
+        expect(submittedBodies).toHaveLength(2);
+        expect(submittedBodies[0]).toMatchObject({
+            mode: 'toolbarAction',
+            actionType: 'explainSimpler',
+            selectedText: 'base case stops recursion',
+            originalSenseiMessageText: 'Original explanation about recursion and base cases.',
+            actionLabel: 'Simpler'
+        });
+        expect(submittedBodies[1]).toMatchObject({
+            mode: 'followUp',
+            modalConversationId: 'modal-1',
+            initialActionType: 'askQuestion',
+            initialActionUserQuestion: 'Why does this stop recursion?',
+            question: 'How does that prevent an infinite loop?'
+        });
+        for (const body of submittedBodies) {
+            expect(body).not.toHaveProperty('prompt');
+            expect(body).not.toHaveProperty('systemInstruction');
+            expect(body).not.toHaveProperty('instruction');
+            expect(body).not.toHaveProperty('model');
+            expect(body).not.toHaveProperty('temperature');
+            expect(body).not.toHaveProperty('providerOptions');
+        }
+    });
+
+    it('surfaces BFF rejection details for Selection Sensei prompt-string modal payloads', async () => {
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId: 'session-1' })
+                } as Response;
+            }
+            if (/\/sessions\/session-1\/selection-sensei\/modal-message$/.test(url)) {
+                return {
+                    ok: false,
+                    status: 400,
+                    json: async () => ({
+                        code: 'BAD_REQUEST',
+                        message: 'Selection Sensei modal payload must be structured and cannot include prompt strings.'
+                    })
+                } as Response;
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        await expect(client.runSelectionSenseiModalMessage({
+            mode: 'toolbarAction',
+            actionType: 'explainSimpler',
+            selectedText: 'base case stops recursion',
+            originalSenseiMessageText: 'Original explanation about recursion and base cases.',
+            actionLabel: 'Simpler',
+            prompt: 'Explain this selected text.',
+            systemInstruction: 'You are Selection Sensei.',
+            model: 'gemini-test'
+        })).rejects.toThrow('Selection Sensei modal submission failed: 400 (BAD_REQUEST: Selection Sensei modal payload must be structured and cannot include prompt strings.)');
+    });
+
+    it('aborts Selection Sensei modal requests at the RN timeout budget', async () => {
+        const routeSignals: AbortSignal[] = [];
+        const timeoutCallbacks: Array<() => void> = [];
+        const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation(((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+            if (timeout === SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS && typeof handler === 'function') {
+                timeoutCallbacks.push(() => handler(...args));
+            }
+            return 1 as any;
+        }) as any);
+        const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout').mockImplementation((() => undefined) as any);
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId: 'session-1' })
+                } as Response;
+            }
+            if (/\/sessions\/session-1\/selection-sensei\/modal-message$/.test(url)) {
+                const signal = init?.signal as AbortSignal | undefined;
+                if (!signal) {
+                    throw new Error('Expected Selection Sensei modal request to include an AbortSignal');
+                }
+                routeSignals.push(signal);
+                return new Promise<Response>((_resolve, reject) => {
+                    signal.addEventListener('abort', () => reject(new Error('aborted')));
+                });
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        try {
+            const promise = client.runSelectionSenseiModalMessage({
+                mode: 'toolbarAction',
+                actionType: 'explainSimpler',
+                selectedText: 'base case stops recursion',
+                originalSenseiMessageText: 'Original explanation about recursion and base cases.',
+                actionLabel: 'Simpler'
+            });
+            let settled = false;
+            let rejection: Error | null = null;
+            promise.then(
+                () => {
+                    settled = true;
+                },
+                (error: Error) => {
+                    settled = true;
+                    rejection = error;
+                }
+            );
+
+            for (let i = 0; i < 5; i += 1) {
+                await Promise.resolve();
+            }
+            expect(routeSignals).toHaveLength(1);
+            expect(timeoutCallbacks).toHaveLength(1);
+
+            expect(routeSignals[0].aborted).toBe(false);
+            expect(settled).toBe(false);
+
+            timeoutCallbacks[0]();
+            for (let i = 0; i < 5; i += 1) {
+                await Promise.resolve();
+            }
+            expect(routeSignals[0].aborted).toBe(true);
+            expect(settled).toBe(true);
+            expect(rejection?.message).toBe('aborted');
+        } finally {
+            setTimeoutSpy.mockRestore();
+            clearTimeoutSpy.mockRestore();
+        }
     });
 });

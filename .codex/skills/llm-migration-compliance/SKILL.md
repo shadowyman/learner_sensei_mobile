@@ -76,6 +76,30 @@ For Review Remediation Mode, read the review thread, the affected ExecPlan
 gates, and the relevant sections of
 `docs/protocols/LLM_MIGRATION_COMPLIANCE_PROTOCOL.md`.
 
+## Watchdog Packet Execution
+
+When working under a watchdog packet, use two audit anchors:
+
+- Packet ID: the watchdog-assigned task contract.
+- Turn ID: one worker-generated ID for the current worker turn, such as
+  `TURN-20260605T161530Z`.
+
+Before returning a worker turn:
+
+- Add or update `## Watchdog Turn Ledger` near the top of the active ExecPlan.
+- Add one row for the current turn with packet ID, turn ID, status, timestamp,
+  files changed, ExecPlan sections updated, validation, blockers, and
+  recommended next packet.
+- Stamp every ExecPlan update made during the turn with the turn ID in the
+  local heading or bullet, for example:
+  `### TURN-20260605T161530Z - WDG-001 protocol state correction`.
+- Ensure the worker return includes both packet ID and turn ID.
+- Do not mark a turn complete unless the Turn Ledger, turn ID markers, worker
+  return, and actual diff agree.
+
+If the ExecPlan is too large to audit reliably without turn anchors, stop and
+record that as a PLAN.md live-document blocker before feature work continues.
+
 ## Hard Stops
 
 Stop and record a blocker if any of these are true:

@@ -8,6 +8,7 @@ import {
   type SocraticExecutionInstructionRequest
 } from './prompts/mainSenseiResponse';
 import { buildCapabilityPromptEnvelope, type ConversationHistoryEntry } from './promptEnvelope';
+import type { RoleAwareHistoryLimits } from './llmCapPolicy';
 
 export const MAIN_SENSEI_RESPONSE_CAPABILITY = 'mainSenseiResponse' as const;
 
@@ -25,6 +26,7 @@ export interface StandardMainSenseiResponsePromptRequest extends MainSenseiGuida
   promptOptions?: MainSenseiResponsePromptOptions;
   includeBaseSystemInstruction?: boolean;
   conversationHistory?: ConversationHistoryEntry[];
+  historyLimits?: RoleAwareHistoryLimits;
 }
 
 export interface SocraticMainSenseiResponsePromptRequest extends SocraticExecutionInstructionRequest {
@@ -32,6 +34,7 @@ export interface SocraticMainSenseiResponsePromptRequest extends SocraticExecuti
   currentUserInput: string;
   includeBaseSystemInstruction?: boolean;
   conversationHistory?: ConversationHistoryEntry[];
+  historyLimits?: RoleAwareHistoryLimits;
 }
 
 export type MainSenseiResponsePromptRequest =
@@ -114,6 +117,7 @@ ${userLine}`;
   return buildCapabilityPromptEnvelope({
     taskPrompt,
     includeBaseSystemInstruction: request.includeBaseSystemInstruction,
-    conversationHistory: request.conversationHistory
+    conversationHistory: request.conversationHistory,
+    historyLimits: request.historyLimits
   });
 }

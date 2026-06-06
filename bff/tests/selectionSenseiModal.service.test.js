@@ -1,0 +1,335 @@
+const SelectionSenseiService = require('../src/services/selectionSenseiService');
+const GeminiGateway = require('../src/integration/geminiGateway');
+const { SelectionSenseiController, toCoreRequest } = require('../src/controllers/selectionSenseiController');
+const RateLimiter = require('../src/infra/rateLimiter');
+const { SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION } = require('@sensei/core/selectionSensei');
+
+;(async () => {
+  const calls = [];
+  const service = new SelectionSenseiService({
+    logger: {
+      info() {},
+      warn() {},
+      error() {}
+    },
+    coreLlmClient: {
+      async callText(prompt, options) {
+        calls.push({ prompt, options });
+        return JSON.stringify({
+          suggestedTitle: 'Base Case',
+          explanation: 'A base case stops recursion.'
+        });
+      }
+    }
+  });
+
+  const result = await service.runModalMessage({
+    session: { id: 'session-selection-sensei' },
+    request: {
+      mode: 'toolbarAction',
+      actionType: 'explainSimpler',
+      selectedText: 'base case stops recursion',
+      originalSenseiMessageText: 'Original Sensei context about recursion.',
+      actionLabel: 'Simpler'
+    }
+  });
+
+  if (!result?.ok) {
+    throw new Error(`Expected service success, got ${JSON.stringify(result)}`);
+  }
+  if (result.suggestedTitle !== 'Base Case' || result.explanation !== 'A base case stops recursion.') {
+    throw new Error(`Unexpected normalized service result: ${JSON.stringify(result)}`);
+  }
+  if (calls.length !== 1 || calls[0].options?.task !== 'selection_sensei_modal') {
+    throw new Error(`Expected one Core LLM call for selection_sensei_modal, got ${JSON.stringify(calls)}`);
+  }
+  if (calls[0].options?.systemInstruction !== SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) {
+    throw new Error(`Expected Selection Sensei system instruction in Core LLM options, got ${JSON.stringify(calls[0].options)}`);
+  }
+  if (calls[0].prompt.includes(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) || calls[0].prompt.includes('SELECTION SENSEI USER PROMPT START')) {
+    throw new Error('Service must keep Selection Sensei system instruction out of the user prompt body');
+  }
+  if (calls[0].prompt.includes('client final prompt')) {
+    throw new Error('Service must not require or forward client final prompt strings');
+  }
+
+  const translated = toCoreRequest({
+    mode: 'followUp',
+    modalConversationId: 'modal-correlation-only',
+    selectedText: 'base case',
+    originalSenseiMessageText: 'Original context',
+    initialActionType: 'askQuestion',
+    initialActionLabel: 'Ask',
+    initialActionUserQuestion: 'Why does this stop recursion?',
+    initialResponse: {
+      suggestedTitle: 'Base Case',
+      explanation: 'A base case stops the recursive calls.'
+    },
+    modalTranscript: [
+      { role: 'user', text: 'Can you explain this simply?' },
+      { role: 'sensei', text: 'A base case is the stop condition.' }
+    ],
+    question: 'How does that prevent an infinite loop?'
+  });
+  if (translated.mode !== 'followUp' || translated.initialAction.actionType !== 'askQuestion') {
+    throw new Error(`Unexpected follow-up translation: ${JSON.stringify(translated)}`);
+  }
+  if (translated.modalConversationId !== undefined) {
+    throw new Error('modalConversationId must remain BFF correlation metadata and not enter Core prompt input');
+  }
+  if (translated.transcript[1].role !== 'assistant') {
+    throw new Error(`Expected sensei transcript role to map to assistant, got ${translated.transcript[1].role}`);
+  }
+  if (translated.initialAction.userQuestion !== 'Why does this stop recursion?') {
+    throw new Error(`Expected original ask question to reach Core initial action, got ${JSON.stringify(translated.initialAction)}`);
+  }
+  if (translated.transcript[0].content !== 'Can you explain this simply?' || translated.transcript[1].content !== 'A base case is the stop condition.') {
+    throw new Error(`Expected transcript text to map to Core content, got ${JSON.stringify(translated.transcript)}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(translated.transcript[0], 'text')) {
+    throw new Error(`Core transcript entries must not retain BFF text field: ${JSON.stringify(translated.transcript)}`);
+  }
+
+  const followUpResult = await service.runModalMessage({
+    session: { id: 'session-selection-sensei' },
+    request: translated
+  });
+  if (!followUpResult?.ok) {
+    throw new Error(`Expected follow-up service success, got ${JSON.stringify(followUpResult)}`);
+  }
+  const followUpPrompt = calls[1]?.prompt || '';
+  if (!followUpPrompt.includes('Original Ask Question: Why does this stop recursion?')) {
+    throw new Error(`Follow-up prompt did not preserve original ask question: ${followUpPrompt}`);
+  }
+  if (!followUpPrompt.includes('User: Can you explain this simply?') || !followUpPrompt.includes('Assistant: A base case is the stop condition.')) {
+    throw new Error(`Follow-up prompt did not preserve transcript content: ${followUpPrompt}`);
+  }
+  if (followUpPrompt.includes('undefined')) {
+    throw new Error(`Follow-up prompt rendered undefined transcript or ask context: ${followUpPrompt}`);
+  }
+  if (calls[1].options?.systemInstruction !== SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) {
+    throw new Error(`Expected follow-up Core LLM options to carry system instruction, got ${JSON.stringify(calls[1].options)}`);
+  }
+
+  const controllerCalls = [];
+  const controller = new SelectionSenseiController({
+    selectionSenseiService: {
+      async runModalMessage(input) {
+        controllerCalls.push(input);
+        return {
+          ok: true,
+          suggestedTitle: 'Controller Success',
+          explanation: 'Structured request reached the Selection Sensei service.',
+          rawText: '{"suggestedTitle":"Controller Success","explanation":"Structured request reached the Selection Sensei service."}'
+        };
+      }
+    },
+    sessionService: {
+      getSession(sessionId) {
+        return sessionId === 'session-route' ? { id: sessionId } : null;
+      }
+    },
+    logger: {
+      info() {},
+      warn() {},
+      error() {}
+    }
+  });
+  const response = {
+    statusCode: null,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    },
+    set() {
+      return this;
+    }
+  };
+  await controller.postModalMessage({
+    params: { sessionId: 'session-route' },
+    requestId: 'request-controller',
+    body: {
+      mode: 'toolbarAction',
+      actionType: 'askQuestion',
+      selectedText: 'base case',
+      originalSenseiMessageText: 'Original context',
+      actionLabel: 'Ask',
+      userQuestion: 'Why does this stop recursion?'
+    }
+  }, response);
+  if (response.statusCode !== 200 || response.body?.success !== true) {
+    throw new Error(`Expected controller success response, got ${response.statusCode} ${JSON.stringify(response.body)}`);
+  }
+  if (controllerCalls.length !== 1 || controllerCalls[0].request.actionType !== 'askQuestion') {
+    throw new Error(`Expected controller to call service with structured ask request, got ${JSON.stringify(controllerCalls)}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(controllerCalls[0].request, 'prompt')) {
+    throw new Error('Controller must not synthesize or accept final prompt fields in the BFF request object');
+  }
+
+  const limitedServiceCalls = [];
+  let limiterCalls = 0;
+  const limitedController = new SelectionSenseiController({
+    selectionSenseiService: {
+      async runModalMessage(input) {
+        limitedServiceCalls.push(input);
+        return {
+          ok: true,
+          suggestedTitle: 'Allowed',
+          explanation: 'Valid request passed the limiter.'
+        };
+      }
+    },
+    sessionService: {
+      getSession(sessionId) {
+        return { id: sessionId };
+      }
+    },
+    selectionSenseiRateLimiter: {
+      limiter: new RateLimiter({ windowMs: 60_000, limit: 3 }),
+      checkKey(key) {
+        limiterCalls += 1;
+        return this.limiter.checkKey(key);
+      }
+    },
+    logger: {
+      info() {},
+      warn() {},
+      error() {}
+    }
+  });
+  const createResponse = () => ({
+    statusCode: null,
+    body: null,
+    headers: {},
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    },
+    set(name, value) {
+      this.headers[name] = value;
+      return this;
+    }
+  });
+  const limitedReq = {
+    params: { sessionId: 'session-rate' },
+    requestId: 'request-rate-1',
+    ip: '127.0.0.1',
+    get(name) {
+      return name === 'User-Agent' ? 'selection-sensei-rate-test' : undefined;
+    },
+    body: {
+      mode: 'toolbarAction',
+      actionType: 'explainSimpler',
+      selectedText: 'base case',
+      originalSenseiMessageText: 'Original context',
+      actionLabel: 'Simpler'
+    }
+  };
+  const immediateFollowUpReq = {
+    params: { sessionId: 'session-rate' },
+    requestId: 'request-rate-2',
+    ip: '127.0.0.1',
+    get(name) {
+      return name === 'User-Agent' ? 'selection-sensei-rate-test' : undefined;
+    },
+    body: {
+      mode: 'followUp',
+      selectedText: 'base case',
+      originalSenseiMessageText: 'Original context',
+      initialActionType: 'askQuestion',
+      initialActionLabel: 'Ask',
+      initialActionUserQuestion: 'Why does this stop recursion?',
+      initialResponse: {
+        suggestedTitle: 'Base Case',
+        explanation: 'A base case stops recursive calls.'
+      },
+      modalTranscript: [
+        { role: 'user', text: 'Can you explain this simply?' },
+        { role: 'sensei', text: 'A base case gives recursion a stopping point.' }
+      ],
+      question: 'How does that prevent an infinite loop?'
+    }
+  };
+  const firstLimitedResponse = createResponse();
+  await limitedController.postModalMessage(limitedReq, firstLimitedResponse);
+  const secondLimitedResponse = createResponse();
+  await limitedController.postModalMessage(immediateFollowUpReq, secondLimitedResponse);
+  const thirdLimitedResponse = createResponse();
+  await limitedController.postModalMessage({ ...limitedReq, requestId: 'request-rate-3' }, thirdLimitedResponse);
+  const separateSessionResponse = createResponse();
+  await limitedController.postModalMessage({
+    ...limitedReq,
+    params: { sessionId: 'session-rate-other' },
+    requestId: 'request-rate-other'
+  }, separateSessionResponse);
+  const fourthLimitedResponse = createResponse();
+  await limitedController.postModalMessage({ ...limitedReq, requestId: 'request-rate-4' }, fourthLimitedResponse);
+  if (firstLimitedResponse.statusCode !== 200 || secondLimitedResponse.statusCode !== 200 || thirdLimitedResponse.statusCode !== 200 || separateSessionResponse.statusCode !== 200 || fourthLimitedResponse.statusCode !== 429) {
+    throw new Error(`Expected limiter statuses 200/200/200/200/429, got ${firstLimitedResponse.statusCode}/${secondLimitedResponse.statusCode}/${thirdLimitedResponse.statusCode}/${separateSessionResponse.statusCode}/${fourthLimitedResponse.statusCode}`);
+  }
+  if (limitedServiceCalls.length !== 4) {
+    throw new Error(`Rate-limited request must not call provider service, got ${limitedServiceCalls.length} service calls`);
+  }
+  if (limiterCalls !== 5) {
+    throw new Error(`Expected limiter to evaluate five valid requests, got ${limiterCalls}`);
+  }
+  if (fourthLimitedResponse.headers['Retry-After'] !== '60') {
+    throw new Error(`Expected Retry-After 60, got ${JSON.stringify(fourthLimitedResponse.headers)}`);
+  }
+
+  let observedGenerateContent = null;
+  const gateway = Object.create(GeminiGateway.prototype);
+  gateway.logger = {
+    info() {},
+    warn() {},
+    error() {}
+  };
+  gateway.config = {
+    gemini: {
+      mainModel: 'main-model-should-not-be-used'
+    }
+  };
+  gateway.modelName = 'main-model-should-not-be-used';
+  gateway.temperature = 0.7;
+  gateway.timeoutMs = 180000;
+  gateway.clientPromise = Promise.resolve({
+    models: {
+      async generateContent(params) {
+        observedGenerateContent = params;
+        return { text: () => '{"suggestedTitle":"Configured","explanation":"JSON task config used."}' };
+      }
+    }
+  });
+
+  const gatewayText = await gateway.callText('Selection Sensei prompt', {
+    task: 'selection_sensei_modal',
+    systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+  });
+  if (!gatewayText.includes('Configured')) {
+    throw new Error(`Unexpected gateway text: ${gatewayText}`);
+  }
+  if (observedGenerateContent?.model !== 'gemini-flash-latest') {
+    throw new Error(`Expected Selection Sensei model, got ${observedGenerateContent?.model}`);
+  }
+  if (observedGenerateContent?.config?.temperature !== 0.5) {
+    throw new Error(`Expected temperature 0.5, got ${observedGenerateContent?.config?.temperature}`);
+  }
+  if (observedGenerateContent?.config?.responseMimeType !== 'application/json') {
+    throw new Error(`Expected JSON response MIME type, got ${observedGenerateContent?.config?.responseMimeType}`);
+  }
+  if (observedGenerateContent?.config?.systemInstruction !== SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) {
+    throw new Error(`Expected systemInstruction to reach Gemini config, got ${JSON.stringify(observedGenerateContent?.config)}`);
+  }
+
+  console.log('selection sensei modal service/model routing test passed');
+})();

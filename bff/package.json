@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js",
-    "test": "node tests/jsonBodyLimit.int.test.js && node tests/mermaidRecover.int.test.js && node tests/wrapUp.int.test.js && node tests/teachingPlanService.config.test.js && node tests/teachingPlan.int.test.js && node tests/analysis.int.test.js && node tests/geminiGatewayFallback.test.js && node tests/llmStream.deterministic.int.test.js && node tests/llmStream.int.test.js",
+    "test": "node tests/jsonBodyLimit.int.test.js && node tests/mermaidRecover.int.test.js && node tests/wrapUp.int.test.js && node tests/teachingPlanService.config.test.js && node tests/teachingPlan.int.test.js && node tests/analysis.int.test.js && node tests/geminiGatewayFallback.test.js && node tests/selectionSenseiModal.validation.red.test.js && node tests/selectionSenseiModal.service.test.js && node tests/llmCapValidation.test.js && node tests/mainSenseiCapPolicy.test.js && node tests/llmStream.deterministic.int.test.js && node tests/llmStream.int.test.js",
     "postinstall": "cd .. && npm run core:build"
   },
   "engines": {
@@ -19,6 +19,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
+    "json5": "^2.2.3",
     "morgan": "^1.11.0",
     "ws": "^8.21.0",
     "zod": "^3.25.76"

@@ -5,6 +5,13 @@
 
 import { logger } from './logger';
 import { sendToNative } from './mobile/webviewBridge';
+import type { SelectionSenseiModalMessagePayload, SelectionSenseiModalMessageResult, SelectionSenseiToolbarActionType } from './mobile/bridge/contracts';
+import { requestSelectionSenseiModalMessageViaBridge } from './mobile/webviewMessageRouter';
+import { requestSelectionSenseiModalMessage } from './selectionSenseiRouting';
+import {
+    SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES,
+    SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS
+} from '@sensei/core/llmCapPolicy';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
@@ -29,7 +36,8 @@ import { parseSelectionSenseiResponsePayload } from './selectionSenseiResponsePa
 import { 
     SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION,
     SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION,
-    SENSEI_ASK_QUESTION_USER_PROMPT_TEMPLATE_FUNCTION
+    SENSEI_ASK_QUESTION_USER_PROMPT_TEMPLATE_FUNCTION,
+    getSelectionSenseiToolbarActionInstruction
 } from './prompts';
 import { SELECTION_SENSEI_CONFIG } from './model_usage';
 import { notepad } from './notepad';
@@ -37,6 +45,18 @@ import { notepad } from './notepad';
 const RESPONSE_MODAL_SENSEI_MESSAGE_ID = 'response-modal-sensei-bubble';
 
 type ContentStrategy = 'parsed-full' | 'explanation-only' | 'raw-fallback' | 'error';
+type ModalInitialContext = {
+    selectedText: string;
+    originalSenseiMessageText: string;
+    initialActionType: SelectionSenseiToolbarActionType;
+    initialActionLabel: string;
+    initialActionUserQuestion?: string;
+    initialResponse: {
+        suggestedTitle?: string;
+        explanation?: string;
+        rawText?: string;
+    };
+};
 
 type ModalBoxMetrics = {
     top: string;
@@ -108,6 +128,10 @@ class SelectionSensei {
     private followupInFlight = false;
     private modalMessageCounter = 0;
     private modalConversationToken = 0;
+    private modalConversationId: string | null = null;
+    private modalInitialContext: ModalInitialContext | null = null;
+    private modalTranscriptContext: Array<{ role: 'user' | 'sensei'; text: string }> = [];
+    private pendingToolbarRequestKey: string | null = null;
     private selectionChat: Chat | null = null;
     private isModalFullscreen = false;
     private modalFullscreenRestore: ModalBoxMetrics | null = null;
@@ -203,7 +227,7 @@ class SelectionSensei {
     }
 
     constructor(
-        private ai: GoogleGenAI,
+        private ai: GoogleGenAI | null,
         private messageArea: HTMLDivElement
     ) {
         // Bind methods to ensure 'this' context is correct in event handlers
@@ -922,6 +946,7 @@ class SelectionSensei {
 
     private resetModalState(): void {
         this.modalConversationToken += 1;
+        this.pendingToolbarRequestKey = null;
         this.ensureDOMElementsValid();
         this.setModalFullscreen(false);
         this.clearMinimizeState();
@@ -958,6 +983,9 @@ class SelectionSensei {
         this.modalMessageRegistry = createMessageRegistry();
         this.followupInFlight = false;
         this.modalMessageCounter = 0;
+        this.modalConversationId = `selection-sensei-modal-${this.modalConversationToken}`;
+        this.modalInitialContext = null;
+        this.modalTranscriptContext = [];
         this.selectionChat = null;
         this.setComposerEnabled(true);
 
@@ -995,6 +1023,97 @@ class SelectionSensei {
         }
 
         return { text: trimmed, strategy: 'raw' };
+    }
+
+    private isLlmToolbarAction(actionType: string): actionType is SelectionSenseiToolbarActionType {
+        return actionType === 'explainSimpler' ||
+            actionType === 'explainWithAnalogy' ||
+            actionType === 'explainInMoreDepth' ||
+            actionType === 'showAnExample' ||
+            actionType === 'showExampleCodeSnippet' ||
+            actionType === 'askQuestion';
+    }
+
+    private buildToolbarRequestKey(selectedText: string, actionType: string, originalSenseiMessageText: string, actionLabel: string, userQuestion?: string): string {
+        return JSON.stringify([actionType, actionLabel, selectedText, originalSenseiMessageText, userQuestion ?? '']);
+    }
+
+    private selectionSenseiResultToRawText(result: SelectionSenseiModalMessageResult): string {
+        if (result.rawText && result.rawText.trim()) {
+            return result.rawText;
+        }
+        if (result.suggestedTitle || result.explanation) {
+            return JSON.stringify({
+                suggestedTitle: result.suggestedTitle,
+                explanation: result.explanation
+            });
+        }
+        return '';
+    }
+
+    private async generateLocalToolbarAction(userPrompt: string): Promise<SelectionSenseiModalMessageResult> {
+        const chat = this.ensureSelectionChat();
+        if (!chat) {
+            throw new Error('Selection Sensei chat unavailable');
+        }
+        const response = await chat.sendMessage({
+            message: userPrompt,
+        });
+        const rawText = (response.text || '').trim();
+        const parsed = this.extractContentWithRegex(rawText);
+        return {
+            ...parsed,
+            rawText
+        };
+    }
+
+    private async generateLocalFollowUp(question: string): Promise<SelectionSenseiModalMessageResult> {
+        const chat = this.ensureSelectionChat();
+        if (!chat) {
+            throw new Error('Selection Sensei chat unavailable');
+        }
+        const response = await chat.sendMessage({
+            message: question,
+        });
+        const rawText = (response.text || '').trim();
+        const parsed = this.extractContentWithRegex(rawText);
+        return {
+            ...parsed,
+            rawText
+        };
+    }
+
+    private buildFollowUpPayload(question: string): SelectionSenseiModalMessagePayload | null {
+        if (!this.modalInitialContext) {
+            return null;
+        }
+        return {
+            mode: 'followUp',
+            modalConversationId: this.modalConversationId ?? undefined,
+            selectedText: this.modalInitialContext.selectedText,
+            originalSenseiMessageText: this.modalInitialContext.originalSenseiMessageText,
+            initialActionType: this.modalInitialContext.initialActionType,
+            initialActionLabel: this.modalInitialContext.initialActionLabel,
+            initialActionUserQuestion: this.modalInitialContext.initialActionUserQuestion,
+            initialResponse: this.modalInitialContext.initialResponse,
+            modalTranscript: this.modalTranscriptContext.slice(-SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES),
+            question
+        };
+    }
+
+    private isSelectionSenseiUserInputTooLong(text: string): boolean {
+        return text.length > SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS;
+    }
+
+    private async showSelectionSenseiUserInputTooLongError(): Promise<void> {
+        this.resetModalState();
+        this.hideSelectionToolbar();
+        this.showResponseModalWithLoading();
+        await this.updateResponseModalContentAndTitle(
+            'Question Too Long',
+            `Your question is too long. Please shorten it to ${SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`
+        );
+        this.setComposerEnabled(false);
     }
 
     private async appendModalMessage(message: Message, conversationToken?: number): Promise<void> {
@@ -1040,6 +1159,17 @@ class SelectionSensei {
         const conversationToken = this.modalConversationToken;
         const trimmed = this.responseModalComposerInput.value.trim();
         if (!trimmed) {
+            return;
+        }
+        if (this.isSelectionSenseiUserInputTooLong(trimmed)) {
+            await this.appendModalMessage({
+                id: this.generateModalMessageId('sensei'),
+                sender: 'sensei',
+                displayName: 'Sensei',
+                text: `Your question is too long. Please shorten it to ${SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`,
+                timestamp: new Date(),
+            }, conversationToken);
+            this.setComposerEnabled(true);
             return;
         }
 
@@ -1099,7 +1229,7 @@ class SelectionSensei {
             return;
         }
 
-        if (!this.ai) {
+        if (!this.isNativeBridgeActive() && !this.ai) {
             await this.appendModalMessage({
                 id: loadingMessageId,
                 sender: 'sensei',
@@ -1116,16 +1246,20 @@ class SelectionSensei {
         }
 
         try {
-            const chat = this.ensureSelectionChat();
-            if (!chat) {
-                throw new Error('Selection Sensei chat unavailable');
+            const payload = this.buildFollowUpPayload(question);
+            if (!payload) {
+                throw new Error('Selection Sensei modal context unavailable');
             }
 
-            const response = await chat.sendMessage({
-                message: question,
+            const routed = await requestSelectionSenseiModalMessage({
+                isMobileWebView: this.isNativeBridgeActive(),
+                payload,
+                requestViaBridge: requestSelectionSenseiModalMessageViaBridge,
+                generateLocal: () => this.generateLocalFollowUp(question)
             });
 
-            const formatted = this.formatFollowupAnswer(response.text ?? '');
+            const rawText = this.selectionSenseiResultToRawText(routed.result);
+            const formatted = this.formatFollowupAnswer(rawText);
 
             if (conversationToken !== this.modalConversationToken) {
                 this.followupInFlight = false;
@@ -1140,6 +1274,9 @@ class SelectionSensei {
                 timestamp: new Date(),
                 isLoading: false,
             }, conversationToken);
+
+            this.modalTranscriptContext.push({ role: 'user', text: question });
+            this.modalTranscriptContext.push({ role: 'sensei', text: formatted.text });
 
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -1366,6 +1503,10 @@ class SelectionSensei {
         const sendMessage = () => {
             const userQuestion = textInput.value.trim();
             if (userQuestion) {
+                if (this.isSelectionSenseiUserInputTooLong(userQuestion)) {
+                    void this.showSelectionSenseiUserInputTooLongError();
+                    return;
+                }
                 this.handleToolbarAction(selectedText, 'askQuestion', originalSenseiMessageText, actionLabel, userQuestion);
             }
         };
@@ -1459,7 +1600,7 @@ class SelectionSensei {
         });
     }
 
-    private async updateResponseModalContentAndTitle(title: string, htmlContent: string, conversationToken?: number): Promise<void> {
+    private async updateResponseModalContentAndTitle(title: string, htmlContent: string, conversationToken?: number, options: { enableComposer?: boolean } = {}): Promise<void> {
         if (conversationToken !== undefined && conversationToken !== this.modalConversationToken) {
             return;
         }
@@ -1543,7 +1684,7 @@ class SelectionSensei {
             normalizedCount
         });
 
-        this.setComposerEnabled(true);
+        this.setComposerEnabled(options.enableComposer !== false);
         this.expandModalWidth();
     }
 
@@ -1601,6 +1742,7 @@ class SelectionSensei {
     }
 
     private async handleToolbarAction(selectedText: string, actionType: string, originalSenseiMessageText: string, actionLabel: string, userQuestion?: string): Promise<void> {
+        const isMobileWebView = this.isNativeBridgeActive();
         const aiAvailable = !!this.ai;
         const modelsAvailable = this.ai ? !!this.ai.models : false;
         logSelectionSenseiValidation('toolbar-action', {
@@ -1611,49 +1753,44 @@ class SelectionSensei {
             modelsAvailable
         });
 
+        if (!this.isLlmToolbarAction(actionType)) {
+            logger.warn('[SENSEI_SELECTION] unknown toolbar action', { actionType });
+            return;
+        }
+        if (actionType === 'askQuestion' && userQuestion && this.isSelectionSenseiUserInputTooLong(userQuestion)) {
+            await this.showSelectionSenseiUserInputTooLongError();
+            return;
+        }
+
+        const pendingKey = this.buildToolbarRequestKey(selectedText, actionType, originalSenseiMessageText, actionLabel, userQuestion);
+        if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
+            logger.info('[SENSEI_SELECTION] duplicate mobile toolbar request ignored', { actionType });
+            return;
+        }
+
         this.resetModalState();
+        if (isMobileWebView) {
+            this.pendingToolbarRequestKey = pendingKey;
+        }
         const conversationToken = this.modalConversationToken;
-        const guardActive = (stage: string): boolean => {
-            if (conversationToken !== this.modalConversationToken) {
-                return false;
-            }
-            return true;
-        };
+        const guardActive = (): boolean => conversationToken === this.modalConversationToken;
 
         this.showResponseModalWithLoading();
         this.setComposerEnabled(false);
         this.hideSelectionToolbar();
 
-        if (!this.ai || !this.ai.models) {
+        if (!isMobileWebView && (!this.ai || !this.ai.models)) {
             logger.error("Selection Sensei: AI instance is not properly initialized", {
                 aiExists: !!this.ai,
                 modelsExists: this.ai ? !!this.ai.models : false
             });
-            if (guardActive('ai-check')) {
-                await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken);
+            if (guardActive()) {
+                await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken, { enableComposer: false });
+            }
+            if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
+                this.pendingToolbarRequestKey = null;
             }
             return;
-        }
-
-        let instructionText = "";
-        let userPrompt = "";
-
-        if (actionType === 'askQuestion' && userQuestion) {
-            userPrompt = SENSEI_ASK_QUESTION_USER_PROMPT_TEMPLATE_FUNCTION(originalSenseiMessageText, selectedText, userQuestion, actionLabel);
-        } else {
-            switch (actionType) {
-                case 'explainSimpler': instructionText = "Explain the 'SELECTED TEXT' in a simpler way, suitable for a beginner who might be finding it complex."; break;
-                case 'explainWithAnalogy': instructionText = "Provide a clear and concise analogy to help understand the 'SELECTED TEXT'."; break;
-                case 'explainInMoreDepth': instructionText = "Explain the 'SELECTED TEXT' in more depth, providing more details and context. Try to understand why someone would require more depth for 'SELECTED TEXT' and tailor your response accordingly. The goal is proactively making sure you cover everything for it."; break;
-                case 'showAnExample': instructionText = "Provide a new relevant and illustrative example for the concept in the 'SELECTED TEXT'. The example should be explained in detail."; break;
-                case 'showExampleCodeSnippet': instructionText = "Provide a fully functional C++ code implementation that demonstrates the concept discussed in the 'SELECTED TEXT'. For code snippets, assume surrounding non-essential auxiliary infrastructure already exists—show only the lines necessary to illustrate the 'SELECTED TEXT'. After the code, provide a LINE-BY-LINE explanation of the code in a table. Then, anticipate and address common questions or pitfalls a novice or seasoned programmer might have about each part of the code. Make connections to the context throughout your explanation."; break;
-                default:
-                    if (guardActive('unknown-action')) {
-                        await this.updateResponseModalContentAndTitle("Error", "Unknown action type.", conversationToken);
-                    }
-                    return;
-            }
-            userPrompt = SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(originalSenseiMessageText, selectedText, instructionText, actionLabel);
         }
 
         let responseLength = 0;
@@ -1663,39 +1800,57 @@ class SelectionSensei {
         let hasTitle = false;
         let hasExplanation = false;
 
-        const chat = this.ensureSelectionChat();
-        if (!chat) {
-            if (guardActive('ensure-chat')) {
-                await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken);
-                this.setComposerEnabled(true);
-            }
-            return;
-        }
-
         try {
-            const response = await chat.sendMessage({
-                message: userPrompt,
+            const payload: SelectionSenseiModalMessagePayload = actionType === 'askQuestion'
+                ? {
+                    mode: 'toolbarAction',
+                    actionType,
+                    selectedText,
+                    originalSenseiMessageText,
+                    actionLabel,
+                    userQuestion
+                }
+                : {
+                    mode: 'toolbarAction',
+                    actionType,
+                    selectedText,
+                    originalSenseiMessageText,
+                    actionLabel
+                };
+
+            const routed = await requestSelectionSenseiModalMessage({
+                isMobileWebView,
+                payload,
+                requestViaBridge: requestSelectionSenseiModalMessageViaBridge,
+                generateLocal: () => {
+                    let userPrompt = '';
+                    if (actionType === 'askQuestion' && userQuestion) {
+                        userPrompt = SENSEI_ASK_QUESTION_USER_PROMPT_TEMPLATE_FUNCTION(originalSenseiMessageText, selectedText, userQuestion, actionLabel);
+                    } else {
+                        const instructionText = getSelectionSenseiToolbarActionInstruction(actionType);
+                        if (!instructionText) {
+                            throw new Error('Unknown action type');
+                        }
+                        userPrompt = SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION(originalSenseiMessageText, selectedText, instructionText, actionLabel);
+                    }
+                    return this.generateLocalToolbarAction(userPrompt);
+                }
             });
 
-            if (!guardActive('post-send')) {
+            if (!guardActive()) {
                 return;
             }
 
-            const rawResponseText = (response.text || '').trim();
-
+            const rawResponseText = this.selectionSenseiResultToRawText(routed.result).trim();
             let jsonText = rawResponseText;
             responseLength = jsonText.length;
-
-            const startsWithBrace = jsonText.startsWith('{');
-            const endsWithBrace = jsonText.endsWith('}');
             logSelectionSenseiValidation('response-received', {
                 actionType,
                 length: responseLength,
-                startsWithBrace,
-                endsWithBrace
+                startsWithBrace: jsonText.startsWith('{'),
+                endsWithBrace: jsonText.endsWith('}')
             });
 
-            // Try to extract from code fence if present
             const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
             const match = jsonText.match(fenceRegex);
             if (match && match[2]) {
@@ -1703,102 +1858,78 @@ class SelectionSensei {
                 hadFence = true;
             }
 
-            let parsedResponse: { suggestedTitle?: string; explanation?: string } = {};
-            let parseSuccess = false;
-
-            // Regex-only extraction
-            parsedResponse = this.extractContentWithRegex(jsonText);
-            if (parsedResponse.suggestedTitle || parsedResponse.explanation) {
-                parseSuccess = true;
+            const parsedResponse = this.extractContentWithRegex(jsonText);
+            const parseSuccess = Boolean(parsedResponse.suggestedTitle || parsedResponse.explanation);
+            if (parseSuccess) {
                 parseStrategy = 'regex';
             }
 
-            // Step 4: Display the response or fallback
             if (parseSuccess && parsedResponse.suggestedTitle && parsedResponse.explanation) {
                 hasTitle = true;
                 hasExplanation = true;
                 contentStrategy = 'parsed-full';
-                if (!guardActive('update-parsed-full')) {
-                    return;
-                }
-                try {
-                    await this.updateResponseModalContentAndTitle(
-                        parsedResponse.suggestedTitle,
-                        parsedResponse.explanation,
-                        conversationToken
-                    );
-                } catch (updateError) {
-                    logger.error("[SENSEI_SELECTION] Error updating modal:", updateError);
-                    throw updateError;
-                }
+                await this.updateResponseModalContentAndTitle(parsedResponse.suggestedTitle, parsedResponse.explanation, conversationToken);
             } else if (parseSuccess && parsedResponse.explanation) {
                 hasExplanation = true;
                 contentStrategy = 'explanation-only';
-                if (!guardActive('update-explanation-only')) {
-                    return;
-                }
-                await this.updateResponseModalContentAndTitle(
-                    "Sensei Explains...",
-                    parsedResponse.explanation,
-                    conversationToken
-                );
+                await this.updateResponseModalContentAndTitle("Sensei Explains...", parsedResponse.explanation, conversationToken);
             } else if (jsonText && jsonText.length > 0) {
                 contentStrategy = 'raw-fallback';
                 logger.warn("[SENSEI_SELECTION] Using raw response as fallback");
-                if (!guardActive('update-raw-fallback')) {
-                    return;
-                }
-                await this.updateResponseModalContentAndTitle(
-                    "Sensei's Response",
-                    jsonText,
-                    conversationToken
-                );
+                await this.updateResponseModalContentAndTitle("Sensei's Response", jsonText, conversationToken);
             } else {
                 contentStrategy = 'error';
                 logger.warn("[SENSEI_SELECTION] No valid content to display");
-                if (!guardActive('update-empty')) {
-                    return;
-                }
-                await this.updateResponseModalContentAndTitle(
-                    "Error",
-                    "Sorry, I couldn't generate a proper response. Please try again.",
-                    conversationToken
-                );
+                await this.updateResponseModalContentAndTitle("Error", "Sorry, I couldn't generate a proper response. Please try again.", conversationToken, { enableComposer: false });
+                return;
             }
+
+            const initialResponse: ModalInitialContext['initialResponse'] = {
+                suggestedTitle: parsedResponse.suggestedTitle,
+                explanation: parsedResponse.explanation
+            };
+            if (!parsedResponse.explanation && rawResponseText) {
+                initialResponse.rawText = rawResponseText;
+            }
+
+            this.modalInitialContext = {
+                selectedText,
+                originalSenseiMessageText,
+                initialActionType: actionType,
+                initialActionLabel: actionLabel,
+                initialActionUserQuestion: actionType === 'askQuestion' ? userQuestion : undefined,
+                initialResponse
+            };
+            this.modalTranscriptContext = [];
         } catch (error) {
             contentStrategy = 'error';
-            // Improved error logging to capture the actual error details
             const errorMessage = error instanceof Error ? error.message : String(error);
-            const errorStack = error instanceof Error ? error.stack : '';
-            
-            logger.error("Error calling Gemini for selected text action:", {
+            logger.error("Error routing Selection Sensei selected text action:", {
                 message: errorMessage,
-                stack: errorStack,
-                error: error,
-                actionType: actionType,
+                actionType,
                 selectedTextLength: selectedText?.length || 0,
                 timestamp: new Date().toISOString()
             });
-            
-            // More specific error messages based on error type
+
             let userMessage = "Sorry, I encountered an error. Please try again.";
-            
             if (errorMessage.includes('quota') || errorMessage.includes('rate') || errorMessage.includes('429')) {
                 userMessage = "API rate limit reached. Please wait a moment before trying again.";
-            } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
-                userMessage = "Network error occurred. Please check your connection and try again.";
+            } else if (errorMessage.includes('timeout') || errorMessage.includes('network') || errorMessage.includes('bridge') || errorMessage.includes('native')) {
+                userMessage = "Selection Sensei is unavailable in the mobile app right now. Please try again in a moment.";
             } else if (errorMessage.includes('parse') || errorMessage.includes('JSON')) {
                 userMessage = "Failed to process the response. Please try again.";
             }
 
-            if (!guardActive('update-error')) {
-                return;
+            if (guardActive()) {
+                await this.updateResponseModalContentAndTitle("Error", userMessage, conversationToken, { enableComposer: false });
             }
-
-            await this.updateResponseModalContentAndTitle("Error", userMessage, conversationToken);
+        } finally {
+            if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
+                this.pendingToolbarRequestKey = null;
+            }
         }
 
-        if (!guardActive('response-handled')) {
+        if (!guardActive()) {
             return;
         }
 
@@ -1861,7 +1992,7 @@ class SelectionSensei {
 let currentSelectionSenseiInstance: SelectionSensei | null = null;
 
 export function initializeSelectionSensei(
-    ai: GoogleGenAI,
+    ai: GoogleGenAI | null,
     messageArea: HTMLDivElement
 ): void {
     // Clean up any existing instance
@@ -1875,7 +2006,7 @@ export function initializeSelectionSensei(
 }
 
 export function reinitializeSelectionSensei(
-    ai: GoogleGenAI
+    ai: GoogleGenAI | null
 ): void {
     const messageArea = document.getElementById('message-area') as HTMLDivElement;
     if (messageArea) {

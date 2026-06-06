@@ -7,6 +7,7 @@ const {
   COMPREHENSIVE_ANALYSIS_CONFIG,
   MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS
 } = require('./modelUsage');
+const { createLlmCapPolicy } = require('./llmCapPolicy');
 
 dotenv.config();
 
@@ -33,9 +34,11 @@ const topicRegistry = new Set([
   'c++_recursive_mastery'
 ]);
 
+const llmCapPolicy = createLlmCapPolicy();
+
 const rateLimit = {
-  windowMs: Number(process.env.TURN_RATE_WINDOW_MS || 60_000),
-  limit: Number(process.env.TURN_RATE_LIMIT || 3)
+  windowMs: Number(process.env.TURN_RATE_WINDOW_MS || llmCapPolicy.rateLimits.conversational.windowMs),
+  limit: Number(process.env.TURN_RATE_LIMIT || llmCapPolicy.rateLimits.conversational.limit)
 };
 
 const wrapUpRateLimit = {
@@ -50,6 +53,11 @@ const teachingPlanRateLimit = {
   burstWindowMs: 2 * 60_000,
   burstLimit: 3,
   blockMs: 5 * 60_000
+};
+
+const selectionSenseiRateLimit = {
+  windowMs: llmCapPolicy.rateLimits.conversational.windowMs,
+  limit: llmCapPolicy.rateLimits.conversational.limit
 };
 
 const analysisRateLimit = {
@@ -101,6 +109,8 @@ module.exports = {
   rateLimit,
   wrapUpRateLimit,
   teachingPlanRateLimit,
+  selectionSenseiRateLimit,
+  llmCapPolicy,
   analysisRateLimit,
   sessionTtlMs,
   idempotencyTtlMs,

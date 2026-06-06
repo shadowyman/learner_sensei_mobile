@@ -15,14 +15,17 @@ import type {
     MermaidRecoveryPayload,
     MermaidRecoveryResult,
     WrapUpAssessmentPromptContext,
-    TeachingPlanRequestPayload
+    TeachingPlanRequestPayload,
+    SelectionSenseiModalMessagePayload,
+    SelectionSenseiModalMessageResult
 } from './types';
 import type { WrapUpAssessmentOverlayData, TeachingPoint } from '../bridge/contracts';
 import {
     COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS,
     MERMAID_RECOVERY_RN_TIMEOUT_MS,
     WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS,
-    TEACHING_PLAN_RN_TIMEOUT_MS
+    TEACHING_PLAN_RN_TIMEOUT_MS,
+    SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS
 } from '@sensei/protocol/timeouts';
 
 type FetchLike = typeof fetch;
@@ -59,6 +62,7 @@ const MERMAID_RECOVERY_REQUEST_TIMEOUT_MS = MERMAID_RECOVERY_RN_TIMEOUT_MS;
 const WRAP_UP_REQUEST_TIMEOUT_MS = WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS;
 const TEACHING_PLAN_REQUEST_TIMEOUT_MS = TEACHING_PLAN_RN_TIMEOUT_MS;
 const COMPREHENSIVE_ANALYSIS_REQUEST_TIMEOUT_MS = COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS;
+const SELECTION_SENSEI_MODAL_REQUEST_TIMEOUT_MS = SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS;
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {
     private queue: (IteratorResult<T>)[] = [];
@@ -177,6 +181,10 @@ export class BffClient implements BffClientLike {
         return this.postLlmStreamWithRetry(requestBody, payload.capability, payload.messageId, false);
     }
 
+    async runSelectionSenseiModalMessage(payload: SelectionSenseiModalMessagePayload): Promise<SelectionSenseiModalMessageResult> {
+        return this.postSelectionSenseiModalMessageWithRetry(payload, false);
+    }
+
     private async postTurnWithRetry(body: Record<string, unknown>, hasRetried: boolean): Promise<TurnStreamHandle> {
         await this.ensureSession();
         const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/turns`, {
@@ -245,6 +253,42 @@ export class BffClient implements BffClientLike {
             capability,
             stream: this.createLlmStream(json.streamUrl, json.requestId, messageId, capability)
         };
+    }
+
+    private async postSelectionSenseiModalMessageWithRetry(
+        body: SelectionSenseiModalMessagePayload,
+        hasRetried: boolean
+    ): Promise<SelectionSenseiModalMessageResult> {
+        await this.ensureSession();
+        if (!this.sessionId) {
+            throw new Error('Session missing for Selection Sensei modal message');
+        }
+        const controller = new AbortController();
+        const timerId = setTimeout(() => controller.abort(), SELECTION_SENSEI_MODAL_REQUEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+            response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/selection-sensei/modal-message`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timerId);
+        }
+        if (!response.ok) {
+            const errorBody = await this.safeParseJson(response);
+            if (response.status === 400 && !hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postSelectionSenseiModalMessageWithRetry(body, true);
+            }
+            throw new Error(this.formatHttpError('Selection Sensei modal submission failed', response.status, errorBody));
+        }
+        const json = await response.json();
+        if (!json || json.success !== true || !json.result || typeof json.result !== 'object') {
+            throw new Error('Selection Sensei modal response missing result');
+        }
+        return json.result as SelectionSenseiModalMessageResult;
     }
 
     private async safeParseJson(response: Response): Promise<any | null> {

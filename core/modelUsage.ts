@@ -42,6 +42,14 @@ export const COMPREHENSIVE_ANALYSIS_CONFIG = {
 
 export const COMPREHENSIVE_ANALYSIS_TIMEOUT_MS = 180_000;
 
+export const SELECTION_SENSEI_MODAL_CONFIG = {
+  modelName: GEMINI_FLASH,
+  config: {
+    responseMimeType: 'application/json',
+    temperature: 0.5
+  }
+};
+
 export const MAIN_TEXT_CONFIG = {
   modelName: GEMINI_FLASH,
   config: {

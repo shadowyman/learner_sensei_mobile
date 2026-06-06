@@ -5,3 +5,4 @@ export * from './mermaidRepair';
 export * from './moduleIntroduction';
 export * from './mainSenseiResponse';
 export * from './baseSensei';
+export * from './selectionSensei';

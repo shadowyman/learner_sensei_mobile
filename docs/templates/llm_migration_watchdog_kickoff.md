@@ -23,13 +23,13 @@ For each worker packet, read:
 - docs/llm_entry_exit_traces.md
 - <EXECPLAN_PATH>
 - recent worker thread turns via read_thread
-- current git status and relevant diffs
+- packet-owned changed files and relevant generated output
 
 Audit the worker by comparing:
 
 - worker claim
 - ExecPlan state
-- actual diff
+- packet-owned changed files
 - migration protocol gates
 - master-plan scope
 - tests and validation evidence
@@ -50,11 +50,12 @@ The final acceptance model is:
 1. docs/protocols/PLAN.md live-document behavior is satisfied.
 2. docs/protocols/LLM_MIGRATION_COMPLIANCE_PROTOCOL.md section ledger is
    complete.
-3. ExecPlan claims match actual git diff.
+3. ExecPlan claims match packet-owned changed files.
 4. Master-plan scope matches backlog row.
 5. Required positive and negative tests exist.
 6. Validation evidence is recorded.
-7. No unrelated files are staged.
+7. Commit, push, staging, cleanup, or review handoff happened only if
+   explicitly authorized.
 
 If those disagree, issue a correction packet. If they agree, issue the next
 small packet using docs/templates/llm_migration_watchdog_packet.md.
@@ -66,8 +67,8 @@ the diff.
 
 First action:
 1. Read the required files and worker thread.
-2. Report the current backlog row, ExecPlan state, dirty tree summary, and
-   first missing or next actionable gate.
+2. Report the current backlog row, ExecPlan state, and first missing or next
+   actionable gate.
 3. Send the first worker packet only after that audit.
 ```
 

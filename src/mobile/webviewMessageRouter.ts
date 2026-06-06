@@ -1,7 +1,8 @@
-import type { FooterPayload, RNToWebMessage } from './bridge/contracts';
+import type { FooterPayload, RNToWebMessage, SelectionSenseiModalMessagePayload, SelectionSenseiModalMessageResult } from './bridge/contracts';
 import {
   COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS,
   MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS,
+  SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS,
   TEACHING_PLAN_BRIDGE_TIMEOUT_MS
 } from '@sensei/protocol/timeouts';
 import type { Phase, TeachingPoint } from '@sensei/core/teachingPlan';
@@ -96,6 +97,51 @@ function createRequestId(prefix: string): string {
   }
   const rand = Math.random().toString(16).slice(2);
   return `${prefix}-${Date.now()}-${rand}`;
+}
+
+type SelectionSenseiModalResolver = {
+  resolve: (v: SelectionSenseiModalMessageResult) => void;
+  reject: (err: any) => void;
+  timer: number;
+};
+
+const selectionSenseiModalResolvers = new Map<string, SelectionSenseiModalResolver>();
+
+export function requestSelectionSenseiModalMessageViaBridge(payload: SelectionSenseiModalMessagePayload): Promise<SelectionSenseiModalMessageResult> {
+  const requestId = createRequestId('selection-sensei-modal');
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      selectionSenseiModalResolvers.delete(requestId);
+      reject(new Error('Selection Sensei bridge timeout'));
+    }, SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS);
+    selectionSenseiModalResolvers.set(requestId, { resolve, reject, timer });
+    const sent = sendToNative({
+      type: 'selectionSensei:modalMessageRequest',
+      requestId,
+      payload
+    });
+    if (!sent) {
+      clearTimeout(timer);
+      selectionSenseiModalResolvers.delete(requestId);
+      reject(new Error('Selection Sensei native bridge unavailable'));
+    }
+  });
+}
+
+export function handleSelectionSenseiModalMessageResult(message: RNToWebMessage): boolean {
+  if (message.type !== 'selectionSensei:modalMessageResult') return false;
+  const resolver = selectionSenseiModalResolvers.get(message.requestId);
+  if (!resolver) {
+    return true;
+  }
+  clearTimeout(resolver.timer);
+  selectionSenseiModalResolvers.delete(message.requestId);
+  if (!message.success) {
+    resolver.reject(new Error(message.error || 'Selection Sensei bridge request failed'));
+    return true;
+  }
+  resolver.resolve(message.result);
+  return true;
 }
 
 export function requestTeachingPlanViaBridge(payload: {
@@ -286,6 +332,7 @@ export function createWebviewMessageHandler(deps: {
     if (handleTeachingPlanResult(message)) return;
     if (handleLearnerAnalysisResult(message)) return;
     if (handleLlmStreamEvent(message)) return;
+    if (handleSelectionSenseiModalMessageResult(message)) return;
     switch (message.type) {
       case 'ui:inputOffset': {
         applyInputOffset(message.height);

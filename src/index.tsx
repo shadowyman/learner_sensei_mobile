@@ -182,16 +182,14 @@ const hasNativeBridge = Boolean((window as any)?.__SENSEI_MOBILE_BUILD__);
 const isLocal = window.location.hostname === 'localhost';
 const envApiKey = typeof process !== 'undefined' && process?.env ? process.env.API_KEY : undefined;
 
-export const API_KEY = (isLocal || hasNativeBridge)
-  ? 'AIzaSyD_Z16_FKAwMArnKLpXu1i2KQfRYsRa3iM'
-  : envApiKey;
+export const API_KEY = hasNativeBridge ? undefined : envApiKey;
 
 logger.info('[API_KEY_USAGE]', {
-    source: isLocal ? 'local' : hasNativeBridge ? 'mobile_bundle' : 'env',
-    key: API_KEY ?? 'undefined'
+    source: hasNativeBridge ? 'mobile_bridge' : isLocal ? 'local_env' : 'env',
+    configured: Boolean(API_KEY)
 });
 if (typeof window !== 'undefined') {
-    (window as any).__senseiCurrentApiKey = API_KEY ?? null;
+    (window as any).__senseiCurrentApiKeyConfigured = Boolean(API_KEY);
 }
 let ai: GoogleGenAI | null = null;
 let mainSenseiChat: Chat | null = null;
@@ -412,6 +410,10 @@ let profiler: PedagogicalProfiler | null = null;
 
 async function initializeGoogleAI() {
     if (!API_KEY) {
+        if (hasNativeBridge) {
+            logger.info('[API_KEY_USAGE]', { source: 'mobile_bridge', configured: false });
+            return;
+        }
         updateCurriculumDisplay(null, null, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
         logger.error("API_KEY is not set.");
         return;
@@ -1494,7 +1496,7 @@ async function loadCurriculumAndGreet() {
     await loadProjectFileManifestAndPaths(); // Load manifest and paths
     await initializeGoogleAI(); // Initializes AI and then Debug Mode with paths
 
-    if (!ai) { 
+    if (!ai && !hasNativeBridge) {
         return; 
     }
     

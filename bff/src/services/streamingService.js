@@ -249,11 +249,13 @@ class StreamingService {
     };
 
     try {
-      const prompt = await this.senseiCoreAdapter.buildCapabilityPrompt(request);
+      const providerInput = await this.senseiCoreAdapter.buildCapabilityPrompt(request);
+      const prompt = typeof providerInput === 'string' ? providerInput : providerInput.prompt;
       const stream = await this.geminiGateway.streamMainResponse(prompt, {
         context,
         allowFallback: request.allowFallback,
-        signal: abortController.signal
+        signal: abortController.signal,
+        systemInstruction: typeof providerInput === 'string' ? undefined : providerInput.systemInstruction
       });
       this.logger.info('LLM_STREAM_MIGRATION', 'provider-stream', {
         requestId,
