@@ -227,7 +227,7 @@ class SelectionSensei {
     }
 
     constructor(
-        private ai: GoogleGenAI,
+        private ai: GoogleGenAI | null,
         private messageArea: HTMLDivElement
     ) {
         // Bind methods to ensure 'this' context is correct in event handlers
@@ -946,6 +946,7 @@ class SelectionSensei {
 
     private resetModalState(): void {
         this.modalConversationToken += 1;
+        this.pendingToolbarRequestKey = null;
         this.ensureDOMElementsValid();
         this.setModalFullscreen(false);
         this.clearMinimizeState();
@@ -1766,11 +1767,11 @@ class SelectionSensei {
             logger.info('[SENSEI_SELECTION] duplicate mobile toolbar request ignored', { actionType });
             return;
         }
+
+        this.resetModalState();
         if (isMobileWebView) {
             this.pendingToolbarRequestKey = pendingKey;
         }
-
-        this.resetModalState();
         const conversationToken = this.modalConversationToken;
         const guardActive = (): boolean => conversationToken === this.modalConversationToken;
 
@@ -1879,7 +1880,8 @@ class SelectionSensei {
             } else {
                 contentStrategy = 'error';
                 logger.warn("[SENSEI_SELECTION] No valid content to display");
-                await this.updateResponseModalContentAndTitle("Error", "Sorry, I couldn't generate a proper response. Please try again.", conversationToken);
+                await this.updateResponseModalContentAndTitle("Error", "Sorry, I couldn't generate a proper response. Please try again.", conversationToken, { enableComposer: false });
+                return;
             }
 
             const initialResponse: ModalInitialContext['initialResponse'] = {
@@ -1990,7 +1992,7 @@ class SelectionSensei {
 let currentSelectionSenseiInstance: SelectionSensei | null = null;
 
 export function initializeSelectionSensei(
-    ai: GoogleGenAI,
+    ai: GoogleGenAI | null,
     messageArea: HTMLDivElement
 ): void {
     // Clean up any existing instance
@@ -2004,7 +2006,7 @@ export function initializeSelectionSensei(
 }
 
 export function reinitializeSelectionSensei(
-    ai: GoogleGenAI
+    ai: GoogleGenAI | null
 ): void {
     const messageArea = document.getElementById('message-area') as HTMLDivElement;
     if (messageArea) {

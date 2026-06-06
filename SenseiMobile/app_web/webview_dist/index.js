@@ -28948,6 +28948,7 @@ var init_selectionSensei = __esm({
       }
       resetModalState() {
         this.modalConversationToken += 1;
+        this.pendingToolbarRequestKey = null;
         this.ensureDOMElementsValid();
         this.setModalFullscreen(false);
         this.clearMinimizeState();
@@ -29632,10 +29633,10 @@ ${extracted.explanation}`,
           logger.info("[SENSEI_SELECTION] duplicate mobile toolbar request ignored", { actionType });
           return;
         }
+        this.resetModalState();
         if (isMobileWebView) {
           this.pendingToolbarRequestKey = pendingKey;
         }
-        this.resetModalState();
         const conversationToken = this.modalConversationToken;
         const guardActive = () => conversationToken === this.modalConversationToken;
         this.showResponseModalWithLoading();
@@ -29732,7 +29733,8 @@ ${extracted.explanation}`,
           } else {
             contentStrategy = "error";
             logger.warn("[SENSEI_SELECTION] No valid content to display");
-            await this.updateResponseModalContentAndTitle("Error", "Sorry, I couldn't generate a proper response. Please try again.", conversationToken);
+            await this.updateResponseModalContentAndTitle("Error", "Sorry, I couldn't generate a proper response. Please try again.", conversationToken, { enableComposer: false });
+            return;
           }
           const initialResponse = {
             suggestedTitle: parsedResponse.suggestedTitle,
@@ -34958,12 +34960,12 @@ var init_moduleSelectionHandler = __esm({
               });
               return false;
             }
-            const currentApiKey = typeof window !== "undefined" ? window.__senseiCurrentApiKey : null;
+            const apiKeyConfigured = typeof window !== "undefined" ? Boolean(window.__senseiCurrentApiKeyConfigured) : false;
             logger.info("[API_KEY_USAGE]", {
               event: "module_selection",
               moduleId: selectedModule.id,
               moduleTitle: selectedModule.title,
-              key: currentApiKey ?? "undefined"
+              configured: apiKeyConfigured
             });
             const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.
 
@@ -35823,6 +35825,10 @@ async function loadProjectFileManifestAndPaths() {
 }
 async function initializeGoogleAI() {
   if (!API_KEY) {
+    if (hasNativeBridge) {
+      logger.info("[API_KEY_USAGE]", { source: "mobile_bridge", configured: false });
+      return;
+    }
     updateCurriculumDisplay(null, null, curriculum, curriculumState, isCurriculumLoaded(), learnerModel);
     logger.error("API_KEY is not set.");
     return;
@@ -36739,7 +36745,7 @@ async function loadCurriculumAndGreet() {
   initializeSaveLoadUI();
   await loadProjectFileManifestAndPaths();
   await initializeGoogleAI();
-  if (!ai) {
+  if (!ai && !hasNativeBridge) {
     return;
   }
   if (API_KEY) {
@@ -37038,13 +37044,13 @@ var init_index = __esm({
     hasNativeBridge = Boolean(window?.__SENSEI_MOBILE_BUILD__);
     isLocal = window.location.hostname === "localhost";
     envApiKey = typeof process !== "undefined" && process?.env ? process.env.API_KEY : void 0;
-    API_KEY = isLocal || hasNativeBridge ? "AIzaSyD_Z16_FKAwMArnKLpXu1i2KQfRYsRa3iM" : envApiKey;
+    API_KEY = hasNativeBridge ? void 0 : envApiKey;
     logger.info("[API_KEY_USAGE]", {
-      source: isLocal ? "local" : hasNativeBridge ? "mobile_bundle" : "env",
-      key: API_KEY ?? "undefined"
+      source: hasNativeBridge ? "mobile_bridge" : isLocal ? "local_env" : "env",
+      configured: Boolean(API_KEY)
     });
     if (typeof window !== "undefined") {
-      window.__senseiCurrentApiKey = API_KEY ?? null;
+      window.__senseiCurrentApiKeyConfigured = Boolean(API_KEY);
     }
     ai = null;
     mainSenseiChat = null;

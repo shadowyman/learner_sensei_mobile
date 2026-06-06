@@ -128,12 +128,12 @@ export class ModuleSelectionHandler {
                     });
                     return false;
                 }
-                const currentApiKey = typeof window !== 'undefined' ? (window as any).__senseiCurrentApiKey : null;
+                const apiKeyConfigured = typeof window !== 'undefined' ? Boolean((window as any).__senseiCurrentApiKeyConfigured) : false;
                 logger.info('[API_KEY_USAGE]', {
                     event: 'module_selection',
                     moduleId: selectedModule.id,
                     moduleTitle: selectedModule.title,
-                    key: currentApiKey ?? 'undefined'
+                    configured: apiKeyConfigured
                 });
                 
                 const phaseSelectionText = `Great choice! You've selected **${selectedModule.title}**.

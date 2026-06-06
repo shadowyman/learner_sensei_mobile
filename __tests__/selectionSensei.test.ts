@@ -546,6 +546,59 @@ describe('selectionSensei initializeSelectionSensei', () => {
     restoreSelection()
   })
 
+  test('mobile empty initial toolbar response keeps follow-up composer disabled', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const bridge = installNativeBridge()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const restoreSelection = installSelection(messageText)
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+    invokeSelectionSenseiBridgeAction('explainSimpler')
+    await flushPromises()
+    bridge.resolveLatestModalRequest({} as any)
+    await flushPromises()
+
+    const input = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement
+    const sendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement
+    expect(sendButton.disabled).toBe(true)
+
+    input.value = 'This should not become a follow-up after an empty initial answer.'
+    sendButton.click()
+    await flushPromises()
+
+    expect(bridge.modalRequests()).toHaveLength(1)
+    expect(mockChatsCreate).not.toHaveBeenCalled()
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    restoreSelection()
+  })
+
+  test('mobile modal dismissal clears pending toolbar key so same action can retry', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const bridge = installNativeBridge()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const restoreSelection = installSelection(messageText)
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+    invokeSelectionSenseiBridgeAction('explainSimpler')
+    await flushPromises()
+    expect(bridge.modalRequests()).toHaveLength(1)
+
+    const closeButton = document.getElementById('response-modal-close-button') as HTMLButtonElement
+    closeButton.click()
+    await flushPromises()
+
+    invokeSelectionSenseiBridgeAction('explainSimpler')
+    await flushPromises()
+
+    expect(bridge.modalRequests()).toHaveLength(2)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    restoreSelection()
+  })
+
   test('mobile oversized askQuestion clears stale modal context and sends no follow-up', async () => {
     ;(window as any).__SENSEI_MOBILE_BUILD__ = true
     const bridge = installNativeBridge()
