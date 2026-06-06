@@ -1105,13 +1105,14 @@ class SelectionSensei {
     }
 
     private async showSelectionSenseiUserInputTooLongError(): Promise<void> {
+        this.resetModalState();
         this.hideSelectionToolbar();
         this.showResponseModalWithLoading();
         await this.updateResponseModalContentAndTitle(
             'Question Too Long',
             `Your question is too long. Please shorten it to ${SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`
         );
-        this.setComposerEnabled(true);
+        this.setComposerEnabled(false);
     }
 
     private async appendModalMessage(message: Message, conversationToken?: number): Promise<void> {

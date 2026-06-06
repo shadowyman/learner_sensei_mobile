@@ -91,6 +91,13 @@ const FollowUpSchema = z.object({
   modalTranscript: z.array(TranscriptEntrySchema).optional(),
   question: nonEmptyString()
 }).strict().superRefine((value, ctx) => {
+  if (value.initialActionType === 'askQuestion' && !value.initialActionUserQuestion) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['initialActionUserQuestion'],
+      message: 'initialActionUserQuestion is required when the initial action was askQuestion.'
+    });
+  }
   if (value.initialActionType !== 'askQuestion' && value.initialActionUserQuestion !== undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

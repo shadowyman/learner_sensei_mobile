@@ -29084,13 +29084,14 @@ ${extracted.explanation}`,
         return text2.length > import_llmCapPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS;
       }
       async showSelectionSenseiUserInputTooLongError() {
+        this.resetModalState();
         this.hideSelectionToolbar();
         this.showResponseModalWithLoading();
         await this.updateResponseModalContentAndTitle(
           "Question Too Long",
           `Your question is too long. Please shorten it to ${import_llmCapPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`
         );
-        this.setComposerEnabled(true);
+        this.setComposerEnabled(false);
       }
       async appendModalMessage(message, conversationToken) {
         if (conversationToken !== void 0 && conversationToken !== this.modalConversationToken) {

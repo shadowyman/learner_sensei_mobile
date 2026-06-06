@@ -145,6 +145,12 @@ const expectRejected = async (res, allowedStatuses, label) => {
       initialActionUserQuestion: 'This question belongs only to initial ask actions.'
     }), [400], 'non-ask follow-up with stray initialActionUserQuestion');
 
+    await expectRejected(await postJson(route, {
+      ...createBaseFollowUpPayload(),
+      initialActionType: 'askQuestion',
+      initialActionLabel: 'Ask'
+    }), [400], 'ask follow-up missing initialActionUserQuestion');
+
     await expectRejected(await postJson(route, omitKeys(createBaseFollowUpPayload(), [
       'selectedText',
       'originalSenseiMessageText',

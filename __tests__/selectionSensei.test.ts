@@ -507,6 +507,38 @@ describe('selectionSensei initializeSelectionSensei', () => {
     restoreSelection()
   })
 
+  test('mobile oversized askQuestion clears stale modal context and sends no follow-up', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const bridge = installNativeBridge()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const restoreSelection = installSelection(messageText)
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+    invokeSelectionSenseiBridgeAction('explainSimpler')
+    await flushPromises()
+    bridge.resolveLatestModalRequest({ suggestedTitle: 'Base Case', explanation: 'A base case stops recursion.' })
+    await flushPromises()
+
+    invokeSelectionSenseiBridgeAction('askQuestion', {
+      userQuestion: 'x'.repeat(SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS + 1)
+    })
+    await flushPromises()
+
+    const input = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement
+    const sendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement
+    input.value = 'This must not be sent as a stale follow-up.'
+    sendButton.click()
+    await flushPromises()
+
+    expect(bridge.modalRequests()).toHaveLength(1)
+    expect(sendButton.disabled).toBe(true)
+    expect(mockChatsCreate).not.toHaveBeenCalled()
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    restoreSelection()
+  })
+
   test('mobile askQuestion follow-up carries the original ask question through structured payload', async () => {
     ;(window as any).__SENSEI_MOBILE_BUILD__ = true
     const bridge = installNativeBridge()
