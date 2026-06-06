@@ -8,6 +8,10 @@ import { sendToNative } from './mobile/webviewBridge';
 import type { SelectionSenseiModalMessagePayload, SelectionSenseiModalMessageResult, SelectionSenseiToolbarActionType } from './mobile/bridge/contracts';
 import { requestSelectionSenseiModalMessageViaBridge } from './mobile/webviewMessageRouter';
 import { requestSelectionSenseiModalMessage } from './selectionSenseiRouting';
+import {
+    SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES,
+    SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS
+} from '@sensei/core/llmBoundaryPolicy';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
@@ -1091,9 +1095,23 @@ class SelectionSensei {
             initialActionLabel: this.modalInitialContext.initialActionLabel,
             initialActionUserQuestion: this.modalInitialContext.initialActionUserQuestion,
             initialResponse: this.modalInitialContext.initialResponse,
-            modalTranscript: this.modalTranscriptContext.slice(-24),
+            modalTranscript: this.modalTranscriptContext.slice(-SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES),
             question
         };
+    }
+
+    private isSelectionSenseiUserInputTooLong(text: string): boolean {
+        return text.length > SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS;
+    }
+
+    private async showSelectionSenseiUserInputTooLongError(): Promise<void> {
+        this.hideSelectionToolbar();
+        this.showResponseModalWithLoading();
+        await this.updateResponseModalContentAndTitle(
+            'Question Too Long',
+            `Your question is too long. Please shorten it to ${SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`
+        );
+        this.setComposerEnabled(true);
     }
 
     private async appendModalMessage(message: Message, conversationToken?: number): Promise<void> {
@@ -1139,6 +1157,17 @@ class SelectionSensei {
         const conversationToken = this.modalConversationToken;
         const trimmed = this.responseModalComposerInput.value.trim();
         if (!trimmed) {
+            return;
+        }
+        if (this.isSelectionSenseiUserInputTooLong(trimmed)) {
+            await this.appendModalMessage({
+                id: this.generateModalMessageId('sensei'),
+                sender: 'sensei',
+                displayName: 'Sensei',
+                text: `Your question is too long. Please shorten it to ${SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`,
+                timestamp: new Date(),
+            }, conversationToken);
+            this.setComposerEnabled(true);
             return;
         }
 
@@ -1472,6 +1501,10 @@ class SelectionSensei {
         const sendMessage = () => {
             const userQuestion = textInput.value.trim();
             if (userQuestion) {
+                if (this.isSelectionSenseiUserInputTooLong(userQuestion)) {
+                    void this.showSelectionSenseiUserInputTooLongError();
+                    return;
+                }
                 this.handleToolbarAction(selectedText, 'askQuestion', originalSenseiMessageText, actionLabel, userQuestion);
             }
         };
@@ -1722,6 +1755,10 @@ class SelectionSensei {
             logger.warn('[SENSEI_SELECTION] unknown toolbar action', { actionType });
             return;
         }
+        if (actionType === 'askQuestion' && userQuestion && this.isSelectionSenseiUserInputTooLong(userQuestion)) {
+            await this.showSelectionSenseiUserInputTooLongError();
+            return;
+        }
 
         const pendingKey = this.buildToolbarRequestKey(selectedText, actionType, originalSenseiMessageText, actionLabel, userQuestion);
         if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
@@ -1844,17 +1881,21 @@ class SelectionSensei {
                 await this.updateResponseModalContentAndTitle("Error", "Sorry, I couldn't generate a proper response. Please try again.", conversationToken);
             }
 
+            const initialResponse: ModalInitialContext['initialResponse'] = {
+                suggestedTitle: parsedResponse.suggestedTitle,
+                explanation: parsedResponse.explanation
+            };
+            if (!parsedResponse.explanation && rawResponseText) {
+                initialResponse.rawText = rawResponseText;
+            }
+
             this.modalInitialContext = {
                 selectedText,
                 originalSenseiMessageText,
                 initialActionType: actionType,
                 initialActionLabel: actionLabel,
                 initialActionUserQuestion: actionType === 'askQuestion' ? userQuestion : undefined,
-                initialResponse: {
-                    suggestedTitle: parsedResponse.suggestedTitle,
-                    explanation: parsedResponse.explanation,
-                    rawText: rawResponseText
-                }
+                initialResponse
             };
             this.modalTranscriptContext = [];
         } catch (error) {

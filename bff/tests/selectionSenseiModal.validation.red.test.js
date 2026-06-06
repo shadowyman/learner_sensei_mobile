@@ -175,14 +175,14 @@ const expectRejected = async (res, allowedStatuses, label) => {
       ...createBaseFollowUpPayload(),
       initialResponse: {
         suggestedTitle: 'Large response',
-        explanation: 'x'.repeat(24001)
+        explanation: 'x'.repeat(200001)
       }
     }), [400, 413], 'oversized initial response explanation');
 
     await expectRejected(await postJson(route, {
       ...createBaseFollowUpPayload(),
       initialResponse: {
-        rawText: 'x'.repeat(24001)
+        rawText: 'x'.repeat(200001)
       }
     }), [400, 413], 'oversized initial response rawText');
 
@@ -193,12 +193,17 @@ const expectRejected = async (res, allowedStatuses, label) => {
 
     await expectRejected(await postJson(route, {
       ...createBaseFollowUpPayload(),
-      modalTranscript: [{ role: 'sensei', text: 'x'.repeat(12001) }]
-    }), [400, 413], 'oversized transcript entry');
+      modalTranscript: [{ role: 'user', text: 'x'.repeat(8001) }]
+    }), [400, 413], 'oversized user transcript entry');
 
     await expectRejected(await postJson(route, {
       ...createBaseFollowUpPayload(),
-      modalTranscript: Array.from({ length: 25 }, (_, index) => ({
+      modalTranscript: [{ role: 'sensei', text: 'x'.repeat(200001) }]
+    }), [400, 413], 'oversized sensei transcript entry');
+
+    await expectRejected(await postJson(route, {
+      ...createBaseFollowUpPayload(),
+      modalTranscript: Array.from({ length: 21 }, (_, index) => ({
         role: index % 2 === 0 ? 'user' : 'sensei',
         text: `entry ${index}`
       }))
@@ -206,15 +211,24 @@ const expectRejected = async (res, allowedStatuses, label) => {
 
     await expectRejected(await postJson(route, {
       ...createBaseFollowUpPayload(),
-      modalTranscript: Array.from({ length: 6 }, (_, index) => ({
-        role: index % 2 === 0 ? 'user' : 'sensei',
-        text: `${index}`.repeat(12000)
+      modalTranscript: Array.from({ length: 5 }, (_, index) => ({
+        role: 'sensei',
+        text: `${index}`.repeat(160001)
       }))
     }), [400, 413], 'oversized transcript aggregate');
 
     await expectRejected(await postJson(route, {
       ...createBaseFollowUpPayload(),
-      originalSenseiMessageText: 'x'.repeat(97000)
+      originalSenseiMessageText: 'x'.repeat(199000),
+      initialResponse: {
+        suggestedTitle: 'Large response',
+        explanation: 'x'.repeat(190000)
+      },
+      modalTranscript: [
+        { role: 'sensei', text: 'a'.repeat(190000) },
+        { role: 'sensei', text: 'b'.repeat(190000) },
+        { role: 'sensei', text: 'c'.repeat(190000) }
+      ]
     }), [400, 413], 'oversized prompt-rendered structured input');
 
     console.log('selection sensei modal validation red test passed');

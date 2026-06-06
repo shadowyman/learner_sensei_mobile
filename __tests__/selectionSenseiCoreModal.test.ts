@@ -16,11 +16,11 @@ describe('Selection Sensei Core modal capability', () => {
     };
 
     function createLlm(response: string) {
-        const calls: Array<{ prompt: string; options?: { task?: string } }> = [];
+        const calls: Array<{ prompt: string; options?: { task?: string; systemInstruction?: string } }> = [];
         return {
             calls,
             llm: {
-                async callText(prompt: string, options?: { task?: string }) {
+                async callText(prompt: string, options?: { task?: string; systemInstruction?: string }) {
                     calls.push({ prompt, options });
                     return response;
                 },
@@ -46,8 +46,12 @@ describe('Selection Sensei Core modal capability', () => {
             rawText: '{"suggestedTitle":"Base Case","explanation":"A base case ends recursion."}'
         });
         expect(calls).toHaveLength(1);
-        expect(calls[0].options).toEqual({ task: 'selection_sensei_modal' });
-        expect(calls[0].prompt).toContain(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION);
+        expect(calls[0].options).toEqual({
+            task: 'selection_sensei_modal',
+            systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+        });
+        expect(calls[0].prompt).not.toContain(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION);
+        expect(calls[0].prompt).not.toContain('SELECTION SENSEI USER PROMPT START');
         expect(calls[0].prompt).toContain("Explain the 'SELECTED TEXT' in a simpler way");
         expect(calls[0].prompt).toContain('base case stops recursion');
     });
@@ -63,10 +67,13 @@ describe('Selection Sensei Core modal capability', () => {
         });
 
         expect(result.ok).toBe(true);
-        expect(calls[0].prompt).toContain(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION);
+        expect(calls[0].prompt).not.toContain(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION);
         expect(calls[0].prompt).toContain('--- MY QUESTION START ---');
         expect(calls[0].prompt).toContain('Why must the base case come before the recursive call?');
-        expect(calls[0].options).toEqual({ task: 'selection_sensei_modal' });
+        expect(calls[0].options).toEqual({
+            task: 'selection_sensei_modal',
+            systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+        });
     });
 
     it('follow-up mode builds prompt from explicit modal context without provider history', async () => {
@@ -100,9 +107,12 @@ describe('Selection Sensei Core modal capability', () => {
         expect(prompt).toContain('User: Can you make it shorter?');
         expect(prompt).toContain('Assistant: It is the stopping rule.');
         expect(prompt).toContain('Can you connect that to stack unwinding?');
-        expect(calls[0].prompt).toContain(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION);
         expect(calls[0].prompt).toContain(prompt);
-        expect(calls[0].options).toEqual({ task: 'selection_sensei_modal' });
+        expect(calls[0].prompt).not.toContain(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION);
+        expect(calls[0].options).toEqual({
+            task: 'selection_sensei_modal',
+            systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+        });
     });
 
     it('fails deterministically for null provider and non-LLM toolbar actions', async () => {
@@ -218,14 +228,18 @@ describe('Selection Sensei browser Core client task routing', () => {
         });
         const client = createBrowserCoreLlmClient({ models: { generateContent } });
 
-        await client?.callText('Prompt text', { task: 'selection_sensei_modal' });
+        await client?.callText('Prompt text', {
+            task: 'selection_sensei_modal',
+            systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+        });
 
         expect(generateContent).toHaveBeenCalledWith({
             model: 'gemini-flash-latest',
             contents: [{ parts: [{ text: 'Prompt text' }] }],
             config: {
                 responseMimeType: 'application/json',
-                temperature: 0.5
+                temperature: 0.5,
+                systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
             }
         });
     });

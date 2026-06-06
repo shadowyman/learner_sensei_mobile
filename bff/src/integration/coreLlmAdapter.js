@@ -3,12 +3,12 @@ class CoreLlmAdapter {
     this.geminiGateway = geminiGateway;
   }
 
-  async callText(prompt, { task }) {
-    return this.geminiGateway.callText(prompt, { task });
+  async callText(prompt, { task, systemInstruction } = {}) {
+    return this.geminiGateway.callText(prompt, { task, systemInstruction });
   }
 
-  async callJson(prompt, { task }) {
-    const text = await this.callText(prompt, { task });
+  async callJson(prompt, { task, systemInstruction } = {}) {
+    const text = await this.callText(prompt, { task, systemInstruction });
     return JSON.parse(text);
   }
 

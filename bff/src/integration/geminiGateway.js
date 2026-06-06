@@ -108,7 +108,7 @@ class GeminiGateway {
     }
   }
 
-  async callText(prompt, { task }) {
+  async callText(prompt, { task, systemInstruction } = {}) {
     const isMermaid = task === 'mermaid_repair';
     const cfg = this.getTaskConfig(task);
     const modelName = this.getTaskModelName(task, cfg);
@@ -120,23 +120,27 @@ class GeminiGateway {
     const client = await this.clientPromise;
     this.logger.info(TAG, 'callText start', { task, model: modelName, temperature, promptLength: prompt.length });
     const start = Date.now();
+    const generateConfig = {
+      temperature,
+      responseMimeType,
+      safetySettings,
+      httpOptions: { timeout: timeoutMs }
+    };
+    if (systemInstruction) {
+      generateConfig.systemInstruction = systemInstruction;
+    }
     const res = await withDeadline(client.models.generateContent({
       model: modelName,
       contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        temperature,
-        responseMimeType,
-        safetySettings,
-        httpOptions: { timeout: timeoutMs }
-      }
+      config: generateConfig
     }), timeoutMs + 1000);
     const text = typeof res?.text === 'function' ? res.text() : (res?.text ?? '');
     this.logger.info(TAG, 'callText end', { task, elapsedMs: Date.now() - start, bytes: text.length });
     return text;
   }
 
-  async callJson(prompt, { task }) {
-    const text = await this.callText(prompt, { task });
+  async callJson(prompt, { task, systemInstruction } = {}) {
+    const text = await this.callText(prompt, { task, systemInstruction });
     return JSON.parse(text);
   }
 
@@ -217,7 +221,7 @@ class GeminiGateway {
     }
   }
 
-  async *streamMainResponse(prompt, { context, allowFallback = true, signal }) {
+  async *streamMainResponse(prompt, { context, allowFallback = true, signal, systemInstruction }) {
     const turnId = context.turn?.id;
     const cfg = MAIN_RESPONSE_CONFIG;
     const baseTimeoutMs = typeof cfg.timeoutMs === 'number' ? cfg.timeoutMs : this.timeoutMs;
@@ -239,15 +243,19 @@ class GeminiGateway {
     const startTime = Date.now();
 
     try {
+      const streamConfig = {
+        temperature: cfg.config.temperature ?? this.temperature,
+        safetySettings,
+        httpOptions: { timeout: baseTimeoutMs },
+        abortSignal: signal
+      };
+      if (systemInstruction) {
+        streamConfig.systemInstruction = systemInstruction;
+      }
       const stream = await client.models.generateContentStream({
         model: this.modelName,
         contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          temperature: cfg.config.temperature ?? this.temperature,
-          safetySettings,
-          httpOptions: { timeout: baseTimeoutMs },
-          abortSignal: signal
-        }
+        config: streamConfig
       });
 
       for await (const chunk of stream) {

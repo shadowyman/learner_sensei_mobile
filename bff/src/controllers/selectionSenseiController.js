@@ -1,21 +1,25 @@
 const { z } = require('zod');
 const { sendError } = require('../utils/apiError');
+const { llmBoundaryPolicy } = require('../config');
 
 const TAG = 'SELECTION_SENSEI_CONTROLLER';
 
+const SELECTION_POLICY = llmBoundaryPolicy.selectionSensei;
+
 const LIMITS = {
-  selectedText: 12000,
-  originalSenseiMessageText: 48000,
-  actionLabel: 80,
-  userQuestion: 8000,
-  question: 8000,
-  modalConversationId: 200,
-  initialResponseTitle: 500,
-  initialResponseField: 24000,
-  transcriptEntries: 24,
-  transcriptEntryText: 12000,
-  transcriptAggregate: 64000,
-  totalStructuredInput: 96000
+  selectedText: SELECTION_POLICY.selectedTextMaxChars,
+  originalSenseiMessageText: SELECTION_POLICY.originalSenseiMessageMaxChars,
+  actionLabel: SELECTION_POLICY.actionLabelMaxChars,
+  userQuestion: SELECTION_POLICY.userMessageMaxChars,
+  question: SELECTION_POLICY.userMessageMaxChars,
+  modalConversationId: SELECTION_POLICY.modalConversationIdMaxChars,
+  initialResponseTitle: SELECTION_POLICY.initialResponseTitleMaxChars,
+  initialResponseField: SELECTION_POLICY.senseiEntryMaxChars,
+  transcriptEntries: SELECTION_POLICY.transcriptMaxEntries,
+  transcriptUserEntryText: SELECTION_POLICY.userMessageMaxChars,
+  transcriptSenseiEntryText: SELECTION_POLICY.senseiEntryMaxChars,
+  transcriptAggregate: SELECTION_POLICY.aggregateMaxChars,
+  totalStructuredInput: SELECTION_POLICY.aggregateMaxChars
 };
 
 const LLM_ACTIONS = [
@@ -44,8 +48,20 @@ const InitialResponseSchema = z.object({
 
 const TranscriptEntrySchema = z.object({
   role: z.enum(['user', 'sensei']),
-  text: nonEmptyBoundedString(LIMITS.transcriptEntryText)
-}).strict();
+  text: z.string().trim().min(1)
+}).strict().superRefine((value, ctx) => {
+  const maximum = value.role === 'user' ? LIMITS.transcriptUserEntryText : LIMITS.transcriptSenseiEntryText;
+  if (value.text.length > maximum) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.too_big,
+      type: 'string',
+      maximum,
+      inclusive: true,
+      path: ['text'],
+      message: `${value.role} transcript entry is too large.`
+    });
+  }
+});
 
 const ToolbarActionSchema = z.object({
   mode: z.literal('toolbarAction'),
@@ -151,6 +167,8 @@ const isPayloadTooLarge = (error) => {
   return error.errors?.some((issue) => issue.code === z.ZodIssueCode.too_big) || false;
 };
 
+const buildSessionLimiterKey = (sessionId, ip, userAgent) => `${sessionId || 'unknown'}::${ip || 'unknown'}::${userAgent || 'unknown'}`;
+
 const toCoreRequest = (payload) => {
   if (payload.mode === 'toolbarAction') {
     return {
@@ -211,7 +229,10 @@ class SelectionSenseiController {
     }
 
     if (this.selectionSenseiRateLimiter) {
-      const rate = this.selectionSenseiRateLimiter.check(req.ip, req.get?.('User-Agent'));
+      const limiterKey = buildSessionLimiterKey(sessionId, req.ip, req.get?.('User-Agent'));
+      const rate = typeof this.selectionSenseiRateLimiter.checkKey === 'function'
+        ? this.selectionSenseiRateLimiter.checkKey(limiterKey)
+        : this.selectionSenseiRateLimiter.check(limiterKey, undefined);
       if (!rate.allowed) {
         this.logger.warn(TAG, 'rate limited', { sessionId, ip: req.ip, requestId: req.requestId });
         res.set('Retry-After', String(rate.retryAfterSeconds || 60));

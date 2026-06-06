@@ -180,15 +180,6 @@ function validateSelectionSenseiModalRequest(request: SelectionSenseiModalMessag
     return invalidSelectionSenseiRequest('Unsupported Selection Sensei modal request mode.');
 }
 
-function buildSelectionSenseiProviderPrompt(userPrompt: string): string {
-    return `${SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION.trim()}
-
---- SELECTION SENSEI USER PROMPT START ---
-${userPrompt.trim()}
---- SELECTION SENSEI USER PROMPT END ---
-`;
-}
-
 function stripJsonFence(payload: string): string {
     const trimmed = payload.trim();
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
@@ -408,10 +399,12 @@ export async function runSelectionSenseiModalMessage(
     const prompt = request.mode === 'toolbarAction'
         ? buildSelectionSenseiToolbarPrompt(request)
         : buildSelectionSenseiFollowUpPrompt(request);
-    const providerPrompt = buildSelectionSenseiProviderPrompt(prompt);
 
     try {
-        const rawText = await llm.callText(providerPrompt, { task: SELECTION_SENSEI_MODAL_TASK });
+        const rawText = await llm.callText(prompt, {
+            task: SELECTION_SENSEI_MODAL_TASK,
+            systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+        });
         const parsed = parseSelectionSenseiResponsePayload(rawText);
         return {
             ok: true,

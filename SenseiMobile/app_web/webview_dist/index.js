@@ -5587,10 +5587,11 @@ var require_browserLlmClient = __commonJS({
           var _a;
           const task = options === null || options === void 0 ? void 0 : options.task;
           const cfg = getTaskConfig(task);
+          const config = (options === null || options === void 0 ? void 0 : options.systemInstruction) ? { ...cfg.config, systemInstruction: options.systemInstruction } : cfg.config;
           const res = await ai2.models.generateContent({
             model: cfg.modelName,
             contents: [{ parts: [{ text: prompt }] }],
-            config: cfg.config
+            config
           });
           if (typeof (res === null || res === void 0 ? void 0 : res.text) === "function") {
             return res.text();
@@ -5619,6 +5620,35 @@ var require_browserLlmClient = __commonJS({
   }
 });
 
+// core/dist/llmBoundaryPolicy.js
+var require_llmBoundaryPolicy = __commonJS({
+  "core/dist/llmBoundaryPolicy.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.SELECTION_SENSEI_MODAL_TRANSCRIPT_LIMITS = exports.MAIN_SENSEI_HISTORY_LIMITS = exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES = exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS = exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = void 0;
+    exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = 8e3;
+    exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = 8e3;
+    exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = 2e5;
+    exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS = 2e5;
+    exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES = 40;
+    exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = 20;
+    exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = 95e4;
+    exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = 8e5;
+    exports.MAIN_SENSEI_HISTORY_LIMITS = {
+      maxEntries: exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES,
+      userEntryChars: exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS,
+      senseiEntryChars: exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS,
+      totalChars: exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS
+    };
+    exports.SELECTION_SENSEI_MODAL_TRANSCRIPT_LIMITS = {
+      maxEntries: exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES,
+      userEntryChars: exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS,
+      senseiEntryChars: exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS,
+      totalChars: exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS
+    };
+  }
+});
+
 // core/dist/promptEnvelope.js
 var require_promptEnvelope = __commonJS({
   "core/dist/promptEnvelope.js"(exports) {
@@ -5628,19 +5658,20 @@ var require_promptEnvelope = __commonJS({
     exports.sanitizeConversationHistory = sanitizeConversationHistory;
     exports.buildCapabilityPromptEnvelope = buildCapabilityPromptEnvelope;
     var baseSensei_1 = require_baseSensei();
-    exports.MAX_CONVERSATION_HISTORY_ENTRIES = 8;
-    exports.MAX_CONVERSATION_HISTORY_ENTRY_CHARS = 1e3;
-    exports.MAX_CONVERSATION_HISTORY_TOTAL_CHARS = 4e3;
+    var llmBoundaryPolicy_1 = require_llmBoundaryPolicy();
+    exports.MAX_CONVERSATION_HISTORY_ENTRIES = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.maxEntries;
+    exports.MAX_CONVERSATION_HISTORY_ENTRY_CHARS = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.senseiEntryChars;
+    exports.MAX_CONVERSATION_HISTORY_TOTAL_CHARS = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.totalChars;
     function cleanContent(value) {
       return value.replace(/\s+\n/g, "\n").trim();
     }
-    function sanitizeConversationHistory(entries) {
+    function sanitizeConversationHistory(entries, limits = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS) {
       const sanitized = (entries || []).filter((entry) => entry && (entry.role === "user" || entry.role === "sensei") && typeof entry.content === "string").map((entry) => ({
         role: entry.role,
-        content: cleanContent(entry.content).slice(0, exports.MAX_CONVERSATION_HISTORY_ENTRY_CHARS)
-      })).filter((entry) => entry.content.length > 0).slice(-exports.MAX_CONVERSATION_HISTORY_ENTRIES);
+        content: cleanContent(entry.content).slice(0, entry.role === "user" ? limits.userEntryChars : limits.senseiEntryChars)
+      })).filter((entry) => entry.content.length > 0).slice(-limits.maxEntries);
       const bounded = [];
-      let remaining = exports.MAX_CONVERSATION_HISTORY_TOTAL_CHARS;
+      let remaining = limits.totalChars;
       for (let index = sanitized.length - 1; index >= 0 && remaining > 0; index--) {
         const entry = sanitized[index];
         const content = entry.content.slice(0, remaining);
@@ -5655,7 +5686,7 @@ var require_promptEnvelope = __commonJS({
       return bounded;
     }
     function buildCapabilityPromptEnvelope(request) {
-      const history2 = sanitizeConversationHistory(request.conversationHistory);
+      const history2 = sanitizeConversationHistory(request.conversationHistory, request.historyLimits);
       if (!request.includeBaseSystemInstruction && history2.length === 0) {
         return request.taskPrompt;
       }
@@ -5743,7 +5774,8 @@ ${userLine}`;
       return (0, promptEnvelope_1.buildCapabilityPromptEnvelope)({
         taskPrompt,
         includeBaseSystemInstruction: request.includeBaseSystemInstruction,
-        conversationHistory: request.conversationHistory
+        conversationHistory: request.conversationHistory,
+        historyLimits: request.historyLimits
       });
     }
   }
@@ -5782,7 +5814,8 @@ Let's begin ${moduleTitleForPrompt}.`;
       return (0, promptEnvelope_1.buildCapabilityPromptEnvelope)({
         taskPrompt,
         includeBaseSystemInstruction: request.includeBaseSystemInstruction,
-        conversationHistory: request.conversationHistory
+        conversationHistory: request.conversationHistory,
+        historyLimits: request.historyLimits
       });
     }
   }
@@ -7290,14 +7323,6 @@ var require_selectionSensei2 = __commonJS({
       }
       return invalidSelectionSenseiRequest("Unsupported Selection Sensei modal request mode.");
     }
-    function buildSelectionSenseiProviderPrompt(userPrompt) {
-      return `${selectionSensei_1.SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION.trim()}
-
---- SELECTION SENSEI USER PROMPT START ---
-${userPrompt.trim()}
---- SELECTION SENSEI USER PROMPT END ---
-`;
-    }
     function stripJsonFence2(payload) {
       const trimmed = payload.trim();
       const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
@@ -7477,9 +7502,11 @@ ${userPrompt.trim()}
         };
       }
       const prompt = request.mode === "toolbarAction" ? (0, selectionSensei_1.buildSelectionSenseiToolbarPrompt)(request) : (0, selectionSensei_1.buildSelectionSenseiFollowUpPrompt)(request);
-      const providerPrompt = buildSelectionSenseiProviderPrompt(prompt);
       try {
-        const rawText = await llm.callText(providerPrompt, { task: SELECTION_SENSEI_MODAL_TASK });
+        const rawText = await llm.callText(prompt, {
+          task: SELECTION_SENSEI_MODAL_TASK,
+          systemInstruction: selectionSensei_1.SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+        });
         const parsed = parseSelectionSenseiResponsePayload2(rawText);
         return {
           ok: true,
@@ -7584,6 +7611,7 @@ var require_dist2 = __commonJS({
     __exportStar(require_moduleIntroduction2(), exports);
     __exportStar(require_mainSenseiResponse2(), exports);
     __exportStar(require_promptEnvelope(), exports);
+    __exportStar(require_llmBoundaryPolicy(), exports);
     __exportStar(require_selectionSensei2(), exports);
     exports.prompts = __importStar(require_prompts());
   }
@@ -28133,7 +28161,7 @@ function reinitializeSelectionSensei(ai2) {
 function invokeSelectionSenseiBridgeAction(actionId, extras) {
   currentSelectionSenseiInstance?.handleBridgeInvoke(actionId, extras);
 }
-var globalMarkedConfig3, TOOLBAR_ACTIONS, BRIDGE_ACTION_LABELS, SelectionSensei, currentSelectionSenseiInstance;
+var import_llmBoundaryPolicy, globalMarkedConfig3, TOOLBAR_ACTIONS, BRIDGE_ACTION_LABELS, SelectionSensei, currentSelectionSenseiInstance;
 var init_selectionSensei = __esm({
   "src/selectionSensei.ts"() {
     "use strict";
@@ -28141,6 +28169,7 @@ var init_selectionSensei = __esm({
     init_webviewBridge();
     init_webviewMessageRouter();
     init_selectionSenseiRouting();
+    import_llmBoundaryPolicy = __toESM(require_llmBoundaryPolicy());
     init_src();
     init_ui();
     init_selectionSenseiResponseParser();
@@ -29047,9 +29076,21 @@ ${extracted.explanation}`,
           initialActionLabel: this.modalInitialContext.initialActionLabel,
           initialActionUserQuestion: this.modalInitialContext.initialActionUserQuestion,
           initialResponse: this.modalInitialContext.initialResponse,
-          modalTranscript: this.modalTranscriptContext.slice(-24),
+          modalTranscript: this.modalTranscriptContext.slice(-import_llmBoundaryPolicy.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES),
           question
         };
+      }
+      isSelectionSenseiUserInputTooLong(text2) {
+        return text2.length > import_llmBoundaryPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS;
+      }
+      async showSelectionSenseiUserInputTooLongError() {
+        this.hideSelectionToolbar();
+        this.showResponseModalWithLoading();
+        await this.updateResponseModalContentAndTitle(
+          "Question Too Long",
+          `Your question is too long. Please shorten it to ${import_llmBoundaryPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`
+        );
+        this.setComposerEnabled(true);
       }
       async appendModalMessage(message, conversationToken) {
         if (conversationToken !== void 0 && conversationToken !== this.modalConversationToken) {
@@ -29090,6 +29131,17 @@ ${extracted.explanation}`,
         const conversationToken = this.modalConversationToken;
         const trimmed = this.responseModalComposerInput.value.trim();
         if (!trimmed) {
+          return;
+        }
+        if (this.isSelectionSenseiUserInputTooLong(trimmed)) {
+          await this.appendModalMessage({
+            id: this.generateModalMessageId("sensei"),
+            sender: "sensei",
+            displayName: "Sensei",
+            text: `Your question is too long. Please shorten it to ${import_llmBoundaryPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`,
+            timestamp: /* @__PURE__ */ new Date()
+          }, conversationToken);
+          this.setComposerEnabled(true);
           return;
         }
         this.followupInFlight = true;
@@ -29371,6 +29423,10 @@ ${extracted.explanation}`,
         const sendMessage = () => {
           const userQuestion = textInput.value.trim();
           if (userQuestion) {
+            if (this.isSelectionSenseiUserInputTooLong(userQuestion)) {
+              void this.showSelectionSenseiUserInputTooLongError();
+              return;
+            }
             this.handleToolbarAction(selectedText, "askQuestion", originalSenseiMessageText, actionLabel, userQuestion);
           }
         };
@@ -29566,6 +29622,10 @@ ${extracted.explanation}`,
           logger.warn("[SENSEI_SELECTION] unknown toolbar action", { actionType });
           return;
         }
+        if (actionType === "askQuestion" && userQuestion && this.isSelectionSenseiUserInputTooLong(userQuestion)) {
+          await this.showSelectionSenseiUserInputTooLongError();
+          return;
+        }
         const pendingKey = this.buildToolbarRequestKey(selectedText, actionType, originalSenseiMessageText, actionLabel, userQuestion);
         if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
           logger.info("[SENSEI_SELECTION] duplicate mobile toolbar request ignored", { actionType });
@@ -29673,17 +29733,20 @@ ${extracted.explanation}`,
             logger.warn("[SENSEI_SELECTION] No valid content to display");
             await this.updateResponseModalContentAndTitle("Error", "Sorry, I couldn't generate a proper response. Please try again.", conversationToken);
           }
+          const initialResponse = {
+            suggestedTitle: parsedResponse.suggestedTitle,
+            explanation: parsedResponse.explanation
+          };
+          if (!parsedResponse.explanation && rawResponseText) {
+            initialResponse.rawText = rawResponseText;
+          }
           this.modalInitialContext = {
             selectedText,
             originalSenseiMessageText,
             initialActionType: actionType,
             initialActionLabel: actionLabel,
             initialActionUserQuestion: actionType === "askQuestion" ? userQuestion : void 0,
-            initialResponse: {
-              suggestedTitle: parsedResponse.suggestedTitle,
-              explanation: parsedResponse.explanation,
-              rawText: rawResponseText
-            }
+            initialResponse
           };
           this.modalTranscriptContext = [];
         } catch (error) {

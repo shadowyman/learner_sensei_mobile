@@ -1,4 +1,5 @@
 import { SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS } from './prompts/baseSensei';
+import { MAIN_SENSEI_HISTORY_LIMITS, type RoleAwareHistoryLimits } from './llmBoundaryPolicy';
 
 export type ConversationHistoryRole = 'user' | 'sensei';
 
@@ -11,27 +12,28 @@ export interface CapabilityPromptEnvelopeRequest {
   taskPrompt: string;
   includeBaseSystemInstruction?: boolean;
   conversationHistory?: ConversationHistoryEntry[];
+  historyLimits?: RoleAwareHistoryLimits;
 }
 
-export const MAX_CONVERSATION_HISTORY_ENTRIES = 8;
-export const MAX_CONVERSATION_HISTORY_ENTRY_CHARS = 1000;
-export const MAX_CONVERSATION_HISTORY_TOTAL_CHARS = 4000;
+export const MAX_CONVERSATION_HISTORY_ENTRIES = MAIN_SENSEI_HISTORY_LIMITS.maxEntries;
+export const MAX_CONVERSATION_HISTORY_ENTRY_CHARS = MAIN_SENSEI_HISTORY_LIMITS.senseiEntryChars;
+export const MAX_CONVERSATION_HISTORY_TOTAL_CHARS = MAIN_SENSEI_HISTORY_LIMITS.totalChars;
 
 function cleanContent(value: string): string {
   return value.replace(/\s+\n/g, '\n').trim();
 }
 
-export function sanitizeConversationHistory(entries?: ConversationHistoryEntry[]): ConversationHistoryEntry[] {
+export function sanitizeConversationHistory(entries?: ConversationHistoryEntry[], limits: RoleAwareHistoryLimits = MAIN_SENSEI_HISTORY_LIMITS): ConversationHistoryEntry[] {
   const sanitized = (entries || [])
     .filter((entry) => entry && (entry.role === 'user' || entry.role === 'sensei') && typeof entry.content === 'string')
     .map((entry) => ({
       role: entry.role,
-      content: cleanContent(entry.content).slice(0, MAX_CONVERSATION_HISTORY_ENTRY_CHARS)
+      content: cleanContent(entry.content).slice(0, entry.role === 'user' ? limits.userEntryChars : limits.senseiEntryChars)
     }))
     .filter((entry) => entry.content.length > 0)
-    .slice(-MAX_CONVERSATION_HISTORY_ENTRIES);
+    .slice(-limits.maxEntries);
   const bounded: ConversationHistoryEntry[] = [];
-  let remaining = MAX_CONVERSATION_HISTORY_TOTAL_CHARS;
+  let remaining = limits.totalChars;
   for (let index = sanitized.length - 1; index >= 0 && remaining > 0; index--) {
     const entry = sanitized[index];
     const content = entry.content.slice(0, remaining);
@@ -47,7 +49,7 @@ export function sanitizeConversationHistory(entries?: ConversationHistoryEntry[]
 }
 
 export function buildCapabilityPromptEnvelope(request: CapabilityPromptEnvelopeRequest): string {
-  const history = sanitizeConversationHistory(request.conversationHistory);
+  const history = sanitizeConversationHistory(request.conversationHistory, request.historyLimits);
   if (!request.includeBaseSystemInstruction && history.length === 0) {
     return request.taskPrompt;
   }

@@ -2,6 +2,7 @@ const SelectionSenseiService = require('../src/services/selectionSenseiService')
 const GeminiGateway = require('../src/integration/geminiGateway');
 const { SelectionSenseiController, toCoreRequest } = require('../src/controllers/selectionSenseiController');
 const RateLimiter = require('../src/infra/rateLimiter');
+const { SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION } = require('@sensei/core/selectionSensei');
 
 ;(async () => {
   const calls = [];
@@ -41,6 +42,12 @@ const RateLimiter = require('../src/infra/rateLimiter');
   }
   if (calls.length !== 1 || calls[0].options?.task !== 'selection_sensei_modal') {
     throw new Error(`Expected one Core LLM call for selection_sensei_modal, got ${JSON.stringify(calls)}`);
+  }
+  if (calls[0].options?.systemInstruction !== SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) {
+    throw new Error(`Expected Selection Sensei system instruction in Core LLM options, got ${JSON.stringify(calls[0].options)}`);
+  }
+  if (calls[0].prompt.includes(SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) || calls[0].prompt.includes('SELECTION SENSEI USER PROMPT START')) {
+    throw new Error('Service must keep Selection Sensei system instruction out of the user prompt body');
   }
   if (calls[0].prompt.includes('client final prompt')) {
     throw new Error('Service must not require or forward client final prompt strings');
@@ -99,6 +106,9 @@ const RateLimiter = require('../src/infra/rateLimiter');
   }
   if (followUpPrompt.includes('undefined')) {
     throw new Error(`Follow-up prompt rendered undefined transcript or ask context: ${followUpPrompt}`);
+  }
+  if (calls[1].options?.systemInstruction !== SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) {
+    throw new Error(`Expected follow-up Core LLM options to carry system instruction, got ${JSON.stringify(calls[1].options)}`);
   }
 
   const controllerCalls = [];
@@ -182,9 +192,9 @@ const RateLimiter = require('../src/infra/rateLimiter');
     },
     selectionSenseiRateLimiter: {
       limiter: new RateLimiter({ windowMs: 60_000, limit: 3 }),
-      check(ip, userAgent) {
+      checkKey(key) {
         limiterCalls += 1;
-        return this.limiter.check(ip, userAgent);
+        return this.limiter.checkKey(key);
       }
     },
     logger: {
@@ -256,16 +266,22 @@ const RateLimiter = require('../src/infra/rateLimiter');
   await limitedController.postModalMessage(immediateFollowUpReq, secondLimitedResponse);
   const thirdLimitedResponse = createResponse();
   await limitedController.postModalMessage({ ...limitedReq, requestId: 'request-rate-3' }, thirdLimitedResponse);
+  const separateSessionResponse = createResponse();
+  await limitedController.postModalMessage({
+    ...limitedReq,
+    params: { sessionId: 'session-rate-other' },
+    requestId: 'request-rate-other'
+  }, separateSessionResponse);
   const fourthLimitedResponse = createResponse();
   await limitedController.postModalMessage({ ...limitedReq, requestId: 'request-rate-4' }, fourthLimitedResponse);
-  if (firstLimitedResponse.statusCode !== 200 || secondLimitedResponse.statusCode !== 200 || thirdLimitedResponse.statusCode !== 200 || fourthLimitedResponse.statusCode !== 429) {
-    throw new Error(`Expected limiter statuses 200/200/200/429, got ${firstLimitedResponse.statusCode}/${secondLimitedResponse.statusCode}/${thirdLimitedResponse.statusCode}/${fourthLimitedResponse.statusCode}`);
+  if (firstLimitedResponse.statusCode !== 200 || secondLimitedResponse.statusCode !== 200 || thirdLimitedResponse.statusCode !== 200 || separateSessionResponse.statusCode !== 200 || fourthLimitedResponse.statusCode !== 429) {
+    throw new Error(`Expected limiter statuses 200/200/200/200/429, got ${firstLimitedResponse.statusCode}/${secondLimitedResponse.statusCode}/${thirdLimitedResponse.statusCode}/${separateSessionResponse.statusCode}/${fourthLimitedResponse.statusCode}`);
   }
-  if (limitedServiceCalls.length !== 3) {
+  if (limitedServiceCalls.length !== 4) {
     throw new Error(`Rate-limited request must not call provider service, got ${limitedServiceCalls.length} service calls`);
   }
-  if (limiterCalls !== 4) {
-    throw new Error(`Expected limiter to evaluate four valid requests, got ${limiterCalls}`);
+  if (limiterCalls !== 5) {
+    throw new Error(`Expected limiter to evaluate five valid requests, got ${limiterCalls}`);
   }
   if (fourthLimitedResponse.headers['Retry-After'] !== '60') {
     throw new Error(`Expected Retry-After 60, got ${JSON.stringify(fourthLimitedResponse.headers)}`);
@@ -295,7 +311,10 @@ const RateLimiter = require('../src/infra/rateLimiter');
     }
   });
 
-  const gatewayText = await gateway.callText('Selection Sensei prompt', { task: 'selection_sensei_modal' });
+  const gatewayText = await gateway.callText('Selection Sensei prompt', {
+    task: 'selection_sensei_modal',
+    systemInstruction: SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION
+  });
   if (!gatewayText.includes('Configured')) {
     throw new Error(`Unexpected gateway text: ${gatewayText}`);
   }
@@ -307,6 +326,9 @@ const RateLimiter = require('../src/infra/rateLimiter');
   }
   if (observedGenerateContent?.config?.responseMimeType !== 'application/json') {
     throw new Error(`Expected JSON response MIME type, got ${observedGenerateContent?.config?.responseMimeType}`);
+  }
+  if (observedGenerateContent?.config?.systemInstruction !== SENSEI_SELECTED_TEXT_SYSTEM_INSTRUCTION) {
+    throw new Error(`Expected systemInstruction to reach Gemini config, got ${JSON.stringify(observedGenerateContent?.config)}`);
   }
 
   console.log('selection sensei modal service/model routing test passed');

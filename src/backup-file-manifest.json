@@ -220,6 +220,7 @@
   "docs/known_bugs/bug_tracking_script.md",
   "docs/known_bugs/mobile_input_send_button_ring_artifact.md",
   "docs/known_bugs/todo_bug_notepad_restore_current.md",
+  "docs/known_bugs/user_account_scoped_rate_limiting.md",
   "docs/known_bugs/wrap_up_assessment_tool_invocation.md",
   "docs/llm_entry_exit_traces.md",
   "docs/mission_state/mission_state_20250628_learner_model_decoupling.md",

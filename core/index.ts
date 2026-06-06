@@ -7,5 +7,6 @@ export * from './learnerAnalysis';
 export * from './moduleIntroduction';
 export * from './mainSenseiResponse';
 export * from './promptEnvelope';
+export * from './llmBoundaryPolicy';
 export * from './selectionSensei';
 export * as prompts from './prompts';

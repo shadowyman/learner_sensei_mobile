@@ -2,6 +2,7 @@ import { MODULE_INTRODUCTION_TASK_TEMPLATE } from './prompts/moduleIntroduction'
 import { buildMainSenseiDynamicSystemInstruction, type MainSenseiGuidanceContext } from './mainSenseiResponse';
 import type { CurriculumFocusPromptSnapshot, MainSenseiResponsePromptOptions } from './prompts/mainSenseiResponse';
 import { buildCapabilityPromptEnvelope, type ConversationHistoryEntry } from './promptEnvelope';
+import type { RoleAwareHistoryLimits } from './llmBoundaryPolicy';
 
 export const MODULE_INTRODUCTION_CAPABILITY = 'moduleIntroduction' as const;
 
@@ -18,6 +19,7 @@ export interface ModuleIntroductionPromptRequest {
   moduleTitleForPrompt?: string;
   includeBaseSystemInstruction?: boolean;
   conversationHistory?: ConversationHistoryEntry[];
+  historyLimits?: RoleAwareHistoryLimits;
 }
 
 export function buildModuleIntroductionTaskPrompt(request: ModuleIntroductionPromptRequest): string {
@@ -46,6 +48,7 @@ Let's begin ${moduleTitleForPrompt}.`;
   return buildCapabilityPromptEnvelope({
     taskPrompt,
     includeBaseSystemInstruction: request.includeBaseSystemInstruction,
-    conversationHistory: request.conversationHistory
+    conversationHistory: request.conversationHistory,
+    historyLimits: request.historyLimits
   });
 }

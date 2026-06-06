@@ -7,6 +7,10 @@ class RateLimiter {
 
   check(ip, userAgent) {
     const key = `${ip || 'unknown'}::${userAgent || 'unknown'}`;
+    return this.checkKey(key);
+  }
+
+  checkKey(key) {
     const now = Date.now();
     if (!this.entries.has(key)) {
       this.entries.set(key, []);

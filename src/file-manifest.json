@@ -1,6 +1,7 @@
 [
   "bff/index.js",
   "bff/src/config/index.js",
+  "bff/src/config/llmBoundaryPolicy.js",
   "bff/src/config/modelUsage.js",
   "bff/src/container.js",
   "bff/src/controllers/analysisController.js",
@@ -43,6 +44,7 @@
   "core/browserLlmClient.ts",
   "core/index.ts",
   "core/learnerAnalysis.ts",
+  "core/llmBoundaryPolicy.ts",
   "core/llmTypes.ts",
   "core/mainSenseiResponse.ts",
   "core/mermaidErrorRecovery.ts",

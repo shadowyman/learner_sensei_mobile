@@ -1,6 +1,7 @@
 import { initializeSelectionSensei, reinitializeSelectionSensei, invokeSelectionSenseiBridgeAction } from '../selectionSensei'
 import { GoogleGenAI } from '@google/genai'
 import { handleSelectionSenseiModalMessageResult } from '../src/mobile/webviewMessageRouter'
+import { SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS } from '@sensei/core/llmBoundaryPolicy'
 
 jest.mock('marked')
 
@@ -444,7 +445,64 @@ describe('selectionSensei initializeSelectionSensei', () => {
       suggestedTitle: 'Base Case',
       explanation: 'A base case stops recursion.'
     })
+    expect(request.payload.initialResponse).not.toHaveProperty('rawText')
     expectNoPromptControls(request.payload)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    restoreSelection()
+  })
+
+  test('mobile follow-up preserves rawText only for raw fallback initial responses', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const bridge = installNativeBridge()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const restoreSelection = installSelection(messageText)
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+    invokeSelectionSenseiBridgeAction('explainSimpler')
+    await flushPromises()
+    bridge.resolveLatestModalRequest({ rawText: 'Raw fallback answer without JSON fields.' } as any)
+    await flushPromises()
+
+    const input = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement
+    const sendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement
+    input.value = 'Can you clarify that?'
+    sendButton.click()
+    await flushPromises()
+    const request = bridge.resolveLatestModalRequest({ explanation: 'Clarified answer.' })
+    await flushPromises()
+
+    expect(bridge.modalRequests()).toHaveLength(2)
+    expect(request.payload.initialResponse).toMatchObject({
+      rawText: 'Raw fallback answer without JSON fields.'
+    })
+    expect(request.payload.initialResponse).not.toHaveProperty('explanation')
+    restoreSelection()
+  })
+
+  test('mobile oversized follow-up user input fails locally without bridge or browser provider work', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const bridge = installNativeBridge()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const restoreSelection = installSelection(messageText)
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+    invokeSelectionSenseiBridgeAction('explainSimpler')
+    await flushPromises()
+    bridge.resolveLatestModalRequest({ suggestedTitle: 'Base Case', explanation: 'A base case stops recursion.' })
+    await flushPromises()
+
+    mockSendMessage.mockClear()
+    const input = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement
+    const sendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement
+    input.value = 'x'.repeat(SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS + 1)
+    sendButton.click()
+    await flushPromises()
+
+    expect(bridge.modalRequests()).toHaveLength(1)
     expect(mockSendMessage).not.toHaveBeenCalled()
     restoreSelection()
   })
