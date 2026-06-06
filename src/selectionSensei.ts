@@ -1599,7 +1599,7 @@ class SelectionSensei {
         });
     }
 
-    private async updateResponseModalContentAndTitle(title: string, htmlContent: string, conversationToken?: number): Promise<void> {
+    private async updateResponseModalContentAndTitle(title: string, htmlContent: string, conversationToken?: number, options: { enableComposer?: boolean } = {}): Promise<void> {
         if (conversationToken !== undefined && conversationToken !== this.modalConversationToken) {
             return;
         }
@@ -1683,7 +1683,7 @@ class SelectionSensei {
             normalizedCount
         });
 
-        this.setComposerEnabled(true);
+        this.setComposerEnabled(options.enableComposer !== false);
         this.expandModalWidth();
     }
 
@@ -1784,7 +1784,7 @@ class SelectionSensei {
                 modelsExists: this.ai ? !!this.ai.models : false
             });
             if (guardActive()) {
-                await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken);
+                await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken, { enableComposer: false });
             }
             if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
                 this.pendingToolbarRequestKey = null;
@@ -1919,7 +1919,7 @@ class SelectionSensei {
             }
 
             if (guardActive()) {
-                await this.updateResponseModalContentAndTitle("Error", userMessage, conversationToken);
+                await this.updateResponseModalContentAndTitle("Error", userMessage, conversationToken, { enableComposer: false });
             }
         } finally {
             if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {

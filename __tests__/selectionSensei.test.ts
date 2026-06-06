@@ -148,7 +148,18 @@ const installNativeBridge = () => {
     } as any)
     return request
   }
-  return { messages, postMessage, modalRequests, resolveLatestModalRequest }
+  const rejectLatestModalRequest = (error = 'BFF unavailable') => {
+    const request = modalRequests()[modalRequests().length - 1]
+    expect(request).toBeTruthy()
+    handleSelectionSenseiModalMessageResult({
+      type: 'selectionSensei:modalMessageResult',
+      requestId: request.requestId,
+      success: false,
+      error
+    } as any)
+    return request
+  }
+  return { messages, postMessage, modalRequests, resolveLatestModalRequest, rejectLatestModalRequest }
 }
 
 const installSelection = (messageText: HTMLElement, selected = 'Selected'): (() => void) => {
@@ -503,6 +514,34 @@ describe('selectionSensei initializeSelectionSensei', () => {
     await flushPromises()
 
     expect(bridge.modalRequests()).toHaveLength(1)
+    expect(mockSendMessage).not.toHaveBeenCalled()
+    restoreSelection()
+  })
+
+  test('mobile failed initial toolbar request keeps follow-up composer disabled', async () => {
+    ;(window as any).__SENSEI_MOBILE_BUILD__ = true
+    const bridge = installNativeBridge()
+    const messageArea = document.getElementById('message-area') as HTMLDivElement
+    const messageText = messageArea.querySelector('.message-bubble[data-sender="sensei"] .message-text') as HTMLElement
+    const restoreSelection = installSelection(messageText)
+
+    initializeSelectionSensei(new GoogleGenAI({}), messageArea)
+    messageArea.dispatchEvent(new MouseEvent('mouseup'))
+    invokeSelectionSenseiBridgeAction('explainSimpler')
+    await flushPromises()
+    bridge.rejectLatestModalRequest('BFF unavailable')
+    await flushPromises()
+
+    const input = document.getElementById('selection-sensei-composer-input') as HTMLTextAreaElement
+    const sendButton = document.getElementById('selection-sensei-send-button') as HTMLButtonElement
+    expect(sendButton.disabled).toBe(true)
+
+    input.value = 'This should not become a follow-up after initial failure.'
+    sendButton.click()
+    await flushPromises()
+
+    expect(bridge.modalRequests()).toHaveLength(1)
+    expect(mockChatsCreate).not.toHaveBeenCalled()
     expect(mockSendMessage).not.toHaveBeenCalled()
     restoreSelection()
   })

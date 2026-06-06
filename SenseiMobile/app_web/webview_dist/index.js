@@ -29499,7 +29499,7 @@ ${extracted.explanation}`,
           contentCleared: this.responseModalTextContent.innerHTML.length === 0
         });
       }
-      async updateResponseModalContentAndTitle(title, htmlContent, conversationToken) {
+      async updateResponseModalContentAndTitle(title, htmlContent, conversationToken, options = {}) {
         if (conversationToken !== void 0 && conversationToken !== this.modalConversationToken) {
           return;
         }
@@ -29561,7 +29561,7 @@ ${extracted.explanation}`,
           uiEnhancementsApplied,
           normalizedCount
         });
-        this.setComposerEnabled(true);
+        this.setComposerEnabled(options.enableComposer !== false);
         this.expandModalWidth();
       }
       hideResponseModal() {
@@ -29647,7 +29647,7 @@ ${extracted.explanation}`,
             modelsExists: this.ai ? !!this.ai.models : false
           });
           if (guardActive()) {
-            await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken);
+            await this.updateResponseModalContentAndTitle("Error", "AI service is not available. Please refresh the page.", conversationToken, { enableComposer: false });
           }
           if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
             this.pendingToolbarRequestKey = null;
@@ -29768,7 +29768,7 @@ ${extracted.explanation}`,
             userMessage = "Failed to process the response. Please try again.";
           }
           if (guardActive()) {
-            await this.updateResponseModalContentAndTitle("Error", userMessage, conversationToken);
+            await this.updateResponseModalContentAndTitle("Error", userMessage, conversationToken, { enableComposer: false });
           }
         } finally {
           if (isMobileWebView && this.pendingToolbarRequestKey === pendingKey) {
