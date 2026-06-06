@@ -53,10 +53,8 @@ const teachingPlanRateLimit = {
 };
 
 const selectionSenseiRateLimit = {
-  minIntervalMs: 20_000,
-  burstWindowMs: 2 * 60_000,
-  burstLimit: 3,
-  blockMs: 5 * 60_000
+  windowMs: 60_000,
+  limit: 3
 };
 
 const analysisRateLimit = {

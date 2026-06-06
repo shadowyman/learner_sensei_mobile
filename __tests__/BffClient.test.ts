@@ -1,5 +1,6 @@
 import { BffClient } from '../src/mobile/network/BffClient';
 import type { BridgeManager } from '../src/mobile/bridge/BridgeManager';
+import { SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS } from '@sensei/protocol/timeouts';
 
 const createFetchStub = () => {
     let callCount = 0;
@@ -504,5 +505,84 @@ describe('BffClient', () => {
             systemInstruction: 'You are Selection Sensei.',
             model: 'gemini-test'
         })).rejects.toThrow('Selection Sensei modal submission failed: 400 (BAD_REQUEST: Selection Sensei modal payload must be structured and cannot include prompt strings.)');
+    });
+
+    it('aborts Selection Sensei modal requests at the RN timeout budget', async () => {
+        const routeSignals: AbortSignal[] = [];
+        const timeoutCallbacks: Array<() => void> = [];
+        const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation(((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+            if (timeout === SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS && typeof handler === 'function') {
+                timeoutCallbacks.push(() => handler(...args));
+            }
+            return 1 as any;
+        }) as any);
+        const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout').mockImplementation((() => undefined) as any);
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId: 'session-1' })
+                } as Response;
+            }
+            if (/\/sessions\/session-1\/selection-sensei\/modal-message$/.test(url)) {
+                const signal = init?.signal as AbortSignal | undefined;
+                if (!signal) {
+                    throw new Error('Expected Selection Sensei modal request to include an AbortSignal');
+                }
+                routeSignals.push(signal);
+                return new Promise<Response>((_resolve, reject) => {
+                    signal.addEventListener('abort', () => reject(new Error('aborted')));
+                });
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        try {
+            const promise = client.runSelectionSenseiModalMessage({
+                mode: 'toolbarAction',
+                actionType: 'explainSimpler',
+                selectedText: 'base case stops recursion',
+                originalSenseiMessageText: 'Original explanation about recursion and base cases.',
+                actionLabel: 'Simpler'
+            });
+            let settled = false;
+            let rejection: Error | null = null;
+            promise.then(
+                () => {
+                    settled = true;
+                },
+                (error: Error) => {
+                    settled = true;
+                    rejection = error;
+                }
+            );
+
+            for (let i = 0; i < 5; i += 1) {
+                await Promise.resolve();
+            }
+            expect(routeSignals).toHaveLength(1);
+            expect(timeoutCallbacks).toHaveLength(1);
+
+            expect(routeSignals[0].aborted).toBe(false);
+            expect(settled).toBe(false);
+
+            timeoutCallbacks[0]();
+            for (let i = 0; i < 5; i += 1) {
+                await Promise.resolve();
+            }
+            expect(routeSignals[0].aborted).toBe(true);
+            expect(settled).toBe(true);
+            expect(rejection?.message).toBe('aborted');
+        } finally {
+            setTimeoutSpy.mockRestore();
+            clearTimeoutSpy.mockRestore();
+        }
     });
 });

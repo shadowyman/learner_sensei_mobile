@@ -23,7 +23,7 @@ const createContainer = () => {
   const rateLimiter = new RateLimiter(config.rateLimit);
   const wrapUpRateLimiter = new WrapUpRateLimiter(config.wrapUpRateLimit);
   const teachingPlanRateLimiter = new WrapUpRateLimiter(config.teachingPlanRateLimit);
-  const selectionSenseiRateLimiter = new WrapUpRateLimiter(config.selectionSenseiRateLimit);
+  const selectionSenseiRateLimiter = new RateLimiter(config.selectionSenseiRateLimit);
   const analysisRateLimiter = new WrapUpRateLimiter(config.analysisRateLimit);
   const sessionService = new SessionService({ sessionStore, logger, topicRegistry: config.topicRegistry });
   const turnService = new TurnService({ sessionStore, logger });

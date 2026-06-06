@@ -211,8 +211,7 @@ class SelectionSenseiController {
     }
 
     if (this.selectionSenseiRateLimiter) {
-      const key = `${sessionId || 'unknown'}::${req.ip || 'unknown'}::${req.get?.('User-Agent') || 'unknown'}`;
-      const rate = this.selectionSenseiRateLimiter.check(key);
+      const rate = this.selectionSenseiRateLimiter.check(req.ip, req.get?.('User-Agent'));
       if (!rate.allowed) {
         this.logger.warn(TAG, 'rate limited', { sessionId, ip: req.ip, requestId: req.requestId });
         res.set('Retry-After', String(rate.retryAfterSeconds || 60));

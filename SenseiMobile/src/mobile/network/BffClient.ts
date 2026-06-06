@@ -24,7 +24,8 @@ import {
     COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS,
     MERMAID_RECOVERY_RN_TIMEOUT_MS,
     WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS,
-    TEACHING_PLAN_RN_TIMEOUT_MS
+    TEACHING_PLAN_RN_TIMEOUT_MS,
+    SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS
 } from '@sensei/protocol/timeouts';
 
 type FetchLike = typeof fetch;
@@ -61,6 +62,7 @@ const MERMAID_RECOVERY_REQUEST_TIMEOUT_MS = MERMAID_RECOVERY_RN_TIMEOUT_MS;
 const WRAP_UP_REQUEST_TIMEOUT_MS = WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS;
 const TEACHING_PLAN_REQUEST_TIMEOUT_MS = TEACHING_PLAN_RN_TIMEOUT_MS;
 const COMPREHENSIVE_ANALYSIS_REQUEST_TIMEOUT_MS = COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS;
+const SELECTION_SENSEI_MODAL_REQUEST_TIMEOUT_MS = SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS;
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {
     private queue: (IteratorResult<T>)[] = [];
@@ -261,11 +263,19 @@ export class BffClient implements BffClientLike {
         if (!this.sessionId) {
             throw new Error('Session missing for Selection Sensei modal message');
         }
-        const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/selection-sensei/modal-message`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
+        const controller = new AbortController();
+        const timerId = setTimeout(() => controller.abort(), SELECTION_SENSEI_MODAL_REQUEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+            response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/selection-sensei/modal-message`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timerId);
+        }
         if (!response.ok) {
             const errorBody = await this.safeParseJson(response);
             if (response.status === 400 && !hasRetried && this.isUnknownSessionError(errorBody)) {

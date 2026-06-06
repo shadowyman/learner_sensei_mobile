@@ -2,6 +2,7 @@ import type { FooterPayload, RNToWebMessage, SelectionSenseiModalMessagePayload,
 import {
   COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS,
   MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS,
+  SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS,
   TEACHING_PLAN_BRIDGE_TIMEOUT_MS
 } from '@sensei/protocol/timeouts';
 import type { Phase, TeachingPoint } from '@sensei/core/teachingPlan';
@@ -14,7 +15,6 @@ type MermaidResolver = { resolve: (v: { fixed: boolean; fixedCode?: string }) =>
 
 const mermaidResolvers = new Map<string, MermaidResolver>();
 const MERMAID_BRIDGE_TIMEOUT_MS = MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS;
-const SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS = 180_000;
 
 export function requestMermaidRecoveryViaBridge(payload: {
   messageId: string;

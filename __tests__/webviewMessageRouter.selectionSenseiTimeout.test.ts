@@ -1,4 +1,8 @@
 import { requestSelectionSenseiModalMessageViaBridge } from '../src/mobile/webviewMessageRouter'
+import {
+  SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS,
+  SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS
+} from '@sensei/protocol/timeouts'
 
 describe('Selection Sensei modal bridge timeout parity', () => {
   beforeEach(() => {
@@ -30,11 +34,15 @@ describe('Selection Sensei modal bridge timeout parity', () => {
       }
     )
 
-    jest.advanceTimersByTime(90_000)
+    jest.advanceTimersByTime(180_000)
     await Promise.resolve()
     expect(settled).toBe(false)
 
-    jest.advanceTimersByTime(89_999)
+    jest.advanceTimersByTime(SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS - 180_000)
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    jest.advanceTimersByTime(SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS - SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS - 1)
     await Promise.resolve()
     expect(settled).toBe(false)
 

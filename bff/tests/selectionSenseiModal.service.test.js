@@ -1,6 +1,7 @@
 const SelectionSenseiService = require('../src/services/selectionSenseiService');
 const GeminiGateway = require('../src/integration/geminiGateway');
 const { SelectionSenseiController, toCoreRequest } = require('../src/controllers/selectionSenseiController');
+const RateLimiter = require('../src/infra/rateLimiter');
 
 ;(async () => {
   const calls = [];
@@ -170,7 +171,7 @@ const { SelectionSenseiController, toCoreRequest } = require('../src/controllers
         return {
           ok: true,
           suggestedTitle: 'Allowed',
-          explanation: 'First valid request passed the limiter.'
+          explanation: 'Valid request passed the limiter.'
         };
       }
     },
@@ -180,11 +181,10 @@ const { SelectionSenseiController, toCoreRequest } = require('../src/controllers
       }
     },
     selectionSenseiRateLimiter: {
-      check() {
+      limiter: new RateLimiter({ windowMs: 60_000, limit: 3 }),
+      check(ip, userAgent) {
         limiterCalls += 1;
-        return limiterCalls === 1
-          ? { allowed: true, retryAfterSeconds: 0 }
-          : { allowed: false, retryAfterSeconds: 20 };
+        return this.limiter.check(ip, userAgent);
       }
     },
     logger: {
@@ -212,7 +212,7 @@ const { SelectionSenseiController, toCoreRequest } = require('../src/controllers
   });
   const limitedReq = {
     params: { sessionId: 'session-rate' },
-    requestId: 'request-rate',
+    requestId: 'request-rate-1',
     ip: '127.0.0.1',
     get(name) {
       return name === 'User-Agent' ? 'selection-sensei-rate-test' : undefined;
@@ -225,18 +225,50 @@ const { SelectionSenseiController, toCoreRequest } = require('../src/controllers
       actionLabel: 'Simpler'
     }
   };
+  const immediateFollowUpReq = {
+    params: { sessionId: 'session-rate' },
+    requestId: 'request-rate-2',
+    ip: '127.0.0.1',
+    get(name) {
+      return name === 'User-Agent' ? 'selection-sensei-rate-test' : undefined;
+    },
+    body: {
+      mode: 'followUp',
+      selectedText: 'base case',
+      originalSenseiMessageText: 'Original context',
+      initialActionType: 'askQuestion',
+      initialActionLabel: 'Ask',
+      initialActionUserQuestion: 'Why does this stop recursion?',
+      initialResponse: {
+        suggestedTitle: 'Base Case',
+        explanation: 'A base case stops recursive calls.'
+      },
+      modalTranscript: [
+        { role: 'user', text: 'Can you explain this simply?' },
+        { role: 'sensei', text: 'A base case gives recursion a stopping point.' }
+      ],
+      question: 'How does that prevent an infinite loop?'
+    }
+  };
   const firstLimitedResponse = createResponse();
   await limitedController.postModalMessage(limitedReq, firstLimitedResponse);
   const secondLimitedResponse = createResponse();
-  await limitedController.postModalMessage(limitedReq, secondLimitedResponse);
-  if (firstLimitedResponse.statusCode !== 200 || secondLimitedResponse.statusCode !== 429) {
-    throw new Error(`Expected first limiter request 200 and second 429, got ${firstLimitedResponse.statusCode}/${secondLimitedResponse.statusCode}`);
+  await limitedController.postModalMessage(immediateFollowUpReq, secondLimitedResponse);
+  const thirdLimitedResponse = createResponse();
+  await limitedController.postModalMessage({ ...limitedReq, requestId: 'request-rate-3' }, thirdLimitedResponse);
+  const fourthLimitedResponse = createResponse();
+  await limitedController.postModalMessage({ ...limitedReq, requestId: 'request-rate-4' }, fourthLimitedResponse);
+  if (firstLimitedResponse.statusCode !== 200 || secondLimitedResponse.statusCode !== 200 || thirdLimitedResponse.statusCode !== 200 || fourthLimitedResponse.statusCode !== 429) {
+    throw new Error(`Expected limiter statuses 200/200/200/429, got ${firstLimitedResponse.statusCode}/${secondLimitedResponse.statusCode}/${thirdLimitedResponse.statusCode}/${fourthLimitedResponse.statusCode}`);
   }
-  if (limitedServiceCalls.length !== 1) {
+  if (limitedServiceCalls.length !== 3) {
     throw new Error(`Rate-limited request must not call provider service, got ${limitedServiceCalls.length} service calls`);
   }
-  if (secondLimitedResponse.headers['Retry-After'] !== '20') {
-    throw new Error(`Expected Retry-After 20, got ${JSON.stringify(secondLimitedResponse.headers)}`);
+  if (limiterCalls !== 4) {
+    throw new Error(`Expected limiter to evaluate four valid requests, got ${limiterCalls}`);
+  }
+  if (fourthLimitedResponse.headers['Retry-After'] !== '60') {
+    throw new Error(`Expected Retry-After 60, got ${JSON.stringify(fourthLimitedResponse.headers)}`);
   }
 
   let observedGenerateContent = null;

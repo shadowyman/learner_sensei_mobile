@@ -52,6 +52,7 @@
   "__tests__/TelemetryManager.test.ts",
   "__tests__/ui.test.ts",
   "__tests__/webviewBridge.failClosed.test.ts",
+  "__tests__/webviewMessageRouter.selectionSenseiTimeout.test.ts",
   "__tests__/webviewTurnCompletion.mobileRoutingGate.sentinel.test.ts",
   "__tests__/wrapUpAssessment.core.functional.test.ts",
   "__tests__/wrapUpAssessment.loadingBubble.mobileParity.test.ts",
