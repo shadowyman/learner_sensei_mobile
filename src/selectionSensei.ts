@@ -11,7 +11,7 @@ import { requestSelectionSenseiModalMessage } from './selectionSenseiRouting';
 import {
     SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES,
     SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS
-} from '@sensei/core/llmBoundaryPolicy';
+} from '@sensei/core/llmCapPolicy';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';

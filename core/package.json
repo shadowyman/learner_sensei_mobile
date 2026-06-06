@@ -9,6 +9,7 @@
     "./mermaidErrorRecovery": "./dist/mermaidErrorRecovery.js",
     "./learnerAnalysis": "./dist/learnerAnalysis.js",
     "./promptEnvelope": "./dist/promptEnvelope.js",
+    "./llmCapPolicy": "./dist/llmCapPolicy.js",
     "./llmBoundaryPolicy": "./dist/llmBoundaryPolicy.js",
     "./modelUsage": "./dist/modelUsage.js",
     "./wrapUpAssessment": "./dist/wrapUpAssessment.js",

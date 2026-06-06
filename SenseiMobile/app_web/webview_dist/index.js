@@ -5620,9 +5620,9 @@ var require_browserLlmClient = __commonJS({
   }
 });
 
-// core/dist/llmBoundaryPolicy.js
-var require_llmBoundaryPolicy = __commonJS({
-  "core/dist/llmBoundaryPolicy.js"(exports) {
+// core/dist/llmCapPolicy.js
+var require_llmCapPolicy = __commonJS({
+  "core/dist/llmCapPolicy.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SELECTION_SENSEI_MODAL_TRANSCRIPT_LIMITS = exports.MAIN_SENSEI_HISTORY_LIMITS = exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES = exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS = exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = void 0;
@@ -5658,14 +5658,14 @@ var require_promptEnvelope = __commonJS({
     exports.sanitizeConversationHistory = sanitizeConversationHistory;
     exports.buildCapabilityPromptEnvelope = buildCapabilityPromptEnvelope;
     var baseSensei_1 = require_baseSensei();
-    var llmBoundaryPolicy_1 = require_llmBoundaryPolicy();
-    exports.MAX_CONVERSATION_HISTORY_ENTRIES = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.maxEntries;
-    exports.MAX_CONVERSATION_HISTORY_ENTRY_CHARS = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.senseiEntryChars;
-    exports.MAX_CONVERSATION_HISTORY_TOTAL_CHARS = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.totalChars;
+    var llmCapPolicy_1 = require_llmCapPolicy();
+    exports.MAX_CONVERSATION_HISTORY_ENTRIES = llmCapPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.maxEntries;
+    exports.MAX_CONVERSATION_HISTORY_ENTRY_CHARS = llmCapPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.senseiEntryChars;
+    exports.MAX_CONVERSATION_HISTORY_TOTAL_CHARS = llmCapPolicy_1.MAIN_SENSEI_HISTORY_LIMITS.totalChars;
     function cleanContent(value) {
       return value.replace(/\s+\n/g, "\n").trim();
     }
-    function sanitizeConversationHistory(entries, limits = llmBoundaryPolicy_1.MAIN_SENSEI_HISTORY_LIMITS) {
+    function sanitizeConversationHistory(entries, limits = llmCapPolicy_1.MAIN_SENSEI_HISTORY_LIMITS) {
       const sanitized = (entries || []).filter((entry) => entry && (entry.role === "user" || entry.role === "sensei") && typeof entry.content === "string").map((entry) => ({
         role: entry.role,
         content: cleanContent(entry.content).slice(0, entry.role === "user" ? limits.userEntryChars : limits.senseiEntryChars)
@@ -7611,7 +7611,7 @@ var require_dist2 = __commonJS({
     __exportStar(require_moduleIntroduction2(), exports);
     __exportStar(require_mainSenseiResponse2(), exports);
     __exportStar(require_promptEnvelope(), exports);
-    __exportStar(require_llmBoundaryPolicy(), exports);
+    __exportStar(require_llmCapPolicy(), exports);
     __exportStar(require_selectionSensei2(), exports);
     exports.prompts = __importStar(require_prompts());
   }
@@ -28161,7 +28161,7 @@ function reinitializeSelectionSensei(ai2) {
 function invokeSelectionSenseiBridgeAction(actionId, extras) {
   currentSelectionSenseiInstance?.handleBridgeInvoke(actionId, extras);
 }
-var import_llmBoundaryPolicy, globalMarkedConfig3, TOOLBAR_ACTIONS, BRIDGE_ACTION_LABELS, SelectionSensei, currentSelectionSenseiInstance;
+var import_llmCapPolicy, globalMarkedConfig3, TOOLBAR_ACTIONS, BRIDGE_ACTION_LABELS, SelectionSensei, currentSelectionSenseiInstance;
 var init_selectionSensei = __esm({
   "src/selectionSensei.ts"() {
     "use strict";
@@ -28169,7 +28169,7 @@ var init_selectionSensei = __esm({
     init_webviewBridge();
     init_webviewMessageRouter();
     init_selectionSenseiRouting();
-    import_llmBoundaryPolicy = __toESM(require_llmBoundaryPolicy());
+    import_llmCapPolicy = __toESM(require_llmCapPolicy());
     init_src();
     init_ui();
     init_selectionSenseiResponseParser();
@@ -29076,19 +29076,19 @@ ${extracted.explanation}`,
           initialActionLabel: this.modalInitialContext.initialActionLabel,
           initialActionUserQuestion: this.modalInitialContext.initialActionUserQuestion,
           initialResponse: this.modalInitialContext.initialResponse,
-          modalTranscript: this.modalTranscriptContext.slice(-import_llmBoundaryPolicy.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES),
+          modalTranscript: this.modalTranscriptContext.slice(-import_llmCapPolicy.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES),
           question
         };
       }
       isSelectionSenseiUserInputTooLong(text2) {
-        return text2.length > import_llmBoundaryPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS;
+        return text2.length > import_llmCapPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS;
       }
       async showSelectionSenseiUserInputTooLongError() {
         this.hideSelectionToolbar();
         this.showResponseModalWithLoading();
         await this.updateResponseModalContentAndTitle(
           "Question Too Long",
-          `Your question is too long. Please shorten it to ${import_llmBoundaryPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`
+          `Your question is too long. Please shorten it to ${import_llmCapPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`
         );
         this.setComposerEnabled(true);
       }
@@ -29138,7 +29138,7 @@ ${extracted.explanation}`,
             id: this.generateModalMessageId("sensei"),
             sender: "sensei",
             displayName: "Sensei",
-            text: `Your question is too long. Please shorten it to ${import_llmBoundaryPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`,
+            text: `Your question is too long. Please shorten it to ${import_llmCapPolicy.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS.toLocaleString()} characters or fewer.`,
             timestamp: /* @__PURE__ */ new Date()
           }, conversationToken);
           this.setComposerEnabled(true);

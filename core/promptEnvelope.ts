@@ -1,5 +1,5 @@
 import { SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS } from './prompts/baseSensei';
-import { MAIN_SENSEI_HISTORY_LIMITS, type RoleAwareHistoryLimits } from './llmBoundaryPolicy';
+import { MAIN_SENSEI_HISTORY_LIMITS, type RoleAwareHistoryLimits } from './llmCapPolicy';
 
 export type ConversationHistoryRole = 'user' | 'sensei';
 

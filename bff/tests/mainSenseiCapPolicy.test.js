@@ -134,7 +134,7 @@ const collectText = async (iterable) => {
     sessionId: 'session-main-c',
     body: {
       ...validTurnBody('oversized-turn'),
-      input: { text: 'x'.repeat(config.llmBoundaryPolicy.mainSensei.userMessageMaxChars + 1) }
+      input: { text: 'x'.repeat(config.llmCapPolicy.mainSensei.userMessageMaxChars + 1) }
     }
   }), oversizedTurnRes);
   if (oversizedTurnRes.statusCode !== 413) {
@@ -168,7 +168,7 @@ const collectText = async (iterable) => {
   streamController.submitLlmStream(createReq({
     sessionId: 'session-stream-b',
     body: validLlmStreamBody('stream-oversized-user', {
-      currentUserInput: 'u'.repeat(config.llmBoundaryPolicy.mainSensei.userMessageMaxChars + 1)
+      currentUserInput: 'u'.repeat(config.llmCapPolicy.mainSensei.userMessageMaxChars + 1)
     })
   }), oversizedStreamRes);
   if (oversizedStreamRes.statusCode !== 413) {
@@ -249,5 +249,5 @@ const collectText = async (iterable) => {
     throw new Error('Main Sensei Gemini contents must not include the base persona text');
   }
 
-  console.log('main sensei boundary policy test passed');
+  console.log('main sensei cap policy test passed');
 })();

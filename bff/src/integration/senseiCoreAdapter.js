@@ -61,7 +61,7 @@ class SenseiCoreAdapter {
   }
 
   #mainHistoryLimits() {
-    const policy = this.config?.llmBoundaryPolicy?.mainSensei;
+    const policy = this.config?.llmCapPolicy?.capabilities?.mainSensei || this.config?.llmCapPolicy?.mainSensei;
     if (!policy) {
       return undefined;
     }

@@ -2,7 +2,7 @@ import { MODULE_INTRODUCTION_TASK_TEMPLATE } from './prompts/moduleIntroduction'
 import { buildMainSenseiDynamicSystemInstruction, type MainSenseiGuidanceContext } from './mainSenseiResponse';
 import type { CurriculumFocusPromptSnapshot, MainSenseiResponsePromptOptions } from './prompts/mainSenseiResponse';
 import { buildCapabilityPromptEnvelope, type ConversationHistoryEntry } from './promptEnvelope';
-import type { RoleAwareHistoryLimits } from './llmBoundaryPolicy';
+import type { RoleAwareHistoryLimits } from './llmCapPolicy';
 
 export const MODULE_INTRODUCTION_CAPABILITY = 'moduleIntroduction' as const;
 

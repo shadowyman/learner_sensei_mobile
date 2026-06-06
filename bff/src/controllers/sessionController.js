@@ -1,10 +1,14 @@
 const { z } = require('zod');
-const { sanitizeConversationHistory } = require('@sensei/core/promptEnvelope');
 const {
   MAIN_SENSEI_HISTORY_LIMITS
-} = require('@sensei/core/llmBoundaryPolicy');
+} = require('@sensei/core/llmCapPolicy');
 const { ACTIVE_PRIMARY_ACTION_TYPES } = require('@sensei/core/prompts/mainSenseiResponse');
 const { sendError } = require('../utils/apiError');
+const {
+  buildSessionLimiterKey,
+  validateMainSenseiCaps,
+  validateMainTurnCaps
+} = require('../validation/llmCapValidation');
 
 const TAG = 'SESSION_CONTROLLER';
 const MAX_TITLE_CHARS = 240;
@@ -211,46 +215,6 @@ const validateLlmStreamCapabilityPayload = (capability, payload) => {
   return { success: false, error: { errors: [{ message: 'Unsupported capability' }] } };
 };
 
-const buildMainHistoryLimits = (mainPolicy) => ({
-  maxEntries: mainPolicy.historyMaxEntries,
-  userEntryChars: mainPolicy.userMessageMaxChars,
-  senseiEntryChars: mainPolicy.senseiEntryMaxChars,
-  totalChars: mainPolicy.aggregateMaxChars
-});
-
-const boundLlmStreamPayload = (payload, mainPolicy = DEFAULT_MAIN_POLICY) => {
-  if (!Array.isArray(payload.conversationHistory)) {
-    return payload;
-  }
-  return {
-    ...payload,
-    conversationHistory: sanitizeConversationHistory(payload.conversationHistory, buildMainHistoryLimits(mainPolicy))
-  };
-};
-
-const countPromptInputChars = (value) => {
-  if (typeof value === 'string') {
-    return value.length;
-  }
-  if (Array.isArray(value)) {
-    return value.reduce((total, item) => total + countPromptInputChars(item), 0);
-  }
-  if (value && typeof value === 'object') {
-    return Object.values(value).reduce((total, item) => total + countPromptInputChars(item), 0);
-  }
-  return 0;
-};
-
-const getLlmStreamLearnerInputText = (capability, payload) => {
-  if (capability === 'moduleIntroduction') {
-    return payload.userInputText || '';
-  }
-  if (capability === 'mainSenseiResponse') {
-    return payload.currentUserInput || '';
-  }
-  return '';
-};
-
 class SessionController {
   constructor({ sessionService, turnService, rateLimiter, logger, streamingService, config }) {
     this.sessionService = sessionService;
@@ -258,7 +222,7 @@ class SessionController {
     this.rateLimiter = rateLimiter;
     this.logger = logger;
     this.streamingService = streamingService;
-    this.mainSenseiPolicy = config?.llmBoundaryPolicy?.mainSensei || DEFAULT_MAIN_POLICY;
+    this.mainSenseiPolicy = config?.llmCapPolicy?.capabilities?.mainSensei || config?.llmCapPolicy?.mainSensei || DEFAULT_MAIN_POLICY;
   }
 
   createSession(req, res) {
@@ -292,8 +256,8 @@ class SessionController {
       this.logger.warn(TAG, 'turn payload invalid', { errors: parseResult.error.errors, requestId: req.requestId });
       return sendError(res, 400, 'BAD_REQUEST', 'Invalid turn payload');
     }
-    const text = parseResult.data.input.text || '';
-    if (text.length > this.mainSenseiPolicy.userMessageMaxChars) {
+    const capResult = validateMainTurnCaps(parseResult.data.input.text || '', this.mainSenseiPolicy);
+    if (!capResult.success) {
       return sendError(res, 413, 'BAD_REQUEST', 'Your message is too long—shorten it and resend.');
     }
     const rate = this.#checkSessionRateLimit(sessionId, req);
@@ -347,12 +311,12 @@ class SessionController {
       });
       return sendError(res, 400, 'BAD_REQUEST', 'Invalid LLM stream capability payload');
     }
-    const boundedCapabilityPayload = boundLlmStreamPayload(capabilityPayloadResult.data, this.mainSenseiPolicy);
-    const learnerInputText = getLlmStreamLearnerInputText(parseResult.data.capability, boundedCapabilityPayload);
-    if (learnerInputText.length > this.mainSenseiPolicy.userMessageMaxChars) {
-      return sendError(res, 413, 'BAD_REQUEST', 'Your message is too long—shorten it and resend.');
-    }
-    if (countPromptInputChars(boundedCapabilityPayload) > this.mainSenseiPolicy.aggregateMaxChars) {
+    const capResult = validateMainSenseiCaps({
+      capability: parseResult.data.capability,
+      payload: capabilityPayloadResult.data,
+      policy: this.mainSenseiPolicy
+    });
+    if (!capResult.success) {
       return sendError(res, 413, 'BAD_REQUEST', 'Your request includes too much context—shorten it and resend.');
     }
     const rate = this.#checkSessionRateLimit(sessionId, req);
@@ -365,7 +329,7 @@ class SessionController {
       sessionId,
       capability: parseResult.data.capability,
       messageId: parseResult.data.messageId,
-      payload: boundedCapabilityPayload,
+      payload: capResult.payload,
       metadata: {
         ...(parseResult.data.metadata || {}),
         source: parseResult.data.metadata?.source || 'mobile',
@@ -392,7 +356,7 @@ class SessionController {
   }
 
   #checkSessionRateLimit(sessionId, req) {
-    const key = `${sessionId || 'unknown'}::${req.ip || 'unknown'}::${req.get('User-Agent') || 'unknown'}`;
+    const key = buildSessionLimiterKey(sessionId, req.ip, req.get('User-Agent'));
     if (typeof this.rateLimiter.checkKey === 'function') {
       return this.rateLimiter.checkKey(key);
     }

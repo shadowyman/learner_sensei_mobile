@@ -1,7 +1,7 @@
 import { initializeSelectionSensei, reinitializeSelectionSensei, invokeSelectionSenseiBridgeAction } from '../selectionSensei'
 import { GoogleGenAI } from '@google/genai'
 import { handleSelectionSenseiModalMessageResult } from '../src/mobile/webviewMessageRouter'
-import { SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS } from '@sensei/core/llmBoundaryPolicy'
+import { SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS } from '@sensei/core/llmCapPolicy'
 
 jest.mock('marked')
 

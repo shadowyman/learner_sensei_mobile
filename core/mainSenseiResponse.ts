@@ -8,7 +8,7 @@ import {
   type SocraticExecutionInstructionRequest
 } from './prompts/mainSenseiResponse';
 import { buildCapabilityPromptEnvelope, type ConversationHistoryEntry } from './promptEnvelope';
-import type { RoleAwareHistoryLimits } from './llmBoundaryPolicy';
+import type { RoleAwareHistoryLimits } from './llmCapPolicy';
 
 export const MAIN_SENSEI_RESPONSE_CAPABILITY = 'mainSenseiResponse' as const;
 
