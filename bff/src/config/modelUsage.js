@@ -82,7 +82,7 @@ const SENSEI_ENHANCEMENT_CONFIG = {
   safetySettings: DEFAULT_SAFETY_SETTINGS,
   config: {
     responseMimeType: CORE_SENSEI_ENHANCEMENT_CONFIG.config?.responseMimeType || 'application/json',
-    temperature: CORE_SENSEI_ENHANCEMENT_CONFIG.config?.temperature ?? 0.4
+    temperature: CORE_SENSEI_ENHANCEMENT_CONFIG.config?.temperature ?? 0.3
   }
 };
 

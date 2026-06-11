@@ -67,4 +67,43 @@ describe('Core enhancement parser red gate', () => {
       metadata: { source: 'fixture' }
     });
   });
+
+  test('caps provider enhancement output before returning normalized entries', () => {
+    const {
+      SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS,
+      SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES,
+      SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS
+    } = require('@sensei/core/llmCapPolicy');
+    const { parseSenseiEnhancementResponse } = loadCoreEnhancement();
+    const entries = [
+      {
+        key: 'x'.repeat(SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS + 1),
+        value: 'oversized key',
+        insertType: 'append'
+      },
+      {
+        key: 'oversized value',
+        value: 'x'.repeat(SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS + 1),
+        insertType: 'append'
+      },
+      ...Array.from({ length: SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES + 5 }, (_, index) => ({
+        key: `Valid key ${index}.`,
+        value: `Valid value ${index}.`,
+        insertType: 'append'
+      }))
+    ];
+
+    const parsed = parseSenseiEnhancementResponse(JSON.stringify({
+      enhancements: entries,
+      metadata: { source: 'fixture' }
+    }));
+
+    expect(parsed?.enhancements).toHaveLength(SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES);
+    expect(parsed?.enhancements[0]?.key).toBe('Valid key 0.');
+    expect(parsed?.enhancements).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: 'oversized key' }),
+      expect.objectContaining({ key: 'oversized value' })
+    ]));
+    expect(parsed?.metadata).toEqual({ source: 'fixture' });
+  });
 });

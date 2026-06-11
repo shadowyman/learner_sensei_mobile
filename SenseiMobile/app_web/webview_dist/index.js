@@ -1717,7 +1717,7 @@ var require_modelUsage = __commonJS({
       modelName: GEMINI_FLASH2,
       config: {
         responseMimeType: "application/json",
-        temperature: 0.4
+        temperature: 0.3
       }
     };
     exports.MAIN_TEXT_CONFIG = {
@@ -5637,7 +5637,7 @@ var require_llmCapPolicy = __commonJS({
   "core/dist/llmCapPolicy.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.SELECTION_SENSEI_MODAL_TRANSCRIPT_LIMITS = exports.MAIN_SENSEI_HISTORY_LIMITS = exports.SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS = exports.SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS = exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES = exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS = exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = void 0;
+    exports.SELECTION_SENSEI_MODAL_TRANSCRIPT_LIMITS = exports.MAIN_SENSEI_HISTORY_LIMITS = exports.SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES = exports.SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS = exports.SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS = exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES = exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS = exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = void 0;
     exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = 8e3;
     exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = 8e3;
     exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = 2e5;
@@ -5648,6 +5648,11 @@ var require_llmCapPolicy = __commonJS({
     exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = 8e5;
     exports.SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS = 25e4;
     exports.SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS = 26e4;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES = 20;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS = 1e3;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS = 2e4;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS = 1e4;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS = 2e5;
     exports.MAIN_SENSEI_HISTORY_LIMITS = {
       maxEntries: exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES,
       userEntryChars: exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS,
@@ -7544,6 +7549,7 @@ var require_enhancement2 = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.parseSenseiEnhancementResponse = parseSenseiEnhancementResponse2;
+    var llmCapPolicy_1 = require_llmCapPolicy();
     function stripJsonFence(text2) {
       const trimmed = text2.trim();
       if (!trimmed.startsWith("```")) {
@@ -7558,11 +7564,22 @@ var require_enhancement2 = __commonJS({
     function isPlainMetadata(value) {
       return Boolean(value) && typeof value === "object" && !Array.isArray(value);
     }
+    function isMetadataWithinCap(value) {
+      try {
+        return JSON.stringify(value).length <= llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS;
+      } catch {
+        return false;
+      }
+    }
     function normalizeEnhancementEntries(raw) {
       const candidate = raw && typeof raw === "object" ? raw : {};
       const enhancements = Array.isArray(candidate.enhancements) ? candidate.enhancements : [];
       const normalized = [];
+      let aggregateChars = 0;
       for (const entry of enhancements) {
+        if (normalized.length >= llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES) {
+          break;
+        }
         if (!entry || typeof entry !== "object") {
           continue;
         }
@@ -7574,6 +7591,14 @@ var require_enhancement2 = __commonJS({
         if (!key || !value || !insertType) {
           continue;
         }
+        if (key.length > llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS || value.length > llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS) {
+          continue;
+        }
+        const nextAggregateChars = aggregateChars + key.length + value.length;
+        if (nextAggregateChars > llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS) {
+          continue;
+        }
+        aggregateChars = nextAggregateChars;
         if (ordering !== void 0) {
           normalized.push({ key, value, insertType, ordering });
         } else {
@@ -7583,7 +7608,7 @@ var require_enhancement2 = __commonJS({
       const payload = {
         enhancements: normalized
       };
-      if (isPlainMetadata(candidate.metadata)) {
+      if (isPlainMetadata(candidate.metadata) && isMetadataWithinCap(candidate.metadata)) {
         payload.metadata = candidate.metadata;
       }
       return payload;

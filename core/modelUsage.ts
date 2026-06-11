@@ -54,7 +54,7 @@ export const SENSEI_ENHANCEMENT_CONFIG = {
   modelName: GEMINI_FLASH,
   config: {
     responseMimeType: 'application/json',
-    temperature: 0.4
+    temperature: 0.3
   }
 };
 

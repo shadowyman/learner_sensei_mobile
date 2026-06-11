@@ -51,6 +51,56 @@ const GeminiGateway = require('../src/integration/geminiGateway');
     throw new Error('Service must not require or forward client final prompt/provider-control strings');
   }
 
+  const {
+    SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES,
+    SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS,
+    SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS
+  } = require('@sensei/core/llmCapPolicy');
+  const cappedService = new EnhancementService({
+    logger: {
+      info() {},
+      warn() {},
+      error() {}
+    },
+    coreLlmClient: {
+      async callText() {
+        return JSON.stringify({
+          enhancements: [
+            {
+              key: 'x'.repeat(SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS + 1),
+              value: 'oversized key',
+              insertType: 'append'
+            },
+            {
+              key: 'oversized value',
+              value: 'x'.repeat(SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS + 1),
+              insertType: 'append'
+            },
+            ...Array.from({ length: SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES + 5 }, (_, index) => ({
+              key: `Valid key ${index}.`,
+              value: `Valid value ${index}.`,
+              insertType: 'append'
+            }))
+          ],
+          metadata: { source: 'fixture' }
+        });
+      }
+    }
+  });
+  const cappedResult = await cappedService.runEnhancement({
+    session: { id: 'session-enhancement' },
+    request: {
+      originalMarkdown: 'A base case stops the recursive chain.',
+      wordCount: 8
+    }
+  });
+  if (!cappedResult?.ok || cappedResult.enhancements.length !== SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES) {
+    throw new Error(`Expected capped provider output, got ${JSON.stringify(cappedResult)}`);
+  }
+  if (JSON.stringify(cappedResult).includes('oversized key') || JSON.stringify(cappedResult).includes('oversized value')) {
+    throw new Error(`Provider output caps leaked oversized entries: ${JSON.stringify(cappedResult)}`);
+  }
+
   const malformedService = new EnhancementService({
     logger: {
       info() {},

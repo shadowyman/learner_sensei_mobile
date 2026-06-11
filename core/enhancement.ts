@@ -1,3 +1,11 @@
+import {
+    SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS,
+    SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS,
+    SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES,
+    SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS,
+    SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS
+} from './llmCapPolicy';
+
 export type EnhancementInsertType = 'append' | 'paragraph';
 
 export interface EnhancementEntry {
@@ -28,12 +36,25 @@ function isPlainMetadata(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isMetadataWithinCap(value: Record<string, unknown>): boolean {
+    try {
+        return JSON.stringify(value).length <= SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS;
+    } catch {
+        return false;
+    }
+}
+
 function normalizeEnhancementEntries(raw: unknown): EnhancementPayload {
     const candidate = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
     const enhancements = Array.isArray(candidate.enhancements) ? candidate.enhancements : [];
     const normalized: EnhancementEntry[] = [];
+    let aggregateChars = 0;
 
     for (const entry of enhancements) {
+        if (normalized.length >= SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES) {
+            break;
+        }
+
         if (!entry || typeof entry !== 'object') {
             continue;
         }
@@ -52,6 +73,20 @@ function normalizeEnhancementEntries(raw: unknown): EnhancementPayload {
             continue;
         }
 
+        if (
+            key.length > SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS ||
+            value.length > SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS
+        ) {
+            continue;
+        }
+
+        const nextAggregateChars = aggregateChars + key.length + value.length;
+        if (nextAggregateChars > SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS) {
+            continue;
+        }
+
+        aggregateChars = nextAggregateChars;
+
         if (ordering !== undefined) {
             normalized.push({ key, value, insertType, ordering });
         } else {
@@ -63,7 +98,7 @@ function normalizeEnhancementEntries(raw: unknown): EnhancementPayload {
         enhancements: normalized
     };
 
-    if (isPlainMetadata(candidate.metadata)) {
+    if (isPlainMetadata(candidate.metadata) && isMetadataWithinCap(candidate.metadata)) {
         payload.metadata = candidate.metadata;
     }
 

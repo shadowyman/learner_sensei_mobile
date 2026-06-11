@@ -59,7 +59,7 @@ describe('geminiService requestSenseiEnhancement desktop compatibility', () => {
       model: 'gemini-flash-latest',
       config: expect.objectContaining({
         responseMimeType: 'application/json',
-        temperature: 0.4
+        temperature: 0.3
       })
     }))
     const request = generateContent.mock.calls[0][0]

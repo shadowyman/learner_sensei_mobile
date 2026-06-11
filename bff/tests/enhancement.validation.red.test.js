@@ -10,8 +10,7 @@ const createBasePayload = () => ({
     '',
     'The recursive step makes progress.'
   ].join('\n'),
-  wordCount: 10,
-  messageId: 'sensei-message-1'
+  wordCount: 10
 });
 
 const postJson = (url, payload) => fetch(url, {

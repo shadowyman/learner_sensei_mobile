@@ -1,3 +1,8 @@
+---
+name: thread-peer-prompt-pack
+description: Generate copyable prompts for starting, continuing, correcting, interrupting, or converging two-thread Codex peer workflows between Harry Potter (Agent A) and Hermione Granger (Agent B), while preserving durable-state, ownership, closure, and reciprocal-review protocol gates.
+---
+
 # Thread Peer Prompt Pack
 
 Use this skill when the user wants copyable prompts for starting, continuing, correcting, interrupting, or converging a two-thread Codex peer workflow between Harry Potter (Agent A) and Hermione Granger (Agent B).
