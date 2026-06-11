@@ -1,55 +1,60 @@
-<protocol name="COMPREHENSIVE IMPACT ANALYSIS PROTOCOL">
-    # ====COMPREHENSIVE IMPACT ANALYSIS PROTOCOL====
-    <trigger>Execute before ANY modification to existing codebase</trigger>
-    <step number="1">
-        **Change Classification & Risk Stratification**:
-        * Classify change type: Data/Control/Interface/State/Configuration
-        * Assign risk level (1-5) based on scope and criticality
-        * Determine required analysis depth based on classification
-        * Log classification rationale with evidence
-        * Source evidence from analyzer outputs before supplementing with manual inspection; only escalate to direct file review if the artifacts lack required detail.
-        * Use the latest `fan_in.json` / `fan_out.json` metrics to flag modules with the widest blast radius so you can focus manual scrutiny where it matters most.
-    </step>
-    <step number="2">
-        **Multi-Dimensional Impact Mapping**:
-        * **Technical Dimension**: Dependencies, performance, architecture alignment
-        * **Business Dimension**: User experience, feature requirements, compliance
-        * **Security Dimension**: Vulnerabilities, permissions, data exposure risks
-        * **Operational Dimension**: Monitoring, logging, deployment implications
-        * **Maintenance Dimension**: Code clarity, documentation, future developer experience
-        * Create impact score for each dimension (1-10)
-        * Use analyzer dependency graphs and reports before exploring files manually; fall back to manual context only when tooling does not surface the needed insight.
-    </step>
-    <step number="3">
-        **Stakeholder Cascade Analysis**:
-        * Map direct code consumers (functions, modules, tests)
-        * Identify system integrators (APIs, databases, external services)
-        * Analyze end-user impact (UX flows, performance, accessibility)
-        * Consider operations impact (debugging, monitoring, deployment)
-        * Document future developer implications (patterns, maintainability)
-        * Query analyzer call graphs and fan-in/out data first; perform manual chaining only if analyzer coverage is insufficient.
-    </step>
-    <step number="4">
-        **Temporal Ripple Effect Analysis**:
-        * **Immediate**: Will this compile? Will tests pass? Will deployment succeed?
-        * **Short-term**: How will this affect integration? User experience? Performance?
-        * **Medium-term**: Technical debt implications? Maintenance burden? Scalability?
-        * **Long-term**: Architecture evolution? Migration compatibility? Team knowledge transfer?
-        * Derive supporting signals from analyzer outputs prior to manual exploration; inspect code directly only when tools cannot answer timeline impacts.
-    </step>
-    <step number="5">
-        **Context-Aware Validation Plan**:
-        * Based on classification and impact analysis, create validation requirements
-        * Define specific evidence needed to prove safety (logs, tests, metrics)
-        * Establish rollback plan and monitoring requirements
-        * Set success criteria for each affected dimension
-        * Lean on analyzer artifacts (functions.json, calls.json) when selecting validation targets; supplement manually only if the tooling is silent, and reconcile open unknowns before finalizing the plan.
-    </step>
-    <step number="6">
-        **Execute with Comprehensive Monitoring**:
-        * Implement change with dimensional validation logging
-        * Monitor all identified stakeholder touchpoints
-        * Validate against temporal impact predictions
-        * Document actual vs predicted impacts for learning
-    </step>
+<protocol name="COMPREHENSIVE IMPACT ANALYSIS PROTOCOL — COMPACT BLAST-RADIUS AND VALIDATION">
+
+<usage>
+Use this protocol to define the real change boundary before editing existing production code, identify likely ripple effects, surface risky side effects and external boundaries, choose the right validation targets, and decide whether rollout or recovery guardrails are needed. This protocol is not architecture design, implementation monitoring, org change management, or generic paperwork.
+</usage>
+
+<trigger>
+Run before non-trivial changes to existing production code when blast radius, shared contracts, side effects, or validation targets are not already obvious. Skip for direct bounded edits such as docs, copy, renames, explicit single-location fixes, isolated config value changes, generated-file refreshes, or other mechanically scoped changes that do not require broader system reasoning.
+</trigger>
+
+<steps>
+
+<step number="1" name="Define the exact change boundary">
+State the behavior, contract, or invariant being changed. Identify the intended implementation boundary and the specific modules that are in scope. Use Serena first for discovery and precedent. Use analyzer only when dependency, side-effect, or validation evidence is needed.
+Output: change summary, chosen boundary, precedent or none found, in-scope modules, out-of-scope modules, unresolved boundary questions.
+</step>
+
+<step number="2" name="Map impacted surfaces and consumers">
+Identify the direct consumers and likely ripple paths that could observe the change. Focus on callers, callees, shared contracts, generated outputs, tests, bridge layers, API boundaries, storage, and user-visible flows. Prefer targeted analyzer queries over broad artifact reads.
+Output: impacted surfaces list, caller/callee map, shared contracts, generated artifacts, likely hidden consumers, blast-radius notes.
+</step>
+
+<step number="3" name="Check side effects and boundary risks">
+Inspect only the risks that matter for this change: network, storage, bridge transport, DOM or event wiring, prompts, telemetry, async behavior, error handling, compatibility, and migration sequencing. If a risk is not plausible for the scoped change, omit it.
+Output: boundary and side-effect summary, compatibility or migration risks, assumptions that must hold, tool gaps or disagreements.
+</step>
+
+<step number="4" name="Choose validation and recovery">
+Derive the minimum convincing validation plan from the impacted surfaces. Name the exact tests, logs, manual checks, smoke paths, and any rollout or rollback guardrails required to prove the change is safe. Use test impact reasoning when possible instead of blanket validation.
+Output: validation checklist, priority test targets, required log or runtime evidence, rollout guardrails if needed, recovery or rollback notes if needed.
+</step>
+
+<step number="5" name="Record compact impact summary and handoff">
+Create a compact impact record for downstream work. When durable recovery context is needed, update the active mission-state file for the workflow if one already exists. Create a new mission-state file under `docs/mission_state/` only when no active workflow checkpoint exists and durable recovery context is actually needed. Keep the artifact shape consistent whether the analysis leaned on Serena, analyzer, or targeted source inspection.
+
+Mission-state fields:
+- Title and timestamp
+- Triggering workflow
+- Protocol inputs read
+- Tool evidence used
+- Change summary
+- Chosen boundary
+- Impacted surfaces and consumer map
+- Boundary and side-effect summary
+- Risk register
+- Unknowns and verification plans
+- Validation checklist
+- Rollout or recovery notes
+- Next protocol or next action
+
+Required statement: “Impact analysis complete. I have mapped the relevant blast radius, boundary risks, and validation targets, and I am ready to proceed with the `[Name of Triggering Protocol or Work Step]`.”
+</step>
+
+</steps>
+
+<rules>
+Do not run this protocol for every edit by default. Do not use numeric scoring unless another workflow explicitly requires it. Do not expand scope because adjacent files exist. Do not leave high-impact unknowns without verification plans. If the change is already obviously isolated after Step 1, keep the analysis short and stop once the boundary and validation targets are clear.
+</rules>
+
 </protocol>
