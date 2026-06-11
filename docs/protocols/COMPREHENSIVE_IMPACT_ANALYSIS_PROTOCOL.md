@@ -11,7 +11,7 @@ Run before non-trivial changes to existing production code when blast radius, sh
 <steps>
 
 <step number="1" name="Define the exact change boundary">
-State the behavior, contract, or invariant being changed. Identify the intended implementation boundary and the specific modules that are in scope. Use Serena first for discovery and precedent. Use analyzer only when dependency, side-effect, or validation evidence is needed.
+State the behavior, contract, or invariant being changed. Identify the intended implementation boundary and the specific modules that are in scope. Use targeted built-ins first for strong anchors such as exact files, literals, routes, config keys, UI labels, or log/error text. Use Serena for symbol-shaped discovery, references, source inspection, and precedent. Use analyzer only when dependency, side-effect, blast-radius, or validation evidence is needed.
 Output: change summary, chosen boundary, precedent or none found, in-scope modules, out-of-scope modules, unresolved boundary questions.
 </step>
 
@@ -54,7 +54,7 @@ Required statement: “Impact analysis complete. I have mapped the relevant blas
 </steps>
 
 <rules>
-Do not run this protocol for every edit by default. Do not use numeric scoring unless another workflow explicitly requires it. Do not expand scope because adjacent files exist. Do not leave high-impact unknowns without verification plans. If the change is already obviously isolated after Step 1, keep the analysis short and stop once the boundary and validation targets are clear.
+Do not run this protocol for every edit by default. Do not use numeric scoring unless another workflow explicitly requires it. Do not expand scope because adjacent files exist. Do not leave high-impact unknowns without verification plans. If the change is already obviously isolated after Step 1, keep the analysis short and stop once the boundary and validation targets are clear. If Serena output is broad, stale, ambiguous, or not symbol-shaped, switch to targeted built-ins, analyzer evidence, or direct source inspection instead of repeating broad Serena calls.
 </rules>
 
 </protocol>

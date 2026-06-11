@@ -23,6 +23,7 @@ logs/
 .scannerwork/
 .eslintcache
 *.tsbuildinfo
+.codegraph/
 .codex/config.toml
 __pycache__/
 *.py[cod]

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Grill Me"
+  short_description: "Stress-test plans and docs by interview"
+  default_prompt: "Use $grill-me to pressure-test this plan or document until the decision tree is resolved."
+
+policy:
+  allow_implicit_invocation: true

@@ -63,13 +63,13 @@ Use this map for orientation only. Do not broad-read these paths; use Serena, an
 ## Analysis mandate and tooling
 Use progressive disclosure: choose the smallest tool, query, and source read that answers the current decision.
 
-Tool order:
+Tool order depends on anchor strength:
 
-1. Serena, when enabled, for semantic discovery, project overview, relevant files and symbols, references, diagnostics, source inspection, and symbol-level edits or refactors.
-2. Analyzer for repo-specific evidence: side effects, assumptions, mutation risk, DOM and event analysis, focused traces, fan-in and fan-out, boundary APIs, and protocol-grade validation evidence.
-3. Built-ins for tiny patches, config and docs work, logs, tests, shell commands, final diffs, and validation commands.
+1. Built-ins for strong anchors: exact file paths, literals, routes, config keys, UI labels, log/error text, tiny patches, docs/config work, tests, shell commands, final diffs, and validation commands.
+2. Serena, when enabled, for symbol-shaped work: project activation/onboarding, known-file symbol overview, exact symbol lookup, references, diagnostics, semantic source inspection, whole-symbol edits, insertion around symbols, and rename/refactor.
+3. Analyzer for repo-specific evidence: side effects, assumptions, mutation risk, DOM and event analysis, focused traces, fan-in and fan-out, boundary APIs, and protocol-grade validation evidence.
 
-Do not start with broad file reads, broad grep, or large analyzer artifact reads when Serena or a targeted query can answer.
+Do not start with broad file reads, broad grep, broad Serena exploration, or large analyzer artifact reads when a targeted query can answer. If Serena output is broad, stale, ambiguous, or not symbol-shaped, switch to targeted built-ins, analyzer evidence, or direct source inspection instead of repeating broad Serena calls.
 
 Do not read `brief.md`, `brief.json`, `functions.json`, or `calls.json` end to end by default. Filter with `jq` or a small script and expose only the relevant subset.
 
