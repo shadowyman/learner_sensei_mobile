@@ -17,7 +17,9 @@ import type {
     WrapUpAssessmentPromptContext,
     TeachingPlanRequestPayload,
     SelectionSenseiModalMessagePayload,
-    SelectionSenseiModalMessageResult
+    SelectionSenseiModalMessageResult,
+    SenseiEnhancementRequestPayload,
+    SenseiEnhancementResult
 } from './types';
 import type { WrapUpAssessmentOverlayData, TeachingPoint } from '../bridge/contracts';
 import {
@@ -25,7 +27,8 @@ import {
     MERMAID_RECOVERY_RN_TIMEOUT_MS,
     WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS,
     TEACHING_PLAN_RN_TIMEOUT_MS,
-    SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS
+    SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS,
+    ENHANCEMENT_RN_TIMEOUT_MS
 } from '@sensei/protocol/timeouts';
 
 type FetchLike = typeof fetch;
@@ -63,6 +66,7 @@ const WRAP_UP_REQUEST_TIMEOUT_MS = WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS;
 const TEACHING_PLAN_REQUEST_TIMEOUT_MS = TEACHING_PLAN_RN_TIMEOUT_MS;
 const COMPREHENSIVE_ANALYSIS_REQUEST_TIMEOUT_MS = COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS;
 const SELECTION_SENSEI_MODAL_REQUEST_TIMEOUT_MS = SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS;
+const ENHANCEMENT_REQUEST_TIMEOUT_MS = ENHANCEMENT_RN_TIMEOUT_MS;
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {
     private queue: (IteratorResult<T>)[] = [];
@@ -185,6 +189,10 @@ export class BffClient implements BffClientLike {
         return this.postSelectionSenseiModalMessageWithRetry(payload, false);
     }
 
+    async runSenseiEnhancement(payload: SenseiEnhancementRequestPayload): Promise<SenseiEnhancementResult> {
+        return this.postSenseiEnhancementWithRetry(payload, false);
+    }
+
     private async postTurnWithRetry(body: Record<string, unknown>, hasRetried: boolean): Promise<TurnStreamHandle> {
         await this.ensureSession();
         const response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/turns`, {
@@ -289,6 +297,42 @@ export class BffClient implements BffClientLike {
             throw new Error('Selection Sensei modal response missing result');
         }
         return json.result as SelectionSenseiModalMessageResult;
+    }
+
+    private async postSenseiEnhancementWithRetry(
+        body: SenseiEnhancementRequestPayload,
+        hasRetried: boolean
+    ): Promise<SenseiEnhancementResult> {
+        await this.ensureSession();
+        if (!this.sessionId) {
+            throw new Error('Session missing for Sensei enhancement');
+        }
+        const controller = new AbortController();
+        const timerId = setTimeout(() => controller.abort(), ENHANCEMENT_REQUEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+            response = await this.fetchImpl(`${this.baseUrl}/sessions/${this.sessionId}/enhancement`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timerId);
+        }
+        if (!response.ok) {
+            const errorBody = await this.safeParseJson(response);
+            if (response.status === 400 && !hasRetried && this.isUnknownSessionError(errorBody)) {
+                this.sessionId = null;
+                return this.postSenseiEnhancementWithRetry(body, true);
+            }
+            throw new Error(this.formatHttpError('Sensei enhancement submission failed', response.status, errorBody));
+        }
+        const json = await response.json();
+        if (!json || json.success !== true || !json.result || typeof json.result !== 'object') {
+            throw new Error('Sensei enhancement response missing result');
+        }
+        return json.result as SenseiEnhancementResult;
     }
 
     private async safeParseJson(response: Response): Promise<any | null> {

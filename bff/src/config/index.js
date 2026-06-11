@@ -60,6 +60,11 @@ const selectionSenseiRateLimit = {
   limit: llmCapPolicy.rateLimits.conversational.limit
 };
 
+const enhancementRateLimit = {
+  windowMs: llmCapPolicy.rateLimits.conversational.windowMs,
+  limit: llmCapPolicy.rateLimits.conversational.limit
+};
+
 const analysisRateLimit = {
   minIntervalMs: 2_000,
   burstWindowMs: 2 * 60_000,
@@ -110,6 +115,7 @@ module.exports = {
   wrapUpRateLimit,
   teachingPlanRateLimit,
   selectionSenseiRateLimit,
+  enhancementRateLimit,
   llmCapPolicy,
   analysisRateLimit,
   sessionTtlMs,

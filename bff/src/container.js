@@ -12,6 +12,7 @@ const WrapUpService = require('./services/wrapUpService');
 const TeachingPlanService = require('./services/teachingPlanService');
 const AnalysisService = require('./services/analysisService');
 const SelectionSenseiService = require('./services/selectionSenseiService');
+const EnhancementService = require('./services/enhancementService');
 const SenseiCoreAdapter = require('./integration/senseiCoreAdapter');
 const GeminiGateway = require('./integration/geminiGateway');
 
@@ -24,6 +25,7 @@ const createContainer = () => {
   const wrapUpRateLimiter = new WrapUpRateLimiter(config.wrapUpRateLimit);
   const teachingPlanRateLimiter = new WrapUpRateLimiter(config.teachingPlanRateLimit);
   const selectionSenseiRateLimiter = new RateLimiter(config.selectionSenseiRateLimit);
+  const enhancementRateLimiter = new RateLimiter(config.enhancementRateLimit);
   const analysisRateLimiter = new WrapUpRateLimiter(config.analysisRateLimit);
   const sessionService = new SessionService({ sessionStore, logger, topicRegistry: config.topicRegistry });
   const turnService = new TurnService({ sessionStore, logger });
@@ -34,6 +36,7 @@ const createContainer = () => {
   const teachingPlanService = new TeachingPlanService({ logger, geminiGateway, config });
   const analysisService = new AnalysisService({ logger, geminiGateway });
   const selectionSenseiService = new SelectionSenseiService({ logger, geminiGateway });
+  const enhancementService = new EnhancementService({ logger, geminiGateway });
   const senseiCoreAdapter = new SenseiCoreAdapter({ logger, config });
   const streamingService = new StreamingService({
     turnService,
@@ -52,6 +55,7 @@ const createContainer = () => {
     wrapUpRateLimiter,
     teachingPlanRateLimiter,
     selectionSenseiRateLimiter,
+    enhancementRateLimiter,
     analysisRateLimiter,
     sessionService,
     turnService,
@@ -62,6 +66,7 @@ const createContainer = () => {
     teachingPlanService,
     analysisService,
     selectionSenseiService,
+    enhancementService,
     senseiCoreAdapter,
     streamingService
   };

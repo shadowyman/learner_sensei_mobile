@@ -9,4 +9,5 @@ export * from './mainSenseiResponse';
 export * from './promptEnvelope';
 export * from './llmCapPolicy';
 export * from './selectionSensei';
+export * from './enhancement';
 export * as prompts from './prompts';

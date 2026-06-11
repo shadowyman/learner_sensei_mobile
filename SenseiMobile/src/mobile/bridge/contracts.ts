@@ -78,6 +78,23 @@ export interface SelectionSenseiModalMessageResult {
   rawText?: string;
 }
 
+export interface SenseiEnhancementRequestPayload {
+  originalMarkdown: string;
+  wordCount?: number;
+}
+
+export interface SenseiEnhancementEntry {
+  key: string;
+  value: string;
+  insertType: 'append' | 'paragraph';
+  ordering?: number;
+}
+
+export interface SenseiEnhancementResult {
+  enhancements: SenseiEnhancementEntry[];
+  metadata?: Record<string, unknown>;
+}
+
 export type RNToWebMessage =
   | { type: 'app:init'; telemetryEnabled: boolean; theme: string }
   | { type: 'chat:startMessage'; messageId: string; sender: 'user' | 'sensei'; text?: string; reloadable?: boolean }
@@ -89,6 +106,8 @@ export type RNToWebMessage =
   | { type: 'selectionSensei:invoke'; actionId: SelectionSenseiActionId; selectionId: string; actionLabel?: string; userQuestion?: string }
   | { type: 'selectionSensei:modalMessageResult'; requestId: string; success: true; result: SelectionSenseiModalMessageResult }
   | { type: 'selectionSensei:modalMessageResult'; requestId: string; success: false; error: string }
+  | { type: 'enhancement:result'; requestId: string; success: true; result: SenseiEnhancementResult }
+  | { type: 'enhancement:result'; requestId: string; success: false; error: string }
   | { type: 'saveload:export'; requestId: string }
   | { type: 'saveload:import'; requestId: string; json: string }
   | { type: 'wrapup:show'; moduleId: string; data: WrapUpAssessmentOverlayData }
@@ -111,6 +130,7 @@ export type WebToRNMessage =
   | { type: 'footer:update'; payload: FooterPayload }
   | { type: 'wrapup:requestShow'; moduleId: string; promptContext: WrapUpAssessmentPromptContext }
   | { type: 'selectionSensei:modalMessageRequest'; requestId: string; payload: SelectionSenseiModalMessagePayload }
+  | { type: 'enhancement:request'; requestId: string; payload: SenseiEnhancementRequestPayload }
   | { type: 'analysis:request'; requestId: string; payload: LearnerAnalysisRequest }
   | {
       type: 'teachingPlan:request';

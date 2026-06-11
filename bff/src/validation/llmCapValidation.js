@@ -4,6 +4,7 @@ const CAP_VALIDATION_CODE = 'PAYLOAD_TOO_LARGE';
 
 const defaultMainPolicy = () => llmCapPolicy.capabilities?.mainSensei || llmCapPolicy.mainSensei;
 const defaultSelectionPolicy = () => llmCapPolicy.capabilities?.selectionSensei || llmCapPolicy.selectionSensei;
+const defaultEnhancementPolicy = () => llmCapPolicy.capabilities?.senseiEnhancement || llmCapPolicy.senseiEnhancement;
 
 const buildSessionLimiterKey = (sessionId, ip, userAgent) => `${sessionId || 'unknown'}::${ip || 'unknown'}::${userAgent || 'unknown'}`;
 
@@ -286,6 +287,25 @@ const validateSelectionSenseiCaps = (payload, policy = defaultSelectionPolicy())
   return issues.length > 0 ? fail(issues, 'Selection Sensei request exceeds LLM cap policy') : ok(payload);
 };
 
+const validateEnhancementCaps = (payload, policy = defaultEnhancementPolicy()) => {
+  const issues = [];
+  validateStringCap({
+    capability: 'senseiEnhancement',
+    path: 'originalMarkdown',
+    text: payload.originalMarkdown,
+    maximum: policy.originalMarkdownMaxChars,
+    issues
+  });
+  assertAggregateWithinLimit({
+    capability: 'senseiEnhancement',
+    value: payload,
+    max: policy.aggregateMaxChars,
+    path: 'payload',
+    issues
+  });
+  return issues.length > 0 ? fail(issues, 'Sensei enhancement request exceeds LLM cap policy') : ok(payload);
+};
+
 module.exports = {
   CAP_VALIDATION_CODE,
   buildSessionLimiterKey,
@@ -296,6 +316,7 @@ module.exports = {
   validateMainTurnCaps,
   validateMainSenseiCaps,
   validateSelectionSenseiCaps,
+  validateEnhancementCaps,
   toMainHistoryLimits,
   toSelectionTranscriptLimits
 };

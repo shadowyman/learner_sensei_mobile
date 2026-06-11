@@ -1,6 +1,9 @@
 import { BffClient } from '../src/mobile/network/BffClient';
 import type { BridgeManager } from '../src/mobile/bridge/BridgeManager';
-import { SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS } from '@sensei/protocol/timeouts';
+import {
+    ENHANCEMENT_RN_TIMEOUT_MS,
+    SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS
+} from '@sensei/protocol/timeouts';
 
 const createFetchStub = () => {
     let callCount = 0;
@@ -551,6 +554,253 @@ describe('BffClient', () => {
                 selectedText: 'base case stops recursion',
                 originalSenseiMessageText: 'Original explanation about recursion and base cases.',
                 actionLabel: 'Simpler'
+            });
+            let settled = false;
+            let rejection: Error | null = null;
+            promise.then(
+                () => {
+                    settled = true;
+                },
+                (error: Error) => {
+                    settled = true;
+                    rejection = error;
+                }
+            );
+
+            for (let i = 0; i < 5; i += 1) {
+                await Promise.resolve();
+            }
+            expect(routeSignals).toHaveLength(1);
+            expect(timeoutCallbacks).toHaveLength(1);
+
+            expect(routeSignals[0].aborted).toBe(false);
+            expect(settled).toBe(false);
+
+            timeoutCallbacks[0]();
+            for (let i = 0; i < 5; i += 1) {
+                await Promise.resolve();
+            }
+            expect(routeSignals[0].aborted).toBe(true);
+            expect(settled).toBe(true);
+            expect(rejection?.message).toBe('aborted');
+        } finally {
+            setTimeoutSpy.mockRestore();
+            clearTimeoutSpy.mockRestore();
+        }
+    });
+
+    it('posts Sensei enhancement requests as structured route payloads without prompt ownership', async () => {
+        const submittedUrls: string[] = [];
+        const submittedBodies: any[] = [];
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            submittedUrls.push(url);
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId: 'session-1' })
+                } as Response;
+            }
+            if (/\/sessions\/session-1\/enhancement$/.test(url)) {
+                submittedBodies.push(JSON.parse(String(init?.body)));
+                return {
+                    ok: true,
+                    json: async () => ({
+                        success: true,
+                        result: {
+                            enhancements: [
+                                {
+                                    key: 'A base case stops the recursive chain.',
+                                    value: 'This gives recursion a concrete stopping condition.',
+                                    insertType: 'append'
+                                }
+                            ],
+                            metadata: { source: 'fixture' }
+                        }
+                    })
+                } as Response;
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        const result = await client.runSenseiEnhancement({
+            originalMarkdown: 'A base case stops the recursive chain.',
+            wordCount: 8
+        });
+
+        expect(submittedUrls).toEqual([
+            'https://api.example.test/sessions',
+            'https://api.example.test/sessions/session-1/enhancement'
+        ]);
+        expect(submittedBodies).toHaveLength(1);
+        expect(submittedBodies[0]).toEqual({
+            originalMarkdown: 'A base case stops the recursive chain.',
+            wordCount: 8
+        });
+        for (const field of [
+            'prompt',
+            'finalPrompt',
+            'promptText',
+            'instruction',
+            'systemInstruction',
+            'model',
+            'temperature',
+            'providerOptions',
+            'safetySettings',
+            'config',
+            'tools',
+            'chat',
+            'history'
+        ]) {
+            expect(submittedBodies[0]).not.toHaveProperty(field);
+        }
+        expect(result).toEqual({
+            enhancements: [
+                {
+                    key: 'A base case stops the recursive chain.',
+                    value: 'This gives recursion a concrete stopping condition.',
+                    insertType: 'append'
+                }
+            ],
+            metadata: { source: 'fixture' }
+        });
+    });
+
+    it('surfaces BFF rejection details for Sensei enhancement prompt-control payloads', async () => {
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId: 'session-1' })
+                } as Response;
+            }
+            if (/\/sessions\/session-1\/enhancement$/.test(url)) {
+                return {
+                    ok: false,
+                    status: 400,
+                    json: async () => ({
+                        code: 'BAD_REQUEST',
+                        message: 'Sensei enhancement payload must be structured and cannot include prompt strings.'
+                    })
+                } as Response;
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        await expect(client.runSenseiEnhancement({
+            originalMarkdown: 'A base case stops the recursive chain.',
+            prompt: 'Add explanations.',
+            model: 'gemini-test',
+            providerOptions: { temperature: 1 }
+        })).rejects.toThrow('Sensei enhancement submission failed: 400 (BAD_REQUEST: Sensei enhancement payload must be structured and cannot include prompt strings.)');
+    });
+
+    it('preserves unknown-session retry behavior for Sensei enhancement requests', async () => {
+        const submittedUrls: string[] = [];
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            submittedUrls.push(url);
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                const sessionId = submittedUrls.filter(value => value.endsWith('/sessions')).length === 1 ? 'stale-session' : 'session-2';
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId })
+                } as Response;
+            }
+            if (/\/sessions\/stale-session\/enhancement$/.test(url)) {
+                return {
+                    ok: false,
+                    status: 400,
+                    json: async () => ({
+                        code: 'BAD_REQUEST',
+                        message: 'Unknown session'
+                    })
+                } as Response;
+            }
+            if (/\/sessions\/session-2\/enhancement$/.test(url)) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        success: true,
+                        result: { enhancements: [], metadata: { retried: true } }
+                    })
+                } as Response;
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        const result = await client.runSenseiEnhancement({
+            originalMarkdown: 'A base case stops the recursive chain.'
+        });
+
+        expect(result).toEqual({ enhancements: [], metadata: { retried: true } });
+        expect(submittedUrls).toEqual([
+            'https://api.example.test/sessions',
+            'https://api.example.test/sessions/stale-session/enhancement',
+            'https://api.example.test/sessions',
+            'https://api.example.test/sessions/session-2/enhancement'
+        ]);
+    });
+
+    it('aborts Sensei enhancement requests at the RN timeout budget', async () => {
+        const routeSignals: AbortSignal[] = [];
+        const timeoutCallbacks: Array<() => void> = [];
+        const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation(((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+            if (timeout === ENHANCEMENT_RN_TIMEOUT_MS && typeof handler === 'function') {
+                timeoutCallbacks.push(() => handler(...args));
+            }
+            return 1 as any;
+        }) as any);
+        const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout').mockImplementation((() => undefined) as any);
+        const fetchStub = (async (url: string, init?: RequestInit) => {
+            if (url.endsWith('/sessions') && init?.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({ sessionId: 'session-1' })
+                } as Response;
+            }
+            if (/\/sessions\/session-1\/enhancement$/.test(url)) {
+                const signal = init?.signal as AbortSignal | undefined;
+                if (!signal) {
+                    throw new Error('Expected Sensei enhancement request to include an AbortSignal');
+                }
+                routeSignals.push(signal);
+                return new Promise<Response>((_resolve, reject) => {
+                    signal.addEventListener('abort', () => reject(new Error('aborted')));
+                });
+            }
+            throw new Error(`Unexpected fetch call: ${url}`);
+        }) as typeof fetch;
+        const bridge = { enqueue: jest.fn() } as unknown as BridgeManager;
+        const client: any = new BffClient({
+            baseUrl: 'https://api.example.test',
+            fetchImpl: fetchStub,
+            webSocketImpl: FakeWebSocket as any,
+            bridge
+        });
+
+        try {
+            const promise = client.runSenseiEnhancement({
+                originalMarkdown: 'A base case stops the recursive chain.'
             });
             let settled = false;
             let rejection: Error | null = null;

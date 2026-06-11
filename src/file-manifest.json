@@ -71,6 +71,7 @@
   "scripts/analyze.ts",
   "scripts/createBackup.ts",
   "scripts/generateReview.ts",
+  "scripts/graphifyPrePush.ts",
   "scripts/installGitHooks.js",
   "scripts/manifestSync.ts",
   "scripts/prePushCleanup.ts",

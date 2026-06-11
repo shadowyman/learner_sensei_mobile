@@ -6,7 +6,9 @@ const {
   MAIN_SENSEI_HISTORY_MAX_ENTRIES,
   SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES,
   MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS,
-  SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS
+  SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS,
+  SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS,
+  SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS
 } = require('@sensei/core/llmCapPolicy');
 
 const numberEnv = (name, fallback) => {
@@ -36,6 +38,10 @@ const createLlmCapPolicy = () => {
     transcriptMaxEntries: numberEnv('BFF_SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES', SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES),
     aggregateMaxChars: numberEnv('BFF_SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS', SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS)
   };
+  const senseiEnhancement = {
+    originalMarkdownMaxChars: numberEnv('BFF_SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS', SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS),
+    aggregateMaxChars: numberEnv('BFF_SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS', SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS)
+  };
 
   return {
     rateLimits: {
@@ -46,10 +52,12 @@ const createLlmCapPolicy = () => {
     },
     capabilities: {
       mainSensei,
-      selectionSensei
+      selectionSensei,
+      senseiEnhancement
     },
     mainSensei,
-    selectionSensei
+    selectionSensei,
+    senseiEnhancement
   };
 };
 

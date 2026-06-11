@@ -7,11 +7,10 @@ import { logger } from './logger';
 import { GoogleGenAI, GenerateContentResponse, FunctionCall } from "@google/genai";
 import type { ComprehensiveAnalysisResultType } from "./adaptiveEngine";
 import { TeachingPoint, Phase } from "./curriculum";
-import {
-    buildSenseiEnhancementPrompt
-} from "./prompts";
 import { createBrowserCoreLlmClient } from '@sensei/core';
+import { parseSenseiEnhancementResponse, type EnhancementEntry, type EnhancementInsertType, type EnhancementPayload } from '@sensei/core/enhancement';
 import { getComprehensiveAnalysis, parseComprehensiveAnalysisJson, type LearnerAnalysisPhase } from '@sensei/core/learnerAnalysis';
+import { buildSenseiEnhancementPrompt } from '@sensei/core/prompts/enhancement';
 import { generateWrapUpAssessment as coreGenerateWrapUpAssessment, type WrapUpAssessmentPromptContext, type WrapUpAssessmentGenerationResult } from '@sensei/core/wrapUpAssessment';
 import { extractAndPlanTeachingOrder } from '@sensei/core/teachingPlan';
 import {
@@ -19,21 +18,8 @@ import {
     TEACHING_PLAN_GENERATION_CONFIG,
     TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED
 } from './model_usage';
-import * as ModelUsage from './model_usage';
 
-export type EnhancementInsertType = 'append' | 'paragraph';
-
-export interface EnhancementEntry {
-    key: string;
-    value: string;
-    insertType: EnhancementInsertType;
-    ordering?: number;
-}
-
-export interface EnhancementPayload {
-    enhancements: EnhancementEntry[];
-    metadata?: Record<string, unknown>;
-}
+export type { EnhancementEntry, EnhancementInsertType, EnhancementPayload };
 
 export interface EnhancementRequest {
     originalMarkdown: string;
@@ -202,18 +188,6 @@ export async function generateWrapUpAssessment(
     return coreGenerateWrapUpAssessment(llmClient, moduleId, promptContext);
 }
 
-function stripJsonFence(text: string): string {
-    const trimmed = text.trim();
-    if (!trimmed.startsWith('```')) {
-        return trimmed;
-    }
-    const fenceMatch = trimmed.match(/^```(?:\w+)?\s*\n?([\s\S]*?)\n?```$/);
-    if (fenceMatch && fenceMatch[1]) {
-        return fenceMatch[1].trim();
-    }
-    return trimmed;
-}
-
 type GeminiFunctionCallPayload = {
     name?: string;
     args?: unknown;
@@ -227,50 +201,18 @@ function extractFunctionCall(response: GenerateContentResponse): GeminiFunctionC
     return null;
 }
 
-function normalizeEnhancementEntries(raw: any): EnhancementPayload {
-    const enhancements: EnhancementEntry[] = Array.isArray(raw?.enhancements) ? raw.enhancements : [];
-    const normalized: EnhancementEntry[] = [];
-    for (const entry of enhancements) {
-        if (!entry || typeof entry !== 'object') {
-            continue;
-        }
-        const key = typeof entry.key === 'string' ? entry.key.trim() : '';
-        const value = typeof entry.value === 'string' ? entry.value.trim() : '';
-        const insertType = entry.insertType === 'append' || entry.insertType === 'paragraph' ? entry.insertType : null;
-        const ordering = typeof entry.ordering === 'number' ? entry.ordering : undefined;
-        if (!key || !value || !insertType) {
-            continue;
-        }
-        if (ordering !== undefined) {
-            normalized.push({ key, value, insertType, ordering });
-        } else {
-            normalized.push({ key, value, insertType });
-        }
-    }
-    return {
-        enhancements: normalized,
-        metadata: raw && typeof raw.metadata === 'object' ? raw.metadata : undefined,
-    };
-}
-
-const DEFAULT_ENHANCEMENT_REQUEST_CONFIG = {
-    modelName: 'gemini-2.5-flash',
-    config: {
-        responseMimeType: "application/json",
-        temperature: 0.4,
-    },
-} as const;
-
-const ENHANCEMENT_REQUEST_CONFIG: typeof DEFAULT_ENHANCEMENT_REQUEST_CONFIG =
-    (ModelUsage as { ENHANCEMENT_REQUEST_CONFIG?: typeof DEFAULT_ENHANCEMENT_REQUEST_CONFIG }).ENHANCEMENT_REQUEST_CONFIG
-        ?? DEFAULT_ENHANCEMENT_REQUEST_CONFIG;
-
 export async function requestSenseiEnhancement(
     ai: GoogleGenAI | null,
     request: EnhancementRequest
 ): Promise<EnhancementPayload | null> {
     if (!ai) {
         logger.error('[ENHANCE] Enhancement request aborted: AI not initialized');
+        return null;
+    }
+
+    const llmClient = createBrowserCoreLlmClient(ai);
+    if (!llmClient) {
+        logger.error('[ENHANCE] Enhancement request aborted: Core browser LLM client unavailable');
         return null;
     }
 
@@ -283,25 +225,18 @@ export async function requestSenseiEnhancement(
     const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: ENHANCEMENT_REQUEST_CONFIG.modelName,
-            contents: [{ parts: [{ text: prompt }] }],
-            config: ENHANCEMENT_REQUEST_CONFIG.config
+        const text = await llmClient.callText(prompt, {
+            task: 'sensei_enhancement'
         });
 
         const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const latencyMs = Number((end - start).toFixed(2));
-        const cleaned = stripJsonFence(response.text ?? '');
+        const payload = parseSenseiEnhancementResponse(text);
 
-        let parsed: any;
-        try {
-            parsed = cleaned ? JSON.parse(cleaned) : { enhancements: [] };
-        } catch (error) {
-            logger.error('[ENHANCE] Enhancement response JSON parse failed', { error, raw: cleaned });
+        if (!payload) {
+            logger.error('[ENHANCE] Enhancement response parsing failed');
             return null;
         }
-
-        const payload = normalizeEnhancementEntries(parsed);
 
         if (payload.enhancements.length === 0) {
             logger.info('[ENHANCE] Enhancement request returned no additions', {
@@ -316,7 +251,9 @@ export async function requestSenseiEnhancement(
 
         return payload;
     } catch (error) {
-        logger.error('[ENHANCE] Enhancement request failed', { error });
+        logger.error('[ENHANCE] Enhancement request failed', {
+            errorName: error instanceof Error ? error.name : typeof error
+        });
         return null;
     }
 }

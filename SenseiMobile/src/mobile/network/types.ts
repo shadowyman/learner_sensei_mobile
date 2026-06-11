@@ -7,14 +7,18 @@ import type {
     Phase,
     TeachingPoint,
     SelectionSenseiModalMessagePayload,
-    SelectionSenseiModalMessageResult
+    SelectionSenseiModalMessageResult,
+    SenseiEnhancementRequestPayload,
+    SenseiEnhancementResult
 } from '../bridge/contracts';
 export type {
     ComprehensiveAnalysisResultType,
     LearnerAnalysisRequest,
     WrapUpAssessmentPromptContext,
     SelectionSenseiModalMessagePayload,
-    SelectionSenseiModalMessageResult
+    SelectionSenseiModalMessageResult,
+    SenseiEnhancementRequestPayload,
+    SenseiEnhancementResult
 } from '../bridge/contracts';
 
 export interface SelectionContext {
@@ -111,4 +115,5 @@ export interface BffClientLike {
     generateTeachingPlan(payload: TeachingPlanRequestPayload): Promise<TeachingPoint[][]>;
     getLearnerAnalysis(payload: LearnerAnalysisRequest): Promise<ComprehensiveAnalysisResultType | null>;
     runSelectionSenseiModalMessage(payload: SelectionSenseiModalMessagePayload): Promise<SelectionSenseiModalMessageResult>;
+    runSenseiEnhancement(payload: SenseiEnhancementRequestPayload): Promise<SenseiEnhancementResult>;
 }

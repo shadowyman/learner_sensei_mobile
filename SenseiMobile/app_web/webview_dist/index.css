@@ -199,10 +199,10 @@ body::before {
 /* Weighted segmented header */
 .chat-window-header {
     padding: 0px 16px 0px 16px;
-    background: linear-gradient(180deg,
-        rgba(255, 255, 255, 0.02) 0%,
-        rgba(255, 255, 255, 0.02) 50%,
-        rgba(255, 255, 255, 0.01) 75%,
+    background: linear-gradient(180deg, 
+        rgba(255, 255, 255, 0.02) 0%, 
+        rgba(255, 255, 255, 0.02) 50%, 
+        rgba(255, 255, 255, 0.01) 75%, 
         transparent 100%);
     backdrop-filter: blur(40px);
     border-bottom: none;
@@ -1137,8 +1137,8 @@ body::before {
 .message-bubble[data-sender="user"] .sender-name {
     color: #22d3ee;
     position: relative;
-    background: linear-gradient(135deg,
-        rgba(34, 211, 238, 0.08),
+    background: linear-gradient(135deg, 
+        rgba(34, 211, 238, 0.08), 
         rgba(14, 165, 233, 0.05));
     margin: -15px -22px 12px -22px;
     padding: 8px 22px;
@@ -1151,8 +1151,8 @@ body::before {
 .message-bubble[data-sender="sensei"] .sender-name {
     color: #16a34a;
     position: relative;
-    background: linear-gradient(135deg,
-        rgba(34, 197, 94, 0.08),
+    background: linear-gradient(135deg, 
+        rgba(34, 197, 94, 0.08), 
         rgba(16, 163, 74, 0.05));
     margin: -15px -22px 12px -22px;
     padding: 8px 22px;
@@ -1579,7 +1579,7 @@ body::before {
     gap: 24px;
     font-size: 0.85em;
     color: var(--text-secondary);
-
+    
     /* Collapsed state - hidden by sliding down */
     height: 0;
     opacity: 0;
@@ -1784,8 +1784,8 @@ body::before {
     height: 35px;
     min-height: 35px;
     border: 1px solid rgba(16, 185, 129, 0.4);
-    background: linear-gradient(135deg,
-        rgba(16, 185, 129, 0.85),
+    background: linear-gradient(135deg, 
+        rgba(16, 185, 129, 0.85), 
         rgba(5, 150, 105, 0.85));
     background-size: 200% 200%;
     border-radius: 50%;
@@ -1797,7 +1797,7 @@ body::before {
     justify-content: center;
     font-size: 1em;
     font-weight: 600;
-    box-shadow:
+    box-shadow: 
         0 2px 8px rgba(16, 185, 129, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
     flex-shrink: 0;
@@ -1808,12 +1808,12 @@ body::before {
 }
 
 .chat-input-send-button:hover {
-    background: linear-gradient(135deg,
-        rgba(16, 185, 129, 1),
+    background: linear-gradient(135deg, 
+        rgba(16, 185, 129, 1), 
         rgba(5, 150, 105, 1));
     border-color: rgba(16, 185, 129, 0.6);
     transform: scale(1.05);
-    box-shadow:
+    box-shadow: 
         0 4px 12px rgba(16, 185, 129, 0.4),
         inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
@@ -1825,21 +1825,21 @@ body::before {
 
 /* Liquid metal ripple animation */
 @keyframes liquid-ripple {
-    0%, 100% {
-        border-radius: 50%;
-        transform: scale(0.95);
+    0%, 100% { 
+        border-radius: 50%; 
+        transform: scale(0.95); 
     }
-    25% {
-        border-radius: 45% 55% 45% 55%;
-        transform: scale(0.9) rotate(3deg);
+    25% { 
+        border-radius: 45% 55% 45% 55%; 
+        transform: scale(0.9) rotate(3deg); 
     }
-    50% {
-        border-radius: 55% 45% 55% 45%;
-        transform: scale(0.85) rotate(-3deg);
+    50% { 
+        border-radius: 55% 45% 55% 45%; 
+        transform: scale(0.85) rotate(-3deg); 
     }
-    75% {
-        border-radius: 45% 55% 45% 55%;
-        transform: scale(0.9) rotate(2deg);
+    75% { 
+        border-radius: 45% 55% 45% 55%; 
+        transform: scale(0.9) rotate(2deg); 
     }
 }
 
@@ -2348,7 +2348,7 @@ body::before {
     background: radial-gradient(circle at 20% 15%, rgba(74, 222, 128, 0.22), transparent 58%), radial-gradient(circle at 82% 18%, rgba(56, 189, 248, 0.28), transparent 55%), radial-gradient(circle at 50% 85%, rgba(129, 140, 248, 0.25), transparent 60%), rgb(15, 23, 42);
     border: 1px solid var(--glass-border);
     border-radius: var(--size-border-radius);
-    box-shadow:
+    box-shadow: 
         var(--glass-shadow),
         inset 0 1px 0 rgba(255, 255, 255, 0.1),
         0 0 0 1px rgba(0, 212, 255, 0.1);
@@ -3329,11 +3329,11 @@ body::before {
 /* Mobile breakpoint */
 @media (max-width: 300px) {
 
-    #chat-container {
-        height: calc(100vh - 12px);
-        border-radius: var(--size-border-radius-small);
+    #chat-container { 
+        height: calc(100vh - 12px); 
+        border-radius: var(--size-border-radius-small); 
     }
-
+ 
     .weighted-container {
         flex-direction: column;
         border-radius: 16px;
@@ -3351,28 +3351,28 @@ body::before {
     .brand-content {
         justify-content: center;
     }
-    .chat-messages {
-        padding: 10px;
+    .chat-messages { 
+        padding: 10px; 
     }
     .message,
-    .message-bubble {
-        max-width: 90%;
+    .message-bubble { 
+        max-width: 90%; 
     }
-    #footer-status-bar {
+    #footer-status-bar { 
         display: none;
     }
-    .chat-input-form {
-        padding: 16px 20px;
+    .chat-input-form { 
+        padding: 16px 20px; 
         gap: 12px;
     }
-
+    
     .chat-input-textarea {
         height: 44px;
         min-height: 44px;
         padding: 10px 16px;
         font-size: 0.9em;
     }
-
+    
     .chat-input-send-button {
         width: 44px;
         height: 44px;
@@ -3380,8 +3380,8 @@ body::before {
         font-size: 1em;
     }
     .chat-header-button,
-    .control-btn {
-        width: 32px;
+    .control-btn { 
+        width: 32px; 
         height: 32px;
         font-size: 0.85em;
         /* Increased size for better touch targets on mobile */
@@ -3700,7 +3700,7 @@ svg[aria-roledescription="error"] {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg,
+    background: linear-gradient(90deg, 
         rgba(239, 68, 68, 0.8) 0%,     /* Red start */
         rgba(245, 158, 11, 0.8) 25%,   /* Orange */
         rgba(34, 211, 238, 0.8) 50%,   /* Cyan */
@@ -3722,9 +3722,9 @@ svg[aria-roledescription="error"] {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.25) 50%,
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.25) 50%, 
         transparent 100%);
     border-radius: 0;
     opacity: 0.8;
@@ -3765,15 +3765,15 @@ svg[aria-roledescription="error"] {
 
 /* Enhanced effects on hover */
 .progress-container:hover .progress-fill {
-    box-shadow:
+    box-shadow: 
         0 0 8px rgba(196, 229, 56, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .progress-container:hover .progress-bar[data-has-progress="true"]::after {
-    background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.3) 50%,
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.3) 50%, 
         transparent 100%);
     animation: progress-shimmer 3.5s ease-in-out infinite;
     opacity: 0.9;
@@ -4482,11 +4482,11 @@ svg[aria-roledescription="error"] {
         top: -10px;
         padding: 20px;
     }
-
+    
     .meditation-title {
         font-size: 1rem;
     }
-
+    
     .action-item {
         padding: 10px 14px;
         font-size: 0.9rem;
@@ -4495,7 +4495,7 @@ svg[aria-roledescription="error"] {
     .console-logs-container {
         font-size: 11px;
     }
-
+    
     .debug-tab {
         padding: 10px 16px;
         font-size: 0.85rem;
@@ -4538,8 +4538,8 @@ svg[aria-roledescription="error"] {
     align-items: center;
     padding: 10px 24px;
     border-bottom: 1px solid var(--glass-border);
-    background: linear-gradient(135deg,
-        rgba(251, 191, 36, 0.05) 0%,
+    background: linear-gradient(135deg, 
+        rgba(251, 191, 36, 0.05) 0%, 
         rgba(252, 211, 77, 0.03) 100%);
     backdrop-filter: blur(20px);
     border-radius: var(--size-border-radius) var(--size-border-radius) 0 0;
