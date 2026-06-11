@@ -61,18 +61,20 @@ Required first actions:
 2. Read `tmp/thread_peer_execplan_workflow.md` when the supporting workflow itself is relevant or when a gate needs interpretation.
 3. If an ExecPlan is required, read `docs/protocols/PLAN.md` before creating, editing, or executing the ExecPlan.
 4. Apply no-use criteria before starting the peer workflow.
-5. If the peer workflow is justified, run the initialization handshake before authoritative artifacts.
+5. If the peer workflow is justified and Hermione Granger's thread must be created/requested, use the same model and reasoning level as Harry Potter's current thread when the environment exposes those controls; record any parity limitation or unknown.
+6. Run the initialization handshake before authoritative artifacts.
 
 Concise governing body for a local skill:
 
 ```text
-Use docs/protocols/codex_thread_peer_execution_protocol.md and tmp/thread_peer_execplan_workflow.md. First read the LLM Run Card, then apply no-use criteria. If peer workflow is justified, run the initialization handshake before authoritative artifacts. Enforce peer-context triad with the single 10-second active/in-progress recheck, no continuous polling, shared task frame with collaboration shape and inspection tactic, critique-plus-contribution, role symmetry, initiative reciprocity, symmetric work split or atomic-work fallback, named owners for shared duties, peer diff review and Architectural Distance Pass for code changes, correction-path agreement before corrective code edits, accept/revise/reject rationale before substantive peer-requested artifact corrections, issue-identifying-peer patching of bounded safe non-code artifact corrections unless a reason prevents it, current-step closure before candidate next focus, durable-state updates, user interruption handling, protocol drift recovery, validation substitutions, and final handoff gate. Keep the ExecPlan self-contained and update living sections before crossing milestones.
+Use docs/protocols/codex_thread_peer_execution_protocol.md and tmp/thread_peer_execplan_workflow.md. First read the LLM Run Card, then apply no-use criteria. If peer workflow is justified, create/request Hermione with the same model and reasoning level as Harry when available, record any parity limitation, and run the initialization handshake before authoritative artifacts. Enforce peer-context triad with the single 10-second active/in-progress recheck, no continuous polling, shared task frame with collaboration shape and inspection tactic, critique-plus-contribution, role symmetry, initiative reciprocity, symmetric work split or atomic-work fallback, named owners for shared duties, peer diff review and Architectural Distance Pass for code changes, correction-path agreement before corrective code edits, accept/revise/reject rationale before substantive peer-requested artifact corrections, issue-identifying-peer patching of bounded safe non-code artifact corrections unless a reason prevents it, current-step closure before candidate next focus, durable-state updates, user interruption handling, protocol drift recovery, validation substitutions, and final handoff gate. Keep the ExecPlan self-contained and update living sections before crossing milestones.
 ```
 
 Required outputs:
 
 - a no-use decision or explicit justification for the two-agent workflow;
 - an initialization packet to Hermione Granger (Agent B) when a peer run continues;
+- a peer-thread parity record when Hermione is created/requested, naming same model/reasoning level or the limitation/unknown;
 - a durable task frame naming collaboration shape, inspection tactic when relevant, goal, artifacts, acceptance criteria, risks, ownership, validation, and no-edit boundaries;
 - ExecPlan updates before crossing milestones when an ExecPlan governs the work;
 - peer handoff packets that include current-step closure and candidate next focus only after closure is claimed;
@@ -82,6 +84,7 @@ Required outputs:
 Failure conditions:
 
 - treating Hermione Granger (Agent B) as a reviewer, supervisor, or subordinate;
+- intentionally creating Hermione with a lower-capability model or reasoning level than Harry without explicit user approval, or failing to record that parity could not be set or verified;
 - accepting a peer claim from a delegated message alone when peer-turn or durable-artifact context may change the claim;
 - continuously polling an active peer thread after the one allowed 10-second recheck;
 - creating authoritative artifacts before peer shaping unless the provisional exception is recorded;
@@ -122,12 +125,12 @@ Required packet families:
 Concise governing body for a local skill:
 
 ```text
-Emit only prompts that preserve the peer workflow: user kickoff, Agent A to Agent B initialization, Agent B response contract, recurring handoff, compact non-code handoff, protocol drift correction, user interruption, and final convergence. Every prompt must name durable artifact paths, required triad evidence including the single 10-second active/in-progress recheck, collaboration shape and inspection tactic where relevant, concrete contribution expectations, no-continuous-polling synchronization, unresolved risks, peer diff review and Architectural Distance Pass requirements for code changes, correction-path agreement before corrective code edits, accept/revise/reject rationale before substantive peer-requested artifact corrections, issue-identifying-peer patching of bounded safe non-code artifact corrections unless a reason prevents it, current-step closure before candidate next focus, protocol drift recovery, user interruption handling, and next ownership split where applicable. Prefer concise copyable prompts over explanatory prose.
+Emit only prompts that preserve the peer workflow: user kickoff, Agent A to Agent B initialization, Agent B response contract, recurring handoff, compact non-code handoff, protocol drift correction, user interruption, and final convergence. Every prompt must name durable artifact paths, required triad evidence including the single 10-second active/in-progress recheck, model/reasoning parity requirements when Hermione is created/requested, collaboration shape and inspection tactic where relevant, concrete contribution expectations, no-continuous-polling synchronization, unresolved risks, peer diff review and Architectural Distance Pass requirements for code changes, correction-path agreement before corrective code edits, accept/revise/reject rationale before substantive peer-requested artifact corrections, issue-identifying-peer patching of bounded safe non-code artifact corrections unless a reason prevents it, current-step closure before candidate next focus, protocol drift recovery, user interruption handling, and next ownership split where applicable. Prefer concise copyable prompts over explanatory prose.
 ```
 
 Prompt requirements:
 
-- The kickoff prompt must tell Harry Potter (Agent A) to read the LLM Run Card and Canonical Peer Names, apply no-use criteria, and avoid authoritative artifacts until Hermione Granger shapes the frame.
+- The kickoff prompt must tell Harry Potter (Agent A) to read the LLM Run Card and Canonical Peer Names, apply no-use criteria, create/request Hermione with the same model and reasoning level when available, and avoid authoritative artifacts until Hermione Granger shapes the frame.
 - The initialization prompt must tell Hermione Granger (Agent B) she is an equal peer, not a supervisor or subordinate, and must require critique plus concrete contribution, collaboration shape, and inspection tactic when relevant.
 - The recurring handoff prompt must include durable artifacts, current claim, current-step closure claim, name-plus-role ownership scope, evidence, peer diff review status for code, Architectural Distance Pass status for code, correction path if closure is rejected, known risks, and candidate next focus only if the step closes; generated prompt packs should also include the compact non-code handoff for non-code, read-only, design, brainstorming, document coauthoring, or Advisory work.
 - The drift correction prompt must freeze affected convergence claims until missing evidence, ownership, validation, or durable-state updates are restored.
@@ -137,6 +140,7 @@ Prompt requirements:
 Failure conditions:
 
 - emitting prompts that ask the peer only to approve or review without contributing;
+- omitting model/reasoning parity requirements or limitation recording when Hermione is created/requested;
 - omitting the one-time 10-second active/in-progress recheck from triad instructions;
 - omitting no-continuous-polling language;
 - omitting collaboration shape or allowing Collaborative work to become parallel independent findings plus a merge;

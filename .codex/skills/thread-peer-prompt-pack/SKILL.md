@@ -31,6 +31,7 @@ Include these requirements when applicable:
 - One 10-second active/in-progress recheck after response arrival, followed by no continuous polling.
 - Response hard stop: after sending a response back with `send_message_to_thread`, the responding peer writes a final answer in its own thread and stops.
 - Sender hard stop: after sending any peer packet, the sender writes a final answer and stops the turn. Waiting means ending the turn until the returned peer response arrives as a new input.
+- Hermione thread creation parity: when Harry creates or requests Hermione's thread, use the same model and reasoning level as Harry's current thread when controls are available; if parity cannot be set or verified, record the limitation in startup and initialization text.
 - Bounded requested step: receiver does only the requested step and minimum evidence-gathering needed to answer it; extra useful work is proposed as candidate next scope.
 - Collaboration shape and inspection tactic: default Collaborative and Joint-first; Advisory and Independent-first only under the protocol's narrow conditions.
 - Critique plus concrete contribution.
@@ -45,7 +46,7 @@ Include these requirements when applicable:
 
 ## Packet Rules
 
-Kickoff prompts must tell Harry Potter (Agent A) to read the LLM Run Card and Canonical Peer Names, apply no-use criteria, avoid authoritative artifacts until Hermione Granger shapes the frame, and create/request Hermione only when the user asked for a real peer run and no active Hermione thread already exists. If a Hermione thread exists, Harry must use it unless the user approves replacement after the old thread is marked unusable. A Harry thread must never be used as Hermione.
+Kickoff prompts must tell Harry Potter (Agent A) to read the LLM Run Card and Canonical Peer Names, apply no-use criteria, avoid authoritative artifacts until Hermione Granger shapes the frame, and create/request Hermione only when the user asked for a real peer run and no active Hermione thread already exists. When creating/requesting Hermione, Harry must use the same model and reasoning level as Harry's current thread when the environment exposes those controls, or record that parity could not be set or verified. If a Hermione thread exists, Harry must use it unless the user approves replacement after the old thread is marked unusable. A Harry thread must never be used as Hermione.
 
 Initialization prompts must tell Hermione Granger (Agent B) she is an equal peer, not a supervisor or subordinate. They must require triad evidence, task-frame critique, concrete contribution, no-use or peer-justification decision, ownership split, unresolved state, and whether a governing artifact may be drafted or updated.
 
@@ -79,6 +80,7 @@ Do not emit prompts that:
 - Omit the response hard stop after `send_message_to_thread`.
 - Allow swapping thread roles or using a Harry thread as Hermione.
 - Allow duplicate or replacement Hermione thread creation while an existing peer thread is active or unresolved.
+- Omit model/reasoning parity requirements or limitation recording when creating/requesting Hermione.
 - Let Collaborative work degrade into independent findings plus merge.
 - Omit current-step closure before candidate next focus.
 - Omit peer diff review, Architectural Distance Pass, or correction-path agreement for code-related work.

@@ -20,7 +20,7 @@ For task-specific ExecPlan work, also read `docs/protocols/PLAN.md` before creat
 1. If `docs/protocols/codex_thread_peer_execution_protocol.md` has not already been read end to end in the current peer run, read it end to end now. Start with the LLM Run Card and Canonical Peer Names, but do not stop there on the first read.
 2. Apply the no-use criteria before starting or continuing a two-agent run.
 3. If a peer run is justified, identify Harry Potter (Agent A) and Hermione Granger (Agent B) as coordination handles only. Thread roles are not interchangeable.
-4. If Hermione Granger's thread is missing and the user asked for a real peer run, create/request it when the environment permits; otherwise ask one concise question: `Should I create Hermione Granger's peer thread now?` If a Hermione thread already exists for the run, use it; do not create a second or replacement thread while the existing one is active, waiting, or unresolved unless the user approves replacement after the old thread is marked unusable. Never reuse another Harry thread as Hermione.
+4. If Hermione Granger's thread is missing and the user asked for a real peer run, create/request it when the environment permits, using the same model and reasoning level as Harry Potter's current thread when those controls are available; otherwise ask one concise question: `Should I create Hermione Granger's peer thread now?` If model or reasoning-level parity cannot be set or verified, record that limitation in the startup state and initialization packet. If a Hermione thread already exists for the run, use it; do not create a second or replacement thread while the existing one is active, waiting, or unresolved unless the user approves replacement after the old thread is marked unusable. Never reuse another Harry thread as Hermione.
 5. Run the initialization handshake before authoritative artifacts, unless a provisional exception is explicitly recorded.
 6. Read `tmp/thread_peer_execplan_workflow.md` only when the supporting workflow is relevant or a protocol gate needs interpretation.
 
@@ -81,6 +81,7 @@ Treat these as protocol drift:
 - Polling, supervising, or waiting on the requester after sending a response back with `send_message_to_thread`.
 - Reusing a Harry thread as Hermione or otherwise swapping thread roles.
 - Creating a second or replacement Hermione thread while an existing peer thread is active, waiting, or unresolved without recording the old thread as unusable and getting user approval.
+- Intentionally creating Hermione with a lower-capability model or reasoning level than Harry for the same peer run without explicit user approval, or failing to record an environment limitation when parity cannot be set or verified.
 - Creating authoritative artifacts before peer shaping without a recorded provisional exception.
 - Presenting a task frame, ownership split, collaboration shape, inspection tactic, evidence standard, or work phase as agreed before the peer accepts, revises, or rejects it.
 - Continuing substantive next-step work after sending a peer packet before the peer's returned response is triad-checked and accepted/revised/rejected.

@@ -80,6 +80,8 @@ Agent A should first confirm:
 - any user constraints, no-edit boundaries, or dirty-tree concerns;
 - acceptance and validation expectations.
 
+When Agent A creates or requests Hermione Granger's peer thread, Agent A must use the same model and reasoning level as Agent A's current thread when the environment exposes those controls. If model or reasoning-level parity cannot be set or verified, Agent A must record that limitation in the startup state and initialization packet. Agent A must not intentionally create a lower-capability Hermione thread for the same peer run unless the user explicitly approves the mismatch.
+
 Agent A then sends Agent B an initialization packet. Agent B must critique and improve the task frame, not merely accept it.
 
 ## Shared Task Frame
@@ -198,10 +200,10 @@ Peer thread: <Hermione Granger / Agent B thread id, or create/request one if I a
 Expected durable artifacts: <ExecPlan path and/or final artifact path>
 Constraints: <no-edit boundaries, dirty-tree concerns, validation expectations, deadlines>
 
-Do not create authoritative artifacts until you complete the initialization handshake with Hermione Granger (Agent B). First decide whether the peer workflow is appropriate using the no-use criteria. If it is appropriate, send Hermione Granger an initialization packet, wait for the peer response, apply the peer-context triad including one 10-second recheck if `read_thread` reports active/in-progress after response arrival, and only then create or update governing artifacts. Every substantive turn must include critique plus concrete contribution.
+Do not create authoritative artifacts until you complete the initialization handshake with Hermione Granger (Agent B). First decide whether the peer workflow is appropriate using the no-use criteria. If it is appropriate and Hermione's thread must be created, create/request it with the same model and reasoning level as Harry Potter's current thread when the environment exposes those controls; if parity cannot be set or verified, record the limitation. Then send Hermione Granger an initialization packet, wait for the peer response, apply the peer-context triad including one 10-second recheck if `read_thread` reports active/in-progress after response arrival, and only then create or update governing artifacts. Every substantive turn must include critique plus concrete contribution.
 ```
 
-If the user asks for peer work with Hermione Granger and does not provide Hermione Granger's Agent B thread id, Harry Potter follows this decision tree: if the user explicitly requested a real two-thread peer run and the environment permits thread creation without extra confirmation, create or request Hermione Granger's peer thread and record the thread id; if the environment requires explicit user approval, ask one concise question: `Should I create Hermione Granger's peer thread now?`; if the user did not clearly request peer work, do not create a peer thread and either apply the no-use/collapse criteria or ask for approval.
+If the user asks for peer work with Hermione Granger and does not provide Hermione Granger's Agent B thread id, Harry Potter follows this decision tree: if the user explicitly requested a real two-thread peer run and the environment permits thread creation without extra confirmation, create or request Hermione Granger's peer thread with the same model and reasoning level as Harry Potter's current thread when available, then record the thread id and any parity limitation; if the environment requires explicit user approval, ask one concise question: `Should I create Hermione Granger's peer thread now?`; if the user did not clearly request peer work, do not create a peer thread and either apply the no-use/collapse criteria or ask for approval.
 
 Minimal kickoff form:
 
@@ -220,6 +222,7 @@ Apply the peer-context triad: read this message, inspect Harry Potter's latest v
 
 Task frame proposed by Harry Potter (Agent A):
 - Collaboration shape / inspection tactic: <Collaborative or Advisory; Joint-first or Independent-first, and why>
+- Peer thread parity: <Hermione thread uses same model and reasoning level as Harry, or limitation/unknown recorded>
 - User goal: <goal>
 - Expected output: <artifact or behavior>
 - Candidate artifacts and paths: <paths>
