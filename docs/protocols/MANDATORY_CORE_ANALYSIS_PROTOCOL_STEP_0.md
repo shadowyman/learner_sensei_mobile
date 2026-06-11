@@ -1,7 +1,7 @@
-<protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0) — COMPACT ANCHOR-AWARE SERENA-FOR-SYMBOLS">
+<protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0) — COMPACT TOKEN-EFFICIENT TOOLCHAIN">
 
 <usage>
-Mandatory before major workflows. Keep compact. Use progressive disclosure: targeted built-ins for strong anchors, Serena for symbol-shaped discovery and source inspection, analyzer for repo-specific risk evidence. Do not bulk-read analyzer artifacts.
+Mandatory before major workflows. Keep compact. Use the cheapest sufficient evidence path: built-ins for exact anchors, Serena for symbol precision, analyzer for repo-specific risk evidence, and targeted source only for final confirmation. Graphify is optional for exact-node graph-neighborhood snapshots, not default discovery or proof. Do not bulk-read source, Graphify artifacts, or analyzer artifacts.
 </usage>
 
 <objective>
@@ -15,8 +15,7 @@ Run for feature work, bug investigation, architecture change, refactor/cleanup, 
 <steps>
 
 <step number="1" name="Discover scope anchor-aware">
-Use targeted built-ins first when the task starts with a strong anchor such as an exact file, literal, route, config key, UI label, or log/error text. Use Serena for symbol-shaped discovery: project activation/onboarding, known-file symbol overview, exact symbol lookup, references, diagnostics, and targeted semantic source inspection. Do not assume the implementation boundary is known.
-For precedent or boundary discovery, use Serena references/overview plus targeted lookup. Use analyzer when impact radius, side effects, DOM/event behavior, dependency evidence, or validation targets are not obvious. If Serena is unavailable/stale/insufficient, use analyzer evidence when relevant, then targeted source inspection. Do not fall back to broad manual reading unless targeted methods fail.
+Use targeted built-ins for strong anchors such as exact files, literals, routes, config keys, UI labels, or log/error text. Use Serena for symbol-shaped discovery: known-file symbol overview, exact lookup, references, implementations, diagnostics, and targeted source inspection. Use analyzer when impact radius, side effects, DOM/event behavior, dependency evidence, focused trace, or validation targets are not obvious. Graphify may be used only for exact-node graph navigation when a fresh graph exists and the node name is already known; treat `graphify explain`, `path`, or `affected` as relationship hypotheses, not proof.
 Output: candidate scope, precedent or none found, chosen boundary, entry points, caller/callee map, impact radius, uncertainties.
 </step>
 
@@ -50,8 +49,8 @@ Output: risk register, unknowns register, coverage/validation checklist.
 
 <step number="6" name="Handoff">
 Summarize final scope, boundary, precedent, entry points, trace/caller-callee map, key risks, unknowns, verification plans, and next protocol. Create/update mission state only when downstream work needs durable recovery context. Keep it compact and reference artifact paths/queries instead of pasting large outputs.
-When durable recovery context is needed, create/update `docs/mission_state/mission_state_<descriptive_title>_[timestamp].md` using the same artifact shape regardless of tool path. Include: title/timestamp; triggering workflow; protocol inputs read; tool evidence used (Serena/analyzer/source, including commands or targeted queries when relevant); scope and entry points; static execution trace or caller/callee map; dependency and side-effect summary; risk register; unknowns register with verification plans; coverage/validation checklist; key architectural insights or boundary decisions; and next protocol.
-Required statement: “Core analysis complete. I have established the relevant context using targeted built-ins for strong anchors, Serena for symbol-shaped work, and analyzer evidence where required. I am ready to proceed with the `[Name of Triggering Protocol]`.”
+When durable recovery context is needed, create/update `docs/mission_state/mission_state_<descriptive_title>_[timestamp].md` using the same artifact shape regardless of tool path. Include: title/timestamp; triggering workflow; protocol inputs read; tool evidence used (built-ins/Serena/analyzer/source and optional Graphify exact-node queries when relevant); scope and entry points; static execution trace or caller/callee map; dependency and side-effect summary; risk register; unknowns register with verification plans; coverage/validation checklist; key architectural insights or boundary decisions; and next protocol.
+Required statement: “Core analysis complete. I have established the relevant context using the cheapest sufficient path across built-ins, Serena, analyzer evidence, optional exact-node Graphify where useful, and targeted source inspection. I am ready to proceed with the `[Name of Triggering Protocol]`.”
 </step>
 
 </steps>
@@ -61,6 +60,7 @@ Use progressive disclosure: smallest tool/query/source read that answers the cur
 Use targeted built-ins first for strong anchors: exact files, literals, routes, config keys, UI labels, and log/error text.
 Use Serena for symbol-shaped work: project activation/onboarding, known-file symbol overview, exact symbol lookup, references, diagnostics, semantic source inspection, whole-symbol edits, insertion around symbols, and rename/refactor.
 Use analyzer for repo-specific evidence such as side effects, assumptions, mutation risk, DOM/event behavior, fan-in/fan-out, focused traces, boundary APIs, and validation targets.
+Graphify is optional exact-node graph navigation only. Do not use it for natural-language discovery, source truth, literals, diagnostics, side-effect evidence, validation proof, or default blast-radius mapping. Verify Graphify-derived hypotheses with Serena, targeted source, analyzer evidence, tests, logs, or runtime output.
 If Serena output is broad, stale, ambiguous, or not symbol-shaped, switch to targeted built-ins, analyzer evidence, or direct source inspection instead of repeating broad Serena calls.
 Precedent discovery is required before choosing an implementation boundary for reusable or cross-cutting behavior.
 Prefer targeted queries over bulk artifact reads.

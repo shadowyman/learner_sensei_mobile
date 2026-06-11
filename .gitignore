@@ -24,6 +24,7 @@ logs/
 .eslintcache
 *.tsbuildinfo
 .codegraph/
+graphify-out/
 .codex/config.toml
 __pycache__/
 *.py[cod]

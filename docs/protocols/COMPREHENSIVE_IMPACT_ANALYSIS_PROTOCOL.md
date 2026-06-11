@@ -16,7 +16,7 @@ Output: change summary, chosen boundary, precedent or none found, in-scope modul
 </step>
 
 <step number="2" name="Map impacted surfaces and consumers">
-Identify the direct consumers and likely ripple paths that could observe the change. Focus on callers, callees, shared contracts, generated outputs, tests, bridge layers, API boundaries, storage, and user-visible flows. Prefer targeted analyzer queries over broad artifact reads.
+Identify direct consumers and likely ripple paths that could observe the change. Prefer Serena references and targeted built-ins for exact symbols/literals. Use analyzer for side-effect, dependency, fan-in/fan-out, DOM/event, boundary API, or validation-target proof. Graphify may be used only as an optional exact-node pre-scan when a fresh graph can answer `explain`, `path`, or `affected` more compactly; Graphify output alone is not impact evidence.
 Output: impacted surfaces list, caller/callee map, shared contracts, generated artifacts, likely hidden consumers, blast-radius notes.
 </step>
 
@@ -37,7 +37,7 @@ Mission-state fields:
 - Title and timestamp
 - Triggering workflow
 - Protocol inputs read
-- Tool evidence used
+- Tool evidence used, including built-ins, Serena, analyzer slices, targeted source reads, and optional exact-node Graphify queries when relevant
 - Change summary
 - Chosen boundary
 - Impacted surfaces and consumer map
@@ -54,7 +54,7 @@ Required statement: “Impact analysis complete. I have mapped the relevant blas
 </steps>
 
 <rules>
-Do not run this protocol for every edit by default. Do not use numeric scoring unless another workflow explicitly requires it. Do not expand scope because adjacent files exist. Do not leave high-impact unknowns without verification plans. If the change is already obviously isolated after Step 1, keep the analysis short and stop once the boundary and validation targets are clear. If Serena output is broad, stale, ambiguous, or not symbol-shaped, switch to targeted built-ins, analyzer evidence, or direct source inspection instead of repeating broad Serena calls.
+Do not run this protocol for every edit by default. Do not use numeric scoring unless another workflow explicitly requires it. Do not expand scope because adjacent files exist. Do not leave high-impact unknowns without verification plans. If the change is already obviously isolated after Step 1, keep the analysis short and stop once the boundary and validation targets are clear. If Serena output is broad, stale, ambiguous, or not symbol-shaped, switch to targeted built-ins, analyzer evidence, or direct source inspection instead of repeating broad Serena calls. Do not treat Graphify as impact proof; it may suggest candidate relationships for exact known nodes, but final blast-radius claims require Serena references, targeted source, analyzer slices, tests, logs, or runtime evidence.
 </rules>
 
 </protocol>

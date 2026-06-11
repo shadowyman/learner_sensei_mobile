@@ -17,6 +17,7 @@
     "review:result": "ts-node scripts/reviewEdit.ts result",
     "review:dispatch": "python3 scripts/sync_review.py",
     "review:hook:prepush": "ts-node scripts/prePushCleanup.ts",
+    "graphify:hook:prepush": "ts-node scripts/graphifyPrePush.ts",
     "hooks:install": "node scripts/installGitHooks.js",
     "postinstall": "npm run hooks:install",
     "manifest:sync": "node scripts/runTs.cjs scripts/manifestSync.ts",

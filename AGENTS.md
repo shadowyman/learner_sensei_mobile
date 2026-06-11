@@ -42,7 +42,7 @@ For any `git commit`, use a long explanatory message, not a terse one-liner: com
 
 ## Project path map
 
-Use this map for orientation only. Do not broad-read these paths; use Serena, analyzer evidence, or targeted file reads according to the Analysis mandate.
+Use this map for orientation only. Do not broad-read these paths; use built-ins, Serena, analyzer evidence, optional exact-node Graphify, or targeted file reads according to the Analysis mandate.
 
 | Path | Purpose |
 |---|---|
@@ -61,17 +61,25 @@ Use this map for orientation only. Do not broad-read these paths; use Serena, an
 | backup/ | Backup archives. |
 
 ## Analysis mandate and tooling
-Use progressive disclosure: choose the smallest tool, query, and source read that answers the current decision.
+Use progressive disclosure: choose the smallest tool, query, and source read that answers the current decision. Optimize for context-window tokens and time-to-correct-scope.
 
-Tool order depends on anchor strength:
+Tool roles:
+1. Built-ins: exact file paths, literals, routes, config keys, UI labels, log/error text, tiny patches, docs/config work, tests, diffs, validation commands, and final targeted source checks.
+2. Serena: LSP-backed symbol precision for symbol overview, exact symbol lookup, declarations, references, implementations, diagnostics, safe delete, rename/refactor, and symbol-level edits. Prefer `include_body=false` first; fetch bodies only when needed.
+3. Analyzer: scoped static evidence for side effects, assumptions, mutation risk, DOM/event behavior, focused traces, fan-in/fan-out, boundary APIs, hotspots, and validation targets. Use after scope is narrowed or when risk evidence is required.
 
-1. Built-ins for strong anchors: exact file paths, literals, routes, config keys, UI labels, log/error text, tiny patches, docs/config work, tests, shell commands, final diffs, and validation commands.
-2. Serena, when enabled, for symbol-shaped work: project activation/onboarding, known-file symbol overview, exact symbol lookup, references, diagnostics, semantic source inspection, whole-symbol edits, insertion around symbols, and rename/refactor.
-3. Analyzer for repo-specific evidence: side effects, assumptions, mutation risk, DOM and event analysis, focused traces, fan-in and fan-out, boundary APIs, and protocol-grade validation evidence.
+Decision rule:
+- Strong exact anchor -> built-ins or Serena.
+- Known or likely symbol -> Serena before grep or source reads.
+- Broad but code-grounded question -> targeted built-ins first, then Serena for candidate symbols; use analyzer only for risk/trace evidence.
+- Risk, blast-radius, DOM/event, mutation, or validation question -> scoped analyzer after candidate scope is narrowed.
+- Final edit or claim -> inspect only relevant source and validation output.
 
-Do not start with broad file reads, broad grep, broad Serena exploration, or large analyzer artifact reads when a targeted query can answer. If Serena output is broad, stale, ambiguous, or not symbol-shaped, switch to targeted built-ins, analyzer evidence, or direct source inspection instead of repeating broad Serena calls.
+Graphify is optional for exact-node graph navigation when `graphify-out/graph.json` is fresh. Use `graphify explain <exact symbol>` for a compact relationship snapshot, `graphify path <exact A> <exact B>` for known-node connectivity, and `graphify affected <exact symbol>` only as a hypothesis generator. Do not use Graphify for natural-language discovery, source truth, literals, diagnostics, side-effect evidence, or validation proof.
 
-Do not read `brief.md`, `brief.json`, `functions.json`, or `calls.json` end to end by default. Filter with `jq` or a small script and expose only the relevant subset.
+Do not start with broad file reads, broad grep, broad Serena exploration, raw full-repo Graphify, or large analyzer artifact reads when a targeted query can answer.
+
+Do not read `brief.md`, `brief.json`, `functions.json`, `calls.json`, `graphify-out/graph.json`, or `GRAPH_REPORT.md` end to end by default. Query narrow slices and report the query used.
 
 Analyzer command:
 

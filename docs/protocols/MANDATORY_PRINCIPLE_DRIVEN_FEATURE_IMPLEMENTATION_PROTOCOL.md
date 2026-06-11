@@ -14,7 +14,7 @@
             **Define Goals & Requirements**:
             *   **Action**: Clearly list the primary **Functional Requirements** (what the feature must do) and **Non-Functional Requirements (NFRs)** (e.g., performance, security).
             *   **Action**: Ground these requirements in the latest Core Analysis mission-state artifacts (scope list, static execution trace, DSE table) to ensure the planned work covers every mapped entry point and dependency.
-            *   **Action**: Pull data from analyzer artifacts (`summary.txt`, `functions.json`, `calls.json`) before falling back to manual exploration of the codebase.
+            *   **Action**: Use Core Analysis tool evidence as the starting scope. Request additional built-ins, Serena, analyzer, optional exact-node Graphify, or targeted source evidence only for unresolved scope, risk, or validation questions.
             *   **Action**: Immediately execute the **COMPREHENSIVE IMPACT ANALYSIS PROTOCOL** using this goal statement before proceeding to architectural choices.
         </step>
         <step number="2">
@@ -50,7 +50,7 @@
                 *   ☐ **Task 2**: Implement the UI rendering component.
                     *   *Validation Log*: `logger.debug('[XXX] Rendering component with props:', props)`
                     *   *Implementation Details*: Provide detailed implementation details.
-            *   **Action**: Use the analyzer-mapped functions/side effects as your starting coverage list while you reason through tasks; weave in risks, logs, and domain insight in the same pass so the plan already blends tool output with fresh judgment. Reflect the result in the mission-state document as you refine scope and risks.
+            *   **Action**: Use Core Analysis tool evidence as your starting coverage list while you reason through tasks; weave in risks, logs, and domain insight in the same pass so the plan already blends tool output with fresh judgment. Reflect the result in the mission-state document as you refine scope and risks.
         </step>
         <step number="5.5">
             **Functional Test Policy Alignment**:
@@ -68,7 +68,7 @@
         <step number="7">
             **Execute Plan & Implement Validation Logs**:
             *   **Action**: Begin implementation step-by-step.
-            *   **Action**: Utilize analyze tool for faster lookups and better understanding of dependencies in tandem with manual audit.
+            *   **Action**: Use the Analysis mandate during implementation: built-ins for exact evidence, Serena for symbol truth, analyzer for risk and trace evidence, optional exact-node Graphify for relationship hypotheses, and targeted source for final confirmation.
             *   **Action**: Do not add comments.
             *   **Action**: You MUST implement the code **AND** the exact corresponding Validation Logs as defined in the approved plan from Step 5.
             *   **Action**: Before writing tests or fixtures, reaffirm compliance with the `functional_test_policy` (data sourcing, mocks, determinism, coverage) and adjust the implementation if gaps appear.

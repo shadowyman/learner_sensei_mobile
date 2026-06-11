@@ -1,7 +1,7 @@
 <protocol name="MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL">
     This protocol only runs if changes aren't simple changes.
     <initial_action>
-        Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol and announce each step as you begin. Consult analyzer artifacts before attempting manual context gathering; only explore source files directly when tooling does not provide the needed detail.
+        Follow the Planning Discipline Directive: initialize `update_plan` with every step of this protocol and announce each step as you begin. Use the Analysis mandate: prefer compact built-ins, Serena, analyzer, optional exact-node Graphify, or targeted source evidence according to the question; do not bulk-read files or artifacts.
     </initial_action>
     <step number="0">
         **Step 0: Core Analysis**
@@ -13,7 +13,7 @@
         <step number="1">
             **Architectural Context Mapping**: Go beyond a "deep scan" of immediately affected files. Analyze the `PROJECT WORKFLOW` document and sample key files from each major phase to build a mental model of the project's architectural patterns. State your findings clearly (e.g., "The system follows a Component-Based architecture where state is managed centrally in `index.tsx`.").
             *   Reference the latest Core Analysis artifacts (`tmp/analysis/summary.txt`, `functions.json`, `calls.json`) to corroborate fan-in hotspots, call chains, and side-effect boundaries while describing the architecture.
-            *   Exhaust analyzer outputs (fan-in/out, calls) before opening code manually; only inspect raw files when analyzer insight is insufficient.
+            *   Use existing Core Analysis evidence first. Query additional Serena, analyzer, optional exact-node Graphify, or targeted source slices only when they answer a specific architectural question.
             *   Fold in the mission-state document created in Step 0 as the baseline snapshot of scope and risks, enhancing it with architectural findings while still corroborating every conclusion with analyzer data and fresh code review.
         </step>
         <step number="2">

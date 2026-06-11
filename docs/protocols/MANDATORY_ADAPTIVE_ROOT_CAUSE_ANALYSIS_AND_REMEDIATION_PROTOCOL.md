@@ -112,10 +112,10 @@
         </step>
         <step number="9">
             **Generate Phased To-Do List**: Once I approve a strategy, convert it into a detailed to-do list, including steps for adding temporary debug logs for validation. STOP HERE!
-            *   **Action**: Let the analyzer coverage list seed your to-do items, then integrate hypothesis work, logs, and exploratory reasoning as you shape each task so the plan is a single blended pass. Record the combined result in the mission-state document.
+            *   **Action**: Let Core Analysis tool evidence seed your to-do items, then integrate hypothesis work, logs, and exploratory reasoning as you shape each task so the plan is a single blended pass. Record the combined result in the mission-state document.
         </step>
         <step number="10">
-            **Action**: Utilize analyze tool for faster lookups and better understanding of dependencies in tandem with manual audit.
+            **Action**: Use the Analysis mandate during investigation: built-ins for exact evidence, Serena for symbol truth, analyzer for risk and trace evidence, optional exact-node Graphify for relationship hypotheses, and targeted source for final confirmation.
             **Execute Fix with Logging**: Do not add comments. Implement the fix according to the plan, adding descriptive debug logs `logger.[log|warn|error]` that will prove the fix works. Logs must start with "[XXX]..." and must have a tag defining the bug for `XXX`.
         </step>
         <step number="11">

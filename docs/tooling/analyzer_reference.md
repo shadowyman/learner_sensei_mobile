@@ -4,7 +4,7 @@ Read this only when analyzer evidence is needed.
 
 ## Role
 
-Analyzer is not first-pass discovery. Use it after CodeGraph narrows scope, or when CodeGraph is unavailable or insufficient.
+Analyzer is not first-pass discovery. Use it after built-ins or Serena have narrowed scope, or immediately when the question specifically needs side effects, assumptions, mutation risk, DOM/event evidence, focused traces, fan-in/fan-out, boundary APIs, hotspots, or validation-target evidence.
 
 Use analyzer for repo-specific evidence:
 
@@ -177,8 +177,9 @@ Avoid by default:
 
 Do not use analyzer as a substitute for:
 
-- CodeGraph first-pass discovery
+- targeted built-ins for exact anchors
 - Serena known-symbol inspection or editing
+- optional Graphify exact-node relationship snapshots
 - direct source confirmation of final relevant code
 - tests, build logs, runtime logs, simulator evidence, or other runtime proof
 
