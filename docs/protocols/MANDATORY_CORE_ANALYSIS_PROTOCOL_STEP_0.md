@@ -1,100 +1,68 @@
-<protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0)">
-    <usage>
-        **Usage:** YOU MUST USE ALL CAPABILITIES OF THE ANALYZE TOOL AND ITS ARTIFACTS TO FULL EXTENT IN THIS PROTOCOL
-    </usage>
-    <objective>
-        **Objective:** To establish a rigorous, code-grounded understanding of the relevant system components *before* any planning, design, or diagnosis begins. This protocol is the mandatory first step for all other major protocols. IT MUST USE ANALYZE TOOL ALL POSSIBLE WAYS AVAILABLE TO YOU AS MENTIONED IN AGENTS.MD
-    </objective>
-    <trigger>
-        **Action:** Upon triggering any major protocol, perform a comprehensive core analysis—executing the required scopes sequentially BY USING ANALYZE TOOL to deliver EXTENSIVE MISSION STATE REPORT.
-    </trigger>
-    <steps>
-        <step number="1">
-            **Run Analyzer Snapshot:**
-            *   Execute `npm run analysis:run` to refresh `tmp/analysis/*.json|.txt` artifacts. Re-run whenever the investigation scope changes.
-            *   If analyzing a specific scenario (e.g., "user sends a message"), produce a focused trace: `npm run analysis:run -- --entry <file::func> --maxDepth <N>` `--preset <slug>` (e.g., `--preset curriculum`, `--preset ui-rendering`).
-            *   For UI/DOM-focused missions, add `--dom-index` and plan to tap `domsuite_index.json`, `domsuite_templates.json`, and `domsuite_handlers.json` alongside your reasoning about selectors/events.
-            *   When resuming an ongoing mission, rerun the analyzer and compare the new `summary.txt`/fan-in/out metrics against the mission-state snapshot to spot drift; log any differences in the renewed mission-state notes before proceeding.
-        </step>
-        <step number="2">
-            **Review Brief:**
-            *   You MUST open and read `tmp/analysis/brief.md` end-to-end as the first-pass map of the snapshot (areas, hotspots, bridge files, and cross-area edges).
-            *   You MUST use `tmp/analysis/brief.json` for structured drilldowns (hotspot neighborhoods, boundary APIs, change-risk index, mutation maps, and assumption triage) via `jq` before manually scanning `calls.json`/`functions.json`.
-            *   Use the brief to select the starting area/files and to seed your "Hot Modules" list before drilling into `summary.txt`, `imports.json`, `calls.json`, and `functions.json`.
-            *   Record the chosen entry candidates and any immediate risks/hypotheses surfaced by the brief in the mission-state notes.
-        </step>
-        <step number="3">
-            **Identify Entry Point & Scope:**
-            *   Based on the user's request, identify the initial entry point of the feature or the location of the bug (from tool artifacts).
-            *   Use `tmp/analysis/summary.txt` (entry candidates, fan-in/out) and `imports.json` to jump-start the scope list.
-            *   Confirm the final scope list so it captures all files and functions that are likely to be involved in the execution flow.
-            *   Ensure you capture broader system context connecting to focus area.
-            *   Derive a "Hot Modules" list from Top fan-in/out to prioritize review and testing.
-        </step>
-        <step number="4">
-            **Static Execution Trace:**
-            *   Harvest call edges (`tmp/analysis/calls.json` or `focused_trace.txt`) and side-effect facts (`tmp/analysis/functions.json`) to populate the static execution trace for ALL entry points and risk register.
-            *   USER VARIOUS RG CALL COMBINATIONS TO DISCOVER DIFFERENT CASES
-            *   Document the reconciled sequence in the Static Execution Trace artifact so downstream validation knows exactly which functions must be covered.
-            *   If a focused trace was generated, attach `focused_trace.txt` and use it as the baseline for downstream validation and test coverage.
-        </step>
-        <step number="5">
-            **Dependency and Side-Effect Analysis:**
-            *   For each function in the trace, create a **Dependency and Side-Effect (DSE) Table**. This table MUST include:
-                *   **Function Name:** The name of the function.
-                *   **Dependencies:** Any other functions it calls/called from or major data structures it reads (e.g., `LearnerModel`, `curriculumState`). Use `fan_in.json`, `fan_out.json`, and `imports.json` to qualify impact.
-                *   **Side Effects:** Any "High-Cost" or "State-Changing" operations it performs (e.g., "Makes LLM call," "Modifies `curriculumState`," "Renders to DOM").
-                *   **Side-Effect Risk Ranking:** Tag each side effect with cost, blast radius, and concurrency risk; explicitly flag external I/O and state writes. Leverage the analyzer's `sideEffects` output in `functions.json` as the baseline and adjust after code review.
-            *   **Unknowns Register**: Capture every open unknown discovered so far with fields:
-                *   Statement and rationale
-                *   Impact risk (Low/Medium/High)
-                *   Verification plan (specific test/measure/log to confirm or refute)
-                *   Owner and target time
-            *   **Gate**: Do not proceed to Step 7 until all High‑impact items have an explicit verification plan.
-            *   Action Item: Build the dependency and side-effect table for all functions identified in the static execution trace.
-            *   Deliverables for downstream protocols:
-                - **Risk Register**: extract all High-cost/High-blast side effects with owning function and file.
-                - **Coverage Checklist**: the list of function IDs from the (focused) Static Execution Trace to be validated by logs/tests during Implementation Step 10.
-        </step>
-        <step number="6">
-            **Ground Analysis in Source Files:**
-            *   For every function listed in the Static Execution Trace, open the corresponding source file and read the implementation in context. Use tools such as `sed -n '<start>,<end>p' <file>` or `rg -n "<functionName>" <file>` (followed by `sed`) to inspect the exact code block.
-            *   While reviewing, confirm the call sequence, data mutations, guard conditions, and logging so your mental model matches the real code (not just analyzer output).
-            *   Capture any surprises or uncertainties discovered during this source scan in the Unknowns Register (Step 5). Update dependencies/side-effect notes if your direct inspection reveals additional behavior.
-            *   Do not advance to Step 7 until you have personally inspected every function in the trace.
-        </step>
-        <step number="7">
-            **Declare Initial Understanding:**
-            *   Conclude by stating: "Core analysis complete. I have mapped the execution trace and identified all dependencies and side effects. I am now ready to proceed with the `[Name of Triggering Protocol]`."
-        </step>
-        <step number="8">
-            **Context Checkpoint System**:
-            *   **Action**: Create a comprehensive mission state checkpoint by documenting:
-                *   Current analysis scope and entry points identified
-                *   Static execution trace mapping
-                *   Dependency and side-effect analysis findings
-                *   Risk Register (from DSE) and Coverage Checklist (from the trace)
-                *   Assumptions & unknowns register with impact ratings and verification plans
-                *   Key architectural insights discovered
-                *   Triggering protocol to be executed next
-                *   Traceability for functional-test missions: list the production modules each planned test imports so coverage can be verified against backend pathways
-            *   **Action**: Store this checkpoint in `./docs/mission_state/mission_state_<descriptive_title>_[timestamp].md` for future protocol recovery if needed.
-            *   **Action**: Ensure `<descriptive_title>` is a concise, human-readable slug (e.g., `socratic_reload_buttons_bug`) that communicates the mission focus without relying on the timestamp alone.
-            *   **Action**: Ensure this context is preserved for the triggering protocol execution.
-        </step>
-        <step number="9">
-            **Clarify Mission Objectives**
-            *   **Action**: Immediately after Step 8, engage the user with clarifying questions until the feature or bug request objectives, constraints, and acceptance signals are explicit.
-            *   **Action**: Base each question on the findings from the completed core analysis to keep the dialogue grounded in the system's current state.
-            *   **Action**: Record the clarified scope in the mission notes before proceeding to any subsequent protocol.
-        </step>
-        <step number="10">
-            **Decide What Protocol to Follow**
-            *   **Action**: Analyze the nature of the request and determine the appropriate protocol to follow:
-                * **COMPREHENSIVE IMPACT ANALYSIS PROTOCOL**
-                * **MANDATORY ARCHITECTURAL SYNTHESIS PROTOCOL**
-                * **MANDATORY PRINCIPLE-DRIVEN FEATURE IMPLEMENTATION PROTOCOL**
-                * **MANDATORY ADAPTIVE ROOT CAUSE ANALYSIS & REMEDIATION PROTOCOL**
-        </step>
-    </steps>
+<protocol name="MANDATORY CORE ANALYSIS PROTOCOL (STEP 0) — COMPACT CODEGRAPH-FIRST">
+
+<usage>
+Mandatory before major workflows. Keep compact. Use progressive disclosure: CodeGraph for discovery, analyzer for repo-specific risk evidence, Serena for known-symbol inspection/editing, built-ins for tiny patches/config/tests/shell/git. Do not bulk-read analyzer artifacts.
+</usage>
+
+<objective>
+Establish enough code-grounded understanding to safely continue into the next protocol without broad file discovery, unnecessary source reading, or large artifact consumption. Completion criteria: relevant files and entry points, precedent or none found, chosen boundary, caller/callee map or trace, impact radius, key risks, unknowns with verification plans, and next protocol.
+</objective>
+
+<trigger>
+Run for feature work, bug investigation, architecture change, refactor/cleanup, impact analysis, or code review requiring system understanding, unless code-review policy overrides protocol execution. Skip for small informational answers, tiny edits, and low-risk clarifications.
+</trigger>
+
+<steps>
+
+<step number="1" name="Discover scope with CodeGraph">
+Use CodeGraph to identify relevant files/symbols, entry points, callers/callees, precedent patterns, shared abstractions, and impact radius. Do not assume the implementation boundary is known. Use targeted text search only if CodeGraph is unavailable/stale/insufficient.
+If CodeGraph is unavailable/stale/insufficient, use analyzer evidence when relevant, then targeted source inspection. Do not fall back to broad manual reading unless targeted methods fail.
+Output: candidate scope, precedent or none found, chosen boundary, entry points, caller/callee map, impact radius, uncertainties.
+</step>
+
+<step number="2" name="Decide analyzer need">
+Run analyzer only if the mission needs side effects, assumptions, mutation risk, DOM/event evidence, focused trace, fan-in/out, boundary APIs, hotspots, or protocol-grade risk evidence.
+Prefer:
+`npm run analysis:run -- --include <scope>`
+Known entry:
+`npm run analysis:run -- --include <scope> --entry <file::functionPrefix> --maxDepth <N>`
+DOM/UI/event: add `--dom-index`.
+Broad/unclear/high-risk: start scoped if a safe scope exists; otherwise run `npm run analysis:run`.
+Read `docs/tooling/analyzer_reference.md` only when analyzer details are needed.
+Output: analyzer needed yes/no; command and rationale if run.
+</step>
+
+<step number="3" name="Query artifacts surgically">
+If analyzer ran, query only mission-relevant slices. Do not read `brief.md`, `brief.json`, `functions.json`, or `calls.json` end-to-end by default. Use `summary.json` for entry/fan-in/out, `brief.json` for risk/hotspot/boundary/assumption slices, `functions.json` for side effects/locations, `calls.json` or `focused_trace.txt` for trace, `domsuite_*` for DOM/event, and `function_crosswalk.json` for ID mapping. Filter large artifacts first and record the query.
+Output: analyzer-confirmed evidence and any tool mismatch.
+</step>
+
+<step number="4" name="Confirm source">
+Inspect only final relevant source. Prefer CodeGraph source for flow context. Prefer Serena, when enabled, for exact inspection of already-identified symbols: lookup, references, diagnostics, and symbol-level source inspection. Use direct file reads only for missing/stale/ambiguous tool output, high-risk code, tool disagreement, or surrounding context needed to verify guards, mutations, errors, side effects, async behavior, or validation points.
+Do not inspect adjacent or nearby files unless the trace, callers/callees, impact radius, analyzer evidence, or tool disagreement requires it.
+Output: source-confirmed understanding, surprises, limitations.
+</step>
+
+<step number="5" name="Record risks and unknowns">
+Create compact Risk Register and Unknowns Register only for mission-relevant items: high-risk functions/files, high-cost/high-blast side effects, unresolved assumptions, tool mismatches, missing runtime evidence, and required tests/logs/harnesses. High-impact unknowns require verification plans before proceeding.
+Output: risk register, unknowns register, coverage/validation checklist.
+</step>
+
+<step number="6" name="Handoff">
+Summarize final scope, boundary, precedent, entry points, trace/caller-callee map, key risks, unknowns, verification plans, and next protocol. Create/update mission state only when downstream work needs durable recovery context. Keep it compact and reference artifact paths/queries instead of pasting large outputs.
+When durable recovery context is needed, create/update `docs/mission_state/mission_state_<descriptive_title>_[timestamp].md` using the same artifact shape regardless of tool path. Include: title/timestamp; triggering workflow; protocol inputs read; tool evidence used (CodeGraph/analyzer/Serena/source, including commands or targeted queries when relevant); scope and entry points; static execution trace or caller/callee map; dependency and side-effect summary; risk register; unknowns register with verification plans; coverage/validation checklist; key architectural insights or boundary decisions; and next protocol.
+Required statement: “Core analysis complete. I have established the relevant context using CodeGraph where sufficient and analyzer evidence where required. I am ready to proceed with the `[Name of Triggering Protocol]`.”
+</step>
+
+</steps>
+
+<rules>
+Use progressive disclosure: smallest tool/query/source read that answers the current decision.
+CodeGraph discovers; analyzer verifies repo-specific risk.
+Serena is for already-identified symbols, not broad discovery.
+Precedent discovery is required before choosing an implementation boundary for reusable or cross-cutting behavior.
+Prefer targeted queries over bulk artifact reads.
+If tools disagree, inspect source and record the limitation. Do not expand scope because nearby files exist. Do not proceed with High-impact unknowns lacking verification plans.
+</rules>
+
 </protocol>
