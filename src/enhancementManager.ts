@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { logger } from "./logger";
 import { EnhancementPayload, EnhancementEntry, requestSenseiEnhancement } from "./geminiService";
+import { requestSenseiEnhancementViaRoute } from "./enhancementRouting";
+import { requestSenseiEnhancementViaBridge } from "./mobile/webviewMessageRouter";
 
 type EnhancementStatus = "idle" | "loading" | "applied";
 
@@ -259,7 +261,6 @@ export async function toggleEnhancement(messageId: string): Promise<void> {
         logger.error('[ENHANCE] Original markdown unavailable', { messageId });
         return;
     }
-    const ai = getAI();
     setLoadingState(messageId, true);
     const state = currentState || { status: 'idle', originalMarkdown };
     state.status = 'loading';
@@ -273,10 +274,29 @@ export async function toggleEnhancement(messageId: string): Promise<void> {
         logger.info('[ENHANCE] Enhancement skipped (mermaid-only content)', { messageId });
         return;
     }
-    const payload = await requestSenseiEnhancement(ai, {
+    const request = {
         originalMarkdown: sanitizedSource,
         wordCount: countWords(sanitizedSource)
-    });
+    };
+    let payload: EnhancementPayload | null = null;
+    try {
+        const routeResult = await requestSenseiEnhancementViaRoute({
+            isMobileWebView: Boolean((window as any)?.__SENSEI_MOBILE_BUILD__),
+            payload: request,
+            requestViaBridge: requestSenseiEnhancementViaBridge,
+            generateLocal: async () => {
+                const ai = getAI();
+                return requestSenseiEnhancement(ai, request);
+            }
+        });
+        payload = routeResult.result;
+    } catch (error) {
+        state.status = 'idle';
+        setLoadingState(messageId, false);
+        setActiveState(messageId, false);
+        logger.error('[ENHANCE] Enhancement request failed', { messageId, error });
+        return;
+    }
     if (!payload) {
         state.status = 'idle';
         setLoadingState(messageId, false);

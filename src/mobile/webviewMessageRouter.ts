@@ -1,6 +1,14 @@
-import type { FooterPayload, RNToWebMessage, SelectionSenseiModalMessagePayload, SelectionSenseiModalMessageResult } from './bridge/contracts';
+import type {
+  FooterPayload,
+  RNToWebMessage,
+  SelectionSenseiModalMessagePayload,
+  SelectionSenseiModalMessageResult,
+  SenseiEnhancementRequestPayload,
+  SenseiEnhancementResult
+} from './bridge/contracts';
 import {
   COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS,
+  ENHANCEMENT_BRIDGE_TIMEOUT_MS,
   MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS,
   SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS,
   TEACHING_PLAN_BRIDGE_TIMEOUT_MS
@@ -107,6 +115,14 @@ type SelectionSenseiModalResolver = {
 
 const selectionSenseiModalResolvers = new Map<string, SelectionSenseiModalResolver>();
 
+type SenseiEnhancementResolver = {
+  resolve: (v: SenseiEnhancementResult) => void;
+  reject: (err: any) => void;
+  timer: number;
+};
+
+const senseiEnhancementResolvers = new Map<string, SenseiEnhancementResolver>();
+
 export function requestSelectionSenseiModalMessageViaBridge(payload: SelectionSenseiModalMessagePayload): Promise<SelectionSenseiModalMessageResult> {
   const requestId = createRequestId('selection-sensei-modal');
   return new Promise((resolve, reject) => {
@@ -138,6 +154,46 @@ export function handleSelectionSenseiModalMessageResult(message: RNToWebMessage)
   selectionSenseiModalResolvers.delete(message.requestId);
   if (!message.success) {
     resolver.reject(new Error(message.error || 'Selection Sensei bridge request failed'));
+    return true;
+  }
+  resolver.resolve(message.result);
+  return true;
+}
+
+export function requestSenseiEnhancementViaBridge(payload: SenseiEnhancementRequestPayload): Promise<SenseiEnhancementResult> {
+  const requestId = createRequestId('sensei-enhancement');
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      senseiEnhancementResolvers.delete(requestId);
+      reject(new Error('Sensei enhancement bridge timeout'));
+    }, ENHANCEMENT_BRIDGE_TIMEOUT_MS);
+    senseiEnhancementResolvers.set(requestId, { resolve, reject, timer });
+    const sent = sendToNative({
+      type: 'enhancement:request',
+      requestId,
+      payload
+    });
+    if (!sent) {
+      clearTimeout(timer);
+      senseiEnhancementResolvers.delete(requestId);
+      reject(new Error('Sensei enhancement native bridge unavailable'));
+    }
+  });
+}
+
+export function handleSenseiEnhancementResult(message: RNToWebMessage): boolean {
+  if (message.type !== 'enhancement:result') return false;
+  const resolver = senseiEnhancementResolvers.get(message.requestId);
+  if (!resolver) {
+    return true;
+  }
+  clearTimeout(resolver.timer);
+  senseiEnhancementResolvers.delete(message.requestId);
+  if (!message.success) {
+    const safeMessage = message.error === 'Sensei enhancement unavailable'
+      ? message.error
+      : 'Sensei enhancement request failed';
+    resolver.reject(new Error(safeMessage));
     return true;
   }
   resolver.resolve(message.result);
@@ -333,6 +389,7 @@ export function createWebviewMessageHandler(deps: {
     if (handleLearnerAnalysisResult(message)) return;
     if (handleLlmStreamEvent(message)) return;
     if (handleSelectionSenseiModalMessageResult(message)) return;
+    if (handleSenseiEnhancementResult(message)) return;
     switch (message.type) {
       case 'ui:inputOffset': {
         applyInputOffset(message.height);

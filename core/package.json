@@ -17,6 +17,7 @@
     "./moduleIntroduction": "./dist/moduleIntroduction.js",
     "./mainSenseiResponse": "./dist/mainSenseiResponse.js",
     "./selectionSensei": "./dist/selectionSensei.js",
+    "./enhancement": "./dist/enhancement.js",
     "./prompts": "./dist/prompts/index.js",
     "./prompts/wrapUpAssessment": "./dist/prompts/wrapUpAssessment.js",
     "./prompts/teachingPlan": "./dist/prompts/teachingPlan.js",
@@ -25,6 +26,7 @@
     "./prompts/moduleIntroduction": "./dist/prompts/moduleIntroduction.js",
     "./prompts/mainSenseiResponse": "./dist/prompts/mainSenseiResponse.js",
     "./prompts/selectionSensei": "./dist/prompts/selectionSensei.js",
+    "./prompts/enhancement": "./dist/prompts/enhancement.js",
     "./prompts/baseSensei": "./dist/prompts/baseSensei.js"
   },
   "files": [

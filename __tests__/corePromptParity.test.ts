@@ -37,7 +37,8 @@ import {
   sanitizeConversationHistory
 } from '@sensei/core/promptEnvelope';
 import {
-  SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS as WEBVIEW_BASE_SENSEI_PROMPT
+  SENSEI_SYSTEM_INSTRUCTION_BASE_PERSONA_AND_COMMITMENTS as WEBVIEW_BASE_SENSEI_PROMPT,
+  buildSenseiEnhancementPrompt as buildWebViewSenseiEnhancementPrompt
 } from '../prompts';
 
 function sha256(value: string): string {
@@ -139,6 +140,23 @@ describe('Core prompt parity fixtures', () => {
       request.userInputText
     ))).toBe('f01a504ec3537c4b0b4122cfccd95b9f72c6fe1800c73a37bda11c8a4238def2');
     expect(sha256(buildModuleIntroductionPrompt(request))).toBe('c59166b2f56d1c4aac30c072ac5a4e5779f7824b9995783cff91acc4ee30684c');
+  });
+
+  test('enhancement prompt moves to Core without changing runtime output', () => {
+    const originalMarkdown = [
+      '# Recursion',
+      '',
+      'A base case stops the recursive chain.',
+      '',
+      'It gives the recursive calls somewhere concrete to stop.'
+    ].join('\n');
+    const oldPrompt = buildWebViewSenseiEnhancementPrompt(originalMarkdown);
+
+    expect(oldPrompt.length).toBe(2316);
+    expect(sha256(oldPrompt)).toBe('4cc63e3b241f0397f8d5e078bd973671150f6facd672d4f8882ac19b77c008e9');
+
+    const coreEnhancementPrompts = require('@sensei/core/prompts/enhancement');
+    expect(coreEnhancementPrompts.buildSenseiEnhancementPrompt(originalMarkdown)).toBe(oldPrompt);
   });
 
   test('main Sensei response prompt builders assemble Core-owned curriculum focus output', () => {

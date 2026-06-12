@@ -25,6 +25,7 @@ logs/
 *.tsbuildinfo
 .codegraph/
 graphify-out/
+.serena/
 .codex/config.toml
 __pycache__/
 *.py[cod]

@@ -6,3 +6,4 @@ export * from './moduleIntroduction';
 export * from './mainSenseiResponse';
 export * from './baseSensei';
 export * from './selectionSensei';
+export * from './enhancement';

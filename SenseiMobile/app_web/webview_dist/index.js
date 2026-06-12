@@ -1671,7 +1671,7 @@ var require_modelUsage = __commonJS({
   "core/dist/modelUsage.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS = exports.MAIN_TEXT_CONFIG = exports.SELECTION_SENSEI_MODAL_CONFIG = exports.COMPREHENSIVE_ANALYSIS_TIMEOUT_MS = exports.COMPREHENSIVE_ANALYSIS_CONFIG = exports.TEACHING_PLAN_TIMEOUT_MS = exports.TEACHING_PLAN_GENERATION_CONFIG = exports.WRAP_UP_ASSESSMENT_TIMEOUT_MS = exports.WRAP_UP_ASSESSMENT_GENERATION_CONFIG = exports.MERMAID_RECOVERY_TIMEOUT_MS = exports.MERMAID_ERROR_RECOVERY_CONFIG = exports.MAIN_RESPONSE_TIMEOUT_MS = void 0;
+    exports.MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS = exports.MAIN_TEXT_CONFIG = exports.SENSEI_ENHANCEMENT_CONFIG = exports.SELECTION_SENSEI_MODAL_CONFIG = exports.COMPREHENSIVE_ANALYSIS_TIMEOUT_MS = exports.COMPREHENSIVE_ANALYSIS_CONFIG = exports.TEACHING_PLAN_TIMEOUT_MS = exports.TEACHING_PLAN_GENERATION_CONFIG = exports.WRAP_UP_ASSESSMENT_TIMEOUT_MS = exports.WRAP_UP_ASSESSMENT_GENERATION_CONFIG = exports.MERMAID_RECOVERY_TIMEOUT_MS = exports.MERMAID_ERROR_RECOVERY_CONFIG = exports.MAIN_RESPONSE_TIMEOUT_MS = void 0;
     var GEMINI_FLASH2 = "gemini-flash-latest";
     var GEMINI_FLASH_PREVIEW = "gemini-3-flash-preview";
     exports.MAIN_RESPONSE_TIMEOUT_MS = 18e4;
@@ -1711,6 +1711,13 @@ var require_modelUsage = __commonJS({
       config: {
         responseMimeType: "application/json",
         temperature: 0.5
+      }
+    };
+    exports.SENSEI_ENHANCEMENT_CONFIG = {
+      modelName: GEMINI_FLASH2,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.3
       }
     };
     exports.MAIN_TEXT_CONFIG = {
@@ -1803,7 +1810,7 @@ var require_wrapUpAssessment2 = __commonJS({
     exports.WRAP_UP_ASSESSMENT_TOOLS = exports.buildWrapUpAssessmentPrompt = void 0;
     exports.validateWrapUpAssessmentQuestions = validateWrapUpAssessmentQuestions2;
     exports.normalizeWrapUpAssessmentQuestions = normalizeWrapUpAssessmentQuestions;
-    exports.stripJsonFence = stripJsonFence2;
+    exports.stripJsonFence = stripJsonFence;
     exports.extractQuestionsFromToolCode = extractQuestionsFromToolCode;
     exports.reorderWrapUpAssessmentQuestions = reorderWrapUpAssessmentQuestions;
     exports.enforceWrapUpAssessmentQuestionCounts = enforceWrapUpAssessmentQuestionCounts;
@@ -1954,7 +1961,7 @@ var require_wrapUpAssessment2 = __commonJS({
         return question;
       });
     }
-    function stripJsonFence2(text2) {
+    function stripJsonFence(text2) {
       const trimmed = text2.trim();
       if (!trimmed.startsWith("```")) {
         return trimmed;
@@ -2022,7 +2029,7 @@ var require_wrapUpAssessment2 = __commonJS({
       return [...concepts.slice(0, 10), ...snippets.slice(0, 5)];
     }
     function parseQuestionsFromText(text2) {
-      const cleaned = stripJsonFence2(text2);
+      const cleaned = stripJsonFence(text2);
       if (!cleaned) {
         return null;
       }
@@ -2103,7 +2110,7 @@ var require_wrapUpAssessment2 = __commonJS({
 });
 
 // src/model_usage.ts
-var import_modelUsage, import_modelUsage2, import_modelUsage3, import_wrapUpAssessment, import_modelUsage4, GEMINI_PRO, GEMINI_FLASH, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED, MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS, MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED, MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, DEBUG_MODE_CONFIG, PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG, SELECTION_SENSEI_CONFIG, ENHANCEMENT_REQUEST_CONFIG, ARCHETYPE_COMPARISON_TEST_CONFIG;
+var import_modelUsage, import_modelUsage2, import_modelUsage3, import_wrapUpAssessment, import_modelUsage4, GEMINI_PRO, GEMINI_FLASH, TEACHING_PLAN_ITEM_BASED_PROMPT_ENABLED, MAIN_SENSEI_RESPONSE_CHAT_MODEL_CONFIG, KEY_TAKEAWAY_ENHANCER_MODEL_CONFIG, MAIN_SENSEI_RESPONSE_PROMPT_OPTIONS, MAIN_SENSEI_EXECUTION_DIRECTIVE_ENABLED, MAIN_SENSEI_PEDAGOGICAL_GUIDANCE_ENABLED, ENABLE_KEY_TAKEAWAY_ENHANCER, KEY_TAKEAWAY_PLACEHOLDER, KEY_TAKEAWAY_POST_STREAM_GRACE_MS, DEBUG_MODE_CONFIG, PEDAGOGICAL_DIRECTIVE_GENERATION_CONFIG, SELECTION_SENSEI_CONFIG, ARCHETYPE_COMPARISON_TEST_CONFIG;
 var init_model_usage = __esm({
   "src/model_usage.ts"() {
     "use strict";
@@ -2150,13 +2157,6 @@ var init_model_usage = __esm({
       config: {
         temperature: 0.5,
         responseMimeType: "application/json"
-      }
-    };
-    ENHANCEMENT_REQUEST_CONFIG = {
-      modelName: GEMINI_FLASH,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.3
       }
     };
     ARCHETYPE_COMPARISON_TEST_CONFIG = {
@@ -2633,7 +2633,7 @@ var require_teachingPlan2 = __commonJS({
       return teachingPlan_2.GET_TEACHING_PLAN_GENERATION_PROMPT_FUNCTION;
     } });
     var PHASE_KC_TOTAL2 = 0.65;
-    function stripJsonFence2(text2) {
+    function stripJsonFence(text2) {
       let cleaned = text2.trim();
       const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
       const match = cleaned.match(fenceRegex);
@@ -2747,7 +2747,7 @@ var require_teachingPlan2 = __commonJS({
       }
       try {
         const text2 = await llm.callText(prompt, { task: "teaching_plan" });
-        const cleaned = stripJsonFence2(text2);
+        const cleaned = stripJsonFence(text2);
         const parsed = safeJsonParse(cleaned);
         if (!parsed) {
           return null;
@@ -3544,13 +3544,13 @@ If explicitly asked to generate C++ code, follow these rules:
 1. Your primary goal is logical correctness. Do not oversimplify an explanation if doing so introduces any ambiguity or logical flaw. It is better to be slightly more verbose and complex than to be simple and wrong.
 2. Ensure it is C++.
 3. Your C++ code must be correct, runnable, and free of syntax errors. It must reflect industry best practices, interview completeness, and efficiency.
-4. Double check your code for correctness and completeness before including it. Test your code with edge cases in mind.
+4. Double check your code for correctness and completeness before including it. Test your code with edge cases in mind. 
 
 
 ### ASCII ART VISUALIZATION CONSTRAINTS:
 1.  CRITICAL VISUALIZATION CHECK: YOU MUST USE simple, pure text-based ASCII art (e.g., using slashes and dashes) in a markdown codeblock ONLY for explanations that involve tree and graph structures (for example display a sample tree or graph where code can be referred along with). 2.  Avoid structured visualization languages (like Mermaid). The visualization must be easily interpretable in plain text format.
 3.  Do NOT include any other text within the visualization block. All accompanying text for the visualization must be outside the visualization markdown code block.
-4.  Constraint: When generating ASCII art for tree or graph structures, only display the static structure of the input data; do not include recursion flow, call stack tracing, or computational paths.
+4.  Constraint: When generating ASCII art for tree or graph structures, only display the static structure of the input data; do not include recursion flow, call stack tracing, or computational paths. 
 5.  Ensure the slash and dashes appear correctly aligned in the code block. For example, calculate the center of the nodes to horizontally and vertically align the slashes and dashes.
 `;
     function SENSEI_SELECTED_TEXT_USER_PROMPT_TEMPLATE_FUNCTION2(originalSenseiMessageText, selectedText, instructionText, actionLabel) {
@@ -3695,31 +3695,40 @@ Return ONLY the JSON object.
   }
 });
 
-// src/prompts.ts
-function buildSenseiEnhancementPrompt(originalMarkdown) {
-  return [
-    "You expand Recursive Sensei teaching messages by adding clarifying details. MINIMUM 20 KEY,VALUE ENHANCEMENTS REQUIRED.",
-    'Output strict JSON shaped exactly as {"enhancements":[{"key":"","value":"","insertType":"append|paragraph","ordering":number?}],"metadata":{}}.',
-    "Rules:",
-    `1. Refrain from enhancing welcome messages or "let's check your understanding" section. Focus on substantive teaching content.`,
-    "2. key: must match a sentence from the original message exactly (ignoring surrounding whitespace).",
-    "3. value: provides additional explanation or augmentation or examples or definitions of unexplained terms or interview specific tips or counterexamples or and more.",
-    "4. Ensure when your value inserted, it does not break the link between <key> sentence and the sentence that comes after your insertion. Add a bridging sentence at the end of your value if needed to link to the sentence that comes after your <value>.",
-    '5. insertType "append" adds sentences immediately after the key sentence; "paragraph" inserts a new paragraph after the paragraph containing key.',
-    "6. Do not delete or rewrite existing text; only add material that deepens understanding.",
-    '7. If no useful enhancements exist, return {"enhancements":[],"metadata":{}}.',
-    "8. Ignore Non-Narrative Blocks: Do not read, quote, or derive from code fences or mermaid diagrams; treat them as untouchable.",
-    "9. Local Coherence: Match the local voice, tense, and persona; reuse the same terminology and symbols as the surrounding sentence.",
-    "10. Avoid Redundancy: If the clarification is already implied or stated nearby, skip adding it.",
-    "11. Bridge Smoothly: For paragraph inserts, begin with a connective that clearly links back to the preceding paragraph\u2019s idea; for appends, flow naturally from the key sentence.",
-    "12. Deepen via Related New Paragraphs: When a closely related concept would meaningfully deepen or ease understanding (e.g., a common pitfall, contrast, or micro\u2011pattern not yet mentioned), introduce it as a new paragraph after the paragraph containing the most relevant anchor sentence. It must stay strictly on\u2011topic, explicitly bridge to the prior idea, and must not shift scope, contradict, or restate existing content.",
-    `Original message:
+// core/dist/prompts/enhancement.js
+var require_enhancement = __commonJS({
+  "core/dist/prompts/enhancement.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.buildSenseiEnhancementPrompt = buildSenseiEnhancementPrompt3;
+    function buildSenseiEnhancementPrompt3(originalMarkdown) {
+      return [
+        "You expand Recursive Sensei teaching messages by adding clarifying details. MINIMUM 20 KEY,VALUE ENHANCEMENTS REQUIRED.",
+        'Output strict JSON shaped exactly as {"enhancements":[{"key":"","value":"","insertType":"append|paragraph","ordering":number?}],"metadata":{}}.',
+        "Rules:",
+        `1. Refrain from enhancing welcome messages or "let's check your understanding" section. Focus on substantive teaching content.`,
+        "2. key: must match a sentence from the original message exactly (ignoring surrounding whitespace).",
+        "3. value: provides additional explanation or augmentation or examples or definitions of unexplained terms or interview specific tips or counterexamples or and more.",
+        "4. Ensure when your value inserted, it does not break the link between <key> sentence and the sentence that comes after your insertion. Add a bridging sentence at the end of your value if needed to link to the sentence that comes after your <value>.",
+        '5. insertType "append" adds sentences immediately after the key sentence; "paragraph" inserts a new paragraph after the paragraph containing key.',
+        "6. Do not delete or rewrite existing text; only add material that deepens understanding.",
+        '7. If no useful enhancements exist, return {"enhancements":[],"metadata":{}}.',
+        "8. Ignore Non-Narrative Blocks: Do not read, quote, or derive from code fences or mermaid diagrams; treat them as untouchable.",
+        "9. Local Coherence: Match the local voice, tense, and persona; reuse the same terminology and symbols as the surrounding sentence.",
+        "10. Avoid Redundancy: If the clarification is already implied or stated nearby, skip adding it.",
+        "11. Bridge Smoothly: For paragraph inserts, begin with a connective that clearly links back to the preceding paragraph\u2019s idea; for appends, flow naturally from the key sentence.",
+        "12. Deepen via Related New Paragraphs: When a closely related concept would meaningfully deepen or ease understanding (e.g., a common pitfall, contrast, or micro\u2011pattern not yet mentioned), introduce it as a new paragraph after the paragraph containing the most relevant anchor sentence. It must stay strictly on\u2011topic, explicitly bridge to the prior idea, and must not shift scope, contradict, or restate existing content.",
+        `Original message:
 """
 ${originalMarkdown}
 """`
-  ].join("\n");
-}
-var import_teachingPlan, import_moduleIntroduction, import_mainSenseiResponse, import_baseSensei, import_selectionSensei, KEY_TAKEAWAY_PROMPT_PREFIX;
+      ].join("\n");
+    }
+  }
+});
+
+// src/prompts.ts
+var import_teachingPlan, import_moduleIntroduction, import_mainSenseiResponse, import_baseSensei, import_selectionSensei, import_enhancement, KEY_TAKEAWAY_PROMPT_PREFIX;
 var init_prompts = __esm({
   "src/prompts.ts"() {
     "use strict";
@@ -3730,6 +3739,7 @@ var init_prompts = __esm({
     import_mainSenseiResponse = __toESM(require_mainSenseiResponse());
     import_baseSensei = __toESM(require_baseSensei());
     import_selectionSensei = __toESM(require_selectionSensei());
+    import_enhancement = __toESM(require_enhancement());
     KEY_TAKEAWAY_PROMPT_PREFIX = `Context: You are writing the "Key Takeaways" section of a larger teaching response. The earlier sections are already complete per the MANDATORY_TEACHING_STRUCTURE and must not be repeated. Specifically, the main teaching LLM has already delivered:
 - Conceptual Narrative (intuition-building): Restated the core concept; covered The Pain & Stakes; built a Bridge to Prior Mastery; presented a Thought Experiment; gave a Readiness Signal; previewed the drilldown; and optionally included Visuals (Mermaid) to anchor intuition.
 - Expansive Technical Drilldown (execution-focused): Provided formal Definitions; inserted the literal placeholder for Key Takeaways; listed Applications / Use Cases; and analyzed Strengths, Trade-offs, & Pitfalls in detail.
@@ -5574,6 +5584,8 @@ var require_browserLlmClient = __commonJS({
           return modelUsage_1.TEACHING_PLAN_GENERATION_CONFIG;
         case "selection_sensei_modal":
           return modelUsage_1.SELECTION_SENSEI_MODAL_CONFIG;
+        case "sensei_enhancement":
+          return modelUsage_1.SENSEI_ENHANCEMENT_CONFIG;
         default:
           return modelUsage_1.MAIN_TEXT_CONFIG;
       }
@@ -5625,7 +5637,7 @@ var require_llmCapPolicy = __commonJS({
   "core/dist/llmCapPolicy.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.SELECTION_SENSEI_MODAL_TRANSCRIPT_LIMITS = exports.MAIN_SENSEI_HISTORY_LIMITS = exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES = exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS = exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = void 0;
+    exports.SELECTION_SENSEI_MODAL_TRANSCRIPT_LIMITS = exports.MAIN_SENSEI_HISTORY_LIMITS = exports.SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS = exports.SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES = exports.SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS = exports.SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS = exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES = exports.SELECTION_SENSEI_RESPONSE_ENTRY_MAX_CHARS = exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = void 0;
     exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS = 8e3;
     exports.SELECTION_SENSEI_USER_MESSAGE_MAX_CHARS = 8e3;
     exports.MAIN_SENSEI_HISTORY_ENTRY_MAX_CHARS = 2e5;
@@ -5634,6 +5646,13 @@ var require_llmCapPolicy = __commonJS({
     exports.SELECTION_SENSEI_TRANSCRIPT_MAX_ENTRIES = 20;
     exports.MAIN_SENSEI_STRUCTURED_PROMPT_MAX_CHARS = 95e4;
     exports.SELECTION_SENSEI_STRUCTURED_MODAL_MAX_CHARS = 8e5;
+    exports.SENSEI_ENHANCEMENT_ORIGINAL_MARKDOWN_MAX_CHARS = 25e4;
+    exports.SENSEI_ENHANCEMENT_STRUCTURED_INPUT_MAX_CHARS = 26e4;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES = 20;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS = 1e3;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS = 2e4;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS = 1e4;
+    exports.SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS = 2e5;
     exports.MAIN_SENSEI_HISTORY_LIMITS = {
       maxEntries: exports.MAIN_SENSEI_HISTORY_MAX_ENTRIES,
       userEntryChars: exports.MAIN_SENSEI_USER_MESSAGE_MAX_CHARS,
@@ -7323,7 +7342,7 @@ var require_selectionSensei2 = __commonJS({
       }
       return invalidSelectionSenseiRequest("Unsupported Selection Sensei modal request mode.");
     }
-    function stripJsonFence2(payload) {
+    function stripJsonFence(payload) {
       const trimmed = payload.trim();
       const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
       const match = trimmed.match(fenceRegex);
@@ -7333,7 +7352,7 @@ var require_selectionSensei2 = __commonJS({
       return trimmed;
     }
     function normalizeJsonPayload(payload) {
-      return stripJsonFence2(payload).replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'").trim();
+      return stripJsonFence(payload).replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'").trim();
     }
     function repairLooseJson(payload) {
       let repaired = payload;
@@ -7524,6 +7543,92 @@ var require_selectionSensei2 = __commonJS({
   }
 });
 
+// core/dist/enhancement.js
+var require_enhancement2 = __commonJS({
+  "core/dist/enhancement.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.parseSenseiEnhancementResponse = parseSenseiEnhancementResponse2;
+    var llmCapPolicy_1 = require_llmCapPolicy();
+    function stripJsonFence(text2) {
+      const trimmed = text2.trim();
+      if (!trimmed.startsWith("```")) {
+        return trimmed;
+      }
+      const fenceMatch = trimmed.match(/^```(?:\w+)?\s*\n?([\s\S]*?)\n?```$/);
+      if (fenceMatch && fenceMatch[1]) {
+        return fenceMatch[1].trim();
+      }
+      return trimmed;
+    }
+    function isPlainMetadata(value) {
+      return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    }
+    function isMetadataWithinCap(value) {
+      try {
+        return JSON.stringify(value).length <= llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_METADATA_MAX_CHARS;
+      } catch {
+        return false;
+      }
+    }
+    function normalizeEnhancementEntries(raw) {
+      const candidate = raw && typeof raw === "object" ? raw : {};
+      const enhancements = Array.isArray(candidate.enhancements) ? candidate.enhancements : [];
+      const normalized = [];
+      let aggregateChars = 0;
+      for (const entry of enhancements) {
+        if (normalized.length >= llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_MAX_ENTRIES) {
+          break;
+        }
+        if (!entry || typeof entry !== "object") {
+          continue;
+        }
+        const entryRecord = entry;
+        const key = typeof entryRecord.key === "string" ? entryRecord.key.trim() : "";
+        const value = typeof entryRecord.value === "string" ? entryRecord.value.trim() : "";
+        const insertType = entryRecord.insertType === "append" || entryRecord.insertType === "paragraph" ? entryRecord.insertType : null;
+        const ordering = typeof entryRecord.ordering === "number" && Number.isFinite(entryRecord.ordering) ? entryRecord.ordering : void 0;
+        if (!key || !value || !insertType) {
+          continue;
+        }
+        if (key.length > llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_KEY_MAX_CHARS || value.length > llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_VALUE_MAX_CHARS) {
+          continue;
+        }
+        const nextAggregateChars = aggregateChars + key.length + value.length;
+        if (nextAggregateChars > llmCapPolicy_1.SENSEI_ENHANCEMENT_OUTPUT_AGGREGATE_MAX_CHARS) {
+          continue;
+        }
+        aggregateChars = nextAggregateChars;
+        if (ordering !== void 0) {
+          normalized.push({ key, value, insertType, ordering });
+        } else {
+          normalized.push({ key, value, insertType });
+        }
+      }
+      const payload = {
+        enhancements: normalized
+      };
+      if (isPlainMetadata(candidate.metadata) && isMetadataWithinCap(candidate.metadata)) {
+        payload.metadata = candidate.metadata;
+      }
+      return payload;
+    }
+    function parseSenseiEnhancementResponse2(text2) {
+      const cleaned = stripJsonFence(text2);
+      let parsed;
+      try {
+        parsed = cleaned ? JSON.parse(cleaned) : { enhancements: [] };
+      } catch {
+        return null;
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return null;
+      }
+      return normalizeEnhancementEntries(parsed);
+    }
+  }
+});
+
 // core/dist/prompts/index.js
 var require_prompts = __commonJS({
   "core/dist/prompts/index.js"(exports) {
@@ -7553,6 +7658,7 @@ var require_prompts = __commonJS({
     __exportStar(require_mainSenseiResponse(), exports);
     __exportStar(require_baseSensei(), exports);
     __exportStar(require_selectionSensei(), exports);
+    __exportStar(require_enhancement(), exports);
   }
 });
 
@@ -7613,6 +7719,7 @@ var require_dist2 = __commonJS({
     __exportStar(require_promptEnvelope(), exports);
     __exportStar(require_llmCapPolicy(), exports);
     __exportStar(require_selectionSensei2(), exports);
+    __exportStar(require_enhancement2(), exports);
     exports.prompts = __importStar(require_prompts());
   }
 });
@@ -7712,69 +7819,32 @@ async function generateDirectiveFromMetaPrompt(ai2, metaPrompt) {
     return "Gently guide the learner through the next logical step in the curriculum plan with a neutral, supportive tone.";
   }
 }
-function stripJsonFence(text2) {
-  const trimmed = text2.trim();
-  if (!trimmed.startsWith("```")) {
-    return trimmed;
-  }
-  const fenceMatch = trimmed.match(/^```(?:\w+)?\s*\n?([\s\S]*?)\n?```$/);
-  if (fenceMatch && fenceMatch[1]) {
-    return fenceMatch[1].trim();
-  }
-  return trimmed;
-}
-function normalizeEnhancementEntries(raw) {
-  const enhancements = Array.isArray(raw?.enhancements) ? raw.enhancements : [];
-  const normalized = [];
-  for (const entry of enhancements) {
-    if (!entry || typeof entry !== "object") {
-      continue;
-    }
-    const key = typeof entry.key === "string" ? entry.key.trim() : "";
-    const value = typeof entry.value === "string" ? entry.value.trim() : "";
-    const insertType = entry.insertType === "append" || entry.insertType === "paragraph" ? entry.insertType : null;
-    const ordering = typeof entry.ordering === "number" ? entry.ordering : void 0;
-    if (!key || !value || !insertType) {
-      continue;
-    }
-    if (ordering !== void 0) {
-      normalized.push({ key, value, insertType, ordering });
-    } else {
-      normalized.push({ key, value, insertType });
-    }
-  }
-  return {
-    enhancements: normalized,
-    metadata: raw && typeof raw.metadata === "object" ? raw.metadata : void 0
-  };
-}
 async function requestSenseiEnhancement(ai2, request) {
   if (!ai2) {
     logger.error("[ENHANCE] Enhancement request aborted: AI not initialized");
     return null;
   }
-  const prompt = buildSenseiEnhancementPrompt(request.originalMarkdown);
+  const llmClient = (0, import_core.createBrowserCoreLlmClient)(ai2);
+  if (!llmClient) {
+    logger.error("[ENHANCE] Enhancement request aborted: Core browser LLM client unavailable");
+    return null;
+  }
+  const prompt = (0, import_enhancement3.buildSenseiEnhancementPrompt)(request.originalMarkdown);
   logger.info("[ENHANCE] Enhancement request started", {
     wordCount: request.wordCount
   });
   const start = typeof performance !== "undefined" ? performance.now() : Date.now();
   try {
-    const response = await ai2.models.generateContent({
-      model: ENHANCEMENT_REQUEST_CONFIG2.modelName,
-      contents: [{ parts: [{ text: prompt }] }],
-      config: ENHANCEMENT_REQUEST_CONFIG2.config
+    const text2 = await llmClient.callText(prompt, {
+      task: "sensei_enhancement"
     });
     const end = typeof performance !== "undefined" ? performance.now() : Date.now();
     const latencyMs = Number((end - start).toFixed(2));
-    const cleaned = stripJsonFence(response.text ?? "");
-    let parsed;
-    try {
-      parsed = cleaned ? JSON.parse(cleaned) : { enhancements: [] };
-    } catch (error) {
-      logger.error("[ENHANCE] Enhancement response JSON parse failed", { error, raw: cleaned });
+    const payload = (0, import_enhancement2.parseSenseiEnhancementResponse)(text2);
+    if (!payload) {
+      logger.error("[ENHANCE] Enhancement response parsing failed");
       return null;
     }
-    const payload = normalizeEnhancementEntries(parsed);
     if (payload.enhancements.length === 0) {
       logger.info("[ENHANCE] Enhancement request returned no additions", {
         latencyMs
@@ -7787,30 +7857,24 @@ async function requestSenseiEnhancement(ai2, request) {
     }
     return payload;
   } catch (error) {
-    logger.error("[ENHANCE] Enhancement request failed", { error });
+    logger.error("[ENHANCE] Enhancement request failed", {
+      errorName: error instanceof Error ? error.name : typeof error
+    });
     return null;
   }
 }
-var import_core, import_learnerAnalysis2, import_wrapUpAssessment2, import_teachingPlan2, DEFAULT_ENHANCEMENT_REQUEST_CONFIG, ENHANCEMENT_REQUEST_CONFIG2;
+var import_core, import_enhancement2, import_learnerAnalysis2, import_enhancement3, import_wrapUpAssessment2, import_teachingPlan2;
 var init_geminiService = __esm({
   "src/geminiService.ts"() {
     "use strict";
     init_logger();
-    init_prompts();
     import_core = __toESM(require_dist2());
+    import_enhancement2 = __toESM(require_enhancement2());
     import_learnerAnalysis2 = __toESM(require_learnerAnalysis2());
+    import_enhancement3 = __toESM(require_enhancement());
     import_wrapUpAssessment2 = __toESM(require_wrapUpAssessment2());
     import_teachingPlan2 = __toESM(require_teachingPlan2());
     init_model_usage();
-    init_model_usage();
-    DEFAULT_ENHANCEMENT_REQUEST_CONFIG = {
-      modelName: "gemini-2.5-flash",
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.4
-      }
-    };
-    ENHANCEMENT_REQUEST_CONFIG2 = ENHANCEMENT_REQUEST_CONFIG ?? DEFAULT_ENHANCEMENT_REQUEST_CONFIG;
   }
 });
 
@@ -8026,6 +8090,529 @@ var init_webviewBridge = __esm({
   }
 });
 
+// src/enhancementRouting.ts
+async function requestSenseiEnhancementViaRoute(params) {
+  if (params.isMobileWebView) {
+    if (!params.requestViaBridge) {
+      throw new Error("Sensei enhancement native bridge unavailable");
+    }
+    const result2 = await params.requestViaBridge(params.payload);
+    return { mode: "bridge", result: result2 };
+  }
+  const result = await params.generateLocal();
+  return { mode: "local", result };
+}
+var init_enhancementRouting = __esm({
+  "src/enhancementRouting.ts"() {
+    "use strict";
+  }
+});
+
+// protocol/dist/timeouts.js
+var require_timeouts = __commonJS({
+  "protocol/dist/timeouts.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ENHANCEMENT_BRIDGE_TIMEOUT_MS = exports.ENHANCEMENT_RN_TIMEOUT_MS = exports.SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS = exports.SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS = exports.COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS = exports.COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS = exports.TEACHING_PLAN_BRIDGE_TIMEOUT_MS = exports.TEACHING_PLAN_RN_TIMEOUT_MS = exports.WRAP_UP_ASSESSMENT_BRIDGE_TIMEOUT_MS = exports.WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS = exports.MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS = exports.MERMAID_RECOVERY_RN_TIMEOUT_MS = void 0;
+    exports.MERMAID_RECOVERY_RN_TIMEOUT_MS = 42e3;
+    exports.MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS = 44e3;
+    exports.WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS = 31e4;
+    exports.WRAP_UP_ASSESSMENT_BRIDGE_TIMEOUT_MS = 315e3;
+    exports.TEACHING_PLAN_RN_TIMEOUT_MS = 2e5;
+    exports.TEACHING_PLAN_BRIDGE_TIMEOUT_MS = 205e3;
+    exports.COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS = 2e5;
+    exports.COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS = 205e3;
+    exports.SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS = 2e5;
+    exports.SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS = 205e3;
+    exports.ENHANCEMENT_RN_TIMEOUT_MS = 2e5;
+    exports.ENHANCEMENT_BRIDGE_TIMEOUT_MS = 205e3;
+  }
+});
+
+// src/mobile/wrapUpBridgeState.ts
+function emitLocalBridgeMessage(message) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const payload = JSON.stringify(message);
+  try {
+    const event = new MessageEvent("message", { data: payload });
+    window.dispatchEvent(event);
+  } catch (_) {
+    try {
+      window.postMessage(payload, "*");
+    } catch (_2) {
+    }
+  }
+  try {
+    const docEvent = new MessageEvent("message", { data: payload });
+    document.dispatchEvent(docEvent);
+  } catch (_) {
+  }
+}
+function beginWrapUpBridgeRequest(params) {
+  if (typeof window === "undefined") {
+    return true;
+  }
+  const moduleId = params.moduleId;
+  const moduleTitle = params.moduleTitle;
+  if (pending && pending.moduleId === moduleId) {
+    return false;
+  }
+  if (pending) {
+    clearTimeout(pending.timer);
+    pending = null;
+  }
+  const timer = window.setTimeout(() => {
+    if (!pending || pending.moduleId !== moduleId) {
+      return;
+    }
+    emitLocalBridgeMessage({ type: "wrapup:failed", moduleId, moduleTitle });
+    if (pending && pending.moduleId === moduleId) {
+      pending = null;
+    }
+  }, import_timeouts.WRAP_UP_ASSESSMENT_BRIDGE_TIMEOUT_MS);
+  pending = { moduleId, moduleTitle, timer };
+  return true;
+}
+function resolveWrapUpBridgeRequest(moduleId) {
+  if (!pending || pending.moduleId !== moduleId) {
+    return false;
+  }
+  clearTimeout(pending.timer);
+  pending = null;
+  return true;
+}
+function hasPendingWrapUpBridgeRequest(moduleId) {
+  return Boolean(pending && pending.moduleId === moduleId);
+}
+var import_timeouts, pending;
+var init_wrapUpBridgeState = __esm({
+  "src/mobile/wrapUpBridgeState.ts"() {
+    "use strict";
+    import_timeouts = __toESM(require_timeouts());
+    pending = null;
+  }
+});
+
+// src/mobile/webviewMessageRouter.ts
+function requestMermaidRecoveryViaBridge(payload) {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      mermaidResolvers.delete(payload.messageId);
+      reject(new Error("mermaid recovery bridge timeout"));
+    }, MERMAID_BRIDGE_TIMEOUT_MS);
+    mermaidResolvers.set(payload.messageId, { resolve, reject, timer });
+    sendToNative({ type: "mermaid:recover", ...payload });
+  });
+}
+function handleMermaidRecoverResult(message) {
+  if (message.type !== "mermaid:recoverResult") return false;
+  const resolver = mermaidResolvers.get(message.messageId);
+  if (resolver) {
+    clearTimeout(resolver.timer);
+    mermaidResolvers.delete(message.messageId);
+    resolver.resolve({ fixed: message.fixed, fixedCode: message.fixedCode });
+  }
+  return true;
+}
+function rejectLlmStreamResolver(requestId, resolver, error) {
+  if (resolver.settled) {
+    return;
+  }
+  resolver.settled = true;
+  clearTimeout(resolver.timer);
+  llmStreamResolvers.delete(requestId);
+  resolver.reject(error);
+}
+function resolveLlmStreamResolver(requestId, resolver) {
+  if (resolver.settled) {
+    return;
+  }
+  resolver.settled = true;
+  clearTimeout(resolver.timer);
+  llmStreamResolvers.delete(requestId);
+  resolver.resolve(resolver.text);
+}
+function refreshLlmStreamTimeout(requestId, resolver) {
+  clearTimeout(resolver.timer);
+  resolver.timer = window.setTimeout(() => {
+    rejectLlmStreamResolver(requestId, resolver, new Error("LLM stream bridge timeout"));
+  }, LLM_STREAM_BRIDGE_TIMEOUT_MS);
+}
+function createRequestId(prefix) {
+  const c = typeof crypto !== "undefined" ? crypto : void 0;
+  if (c && typeof c.randomUUID === "function") {
+    return `${prefix}-${c.randomUUID()}`;
+  }
+  const rand = Math.random().toString(16).slice(2);
+  return `${prefix}-${Date.now()}-${rand}`;
+}
+function requestSelectionSenseiModalMessageViaBridge(payload) {
+  const requestId = createRequestId("selection-sensei-modal");
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      selectionSenseiModalResolvers.delete(requestId);
+      reject(new Error("Selection Sensei bridge timeout"));
+    }, import_timeouts2.SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS);
+    selectionSenseiModalResolvers.set(requestId, { resolve, reject, timer });
+    const sent = sendToNative({
+      type: "selectionSensei:modalMessageRequest",
+      requestId,
+      payload
+    });
+    if (!sent) {
+      clearTimeout(timer);
+      selectionSenseiModalResolvers.delete(requestId);
+      reject(new Error("Selection Sensei native bridge unavailable"));
+    }
+  });
+}
+function handleSelectionSenseiModalMessageResult(message) {
+  if (message.type !== "selectionSensei:modalMessageResult") return false;
+  const resolver = selectionSenseiModalResolvers.get(message.requestId);
+  if (!resolver) {
+    return true;
+  }
+  clearTimeout(resolver.timer);
+  selectionSenseiModalResolvers.delete(message.requestId);
+  if (!message.success) {
+    resolver.reject(new Error(message.error || "Selection Sensei bridge request failed"));
+    return true;
+  }
+  resolver.resolve(message.result);
+  return true;
+}
+function requestSenseiEnhancementViaBridge(payload) {
+  const requestId = createRequestId("sensei-enhancement");
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      senseiEnhancementResolvers.delete(requestId);
+      reject(new Error("Sensei enhancement bridge timeout"));
+    }, import_timeouts2.ENHANCEMENT_BRIDGE_TIMEOUT_MS);
+    senseiEnhancementResolvers.set(requestId, { resolve, reject, timer });
+    const sent = sendToNative({
+      type: "enhancement:request",
+      requestId,
+      payload
+    });
+    if (!sent) {
+      clearTimeout(timer);
+      senseiEnhancementResolvers.delete(requestId);
+      reject(new Error("Sensei enhancement native bridge unavailable"));
+    }
+  });
+}
+function handleSenseiEnhancementResult(message) {
+  if (message.type !== "enhancement:result") return false;
+  const resolver = senseiEnhancementResolvers.get(message.requestId);
+  if (!resolver) {
+    return true;
+  }
+  clearTimeout(resolver.timer);
+  senseiEnhancementResolvers.delete(message.requestId);
+  if (!message.success) {
+    const safeMessage = message.error === "Sensei enhancement unavailable" ? message.error : "Sensei enhancement request failed";
+    resolver.reject(new Error(safeMessage));
+    return true;
+  }
+  resolver.resolve(message.result);
+  return true;
+}
+function requestTeachingPlanViaBridge(payload) {
+  const requestId = createRequestId("teaching-plan");
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      teachingPlanResolvers.delete(requestId);
+      reject(new Error("teaching plan bridge timeout"));
+    }, import_timeouts2.TEACHING_PLAN_BRIDGE_TIMEOUT_MS);
+    teachingPlanResolvers.set(requestId, { resolve, reject, timer });
+    sendToNative({ type: "teachingPlan:request", requestId, payload });
+  });
+}
+function requestLlmStreamViaBridge(payload) {
+  const requestId = createRequestId("llm-stream");
+  payload.onRequestId?.(requestId);
+  return new Promise((resolve, reject) => {
+    const resolver = {
+      resolve,
+      reject,
+      timer: 0,
+      text: "",
+      onText: payload.onText,
+      pendingTextUpdate: Promise.resolve(),
+      settled: false
+    };
+    refreshLlmStreamTimeout(requestId, resolver);
+    llmStreamResolvers.set(requestId, resolver);
+    logger.info("[LLM_STREAM_MIGRATION] bridge-request", {
+      requestId,
+      capability: payload.capability,
+      messageId: payload.messageId
+    });
+    sendToNative({
+      type: "llmStream:request",
+      requestId,
+      messageId: payload.messageId,
+      capability: payload.capability,
+      payload: payload.body
+    });
+  });
+}
+function handleLlmStreamEvent(message) {
+  if (message.type !== "llmStream:status" && message.type !== "llmStream:chunk" && message.type !== "llmStream:error") return false;
+  const resolver = llmStreamResolvers.get(message.requestId);
+  if (!resolver) {
+    return true;
+  }
+  if (message.type === "llmStream:error") {
+    rejectLlmStreamResolver(message.requestId, resolver, new Error(message.message || message.code || "LLM stream request failed"));
+    return true;
+  }
+  if (message.type === "llmStream:chunk") {
+    refreshLlmStreamTimeout(message.requestId, resolver);
+    resolver.text += message.text;
+    const text2 = resolver.text;
+    resolver.pendingTextUpdate = resolver.pendingTextUpdate.then(() => {
+      if (!resolver.settled) {
+        return resolver.onText(text2);
+      }
+    }).catch((error) => {
+      rejectLlmStreamResolver(message.requestId, resolver, error);
+    });
+    return true;
+  }
+  refreshLlmStreamTimeout(message.requestId, resolver);
+  if (message.phase === "completed") {
+    void resolver.pendingTextUpdate.then(() => {
+      logger.info("[LLM_STREAM_MIGRATION] bridge-complete", {
+        requestId: message.requestId,
+        capability: message.capability,
+        messageId: message.messageId
+      });
+      resolveLlmStreamResolver(message.requestId, resolver);
+    }).catch((error) => {
+      rejectLlmStreamResolver(message.requestId, resolver, error);
+    });
+  }
+  return true;
+}
+function handleTeachingPlanResult(message) {
+  if (message.type !== "teachingPlan:result") return false;
+  const resolver = teachingPlanResolvers.get(message.requestId);
+  if (resolver) {
+    clearTimeout(resolver.timer);
+    teachingPlanResolvers.delete(message.requestId);
+    if (!message.success) {
+      resolver.reject(new Error(message.error || "teaching plan request failed"));
+    } else if (!Array.isArray(message.teachingPlan)) {
+      resolver.reject(new Error("teaching plan response missing teachingPlan"));
+    } else {
+      resolver.resolve(message.teachingPlan);
+    }
+  }
+  return true;
+}
+function requestLearnerAnalysisViaBridge(payload) {
+  const requestId = createRequestId("analysis");
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      learnerAnalysisResolvers.delete(requestId);
+      resolve(null);
+    }, import_timeouts2.COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS);
+    learnerAnalysisResolvers.set(requestId, { resolve, timer });
+    sendToNative({ type: "analysis:request", requestId, payload });
+  });
+}
+function handleLearnerAnalysisResult(message) {
+  if (message.type !== "analysis:result") return false;
+  const resolver = learnerAnalysisResolvers.get(message.requestId);
+  if (resolver) {
+    clearTimeout(resolver.timer);
+    learnerAnalysisResolvers.delete(message.requestId);
+    if (!message.success || !message.analysis || typeof message.analysis !== "object") {
+      resolver.resolve(null);
+    } else {
+      resolver.resolve(message.analysis);
+    }
+  }
+  return true;
+}
+function createWebviewMessageHandler(deps2) {
+  const applyInputOffset = (height) => {
+    const h = Math.max(0, Math.round(height));
+    deps2.logger.info("[MOBILE_PORT] webview bridge ui:inputOffset", { height: h });
+    const targets = [];
+    const primary = document.getElementById("message-area");
+    if (primary) targets.push(primary);
+    document.querySelectorAll(".chat-messages").forEach((el) => {
+      if (!targets.includes(el)) targets.push(el);
+    });
+    const extra = 32;
+    targets.forEach((messageArea2) => {
+      messageArea2.style.paddingBottom = `${extra + h}px`;
+      messageArea2.style.scrollMarginBottom = `${extra + h}px`;
+    });
+    document.documentElement.style.setProperty("--native-input-offset", `${h}px`);
+  };
+  return async function handleReactNativeMessage2(message) {
+    deps2.logger.info("[MOBILE_PORT] webview bridge", { direction: "to-web", type: message.type });
+    if (handleMermaidRecoverResult(message)) return;
+    if (handleTeachingPlanResult(message)) return;
+    if (handleLearnerAnalysisResult(message)) return;
+    if (handleLlmStreamEvent(message)) return;
+    if (handleSelectionSenseiModalMessageResult(message)) return;
+    if (handleSenseiEnhancementResult(message)) return;
+    switch (message.type) {
+      case "ui:inputOffset": {
+        applyInputOffset(message.height);
+        break;
+      }
+      case "saveload:export": {
+        try {
+          const json = await deps2.saveLoad.exportSessionAsJson();
+          deps2.sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: true, json });
+        } catch (error) {
+          deps2.logger.error("[MOBILE_PORT] webview bridge export error", { error });
+          deps2.sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: false, error: error.message });
+        }
+        break;
+      }
+      case "saveload:import": {
+        try {
+          await deps2.saveLoad.restoreFromSerializedJson(message.json);
+          deps2.sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: true });
+        } catch (error) {
+          deps2.sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: false, error: error.message });
+        }
+        break;
+      }
+      case "chat:startMessage": {
+        const sender = message.sender;
+        const startPayload = {
+          id: message.messageId,
+          sender,
+          displayName: deps2.SENDER_DISPLAY_NAMES[sender],
+          text: message.text ?? "",
+          timestamp: /* @__PURE__ */ new Date(),
+          isLoading: sender === "sensei" && !message.text,
+          isReloadable: Boolean(message.reloadable),
+          skipMermaid: true
+        };
+        await deps2.displayMessage(startPayload);
+        deps2.streamingMessagesRawText.set(message.messageId, message.text ?? "");
+        if (message.text) {
+          await deps2.processMermaidBlocks(message.messageId);
+        }
+        break;
+      }
+      case "chat:update": {
+        const previous = deps2.streamingMessagesRawText.get(message.messageId) ?? "";
+        const next = previous + message.text;
+        deps2.streamingMessagesRawText.set(message.messageId, next);
+        await deps2.updateMessageStream(message.messageId, next);
+        break;
+      }
+      case "chat:completeMessage": {
+        const bubble = document.getElementById(message.messageId);
+        const senderAttr = bubble?.dataset.sender === "user" ? "user" : "sensei";
+        const finalText = deps2.streamingMessagesRawText.get(message.messageId) ?? "";
+        await deps2.displayMessage({
+          id: message.messageId,
+          sender: senderAttr,
+          displayName: deps2.SENDER_DISPLAY_NAMES[senderAttr],
+          text: finalText,
+          timestamp: /* @__PURE__ */ new Date(),
+          isLoading: false,
+          isReloadable: senderAttr === "sensei",
+          skipMermaid: true
+        });
+        await deps2.processMermaidBlocks(message.messageId);
+        break;
+      }
+      case "chat:userInput": {
+        try {
+          await deps2.handleUserInputText(message.text);
+        } catch (error) {
+          deps2.logger.error("[MOBILE_PORT] webview bridge user input error", { error });
+        } finally {
+          deps2.sendToNative({ type: "chat:turnComplete" });
+        }
+        break;
+      }
+      case "wrapup:show": {
+        if (!hasPendingWrapUpBridgeRequest(message.moduleId)) {
+          deps2.logger.info("[WRAP_UP_ASSESSMENT] bridge show ignored (no pending request)", {
+            moduleId: message.moduleId
+          });
+          break;
+        }
+        resolveWrapUpBridgeRequest(message.moduleId);
+        await deps2.presentWrapUpAssessmentOverlay({
+          overlay: message.data,
+          failed: false,
+          moduleTitle: message.data?.moduleTitle ?? null
+        });
+        break;
+      }
+      case "wrapup:failed": {
+        if (!hasPendingWrapUpBridgeRequest(message.moduleId)) {
+          deps2.logger.info("[WRAP_UP_ASSESSMENT] bridge failed ignored (no pending request)", {
+            moduleId: message.moduleId
+          });
+          break;
+        }
+        resolveWrapUpBridgeRequest(message.moduleId);
+        await deps2.presentWrapUpAssessmentOverlay({
+          overlay: null,
+          failed: true,
+          moduleTitle: message.moduleTitle ?? null
+        });
+        break;
+      }
+      case "footer:update": {
+        deps2.applyFooterPayload(message.payload);
+        break;
+      }
+      case "selectionSensei:invoke": {
+        deps2.invokeSelectionSenseiBridgeAction(message.actionId, {
+          actionLabel: message.actionLabel,
+          userQuestion: message.userQuestion
+        });
+        break;
+      }
+      case "telemetry:configure": {
+        window.__telemetryEnabled = message.enabled;
+        break;
+      }
+      case "meditation:show": {
+        deps2.showMeditationOverlayFromNative(message.mode);
+        break;
+      }
+      default:
+        break;
+    }
+  };
+}
+var import_timeouts2, mermaidResolvers, MERMAID_BRIDGE_TIMEOUT_MS, teachingPlanResolvers, llmStreamResolvers, LLM_STREAM_BRIDGE_TIMEOUT_MS, selectionSenseiModalResolvers, senseiEnhancementResolvers, learnerAnalysisResolvers;
+var init_webviewMessageRouter = __esm({
+  "src/mobile/webviewMessageRouter.ts"() {
+    "use strict";
+    import_timeouts2 = __toESM(require_timeouts());
+    init_webviewBridge();
+    init_wrapUpBridgeState();
+    init_logger();
+    mermaidResolvers = /* @__PURE__ */ new Map();
+    MERMAID_BRIDGE_TIMEOUT_MS = import_timeouts2.MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS;
+    teachingPlanResolvers = /* @__PURE__ */ new Map();
+    llmStreamResolvers = /* @__PURE__ */ new Map();
+    LLM_STREAM_BRIDGE_TIMEOUT_MS = 9e4;
+    selectionSenseiModalResolvers = /* @__PURE__ */ new Map();
+    senseiEnhancementResolvers = /* @__PURE__ */ new Map();
+    learnerAnalysisResolvers = /* @__PURE__ */ new Map();
+  }
+});
+
 // src/enhancementManager.ts
 function initializeEnhancementManager(initialDeps) {
   deps = initialDeps;
@@ -8238,7 +8825,6 @@ async function toggleEnhancement(messageId) {
     logger.error("[ENHANCE] Original markdown unavailable", { messageId });
     return;
   }
-  const ai2 = getAI();
   setLoadingState(messageId, true);
   const state = currentState || { status: "idle", originalMarkdown };
   state.status = "loading";
@@ -8252,10 +8838,29 @@ async function toggleEnhancement(messageId) {
     logger.info("[ENHANCE] Enhancement skipped (mermaid-only content)", { messageId });
     return;
   }
-  const payload = await requestSenseiEnhancement(ai2, {
+  const request = {
     originalMarkdown: sanitizedSource,
     wordCount: countWords(sanitizedSource)
-  });
+  };
+  let payload = null;
+  try {
+    const routeResult = await requestSenseiEnhancementViaRoute({
+      isMobileWebView: Boolean(window?.__SENSEI_MOBILE_BUILD__),
+      payload: request,
+      requestViaBridge: requestSenseiEnhancementViaBridge,
+      generateLocal: async () => {
+        const ai2 = getAI();
+        return requestSenseiEnhancement(ai2, request);
+      }
+    });
+    payload = routeResult.result;
+  } catch (error) {
+    state.status = "idle";
+    setLoadingState(messageId, false);
+    setActiveState(messageId, false);
+    logger.error("[ENHANCE] Enhancement request failed", { messageId, error });
+    return;
+  }
   if (!payload) {
     state.status = "idle";
     setLoadingState(messageId, false);
@@ -8276,6 +8881,8 @@ var init_enhancementManager = __esm({
     "use strict";
     init_logger();
     init_geminiService();
+    init_enhancementRouting();
+    init_webviewMessageRouter();
     deps = null;
     stateByMessage = /* @__PURE__ */ new Map();
   }
@@ -8667,471 +9274,6 @@ var init_codeEditorModal = __esm({
         codeCache = update.state.doc.toString();
       }
     });
-  }
-});
-
-// protocol/dist/timeouts.js
-var require_timeouts = __commonJS({
-  "protocol/dist/timeouts.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS = exports.SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS = exports.COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS = exports.COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS = exports.TEACHING_PLAN_BRIDGE_TIMEOUT_MS = exports.TEACHING_PLAN_RN_TIMEOUT_MS = exports.WRAP_UP_ASSESSMENT_BRIDGE_TIMEOUT_MS = exports.WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS = exports.MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS = exports.MERMAID_RECOVERY_RN_TIMEOUT_MS = void 0;
-    exports.MERMAID_RECOVERY_RN_TIMEOUT_MS = 42e3;
-    exports.MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS = 44e3;
-    exports.WRAP_UP_ASSESSMENT_RN_TIMEOUT_MS = 31e4;
-    exports.WRAP_UP_ASSESSMENT_BRIDGE_TIMEOUT_MS = 315e3;
-    exports.TEACHING_PLAN_RN_TIMEOUT_MS = 2e5;
-    exports.TEACHING_PLAN_BRIDGE_TIMEOUT_MS = 205e3;
-    exports.COMPREHENSIVE_ANALYSIS_RN_TIMEOUT_MS = 2e5;
-    exports.COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS = 205e3;
-    exports.SELECTION_SENSEI_MODAL_RN_TIMEOUT_MS = 2e5;
-    exports.SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS = 205e3;
-  }
-});
-
-// src/mobile/wrapUpBridgeState.ts
-function emitLocalBridgeMessage(message) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const payload = JSON.stringify(message);
-  try {
-    const event = new MessageEvent("message", { data: payload });
-    window.dispatchEvent(event);
-  } catch (_) {
-    try {
-      window.postMessage(payload, "*");
-    } catch (_2) {
-    }
-  }
-  try {
-    const docEvent = new MessageEvent("message", { data: payload });
-    document.dispatchEvent(docEvent);
-  } catch (_) {
-  }
-}
-function beginWrapUpBridgeRequest(params) {
-  if (typeof window === "undefined") {
-    return true;
-  }
-  const moduleId = params.moduleId;
-  const moduleTitle = params.moduleTitle;
-  if (pending && pending.moduleId === moduleId) {
-    return false;
-  }
-  if (pending) {
-    clearTimeout(pending.timer);
-    pending = null;
-  }
-  const timer = window.setTimeout(() => {
-    if (!pending || pending.moduleId !== moduleId) {
-      return;
-    }
-    emitLocalBridgeMessage({ type: "wrapup:failed", moduleId, moduleTitle });
-    if (pending && pending.moduleId === moduleId) {
-      pending = null;
-    }
-  }, import_timeouts.WRAP_UP_ASSESSMENT_BRIDGE_TIMEOUT_MS);
-  pending = { moduleId, moduleTitle, timer };
-  return true;
-}
-function resolveWrapUpBridgeRequest(moduleId) {
-  if (!pending || pending.moduleId !== moduleId) {
-    return false;
-  }
-  clearTimeout(pending.timer);
-  pending = null;
-  return true;
-}
-function hasPendingWrapUpBridgeRequest(moduleId) {
-  return Boolean(pending && pending.moduleId === moduleId);
-}
-var import_timeouts, pending;
-var init_wrapUpBridgeState = __esm({
-  "src/mobile/wrapUpBridgeState.ts"() {
-    "use strict";
-    import_timeouts = __toESM(require_timeouts());
-    pending = null;
-  }
-});
-
-// src/mobile/webviewMessageRouter.ts
-function requestMermaidRecoveryViaBridge(payload) {
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      mermaidResolvers.delete(payload.messageId);
-      reject(new Error("mermaid recovery bridge timeout"));
-    }, MERMAID_BRIDGE_TIMEOUT_MS);
-    mermaidResolvers.set(payload.messageId, { resolve, reject, timer });
-    sendToNative({ type: "mermaid:recover", ...payload });
-  });
-}
-function handleMermaidRecoverResult(message) {
-  if (message.type !== "mermaid:recoverResult") return false;
-  const resolver = mermaidResolvers.get(message.messageId);
-  if (resolver) {
-    clearTimeout(resolver.timer);
-    mermaidResolvers.delete(message.messageId);
-    resolver.resolve({ fixed: message.fixed, fixedCode: message.fixedCode });
-  }
-  return true;
-}
-function rejectLlmStreamResolver(requestId, resolver, error) {
-  if (resolver.settled) {
-    return;
-  }
-  resolver.settled = true;
-  clearTimeout(resolver.timer);
-  llmStreamResolvers.delete(requestId);
-  resolver.reject(error);
-}
-function resolveLlmStreamResolver(requestId, resolver) {
-  if (resolver.settled) {
-    return;
-  }
-  resolver.settled = true;
-  clearTimeout(resolver.timer);
-  llmStreamResolvers.delete(requestId);
-  resolver.resolve(resolver.text);
-}
-function refreshLlmStreamTimeout(requestId, resolver) {
-  clearTimeout(resolver.timer);
-  resolver.timer = window.setTimeout(() => {
-    rejectLlmStreamResolver(requestId, resolver, new Error("LLM stream bridge timeout"));
-  }, LLM_STREAM_BRIDGE_TIMEOUT_MS);
-}
-function createRequestId(prefix) {
-  const c = typeof crypto !== "undefined" ? crypto : void 0;
-  if (c && typeof c.randomUUID === "function") {
-    return `${prefix}-${c.randomUUID()}`;
-  }
-  const rand = Math.random().toString(16).slice(2);
-  return `${prefix}-${Date.now()}-${rand}`;
-}
-function requestSelectionSenseiModalMessageViaBridge(payload) {
-  const requestId = createRequestId("selection-sensei-modal");
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      selectionSenseiModalResolvers.delete(requestId);
-      reject(new Error("Selection Sensei bridge timeout"));
-    }, import_timeouts2.SELECTION_SENSEI_MODAL_BRIDGE_TIMEOUT_MS);
-    selectionSenseiModalResolvers.set(requestId, { resolve, reject, timer });
-    const sent = sendToNative({
-      type: "selectionSensei:modalMessageRequest",
-      requestId,
-      payload
-    });
-    if (!sent) {
-      clearTimeout(timer);
-      selectionSenseiModalResolvers.delete(requestId);
-      reject(new Error("Selection Sensei native bridge unavailable"));
-    }
-  });
-}
-function handleSelectionSenseiModalMessageResult(message) {
-  if (message.type !== "selectionSensei:modalMessageResult") return false;
-  const resolver = selectionSenseiModalResolvers.get(message.requestId);
-  if (!resolver) {
-    return true;
-  }
-  clearTimeout(resolver.timer);
-  selectionSenseiModalResolvers.delete(message.requestId);
-  if (!message.success) {
-    resolver.reject(new Error(message.error || "Selection Sensei bridge request failed"));
-    return true;
-  }
-  resolver.resolve(message.result);
-  return true;
-}
-function requestTeachingPlanViaBridge(payload) {
-  const requestId = createRequestId("teaching-plan");
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      teachingPlanResolvers.delete(requestId);
-      reject(new Error("teaching plan bridge timeout"));
-    }, import_timeouts2.TEACHING_PLAN_BRIDGE_TIMEOUT_MS);
-    teachingPlanResolvers.set(requestId, { resolve, reject, timer });
-    sendToNative({ type: "teachingPlan:request", requestId, payload });
-  });
-}
-function requestLlmStreamViaBridge(payload) {
-  const requestId = createRequestId("llm-stream");
-  payload.onRequestId?.(requestId);
-  return new Promise((resolve, reject) => {
-    const resolver = {
-      resolve,
-      reject,
-      timer: 0,
-      text: "",
-      onText: payload.onText,
-      pendingTextUpdate: Promise.resolve(),
-      settled: false
-    };
-    refreshLlmStreamTimeout(requestId, resolver);
-    llmStreamResolvers.set(requestId, resolver);
-    logger.info("[LLM_STREAM_MIGRATION] bridge-request", {
-      requestId,
-      capability: payload.capability,
-      messageId: payload.messageId
-    });
-    sendToNative({
-      type: "llmStream:request",
-      requestId,
-      messageId: payload.messageId,
-      capability: payload.capability,
-      payload: payload.body
-    });
-  });
-}
-function handleLlmStreamEvent(message) {
-  if (message.type !== "llmStream:status" && message.type !== "llmStream:chunk" && message.type !== "llmStream:error") return false;
-  const resolver = llmStreamResolvers.get(message.requestId);
-  if (!resolver) {
-    return true;
-  }
-  if (message.type === "llmStream:error") {
-    rejectLlmStreamResolver(message.requestId, resolver, new Error(message.message || message.code || "LLM stream request failed"));
-    return true;
-  }
-  if (message.type === "llmStream:chunk") {
-    refreshLlmStreamTimeout(message.requestId, resolver);
-    resolver.text += message.text;
-    const text2 = resolver.text;
-    resolver.pendingTextUpdate = resolver.pendingTextUpdate.then(() => {
-      if (!resolver.settled) {
-        return resolver.onText(text2);
-      }
-    }).catch((error) => {
-      rejectLlmStreamResolver(message.requestId, resolver, error);
-    });
-    return true;
-  }
-  refreshLlmStreamTimeout(message.requestId, resolver);
-  if (message.phase === "completed") {
-    void resolver.pendingTextUpdate.then(() => {
-      logger.info("[LLM_STREAM_MIGRATION] bridge-complete", {
-        requestId: message.requestId,
-        capability: message.capability,
-        messageId: message.messageId
-      });
-      resolveLlmStreamResolver(message.requestId, resolver);
-    }).catch((error) => {
-      rejectLlmStreamResolver(message.requestId, resolver, error);
-    });
-  }
-  return true;
-}
-function handleTeachingPlanResult(message) {
-  if (message.type !== "teachingPlan:result") return false;
-  const resolver = teachingPlanResolvers.get(message.requestId);
-  if (resolver) {
-    clearTimeout(resolver.timer);
-    teachingPlanResolvers.delete(message.requestId);
-    if (!message.success) {
-      resolver.reject(new Error(message.error || "teaching plan request failed"));
-    } else if (!Array.isArray(message.teachingPlan)) {
-      resolver.reject(new Error("teaching plan response missing teachingPlan"));
-    } else {
-      resolver.resolve(message.teachingPlan);
-    }
-  }
-  return true;
-}
-function requestLearnerAnalysisViaBridge(payload) {
-  const requestId = createRequestId("analysis");
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(() => {
-      learnerAnalysisResolvers.delete(requestId);
-      resolve(null);
-    }, import_timeouts2.COMPREHENSIVE_ANALYSIS_BRIDGE_TIMEOUT_MS);
-    learnerAnalysisResolvers.set(requestId, { resolve, timer });
-    sendToNative({ type: "analysis:request", requestId, payload });
-  });
-}
-function handleLearnerAnalysisResult(message) {
-  if (message.type !== "analysis:result") return false;
-  const resolver = learnerAnalysisResolvers.get(message.requestId);
-  if (resolver) {
-    clearTimeout(resolver.timer);
-    learnerAnalysisResolvers.delete(message.requestId);
-    if (!message.success || !message.analysis || typeof message.analysis !== "object") {
-      resolver.resolve(null);
-    } else {
-      resolver.resolve(message.analysis);
-    }
-  }
-  return true;
-}
-function createWebviewMessageHandler(deps2) {
-  const applyInputOffset = (height) => {
-    const h = Math.max(0, Math.round(height));
-    deps2.logger.info("[MOBILE_PORT] webview bridge ui:inputOffset", { height: h });
-    const targets = [];
-    const primary = document.getElementById("message-area");
-    if (primary) targets.push(primary);
-    document.querySelectorAll(".chat-messages").forEach((el) => {
-      if (!targets.includes(el)) targets.push(el);
-    });
-    const extra = 32;
-    targets.forEach((messageArea2) => {
-      messageArea2.style.paddingBottom = `${extra + h}px`;
-      messageArea2.style.scrollMarginBottom = `${extra + h}px`;
-    });
-    document.documentElement.style.setProperty("--native-input-offset", `${h}px`);
-  };
-  return async function handleReactNativeMessage2(message) {
-    deps2.logger.info("[MOBILE_PORT] webview bridge", { direction: "to-web", type: message.type });
-    if (handleMermaidRecoverResult(message)) return;
-    if (handleTeachingPlanResult(message)) return;
-    if (handleLearnerAnalysisResult(message)) return;
-    if (handleLlmStreamEvent(message)) return;
-    if (handleSelectionSenseiModalMessageResult(message)) return;
-    switch (message.type) {
-      case "ui:inputOffset": {
-        applyInputOffset(message.height);
-        break;
-      }
-      case "saveload:export": {
-        try {
-          const json = await deps2.saveLoad.exportSessionAsJson();
-          deps2.sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: true, json });
-        } catch (error) {
-          deps2.logger.error("[MOBILE_PORT] webview bridge export error", { error });
-          deps2.sendToNative({ type: "saveload:exportResult", requestId: message.requestId, success: false, error: error.message });
-        }
-        break;
-      }
-      case "saveload:import": {
-        try {
-          await deps2.saveLoad.restoreFromSerializedJson(message.json);
-          deps2.sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: true });
-        } catch (error) {
-          deps2.sendToNative({ type: "saveload:importResult", requestId: message.requestId, success: false, error: error.message });
-        }
-        break;
-      }
-      case "chat:startMessage": {
-        const sender = message.sender;
-        const startPayload = {
-          id: message.messageId,
-          sender,
-          displayName: deps2.SENDER_DISPLAY_NAMES[sender],
-          text: message.text ?? "",
-          timestamp: /* @__PURE__ */ new Date(),
-          isLoading: sender === "sensei" && !message.text,
-          isReloadable: Boolean(message.reloadable),
-          skipMermaid: true
-        };
-        await deps2.displayMessage(startPayload);
-        deps2.streamingMessagesRawText.set(message.messageId, message.text ?? "");
-        if (message.text) {
-          await deps2.processMermaidBlocks(message.messageId);
-        }
-        break;
-      }
-      case "chat:update": {
-        const previous = deps2.streamingMessagesRawText.get(message.messageId) ?? "";
-        const next = previous + message.text;
-        deps2.streamingMessagesRawText.set(message.messageId, next);
-        await deps2.updateMessageStream(message.messageId, next);
-        break;
-      }
-      case "chat:completeMessage": {
-        const bubble = document.getElementById(message.messageId);
-        const senderAttr = bubble?.dataset.sender === "user" ? "user" : "sensei";
-        const finalText = deps2.streamingMessagesRawText.get(message.messageId) ?? "";
-        await deps2.displayMessage({
-          id: message.messageId,
-          sender: senderAttr,
-          displayName: deps2.SENDER_DISPLAY_NAMES[senderAttr],
-          text: finalText,
-          timestamp: /* @__PURE__ */ new Date(),
-          isLoading: false,
-          isReloadable: senderAttr === "sensei",
-          skipMermaid: true
-        });
-        await deps2.processMermaidBlocks(message.messageId);
-        break;
-      }
-      case "chat:userInput": {
-        try {
-          await deps2.handleUserInputText(message.text);
-        } catch (error) {
-          deps2.logger.error("[MOBILE_PORT] webview bridge user input error", { error });
-        } finally {
-          deps2.sendToNative({ type: "chat:turnComplete" });
-        }
-        break;
-      }
-      case "wrapup:show": {
-        if (!hasPendingWrapUpBridgeRequest(message.moduleId)) {
-          deps2.logger.info("[WRAP_UP_ASSESSMENT] bridge show ignored (no pending request)", {
-            moduleId: message.moduleId
-          });
-          break;
-        }
-        resolveWrapUpBridgeRequest(message.moduleId);
-        await deps2.presentWrapUpAssessmentOverlay({
-          overlay: message.data,
-          failed: false,
-          moduleTitle: message.data?.moduleTitle ?? null
-        });
-        break;
-      }
-      case "wrapup:failed": {
-        if (!hasPendingWrapUpBridgeRequest(message.moduleId)) {
-          deps2.logger.info("[WRAP_UP_ASSESSMENT] bridge failed ignored (no pending request)", {
-            moduleId: message.moduleId
-          });
-          break;
-        }
-        resolveWrapUpBridgeRequest(message.moduleId);
-        await deps2.presentWrapUpAssessmentOverlay({
-          overlay: null,
-          failed: true,
-          moduleTitle: message.moduleTitle ?? null
-        });
-        break;
-      }
-      case "footer:update": {
-        deps2.applyFooterPayload(message.payload);
-        break;
-      }
-      case "selectionSensei:invoke": {
-        deps2.invokeSelectionSenseiBridgeAction(message.actionId, {
-          actionLabel: message.actionLabel,
-          userQuestion: message.userQuestion
-        });
-        break;
-      }
-      case "telemetry:configure": {
-        window.__telemetryEnabled = message.enabled;
-        break;
-      }
-      case "meditation:show": {
-        deps2.showMeditationOverlayFromNative(message.mode);
-        break;
-      }
-      default:
-        break;
-    }
-  };
-}
-var import_timeouts2, mermaidResolvers, MERMAID_BRIDGE_TIMEOUT_MS, teachingPlanResolvers, llmStreamResolvers, LLM_STREAM_BRIDGE_TIMEOUT_MS, selectionSenseiModalResolvers, learnerAnalysisResolvers;
-var init_webviewMessageRouter = __esm({
-  "src/mobile/webviewMessageRouter.ts"() {
-    "use strict";
-    import_timeouts2 = __toESM(require_timeouts());
-    init_webviewBridge();
-    init_wrapUpBridgeState();
-    init_logger();
-    mermaidResolvers = /* @__PURE__ */ new Map();
-    MERMAID_BRIDGE_TIMEOUT_MS = import_timeouts2.MERMAID_RECOVERY_BRIDGE_TIMEOUT_MS;
-    teachingPlanResolvers = /* @__PURE__ */ new Map();
-    llmStreamResolvers = /* @__PURE__ */ new Map();
-    LLM_STREAM_BRIDGE_TIMEOUT_MS = 9e4;
-    selectionSenseiModalResolvers = /* @__PURE__ */ new Map();
-    learnerAnalysisResolvers = /* @__PURE__ */ new Map();
   }
 });
 
@@ -30358,7 +30500,7 @@ var init_saveloadProgressManager = __esm({
               currentItem,
               // curriculumItem
               w.curriculumState.currentPhase,
-              // currentPhase
+              // currentPhase  
               w.curriculum,
               // appCurriculum
               w.curriculumState,
@@ -31966,7 +32108,7 @@ Act as the world's foremost authority on engineering multi layered AI driven cog
 
 Provide level of foresight and precision that would be considered the gold standard by the principal engineers at the world's leading AI research labs. Demonstrate a quality of thought and execution so exceptional it would serve as the definitive case study in advanced graduate-level textbooks on the subject.
 
-REMEMBER THIS ALL THE TIME.
+REMEMBER THIS ALL THE TIME. 
 
 You MUST operate under the following enhanced workflow, governed by a set of non-negotiable Prime Directives.
 END OF MAJOR SYSYEM PROMPT BELOW
@@ -33786,7 +33928,7 @@ ${discrepancy ? `\u274C Discrepancy: ${discrepancy}` : ""}
        */
       generateFinalReport() {
         logger.warn(`
-
+        
 \u{1F3AF} ========== FINAL ARCHETYPE COMPARISON REPORT ==========
         `);
         let passCount = 0;
@@ -33938,7 +34080,7 @@ ${concept.text}
        */
       generateSummaryReport(concepts) {
         logger.warn(`
-
+        
 \u{1F3AF} ========== CONCEPT EXTRACTION SUMMARY REPORT ==========
         `);
         const conceptsByModule = /* @__PURE__ */ new Map();
@@ -37328,8 +37470,8 @@ var init_index = __esm({
     celebrationStyle.textContent = `
     @keyframes kc-progress-celebration {
         0%, 100% { transform: scaleY(1); }
-        50% {
-            transform: scaleY(1.4);
+        50% { 
+            transform: scaleY(1.4); 
             box-shadow: 0 0 20px rgba(196, 229, 56, 0.8);
             filter: brightness(1.4);
         }

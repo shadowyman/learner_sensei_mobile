@@ -659,6 +659,30 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     }
                 })();
             }
+            if (parsed.type === 'enhancement:request') {
+                (async () => {
+                    try {
+                        const result = await bffClient.runSenseiEnhancement(parsed.payload);
+                        bridge.enqueue({
+                            type: 'enhancement:result',
+                            requestId: parsed.requestId,
+                            success: true,
+                            result
+                        } as RNToWebMessage);
+                    } catch (error) {
+                        logger.error('[MOBILE_PORT] sensei enhancement request via BFF failed', {
+                            requestId: parsed.requestId,
+                            errorName: error instanceof Error ? error.name : typeof error
+                        });
+                        bridge.enqueue({
+                            type: 'enhancement:result',
+                            requestId: parsed.requestId,
+                            success: false,
+                            error: 'Sensei enhancement unavailable'
+                        } as RNToWebMessage);
+                    }
+                })();
+            }
             if (parsed.type === 'teachingPlan:request') {
                 (async () => {
                     try {

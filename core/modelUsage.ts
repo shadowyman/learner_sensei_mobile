@@ -50,6 +50,14 @@ export const SELECTION_SENSEI_MODAL_CONFIG = {
   }
 };
 
+export const SENSEI_ENHANCEMENT_CONFIG = {
+  modelName: GEMINI_FLASH,
+  config: {
+    responseMimeType: 'application/json',
+    temperature: 0.3
+  }
+};
+
 export const MAIN_TEXT_CONFIG = {
   modelName: GEMINI_FLASH,
   config: {

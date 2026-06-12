@@ -60,8 +60,10 @@ Prompt parity is covered by `__tests__/corePromptParity.test.ts` and Selection S
 
 ## src/enhancementManager.ts
 
-1. `toggleEnhancement` → *`requestSenseiEnhancement` → `applyEnhancementSequence/applyEnhancements` → `toggleEnhancement`
-   - When enhancements are toggled on for a message, this path requests LLM-generated enhancement payloads, applies them to the markdown, and updates the per-message enhancement state.
+1. `toggleEnhancement` → `requestSenseiEnhancementViaRoute` → mobile bridge or desktop `requestSenseiEnhancement` compatibility path → `applyEnhancementSequence/applyEnhancements` → `toggleEnhancement`
+   - PR-stage deterministic migration evidence as of 2026-06-12: mobile WebView builds route the enhancement request through `requestSenseiEnhancementViaRoute` and `requestSenseiEnhancementViaBridge`, using structured `{ originalMarkdown, wordCount? }` payloads and failing closed without calling browser `getAI()` or the desktop local provider path. WebView still owns Mermaid stripping, word count, loading/active state, content-drift checks, markdown application, and remove behavior.
+   - Desktop compatibility remains explicit: the route helper's local generator calls `requestSenseiEnhancement` for desktop web only.
+   - Runtime smoke status: deferred for this trace update. Deterministic manager/routing, RN/BFF, Core, desktop wrapper, provider-sweep, and WebView bundle evidence is recorded in `docs/execplans/enhancement_core_bff_migration_execplan.md`; live mobile runtime completion is not claimed here.
 
 ## src/keyTakeawayEnhancerController.ts
 
@@ -80,7 +82,10 @@ Prompt parity is covered by `__tests__/corePromptParity.test.ts` and Selection S
 3. *`generateDirectiveFromMetaPrompt` → fallback logic → `generateDirectiveFromMetaPrompt`
 4. `generateWrapUpAssessment` (legacy wrapper) → Core `generateWrapUpAssessment` → Core prompt/tool schema/parsing helpers → `generateWrapUpAssessment`
    - Legacy path retained for tests and desktop fallback; it must remain a compatibility wrapper only. Primary Solidify flows call the Core tool directly.
-5. *`requestSenseiEnhancement` → `stripJsonFence` → `normalizeEnhancementEntries` → `requestSenseiEnhancement`
+5. `requestSenseiEnhancement` → Core prompt/parser + browser Core client task `sensei_enhancement` → `requestSenseiEnhancement`
+   - PR-stage deterministic migration evidence as of 2026-06-12: the desktop compatibility wrapper builds the prompt via `@sensei/core/prompts/enhancement`, calls `createBrowserCoreLlmClient(ai).callText(..., { task: 'sensei_enhancement' })`, and parses normalized results through `@sensei/core/enhancement`.
+   - The enhancement wrapper no longer owns the enhancement prompt body, JSON fence stripping, entry normalization, or an enhancement-specific direct `ai.models.generateContent(...)` call. Remaining direct-provider hits in `src/geminiService.ts` are sibling backlog paths, not the migrated mobile enhancement route.
+   - Mobile runtime provider execution is owned by the BFF enhancement route and service; RN transports structured payload/result messages only.
 
 ## src/pedagogicalProfiler.ts
 
@@ -131,11 +136,12 @@ Below, `*` marks operations that will call into `llmGateway.ts` (direct SDK call
     - Call `llmGateway` with `WRAP_UP_ASSESSMENT_GENERATION_CONFIG` (and tools).
     - Use `extractFunctionCall` / `extractQuestionsFromToolCode`.
     - `normalizeWrapUpAssessmentQuestions` and `reorderWrapUpAssessmentQuestions`.
-- *`requestSenseiEnhancement`  
-  - Continues to:
-    - Build the enhancement prompt via `buildSenseiEnhancementPrompt`.
-    - Call `llmGateway` with `ENHANCEMENT_REQUEST_CONFIG`.
-    - Strip JSON fences, parse, and normalize `EnhancementPayload`.
+- `requestSenseiEnhancement`
+  - PR-stage deterministic migration evidence supersedes the older gateway sketch for Enhancement:
+    - Core owns `buildSenseiEnhancementPrompt` in `core/prompts/enhancement.ts`.
+    - Core owns JSON fence stripping, parsing, normalization, and metadata handling in `core/enhancement.ts`.
+    - The desktop compatibility wrapper calls the browser Core client with task `sensei_enhancement`.
+    - Mobile WebView builds never use this wrapper as a browser-provider fallback for enhancement.
 
 Rationale: these functions are already “LLM service layer” and do not touch the DOM. Refactoring them to use `llmGateway` (instead of direct SDK calls) cleanly separates domain prompts+parsing from provider plumbing, and gives a single place to harden error handling and telemetry for core pedagogy flows.
 
